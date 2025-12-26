@@ -1,11 +1,16 @@
 {:paths ["scripts"]
  :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
-        org.babashka/cli {:mvn/version "0.2.23"}}
+        org.babashka/cli {:mvn/version "0.2.23"}
+        babashka/fs {:mvn/version "0.5.22"}}
  :tasks
  {:requires ([babashka.cli :as cli]
-             [start-nrepl])
+             [start-nrepl]
+             [tasks])
 
   browser-nrepl {:doc "Start browser nREPL"
                  :task (start-nrepl/browser-nrepl (cli/parse-opts *command-line-args*
                                                                   {:coerce {:nrepl-port :int
-                                                                            :websocket-port :int}}))}}}
+                                                                            :websocket-port :int}}))}
+  
+  bundle-scittle {:doc "Download Scittle and nREPL plugin to src/vendor"
+                  :task (tasks/bundle-scittle)}}}
