@@ -79,11 +79,16 @@ function waitForScittle(tabId, timeout = 5000) {
 }
 
 document.getElementById('start').addEventListener('click', async () => {
-  const port = parseInt(document.getElementById('port').value, 10);
+  const nreplPort = parseInt(document.getElementById('nrepl-port').value, 10);
+  const wsPort = parseInt(document.getElementById('ws-port').value, 10);
   const statusEl = document.getElementById('status');
 
-  if (isNaN(port) || port < 1 || port > 65535) {
-    statusEl.textContent = 'Invalid port number';
+  if (isNaN(nreplPort) || nreplPort < 1 || nreplPort > 65535) {
+    statusEl.textContent = 'Invalid nREPL port';
+    return;
+  }
+  if (isNaN(wsPort) || wsPort < 1 || wsPort > 65535) {
+    statusEl.textContent = 'Invalid WebSocket port';
     return;
   }
 
@@ -100,11 +105,11 @@ document.getElementById('start').addEventListener('click', async () => {
 
     // Set port and inject nREPL
     statusEl.textContent = 'Starting nREPL...';
-    await setNreplConfig(tab.id, port);
+    await setNreplConfig(tab.id, wsPort);
     const nreplUrl = chrome.runtime.getURL('vendor/scittle.nrepl.js');
     await injectScript(tab.id, nreplUrl);
 
-    statusEl.textContent = 'nREPL started on port ' + port;
+    statusEl.textContent = 'Connected! Editor: localhost:' + nreplPort;
   } catch (err) {
     statusEl.textContent = 'Failed: ' + err.message;
     console.error(err);

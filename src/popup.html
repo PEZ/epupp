@@ -15,9 +15,10 @@
     label {
       display: block;
       margin-bottom: 4px;
+      font-size: 13px;
     }
     input {
-      width: 80px;
+      width: 70px;
       padding: 4px 8px;
       font-size: 14px;
     }
@@ -25,6 +26,9 @@
       padding: 6px 12px;
       font-size: 14px;
       cursor: pointer;
+    }
+    .field {
+      margin-bottom: 10px;
     }
     .controls {
       display: flex;
@@ -40,9 +44,15 @@
 </head>
 <body>
   <h1>DOM REPL</h1>
-  <label for="port">Start nREPL websocket:</label>
+  <div class="field">
+    <label for="nrepl-port">nREPL port (for editor):</label>
+    <input type="number" id="nrepl-port" value="1339" min="1" max="65535">
+  </div>
+  <div class="field">
+    <label for="ws-port">WebSocket port (for browser):</label>
+    <input type="number" id="ws-port" value="1340" min="1" max="65535">
+  </div>
   <div class="controls">
-    <input type="number" id="port" value="1340" min="1" max="65535">
     <button id="start">Start!</button>
   </div>
   <div id="status" class="status"></div>
