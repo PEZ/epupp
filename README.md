@@ -4,6 +4,11 @@ Jack into any web page with a Clojure REPL.
 
 ## Development
 
+### Prerequisites
+
+- [Babashka](https://babashka.org/) (bb)
+- Node.js (for npm dependencies)
+
 ### Setup
 
 ```bash
@@ -14,14 +19,14 @@ npm install
 
 Build for all browsers:
 ```bash
-npm run build
+bb build:all
 ```
 
 Build for specific browser:
 ```bash
-npm run build:chrome
-npm run build:firefox
-npm run build:safari
+bb build:chrome
+bb build:firefox
+bb build:safari
 ```
 
 ### Load Extension Locally
@@ -38,9 +43,12 @@ npm run build:safari
 3. Select any file in `dist/firefox` folder
 
 **Safari:**
-1. Run `xcrun safari-web-extension-converter dist/safari --app-name "Browser Jack-in"`
-2. Open the generated Xcode project
-3. Build and run
+1. Safari → Settings → Advanced → Enable "Show Develop menu in menu bar"
+2. Develop menu → "Allow Unsigned Extensions" (requires admin password)
+3. Unzip `browser-jack-in-safari.zip` (or use `dist/safari` folder)
+4. Develop menu → "Show Extension Builder"
+5. Click "+" → "Add Extension..." → Select the unzipped folder
+6. Enable in Safari → Settings → Extensions
 
 ## Distribution
 
