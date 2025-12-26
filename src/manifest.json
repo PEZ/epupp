@@ -4,7 +4,6 @@
   "version": "0.0.1",
   "description": "Jack your Clojure editor into any web page",
   "permissions": ["scripting", "activeTab", "storage"],
-  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
