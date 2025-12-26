@@ -32,13 +32,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chrome-extension
-          path: dist/dom-repl-chrome.zip
+          path: dist/browser-jack-in-chrome.zip
 
       - name: Upload Firefox artifact
         uses: actions/upload-artifact@v4
         with:
           name: firefox-extension
-          path: dist/dom-repl-firefox.zip
+          path: dist/browser-jack-in-firefox.zip
 
   build-safari:
     runs-on: macos-latest
@@ -62,15 +62,15 @@ jobs:
           # Create Xcode project from extension
           xcrun safari-web-extension-converter dist/safari \
             --project-location dist/safari-xcode \
-            --app-name "DOM REPL" \
-            --bundle-identifier com.example.dom-repl \
+            --app-name "Browser Jack-in" \
+            --bundle-identifier com.example.browser-jack-in \
             --no-prompt \
             --no-open
 
       - name: Build Safari extension
         run: |
-          cd dist/safari-xcode/"DOM REPL"
-          xcodebuild -scheme "DOM REPL (macOS)" \
+          cd dist/safari-xcode/"Browser Jack-in"
+          xcodebuild -scheme "Browser Jack-in (macOS)" \
             -configuration Release \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY="-" \
@@ -99,6 +99,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/chrome-extension/dom-repl-chrome.zip
-            artifacts/firefox-extension/dom-repl-firefox.zip
+            artifacts/chrome-extension/browser-jack-in-chrome.zip
+            artifacts/firefox-extension/browser-jack-in-firefox.zip
           draft: true

@@ -1,5 +1,5 @@
 (ns popup
-  "DOM REPL extension popup - built with Squint + Reagami
+  "Browser Jack-in extension popup - built with Squint + Reagami
    Inspired by Replicant tic-tac-toe state management pattern"
   (:require [reagami :as r]))
 
@@ -69,7 +69,7 @@
     var script = document.createElement('script');
     script.src = url;
     document.head.appendChild(script);
-    console.log('[DOM REPL] Injected:', url);
+    console.log('[Browser Jack-in] Injected:', url);
     return 'ok';
   }"))
 
@@ -77,7 +77,7 @@
   (js* "function(port) {
     window.SCITTLE_NREPL_WEBSOCKET_HOST = 'localhost';
     window.SCITTLE_NREPL_WEBSOCKET_PORT = port;
-    console.log('[DOM REPL] Set nREPL to ws://localhost:', port);
+    console.log('[Browser Jack-in] Set nREPL to ws://localhost:', port);
   }"))
 
 (def check-scittle-fn
@@ -236,7 +236,7 @@
   [:div
    ;; Header with logos
    [:div.header
-    [:h1 "DOM REPL"]
+    [:h1 "Browser Jack-in"]
     [:div.header-right
      [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
                          :target "_blank"}
@@ -277,7 +277,7 @@
             [popup-ui @!state]))
 
 (defn init! []
-  (js/console.log "DOM REPL popup init!")
+  (js/console.log "Browser Jack-in popup init!")
   (add-watch !state ::render (fn [_ _ _ _] (render!)))
 
   ;; Detect browser features

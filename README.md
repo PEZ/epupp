@@ -1,6 +1,6 @@
-# DOM REPL
+# Browser Jack-in
 
-A cross-browser extension.
+Jack into any web page with a Clojure REPL.
 
 ## Development
 
@@ -38,7 +38,7 @@ npm run build:safari
 3. Select any file in `dist/firefox` folder
 
 **Safari:**
-1. Run `xcrun safari-web-extension-converter dist/safari --app-name "DOM REPL"`
+1. Run `xcrun safari-web-extension-converter dist/safari --app-name "Browser Jack-in"`
 2. Open the generated Xcode project
 3. Build and run
 
@@ -55,8 +55,8 @@ GitHub Actions will build all three browser versions and create a draft release.
 
 ### Store Submission
 
-- **Chrome:** Upload `dom-repl-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- **Firefox:** Upload `dom-repl-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
+- **Chrome:** Upload `browser-jack-in-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+- **Firefox:** Upload `browser-jack-in-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
 - **Safari:** Submit via Xcode to App Store Connect
 
 ## Icons

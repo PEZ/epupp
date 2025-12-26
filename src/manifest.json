@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "DOM REPL",
+  "name": "Browser Jack-in",
   "version": "0.1.0",
-  "description": "A browser extension for DOM REPL",
+  "description": "Jack into any web page with a Clojure REPL",
   "permissions": ["scripting", "activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
