@@ -214,6 +214,20 @@
 
     (js/console.warn "Unknown action:" action)))
 
+(defn jack-in-icon []
+  [:svg {:xmlns "http://www.w3.org/2000/svg"
+         :width "24"
+         :height "24"
+         :style {:vertical-align "middle"}
+         :viewBox "0 0 100 100"}
+   ;; Background circle - darker Clojure blue
+   [:circle {:cx "50" :cy "50" :r "48" :fill "#4a71c4"}]
+   ;; Lightning bolt
+   [:path
+    {:fill "#ffdc73"
+     :transform "translate(50, 50) scale(0.5) translate(-215, -267)"
+     :d "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0 1 2.65 5.53l-2.54 52.23z"}]])
+
 (defn port-input [{:keys [id label value on-change]}]
   [:span
    [:label {:for id} label]
@@ -236,7 +250,9 @@
   [:div
    ;; Header with logos
    [:div.header
-    [:h1 "Browser Jack-in"]
+    [:div.header-left
+     [jack-in-icon]
+     [:h1 "Browser Jack-in"]]
     [:div.header-right
      [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
                          :target "_blank"}
