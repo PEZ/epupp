@@ -21,6 +21,7 @@ and follow the 1-2-3 step instructions.
 In waiting for this extension to be available on the extension web stores, you'll need to install the packages manually in the browser's developer mode. Grab the extension zip file(s) from the latest [release](https://github.com/PEZ/browser-jack-in/releases).
 
 **Chrome:**
+
 0. Unpack `browser-jack-in-chrome.zip` (will unpack a `chrome` folder)
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
@@ -28,12 +29,15 @@ In waiting for this extension to be available on the extension web stores, you'l
 4. Select the `chrome` folder
 
 **Firefox:**
+
 1. Go to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
 3. Select any file in `browser-jack-in-firefox.zip` file
 
 **Safari:**
+
 (Actually the extension fails to establish the websocket connection in Safari. It tries to open it as a secure socket. If you know how to fix it, please file a PR.)
+
 1. Safari → Settings → Developer → Click "Add Temporary Extension"
 2. Select the `browser-jack-in-safari.zip` file
 3. Ensure the extension is enabled in Safari → Settings → Extensions
