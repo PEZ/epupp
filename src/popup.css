@@ -1,0 +1,224 @@
+:root {
+  --clojure-blue: #5881d8;
+  --clojure-green: #91dc47;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --bg-subtle: #f8f9fa;
+  --border-light: #e5e7eb;
+  --radius: 6px;
+}
+
+body {
+  width: 380px;
+  padding: 20px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Header with logos */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-left svg {
+  flex-shrink: 0;
+}
+
+.header-logos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-logos img {
+  width: 28px;
+  height: 28px;
+  opacity: 0.9;
+}
+
+.header h1 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-tagline {
+  font-size: 11px;
+  color: var(--clojure-blue);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.header-tagline:hover {
+  text-decoration: underline;
+}
+
+/* Steps */
+.step {
+  margin-bottom: 18px;
+}
+
+.step-header {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Port inputs */
+.port-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.port-row span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.port-row label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.port-row input {
+  width: 68px;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.port-row input:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+  box-shadow: 0 0 0 3px rgba(88, 129, 216, 0.1);
+}
+
+/* Command box */
+.command-box {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+code {
+  flex: 1;
+  background: var(--bg-subtle);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  overflow-x: auto;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.copy-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-light);
+  background: #fff;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover {
+  background: var(--bg-subtle);
+  border-color: #d1d5db;
+}
+
+/* Connect section */
+.connect-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+}
+
+.connect-target {
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--text-secondary);
+}
+
+button#connect {
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--clojure-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+button#connect:hover {
+  background: #4a71c4;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
+}
+
+button#connect:active {
+  transform: translateY(0);
+}
+
+/* Status */
+.status {
+  margin-top: 14px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--clojure-green);
+}
+
+.status.status-failed {
+  border-left-color: #e53935;
+  background: #fff5f5;
+}
+
+.status.status-pending {
+  border-left-color: #f59e0b;
+}

@@ -13,14 +13,9 @@ export default defineConfig({
       },
       output: {
         entryFileNames: '[name].js',
+        assetFileNames: '[name][extname]',
         inlineDynamicImports: true
       }
-    }
-  },
-  // Disable CSS code splitting for extension compatibility
-  css: {
-    modules: {
-      localsConvention: 'camelCase'
     }
   }
 });

@@ -61,6 +61,8 @@
                  {:replace-existing true})
         (fs/copy (str vite-dir "/popup.js") (str browser-dir "/popup.js")
                  {:replace-existing true})
+        (fs/copy (str vite-dir "/popup.css") (str browser-dir "/popup.css")
+                 {:replace-existing true})
         ;; Remove the unbundled mjs file
         (fs/delete-if-exists (str browser-dir "/popup.mjs"))
 
