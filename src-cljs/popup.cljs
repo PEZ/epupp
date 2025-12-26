@@ -224,8 +224,11 @@
    ;; Header with logos
    [:div.header
     [:h1 "DOM REPL"]
-    [:span.header-tagline "Scittle nREPL"
-     [:span.header-logos
+    [:div.header-right
+     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
+                         :target "_blank"}
+      "Scittle nREPL"]
+     [:div.header-logos
       [:img {:src "images/sci.png" :alt "SCI"}]
       [:img {:src "images/clojure.png" :alt "Clojure"}]]]]
 
@@ -247,10 +250,14 @@
     [:div.step-header "2. Connect browser to server"]
     [:div.connect-row
      [:span.connect-target (str "ws://localhost:" ws)]
-     [:button#connect {:on-click #(dispatch! [:connect])} "Connect"]]]
+     [:button#connect {:on-click #(dispatch! [:connect])} "Connect"]]
+    (when status
+         [:div#status.status status])]
 
-   (when status
-     [:div#status.status status])])
+   [:div.step
+    [:div.step-header "3. Connect editor to browser (via server)"]
+    [:div.connect-row
+     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
 
 (defn render! []
   (r/render (js/document.getElementById "app")
