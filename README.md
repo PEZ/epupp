@@ -1,6 +1,6 @@
 # Browser Jack-in
 
-Jack into any web page with a Clojure REPL.
+A web browser extension that let's you inject a [Scittle](https://github.com/babashka/scittle) REPL server into the browser page. Then you can connect your fvorite Clojure editor and inspect and manipulate the DOM to your heart's content. Or let your AI agent loose on the page.
 
 ## Development
 

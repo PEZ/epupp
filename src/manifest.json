@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Browser Jack-in",
-  "version": "0.1.0",
-  "description": "Jack into any web page with a Clojure REPL",
+  "version": "0.0.1",
+  "description": "Jack your Clojure editor into any web page",
   "permissions": ["scripting", "activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
