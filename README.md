@@ -21,6 +21,10 @@ Step **1** let's you copy a Babashka command line that starts the browser-nrepl 
 > [!NOTE]
 > The extension does not tamper with the web pages until the user chooses to connect the REPL. Once that is done the user evaluates code in the page context. It's similar to using the console in the development tools, but you do it from your editor, and instead of JavaScript you use ClojureScript.
 
+## Demo
+
+* https://www.youtube.com/watch?v=aJ06tdIjdy0
+
 ## Installing
 
 In waiting for this extension to be available on the extension web stores, you'll need to install the packages manually in the browser's developer mode. Grab the extension zip file(s) from the latest [release](https://github.com/PEZ/browser-jack-in/releases).
