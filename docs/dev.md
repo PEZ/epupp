@@ -28,23 +28,26 @@ bb build:safari
 ### Load Extension Locally
 
 **Chrome:**
+
+0. Unpack `browser-jack-in-chrome.zip` (will unpack a `chrome` folder)
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
-4. Select `dist/chrome` folder
+4. Select the `chrome` folder
 
 **Firefox:**
+
 1. Go to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
-3. Select any file in `dist/firefox` folder
+3. Select any file in `browser-jack-in-firefox.zip` file
 
 **Safari:**
-1. Safari → Settings → Advanced → Enable "Show Develop menu in menu bar"
-2. Develop menu → "Allow Unsigned Extensions" (requires admin password)
-3. Unzip `browser-jack-in-safari.zip` (or use `dist/safari` folder)
-4. Develop menu → "Show Extension Builder"
-5. Click "+" → "Add Extension..." → Select the unzipped folder
-6. Enable in Safari → Settings → Extensions
+
+(Actually the extension fails to establish the websocket connection in Safari. It tries to open it as a secure socket. If you know how to fix it, please file a PR.)
+
+1. Safari → Settings → Developer → Click "Add Temporary Extension"
+2. Select the `browser-jack-in-safari.zip` file
+3. Ensure the extension is enabled in Safari → Settings → Extensions
 
 ## Distribution
 

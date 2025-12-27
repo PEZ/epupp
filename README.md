@@ -52,6 +52,10 @@ The extension does not collect any data whatsoever, and never will.
 
 [MIT](LICENSE)
 
+## Development
+
+To build and hack on the extension, see the [development docs](docs/dev.md).
+
 ## Enjoy! ♥️
 
 Please consider [sponsoring my open source work](https://github.com/sponsors/PEZ).
