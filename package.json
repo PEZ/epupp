@@ -9,11 +9,5 @@
   },
   "dependencies": {
     "reagami": "^0.0.36"
-  },
-  "scripts": {
-    "compile": "squint compile",
-    "watch": "squint watch",
-    "dev": "squint watch & vite",
-    "build": "squint compile && vite build"
   }
 }

@@ -26,4 +26,10 @@
                  :task (tasks/build "firefox")}
 
   build:safari {:doc "Build extension for Safari"
-                :task (tasks/build "safari")}}}
+                :task (tasks/build "safari")}
+
+  dev {:doc "Start Squint watch and Vite dev server"
+       :task (babashka.process/shell "npx squint watch & npx vite")}
+
+  watch {:doc "Start Squint watch mode"
+         :task (babashka.process/shell "npx squint watch")}}}
