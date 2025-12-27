@@ -35,7 +35,9 @@
     "firefox" (assoc manifest
                      :browser_specific_settings
                      {:gecko {:id "browser-jack-in@example.com"
-                              :strict_min_version "109.0"}})
+                              :strict_min_version "109.0"}}
+                     :data_collection_permissions
+                     {:privacy_policy {:url "https://github.com/PEZ/browser-jack-in#privacy"}})
     manifest))
 
 (defn build
@@ -75,6 +77,7 @@
         ;; Create zip
         (let [zip-path (str dist-dir "/browser-jack-in-" browser ".zip")]
           (fs/delete-if-exists zip-path)
-          (fs/zip zip-path [browser-dir] {:root dist-dir})
+          ;; Use shell zip command to zip contents without directory structure
+          (p/shell {:dir browser-dir} "zip" "-r" (str "../browser-jack-in-" browser ".zip") ".")
           (println (str "  Created: " zip-path)))))
     (println "Build complete!")))

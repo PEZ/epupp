@@ -2,8 +2,6 @@
 
 A web browser extension that lets you inject a [Scittle](https://github.com/babashka/scittle) REPL server into the browser page. Then you can connect your favorite Clojure editor and inspect and manipulate the DOM to your heart's content. Or let your AI agent loose on the page.
 
-![Browser Jack-in Popup UI](browser-jack-in-screenshot.png)
-
 ## Prerequisite
 
 1. [Babashka](https://babashka.org)
@@ -15,6 +13,10 @@ Assuming you have [installed the extension](#installing).
 
 On the web page where you want to jack-in your REPL client: open the **Browser Jack-in** extension
 and follow the 1-2-3 step instructions.
+
+![Browser Jack-in Popup UI](browser-jack-in-screenshot.png)
+
+Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
 ## Installing
 
@@ -42,10 +44,15 @@ In waiting for this extension to be available on the extension web stores, you'l
 2. Select the `browser-jack-in-safari.zip` file
 3. Ensure the extension is enabled in Safari → Settings → Extensions
 
+## Privacy
+
+The extension does not collect any data whatsoever, and never will.
+
+## Licence
+
+[MIT](LICENSE)
+
 ## Enjoy! ♥️
 
 Please consider [sponsoring my open source work](https://github.com/sponsors/PEZ).
 
-## Licence
-
-MIT
