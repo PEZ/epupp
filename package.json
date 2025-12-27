@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "squint-cljs": "^0.9.102",
-    "vite": "^6.4.1"
+    "squint-cljs": "^0.9.182",
+    "vite": "^7.3.0"
   },
   "dependencies": {
     "reagami": "^0.0.36"
