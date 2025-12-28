@@ -32,4 +32,7 @@
        :task (babashka.process/shell "npx squint watch & npx vite")}
 
   watch {:doc "Start Squint watch mode"
-         :task (babashka.process/shell "npx squint watch")}}}
+         :task (babashka.process/shell "npx squint watch")}
+
+  publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
+           :task (tasks/publish)}}}

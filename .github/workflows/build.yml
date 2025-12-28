@@ -71,6 +71,19 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Extracting release notes for version $VERSION"
+          # Extract section for this version from CHANGELOG.md (everything between this version header and the next)
+          NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -79,6 +92,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             artifacts/chrome-extension/browser-jack-in-chrome.zip
             artifacts/firefox-extension/browser-jack-in-firefox.zip
