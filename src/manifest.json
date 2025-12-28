@@ -1,28 +1,37 @@
 {
   "manifest_version": 3,
   "name": "Browser Jack-in",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Jack your Clojure editor into any web page",
-  "permissions": ["scripting", "activeTab", "storage"],
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "storage"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png",
-      "128": "icons/icon-128.png"
+      "16": "icons\/icon-16.png",
+      "32": "icons\/icon-32.png",
+      "48": "icons\/icon-48.png",
+      "128": "icons\/icon-128.png"
     }
   },
   "icons": {
-    "16": "icons/icon-16.png",
-    "32": "icons/icon-32.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
+    "16": "icons\/icon-16.png",
+    "32": "icons\/icon-32.png",
+    "48": "icons\/icon-48.png",
+    "128": "icons\/icon-128.png"
   },
   "web_accessible_resources": [
     {
-      "resources": ["vendor/scittle.js", "vendor/scittle.nrepl.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "vendor\/scittle.js",
+        "vendor\/scittle.nrepl.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
