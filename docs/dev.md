@@ -11,6 +11,22 @@
 npm install
 ```
 
+### Patching Scittle for CSP Compatibility
+
+The vendored `scittle.js` contains a dynamic import polyfill that uses `eval()`:
+
+```javascript
+globalThis["import"]=eval("(x) => import(x)");
+```
+
+This breaks on sites with strict Content Security Policy (like YouTube, GitHub, etc.). The `bb bundle-scittle` task automatically patches this to use a regular function instead:
+
+```javascript
+globalThis["import"]=function(x){return import(x);};
+```
+
+The patch is applied automatically when running `bb bundle-scittle`.
+
 ### Build
 
 Build for all browsers:

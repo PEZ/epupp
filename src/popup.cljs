@@ -67,7 +67,24 @@
 (def inject-script-fn
   (js* "function(url) {
     var script = document.createElement('script');
-    script.src = url;
+    // Handle Trusted Types if required by the page
+    if (window.trustedTypes && window.trustedTypes.createPolicy) {
+      try {
+        var policy = window.trustedTypes.createPolicy('browser-jack-in', {
+          createScriptURL: function(s) { return s; }
+        });
+        script.src = policy.createScriptURL(url);
+      } catch(e) {
+        // Policy might already exist, try using default or direct assignment
+        if (e.name === 'TypeError' && e.message.includes('already exists')) {
+          script.src = url;
+        } else {
+          throw e;
+        }
+      }
+    } else {
+      script.src = url;
+    }
     document.head.appendChild(script);
     console.log('[Browser Jack-in] Injected:', url);
     return 'ok';
@@ -84,8 +101,7 @@
   (js* "function() {
     if (window.__scittle_csp_error) return {error: 'csp'};
     if (window.scittle && window.scittle.core) return {ready: true};
-    try { eval('1'); return {ready: false}; }
-    catch(e) { return {error: 'csp'}; }
+    return {ready: false};
   }"))
 
 (def check-websocket-fn

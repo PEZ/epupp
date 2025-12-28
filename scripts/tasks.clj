@@ -2,7 +2,26 @@
   (:require [babashka.fs :as fs]
             [babashka.http-client :as http]
             [babashka.process :as p]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.string :as str]))
+
+(defn- patch-scittle-for-csp
+  "Patch scittle.js to remove eval() call that breaks on CSP-strict sites.
+   The Closure Compiler adds a dynamic import polyfill using eval which
+   triggers CSP violations on sites like YouTube, GitHub, etc."
+  [scittle-path]
+  (let [content (slurp scittle-path)
+        ;; Replace: globalThis["import"]=eval("(x) => import(x)");
+        ;; With:    globalThis["import"]=function(x){return import(x);};
+        patched (str/replace
+                 content
+                 "globalThis[\"import\"]=eval(\"(x) \\x3d\\x3e import(x)\");"
+                 "globalThis[\"import\"]=function(x){return import(x);};")]
+    (when (= content patched)
+      (println "  ⚠ Warning: eval pattern not found in scittle.js - may already be patched or pattern changed"))
+    (spit scittle-path patched)
+    (when (not= content patched)
+      (println "  ✓ Patched scittle.js for CSP compatibility"))))
 
 (defn bundle-scittle
   "Download Scittle and nREPL plugin to src/vendor"
@@ -17,6 +36,7 @@
       (println "Downloading" filename "...")
       (let [response (http/get url)]
         (spit (str vendor-dir "/" filename) (:body response))))
+    (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
     (println "✓ Scittle" version "bundled to" vendor-dir)))
 
 (defn compile-squint
