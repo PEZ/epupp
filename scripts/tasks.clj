@@ -78,6 +78,10 @@
           (fs/delete-tree browser-dir))
         (fs/copy-tree src-dir browser-dir)
 
+        ;; Remove macOS metadata files
+        (doseq [ds-store (fs/glob browser-dir "**/.DS_Store")]
+          (fs/delete ds-store))
+
         ;; Copy Vite-bundled popup files over the source ones
         (fs/copy (str vite-dir "/popup.html") (str browser-dir "/popup.html")
                  {:replace-existing true})
