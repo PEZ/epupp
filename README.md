@@ -19,7 +19,7 @@ and follow the 1-2-3 step instructions.
 Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
 > [!NOTE]
-> The extension does not tamper with the web pages until the user chooses to connect the REPL. Once that is done the user evaluates code in the page context. It's similar to using the console in the development tools, but you do it from your editor, and instead of JavaScript you use ClojureScript.
+> The extension does not tamper with the web pages until you connect the REPL. Once that is done the you evaluate code in the page context. It's similar to using the console in the development tools, but you do it from your editor, and instead of JavaScript you use ClojureScript.
 
 ## Demo
 
