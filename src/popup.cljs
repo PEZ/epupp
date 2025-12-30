@@ -60,8 +60,6 @@
 
 ;; ============================================================
 ;; Page injection functions (for execute-in-page)
-;; ============================================================
-;; Page injection functions (for execute-in-page)
 ;; These must be JS proper - no Squint runtime dependencies
 ;; They get serialized and run in page context.
 ;; ============================================================
