@@ -1,4 +1,4 @@
-{:paths ["scripts"]
+{:paths ["." "scripts"]
  :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
         org.babashka/cli {:mvn/version "0.2.23"}
         babashka/fs {:mvn/version "0.5.22"}

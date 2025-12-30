@@ -4,8 +4,5 @@ dist-vite/
 *.zip
 .DS_Store
 
-# Squint compiled output
+# Squint compiled output (intermediate .mjs files)
 src/*.mjs
-src/content-bridge.js
-src/ws-bridge.js
-src/popup.js

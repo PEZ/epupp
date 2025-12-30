@@ -48,8 +48,8 @@
   (fs/create-dirs "dist-vite")
   ;; Bundle all JS files as IIFE
   (doseq [[name entry] [["popup" "src/popup.mjs"]
-                        ["content-bridge" "src/content-bridge.mjs"]
-                        ["ws-bridge" "src/ws-bridge.mjs"]]]
+                        ["content-bridge" "src/content_bridge.mjs"]
+                        ["ws-bridge" "src/ws_bridge.mjs"]]]
     (println (str "  Bundling " name ".js..."))
     (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=dist-vite/" name ".js")))
   ;; Copy static files
