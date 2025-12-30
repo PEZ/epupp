@@ -6,11 +6,18 @@
 
 (def !ws (atom nil))
 
+(defn same-window?
+  "Check if event came from same window, safely handling cross-origin frames."
+  [event]
+  (try
+    (identical? (.-source event) js/window)
+    (catch :default _
+      false)))
+
 ;; Listen for messages from page
 (.addEventListener js/window "message"
   (fn [event]
-    ;; Only accept messages from same origin
-    (when (= (.-source event) js/window)
+    (when (same-window? event)
       (let [msg (.-data event)]
         (when (and msg (= "browser-jack-in-page" (.-source msg)))
           (js/console.log "[Bridge] Received from page:" (.-type msg))
