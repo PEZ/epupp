@@ -6,3 +6,4 @@ dist-vite/
 
 # Squint compiled output (intermediate .mjs files)
 src/*.mjs
+docs/working-backwards/
