@@ -27,6 +27,8 @@ Step **1** let's you copy a Babashka command line that starts the browser-nrepl 
 
 ## How it Works
 
+You connect to the browser's page execution environment using an nREPL client in your editor. The nREPL client is in turn connected to the Babashka **browser-nrepl** server which bridges nREPL (port 12345) to WebSocket (port 12346). This WebSocket port is what the browser extension connects to.
+
 ```mermaid
 flowchart
     Human["You"] --> Editor
@@ -37,24 +39,26 @@ flowchart
 
     AI["Your AI Agent"] --> nREPL["nREPL Client"]
 
-    Editor -->|"nrepl://12345"| nPort
-    nREPL -->|"nrepl://12345"| nPort
+    Editor -->|"nrepl://localhost:12345"| nPort
+    nREPL -->|"nrepl://localhost:12345"| nPort
 
     nPort["Babashka browser-nrepl"]
 
     nPort <-->|ws://localhost:12346| Ext
 
     subgraph Browser["Browser"]
-        Ext["Browser Extension"] <-->|"WS Bridge"| Scittle["Scittle"]
-        subgraph DOM["DOM/Page Execution Environment"]
-          Scittle
+        Ext["Extension"]
+        Ext <-->|"WS Bridge"| Scittle["Scittle"]
+        Ext -->|"Injects"| Scittle["Scittle"]
+        subgraph Page
+          DOM["DOM/Execution Environment"]
+          Scittle["Scittle REPL"]
+          Scittle <--> DOM
         end
     end
 ```
 
-The Babashka server bridges nREPL (port 12345) to WebSocket (port 12346). The extension's content script runs in the browser's ISOLATED world, exempt from page CSP restrictions, and connects to localhost. It relays messages via `postMessage` to the MAIN world where Scittle evaluates code with full access to the page's DOM and JavaScript environment.
-
-This architecture lets you REPL into sites with strict Content Security Policies (like GitHub) that would otherwise block WebSocket connections.
+In the browser yet another WebSocket Bridge is used so that the Scittle REPL can connect also when strict Content Security Policies (like wih GitHub) would otherwise block WebSocket connections to localhost.
 
 ## Installing
 
