@@ -48,8 +48,8 @@ flowchart
 
     subgraph Browser["Browser"]
         Ext["Extension"]
-        Ext <-->|"WS Bridge"| Scittle["Scittle"]
-        Ext -->|"Injects"| Scittle["Scittle"]
+        Ext <-->|"postMessage"| Scittle
+        Ext -->|"Injects"| Scittle
         subgraph Page
           DOM["DOM/Execution Environment"]
           Scittle["Scittle REPL"]
@@ -58,7 +58,7 @@ flowchart
     end
 ```
 
-In the browser yet another WebSocket Bridge is used so that the Scittle REPL can connect also when strict Content Security Policies (like wih GitHub) would otherwise block WebSocket connections to localhost.
+In the browser yet another WebSocket Bridge is used so that the Scittle REPL can connect also when strict Content Security Policies (like with GitHub) would otherwise block WebSocket connections to localhost.
 
 ## Installing
 
