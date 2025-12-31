@@ -44,21 +44,27 @@ flowchart
 
     nPort["Babashka browser-nrepl"]
 
-    nPort <-->|ws://localhost:12346| Ext
+    nPort <-->|ws://localhost:12346| BG
 
     subgraph Browser["Browser"]
-        Ext["Extension"]
-        Ext <-->|"postMessage"| Scittle
-        Ext -->|"Injects"| Scittle
+        subgraph Extension
+            BG["Background Service Worker"]
+            BG <-->|"runtime.sendMessage"| Bridge["Content Bridge"]
+        end
+        Bridge <-->|"postMessage"| WS-Bridge
+        Bridge -->|"Injects"| Scittle
+        Bridge -->|"Injects"| WS-Bridge
         subgraph Page
           DOM["DOM/Execution Environment"]
+          WS-Bridge["WebSocket Bridge"]
           Scittle["Scittle REPL"]
+          WS-Bridge <--> Scittle
           Scittle <--> DOM
         end
     end
 ```
 
-In the browser yet another WebSocket Bridge is used so that the Scittle REPL can connect also when strict Content Security Policies (like with GitHub) would otherwise block WebSocket connections to localhost.
+The extension uses a background service worker to handle WebSocket connections, which bypasses strict Content Security Policies (like GitHub's) that would otherwise block connections to localhost. Messages are relayed through the content bridge to the page's WebSocket bridge, which provides a virtual WebSocket interface for the Scittle REPL.
 
 ## Installing
 

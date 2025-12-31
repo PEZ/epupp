@@ -49,7 +49,8 @@
   ;; Bundle all JS files as IIFE
   (doseq [[name entry] [["popup" "src/popup.mjs"]
                         ["content-bridge" "src/content_bridge.mjs"]
-                        ["ws-bridge" "src/ws_bridge.mjs"]]]
+                        ["ws-bridge" "src/ws_bridge.mjs"]
+                        ["background" "src/background.mjs"]]]
     (println (str "  Bundling " name ".js..."))
     (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=dist-vite/" name ".js")))
   ;; Copy static files
@@ -61,12 +62,17 @@
   "Adjust manifest.json for specific browser"
   [manifest browser]
   (case browser
-    "firefox" (assoc manifest
-                     :browser_specific_settings
-                     {:gecko {:id "browser-jack-in@example.com"
-                              :strict_min_version "142.0"
-                              :data_collection_permissions
-                              {:required ["none"]}}})
+    "firefox" (-> manifest
+                  (assoc :browser_specific_settings
+                         {:gecko {:id "browser-jack-in@example.com"
+                                  :strict_min_version "142.0"
+                                  :data_collection_permissions
+                                  {:required ["none"]}}})
+                  ;; Firefox MV3 uses background.scripts instead of service_worker
+                  (assoc :background {:scripts ["background.js"]})
+                  ;; Allow ws:// connections to localhost (prevent upgrade to wss)
+                  (assoc :content_security_policy
+                         {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
     manifest))
 
 (defn build
@@ -103,6 +109,8 @@
                  {:replace-existing true})
         (fs/copy (str vite-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
                  {:replace-existing true})
+        (fs/copy (str vite-dir "/background.js") (str browser-dir "/background.js")
+                 {:replace-existing true})
         ;; Remove source files (keep only bundled .js)
         (fs/delete-if-exists (str browser-dir "/popup.mjs"))
         (fs/delete-if-exists (str browser-dir "/popup.cljs"))
@@ -110,6 +118,8 @@
         (fs/delete-if-exists (str browser-dir "/content-bridge.cljs"))
         (fs/delete-if-exists (str browser-dir "/ws-bridge.mjs"))
         (fs/delete-if-exists (str browser-dir "/ws-bridge.cljs"))
+        (fs/delete-if-exists (str browser-dir "/background.mjs"))
+        (fs/delete-if-exists (str browser-dir "/background.cljs"))
 
         ;; Adjust manifest
         (let [manifest-path (str browser-dir "/manifest.json")

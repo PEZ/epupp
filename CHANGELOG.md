@@ -1,33 +1,25 @@
 # Changelog
 
-All notable changes to Browser Jack-in will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Changes to Browser Jack-in
 
 ## [Unreleased]
 
+- Fix: [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/browser-jack-in/issues/1)
+
 ## [0.0.3] - 2025-12-30
 
-### Fixed
-
-- [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/browser-jack-in/issues/1)
+- Fix: [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/browser-jack-in/issues/1)
   - WebSocket bridge connects the page's MAIN world with the extension's ISOLATED world, bringing localhost in reach
-
 
 ## [0.0.2] - 2025-12-28
 
-### Fixed
-
-- Extension now works on sites with strict Content Security Policy (YouTube, GitHub, etc.)
+- Fix: Extension now works on sites with strict Content Security Policy (YouTube, GitHub, etc.)
   - Patched Scittle's dynamic import polyfill to avoid `eval()`
   - Added Trusted Types policy for script injection
   - Removed unnecessary `eval` probe in CSP detection
 
 
 ## [0.0.1] - 2024-12-27
-
-### Added
 
 - Initial release
 - Inject Scittle nREPL into any web page (that doesn't restrict `eval`)

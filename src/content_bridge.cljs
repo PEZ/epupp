@@ -1,10 +1,10 @@
 (ns content-bridge
   "Content script bridge for WebSocket connections.
-   Runs in ISOLATED world with extension CSP, bridges to MAIN world via postMessage.")
+   Runs in ISOLATED world, relays messages between page (MAIN) and background service worker.")
 
 (js/console.log "[Browser Jack-in Bridge] Content script loaded")
 
-(def !ws (atom nil))
+(def !connected (atom false))
 
 (defn same-window?
   "Check if event came from same window, safely handling cross-origin frames."
@@ -16,66 +16,70 @@
 
 ;; Listen for messages from page
 (.addEventListener js/window "message"
-  (fn [event]
-    (when (same-window? event)
-      (let [msg (.-data event)]
-        (when (and msg (= "browser-jack-in-page" (.-source msg)))
-          (js/console.log "[Bridge] Received from page:" (.-type msg))
+                   (fn [event]
+                     (when (same-window? event)
+                       (let [msg (.-data event)]
+                         (when (and msg (= "browser-jack-in-page" (.-source msg)))
+                           (case (.-type msg)
+                             "ws-connect"
+                             (do
+                               (js/console.log "[Bridge] Requesting connection to port:" (.-port msg))
+                               (reset! !connected true)
+                               (js/chrome.runtime.sendMessage
+                                #js {:type "ws-connect"
+                                     :port (.-port msg)}))
 
-          (case (.-type msg)
-            "ws-connect"
-            (let [ws-url (str "ws://localhost:" (.-port msg) "/_nrepl")]
-              (js/console.log "[Bridge] Connecting to:" ws-url)
-              (try
-                (let [ws (js/WebSocket. ws-url)]
-                  (reset! !ws ws)
-                  (set! (.-onopen ws)
-                        (fn []
-                          (js/console.log "[Bridge] WebSocket connected")
-                          (.postMessage js/window
-                                        #js {:source "browser-jack-in-bridge"
-                                             :type "ws-open"}
-                                        "*")))
-                  (set! (.-onmessage ws)
-                        (fn [event]
-                          (.postMessage js/window
-                                        #js {:source "browser-jack-in-bridge"
-                                             :type "ws-message"
-                                             :data (.-data event)}
-                                        "*")))
-                  (set! (.-onerror ws)
-                        (fn [error]
-                          (js/console.error "[Bridge] WebSocket error:" error)
-                          (.postMessage js/window
-                                        #js {:source "browser-jack-in-bridge"
-                                             :type "ws-error"
-                                             :error (str error)}
-                                        "*")))
-                  (set! (.-onclose ws)
-                        (fn []
-                          (js/console.log "[Bridge] WebSocket closed")
-                          (.postMessage js/window
-                                        #js {:source "browser-jack-in-bridge"
-                                             :type "ws-close"}
-                                        "*")
-                          (reset! !ws nil))))
-                (catch :default e
-                  (js/console.error "[Bridge] Failed to create WebSocket:" e)
-                  (.postMessage js/window
-                    #js {:source "browser-jack-in-bridge"
-                         :type "ws-error"
-                         :error (str e)}
-                    "*"))))
+                             "ws-send"
+                             (when @!connected
+                               (js/chrome.runtime.sendMessage
+                                #js {:type "ws-send"
+                                     :data (.-data msg)}))
 
-            "ws-send"
-            (when-let [ws @!ws]
-              (when (= 1 (.-readyState ws)) ; OPEN
-                (.send ws (.-data msg))))
-
-            nil))))))
+                             nil))))))
 
 ;; Notify page that bridge is ready
+(.addListener js/chrome.runtime.onMessage
+              (fn [message _sender _send-response]
+                (let [msg-type (.-type message)]
+                  (case msg-type
+                    "ws-open"
+                    (do
+                      (js/console.log "[Bridge] WebSocket connected")
+                      (.postMessage js/window
+                                    #js {:source "browser-jack-in-bridge"
+                                         :type "ws-open"}
+                                    "*"))
+
+                    "ws-message"
+                    (.postMessage js/window
+                                  #js {:source "browser-jack-in-bridge"
+                                       :type "ws-message"
+                                       :data (.-data message)}
+                                  "*")
+
+                    "ws-error"
+                    (do
+                      (js/console.error "[Bridge] WebSocket error:" (.-error message))
+                      (reset! !connected false)
+                      (.postMessage js/window
+                                    #js {:source "browser-jack-in-bridge"
+                                         :type "ws-error"
+                                         :error (.-error message)}
+                                    "*"))
+
+                    "ws-close"
+                    (do
+                      (js/console.log "[Bridge] WebSocket closed")
+                      (reset! !connected false)
+                      (.postMessage js/window
+                                    #js {:source "browser-jack-in-bridge"
+                                         :type "ws-close"}
+                                    "*"))
+
+                    nil))
+                false))
+
 (.postMessage js/window
-  #js {:source "browser-jack-in-bridge"
-       :type "bridge-ready"}
-  "*")
+              #js {:source "browser-jack-in-bridge"
+                   :type "bridge-ready"}
+              "*")
