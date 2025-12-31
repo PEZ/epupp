@@ -39,7 +39,7 @@
           (fn []
             (when (connected?)
               (js/chrome.runtime.sendMessage #js {:type "ping"})))
-          20000))) ; Every 20 seconds
+          5000)))
 
 (.addEventListener js/window "message"
                    (fn [event]
