@@ -24,9 +24,9 @@
 
 (defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
   (str "bb -Sdeps '{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}' "
-       "-e \"(require '[sci.nrepl.browser-server :as server]) "
-       "(server/start\\! {:nrepl-port " nrepl " :websocket-port " ws "}) "
-       "@(promise)\""))
+       "-e '(require (quote [sci.nrepl.browser-server :as server])) "
+       "(server/start! {:nrepl-port " nrepl " :websocket-port " ws "}) "
+       "@(promise)'"))
 
 (defn get-active-tab []
   (js/Promise.

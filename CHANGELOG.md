@@ -4,7 +4,8 @@ Changes to Browser Jack-in
 
 ## [Unreleased]
 
-- Fix: [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/browser-jack-in/issues/1)
+- Fix: [Firefox doesn't connect on strict CSP sites (like GitHub)](https://github.com/PEZ/browser-jack-in/issues/3)
+- Fix: [nREPL server invocation fails in some shells](https://github.com/PEZ/browser-jack-in/issues/2)
 
 ## [0.0.3] - 2025-12-30
 
