@@ -228,8 +228,8 @@
         on-master? (= "master" branch)
         {:keys [has-unreleased? unreleased-content]} (parse-changelog)
         has-content? (and has-unreleased? (not (str/blank? unreleased-content)))
-        current-version (read-manifest-version)
-        new-version (release-version current-version)
+        current-dev-version (read-manifest-version)
+        new-version (release-version current-dev-version)
         dev-version (next-dev-version new-version)
         issue-numbers (extract-issue-numbers unreleased-content)
         all-ok? (and clean? on-master? has-content?)]
@@ -247,7 +247,7 @@
 
     (println)
     (println "📋 Release details:")
-    (println (str "   Current version: " current-version))
+    (println (str "   Current dev version: " current-dev-version))
     (println (str "   Release version: " new-version))
     (println (str "   Next dev version: " dev-version))
     (when (seq issue-numbers)
