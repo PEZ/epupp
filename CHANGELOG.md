@@ -4,6 +4,8 @@ Changes to Browser Jack-in
 
 ## [Unreleased]
 
+- Stabilize the reconnect scenario
+
 ## [0.0.4] - 2025-12-31
 
 - Fix: [Firefox doesn't connect on strict CSP sites (like GitHub)](https://github.com/PEZ/browser-jack-in/issues/3)
