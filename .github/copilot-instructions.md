@@ -18,7 +18,7 @@ Mandatory reads:
 ```
 src/           # ClojureScript source files only
 extension/     # Static assets + compiled .mjs (Squint output)
-dist-vite/     # Bundled .js files (esbuild output)
+build/         # Bundled .js files (esbuild output)
 dist/          # Final browser extension zips
 ```
 
@@ -27,13 +27,13 @@ dist/          # Final browser extension zips
 This project uses **[Squint](https://github.com/squint-cljs/squint)** to compile ClojureScript to modern ESM JavaScript. Key points:
 
 - **Source:** `src/*.cljs` files are compiled to `extension/*.mjs` (ES modules)
-- **Bundling:** esbuild bundles `extension/*.mjs` → `dist-vite/*.js` (IIFE format)
+- **Bundling:** esbuild bundles `extension/*.mjs` → `build/*.js` (IIFE format)
 - **Config:** [squint.edn](squint.edn) specifies paths and `.mjs` extension
 
 **Build flow:**
 ```bash
 npx squint compile  # src/*.cljs → extension/*.mjs
-npx esbuild ...     # extension/*.mjs → dist-vite/*.js (IIFE bundles)
+npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 ```
 
 **Never edit `.mjs` files directly** — they're generated. Edit `.cljs` source in `src/` only.
@@ -74,10 +74,12 @@ bb build:firefox
 
 ### Testing the Extension Locally
 
-1. Build: `bb build:chrome`
-2. Unzip `dist/browser-jack-in-chrome.zip`
+1. Build: `bb build` (builds all browsers — quick enough, and better to test all targets)
+2. Unzip `dist/browser-jack-in-chrome.zip` (or firefox)
 3. Chrome → `chrome://extensions` → Enable Developer mode → Load unpacked → select `chrome/` folder
 4. On any web page: click extension icon → follow 1-2-3 steps
+
+Use `bb build:chrome` or `bb build:firefox` only when debugging browser-specific issues.
 
 **REPL Connection:**
 1. Copy Babashka command from extension popup (Step 1)

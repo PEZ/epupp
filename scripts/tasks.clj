@@ -45,17 +45,17 @@
   (println "Compiling Squint...")
   (p/shell "npx squint compile")
   (println "Bundling with esbuild...")
-  (fs/create-dirs "dist-vite")
+  (fs/create-dirs "build")
   ;; Bundle all JS files as IIFE
   (doseq [[name entry] [["popup" "extension/popup.mjs"]
                         ["content-bridge" "extension/content_bridge.mjs"]
                         ["ws-bridge" "extension/ws_bridge.mjs"]
                         ["background" "extension/background.mjs"]]]
     (println (str "  Bundling " name ".js..."))
-    (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=dist-vite/" name ".js")))
+    (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
   ;; Copy static files
-  (fs/copy "extension/popup.html" "dist-vite/popup.html" {:replace-existing true})
-  (fs/copy "extension/popup.css" "dist-vite/popup.css" {:replace-existing true})
+  (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
+  (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
   (println "✓ Squint + esbuild compilation complete"))
 
 (defn- adjust-manifest
@@ -80,7 +80,7 @@
   [& browsers]
   (let [browsers (if (seq browsers) browsers ["chrome" "firefox" "safari"])
         extension-dir "extension"
-        vite-dir "dist-vite"
+        build-dir "build"
         dist-dir "dist"]
     ;; Compile Squint + bundle with esbuild
     (compile-squint)
@@ -98,18 +98,18 @@
                 ds-store (fs/glob browser-dir pattern)]
           (fs/delete ds-store))
 
-        ;; Copy Vite-bundled files over the source ones
-        (fs/copy (str vite-dir "/popup.html") (str browser-dir "/popup.html")
+        ;; Copy bundled files over the intermediate ones
+        (fs/copy (str build-dir "/popup.html") (str browser-dir "/popup.html")
                  {:replace-existing true})
-        (fs/copy (str vite-dir "/popup.js") (str browser-dir "/popup.js")
+        (fs/copy (str build-dir "/popup.js") (str browser-dir "/popup.js")
                  {:replace-existing true})
-        (fs/copy (str vite-dir "/popup.css") (str browser-dir "/popup.css")
+        (fs/copy (str build-dir "/popup.css") (str browser-dir "/popup.css")
                  {:replace-existing true})
-        (fs/copy (str vite-dir "/content-bridge.js") (str browser-dir "/content-bridge.js")
+        (fs/copy (str build-dir "/content-bridge.js") (str browser-dir "/content-bridge.js")
                  {:replace-existing true})
-        (fs/copy (str vite-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
+        (fs/copy (str build-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
                  {:replace-existing true})
-        (fs/copy (str vite-dir "/background.js") (str browser-dir "/background.js")
+        (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")
                  {:replace-existing true})
         ;; Remove intermediate .mjs files (keep only bundled .js)
         (fs/delete-if-exists (str browser-dir "/popup.mjs"))
