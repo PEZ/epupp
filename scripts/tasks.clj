@@ -123,7 +123,7 @@
         (let [manifest-path (str browser-dir "/manifest.json")
               manifest (json/read-str (slurp manifest-path) :key-fn keyword)
               adjusted (adjust-manifest manifest browser)]
-          (spit manifest-path (json/write-str adjusted :indent true)))
+          (spit manifest-path (json/write-str adjusted :indent true :escape-slash false)))
 
         ;; Create zip
         (let [zip-path (str dist-dir "/browser-jack-in-" browser ".zip")]
@@ -198,7 +198,7 @@
   (let [manifest-path "extension/manifest.json"
         manifest (json/read-str (slurp manifest-path) :key-fn keyword)
         updated (assoc manifest :version new-version)]
-    (spit manifest-path (json/write-str updated :indent true))))
+    (spit manifest-path (json/write-str updated :indent true :escape-slash false))))
 
 (defn- update-changelog!
   "Update CHANGELOG.md: add version header, keep empty Unreleased"
