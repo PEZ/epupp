@@ -4,7 +4,10 @@ Changes to Browser Jack-in
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-01-01
+
 - Stabilize the reconnect scenario
+
 
 ## [0.0.4] - 2025-12-31
 
