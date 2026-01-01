@@ -8,6 +8,7 @@
          :ports/ws "1340"
          :ui/status nil
          :ui/copy-feedback nil
+         :ui/has-connected false  ; Track if we've connected at least once
          :browser/brave? false}))
 
 (defn ws-fail-message []
@@ -119,29 +120,43 @@
     return {ready: false};
   }"))
 
-(def check-websocket-fn
-  (js* "function() {
-    var ws = window.ws_nrepl;
-    if (!ws) {
-      console.log('[Check WS] No ws_nrepl found');
-      return {status: 'no-ws'};
-    }
-    console.log('[Check WS] readyState:', ws.readyState);
-    switch(ws.readyState) {
-      case 1: return {status: 'connected'};
-      case 3: return {status: 'failed'};
-      default: return {status: 'connecting'};
-    }
-  }"))
-
 (def check-status-fn
   (js* "function() {
     return {
       hasScittle: !!(window.scittle && window.scittle.core),
+      hasScittleNrepl: !!(window.scittle && window.scittle.nrepl && window.scittle.nrepl.core),
       hasWsBridge: !!window.__browserJackInWSBridge,
-      wsState: window.ws_nrepl ? window.ws_nrepl.readyState : -1,
-      wsPort: window.SCITTLE_NREPL_WEBSOCKET_PORT
+      hasContentBridge: !!window.__browserJackInContentBridge
     };
+  }"))
+
+(def close-websocket-fn
+  (js* "function() {
+    var ws = window.ws_nrepl;
+    if (ws) {
+      console.log('[Browser Jack-in] Closing existing WebSocket, readyState:', ws.readyState);
+      if (ws.readyState === 0 || ws.readyState === 1) {
+        ws.close();
+      }
+      window.ws_nrepl = null;
+    }
+  }"))
+
+(def reconnect-nrepl-fn
+  "Reconnect by creating a new WebSocket - reuses existing scittle.nrepl handlers"
+  (js* "function(port) {
+    console.log('[Browser Jack-in] Reconnecting nREPL to port:', port);
+    // Create new WebSocket - will be intercepted by ws-bridge
+    var ws = new WebSocket('ws://localhost:' + port + '/_nrepl');
+    // scittle.nrepl sets handlers on window.ws_nrepl which ws-bridge populates
+  }"))
+
+(def check-connection-fn
+  "Check if WebSocket is connected"
+  (js* "function() {
+    var ws = window.ws_nrepl;
+    if (!ws) return {connected: false, state: -1};
+    return {connected: ws.readyState === 1, state: ws.readyState};
   }"))
 
 (defn poll-until [check-fn success? fail? timeout]
@@ -191,38 +206,47 @@
                     5000)))))))
 
 (defn configure-and-connect!
-  "Set nREPL config and inject nREPL client, wait for connection."
-  [tab-id port]
+  "Close any existing connection, set nREPL config and connect.
+   If scittle.nrepl is already loaded, just reconnect without re-injecting."
+  [tab-id port has-scittle-nrepl]
   (let [nrepl-url (js/chrome.runtime.getURL "vendor/scittle.nrepl.js")]
     (swap! !state assoc :ui/status "Connecting...")
-    (-> (execute-in-page tab-id set-nrepl-config-fn port)
-        (.then (fn [_] (execute-in-page tab-id inject-script-fn nrepl-url false)))
+    (-> (execute-in-page tab-id close-websocket-fn)
+        (.then (fn [_] (execute-in-page tab-id set-nrepl-config-fn port)))
         (.then (fn [_]
+                 (if has-scittle-nrepl
+                   ;; Already have scittle.nrepl - just create new WebSocket (reuses existing handlers)
+                   (execute-in-page tab-id reconnect-nrepl-fn port)
+                   ;; First time - inject the script (it auto-connects on load)
+                   (execute-in-page tab-id inject-script-fn nrepl-url false))))
+        (.then (fn [_]
+                 ;; Poll for connection success (up to 3 seconds)
                  (poll-until
-                  (fn [] (execute-in-page tab-id check-websocket-fn))
-                  (fn [result] (= "connected" (.-status result)))
+                  (fn [] (execute-in-page tab-id check-connection-fn))
+                  (fn [result] (.-connected result))
                   (fn [result]
-                    (when (= "failed" (.-status result))
+                    (when (= 3 (.-state result))
                       (js/Error. (ws-fail-message))))
-                  5000))))))
+                  3000)))
+        (.then (fn [_]
+                 (swap! !state assoc
+                        :ui/status (str "Connected to ws://localhost:" port)
+                        :ui/has-connected true)))
+        (.catch (fn [err]
+                  (swap! !state assoc :ui/status (str "Failed: " (.-message err))))))))
 
 (defn connect-to-tab!
-  "Main connection flow for a tab. Checks status, injects what's needed, connects."
+  "Main connection flow for a tab. Injects what's needed (idempotent), then connects."
   [tab-id port]
   (-> (execute-in-page tab-id check-status-fn)
       (.then (fn [status]
                (let [has-bridge (and status (.-hasWsBridge status))
                      has-scittle (and status (.-hasScittle status))
-                     ws-connected (and status (= 1 (.-wsState status)))]
+                     has-scittle-nrepl (and status (.-hasScittleNrepl status))]
                  (js/console.log "[Connect] Status:" (js/JSON.stringify status))
-                 (if (and ws-connected (= port (.-wsPort status)))
-                   (do
-                     (swap! !state assoc :ui/status (str "Connected to ws://localhost:" port))
-                     (js/Promise.resolve nil))
-                   (-> (ensure-bridge! tab-id has-bridge)
-                       (.then (fn [_] (ensure-scittle! tab-id has-scittle)))
-                       (.then (fn [_] (configure-and-connect! tab-id port)))
-                       (.then (fn [_] (swap! !state assoc :ui/status (str "Connected to ws://localhost:" port)))))))))
+                 (-> (ensure-bridge! tab-id has-bridge)
+                     (.then (fn [_] (ensure-scittle! tab-id has-scittle)))
+                     (.then (fn [_] (configure-and-connect! tab-id port has-scittle-nrepl)))))))
       (.catch (fn [err]
                 (swap! !state assoc :ui/status (str "Failed: " (.-message err)))))))
 
@@ -269,15 +293,14 @@
                  (execute-in-page (.-id tab) check-status-fn)))
         (.then (fn [result]
                  (when result
-                   (let [ws-state (.-wsState result)
-                         ws-port (or (.-wsPort result) (:ports/ws @!state))]
-                     (swap! !state assoc :ui/status
-                            (case ws-state
-                              1 (str "Connected to ws://localhost:" ws-port)
-                              0 "Connecting..."
-                              3 (ws-fail-message)
-                              (when (.-hasScittle result)
-                                "Scittle loaded, not connected"))))))))
+                   (let [has-scittle (.-hasScittle result)
+                         has-bridge (.-hasWsBridge result)
+                         ws-port (:ports/ws @!state)]
+                     (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
+                     (when (and has-scittle has-bridge)
+                       (swap! !state assoc
+                              :ui/has-connected true
+                              :ui/status (str "Connected to ws://localhost:" ws-port))))))))
 
     :load-saved-ports
     (-> (get-active-tab)
@@ -329,7 +352,7 @@
    [:button.copy-btn {:on-click #(dispatch! [:copy-command])}
     (or copy-feedback "Copy")]])
 
-(defn popup-ui [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback] :as state}]
+(defn popup-ui [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
   [:div
    ;; Header with logos
    [:div.header
@@ -362,7 +385,8 @@
     [:div.step-header "2. Connect browser to server"]
     [:div.connect-row
      [:span.connect-target (str "ws://localhost:" ws)]
-     [:button#connect {:on-click #(dispatch! [:connect])} "Connect"]]
+     [:button#connect {:on-click #(dispatch! [:connect])}
+      (if has-connected "Reconnect" "Connect")]]
     (when status
       [:div#status {:class (status-class status)} status])]
 
@@ -382,10 +406,7 @@
   ;; Detect browser features
   (swap! !state assoc :browser/brave? (some? (.-brave js/navigator)))
 
-  (js/console.log "About to render, app element:" (js/document.getElementById "app"))
   (render!)
-  (js/console.log "Rendered!")
-
   (dispatch! [:load-saved-ports])
   (dispatch! [:check-status]))
 

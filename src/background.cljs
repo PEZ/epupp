@@ -14,9 +14,11 @@
   (get @!connections tab-id))
 
 (defn close-ws!
-  "Close and remove WebSocket for a tab"
+  "Close and remove WebSocket for a tab. Does not send ws-close event."
   [tab-id]
   (when-let [ws (get-ws tab-id)]
+    ;; Clear onclose to prevent sending ws-close when deliberately closing
+    (set! (.-onclose ws) nil)
     (try
       (.close ws)
       (catch :default e
@@ -28,7 +30,7 @@
   [tab-id message]
   (-> (js/chrome.tabs.sendMessage tab-id (clj->js message))
       (.catch (fn [e]
-                (js/console.error "[Background] Failed to send to tab:" tab-id e)))))
+                (js/console.error "[Background] Failed to send to tab:" tab-id "error:" e)))))
 
 (defn handle-ws-connect
   "Create WebSocket connection for a tab"
@@ -55,17 +57,12 @@
         (set! (.-onerror ws)
               (fn [error]
                 (js/console.error "[Background] WebSocket error for tab:" tab-id)
-                (js/console.error "[Background] Error type:" (type error))
-                (js/console.error "[Background] WebSocket readyState:" (.-readyState ws))
                 (send-to-tab tab-id {:type "ws-error"
                                      :error (str "WebSocket error connecting to " ws-url)})))
 
         (set! (.-onclose ws)
               (fn [event]
-                (js/console.log "[Background] WebSocket closed for tab:" tab-id
-                                "code:" (.-code event)
-                                "reason:" (.-reason event)
-                                "wasClean:" (.-wasClean event))
+                (js/console.log "[Background] WebSocket closed for tab:" tab-id)
                 (send-to-tab tab-id {:type "ws-close"
                                      :code (.-code event)
                                      :reason (.-reason event)})
@@ -79,7 +76,7 @@
   "Send data through WebSocket for a tab"
   [tab-id data]
   (when-let [ws (get-ws tab-id)]
-    (when (= 1 (.-readyState ws)) ; OPEN
+    (when (= 1 (.-readyState ws))
       (.send ws data))))
 
 (defn handle-ws-close
@@ -93,21 +90,11 @@
     (let [tab-id (.. sender -tab -id)
           msg-type (.-type message)]
       (case msg-type
-        "ws-connect"
-        (handle-ws-connect tab-id (.-port message))
-
-        "ws-send"
-        (handle-ws-send tab-id (.-data message))
-
-        "ws-close"
-        (handle-ws-close tab-id)
-
-        "ping"
-        nil ; Keepalive ping - just receiving it keeps service worker alive
-
+        "ws-connect" (handle-ws-connect tab-id (.-port message))
+        "ws-send" (handle-ws-send tab-id (.-data message))
+        "ws-close" (handle-ws-close tab-id)
+        "ping" nil
         (js/console.log "[Background] Unknown message type:" msg-type)))
-
-    ;; Return false for synchronous response
     false))
 
 ;; Clean up when tab is closed

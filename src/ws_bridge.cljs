@@ -48,6 +48,7 @@
             (when (= (.-source event) js/window)
               (let [msg (.-data event)]
                 (when (and msg (= "browser-jack-in-bridge" (.-source msg)))
+                  (js/console.log "[WS Bridge] Received message type:" (.-type msg))
                   (case (.-type msg)
                     "ws-open"
                     (do
@@ -69,8 +70,9 @@
 
                     "ws-close"
                     (do
-                      (js/console.log "[WS Bridge] WebSocket CLOSED")
+                      (js/console.log "[WS Bridge] WebSocket CLOSED - updating readyState to 3")
                       (set! (.-readyState ws-obj) 3) ; CLOSED
+                      (js/console.log "[WS Bridge] window.ws_nrepl.readyState is now:" (.-readyState js/window.ws_nrepl))
                       (when-let [onclose (.-onclose ws-obj)]
                         (onclose)))
 
