@@ -4,7 +4,10 @@ Changes to Browser Jack-in
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-01-01
+
 - Make the extension work in Safari
+
 
 ## [0.0.5] - 2026-01-01
 
