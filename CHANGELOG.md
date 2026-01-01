@@ -4,6 +4,8 @@ Changes to Browser Jack-in
 
 ## [Unreleased]
 
+- Make the extension work in Safari
+
 ## [0.0.5] - 2026-01-01
 
 - Stabilize the reconnect scenario
