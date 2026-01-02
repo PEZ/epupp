@@ -1,7 +1,7 @@
 # Userscripts Architecture
 
 **Created:** January 2, 2026
-**Status:** Planning
+**Status:** Implemented
 
 ## Overview
 
@@ -134,49 +134,33 @@ For scripts loaded from files or shared, support TamperMonkey-style header comme
 
 ## Permission Model
 
-### Current State
+### Implemented Approach
 
-```json
-"permissions": ["scripting", "activeTab", "storage"]
-```
-
-`activeTab` only grants access when user clicks the extension—perfect for manual "Connect REPL" but insufficient for auto-injection.
-
-### Runtime Permission Strategy
-
-Instead of requesting `<all_urls>` upfront (scary warning), request permissions incrementally:
-
-1. **Install time**: Minimal permissions (current)
-2. **Script save time**: Prompt for specific origins
-3. **Runtime**: Only inject on granted origins
-
-```javascript
-// When user saves a script for github.com:
-chrome.permissions.request({
-  origins: ["*://github.com/*"]
-}, (granted) => {
-  if (granted) {
-    // Save to granted-origins list
-    // Enable auto-injection for this pattern
-  }
-});
-```
-
-**Benefits:**
-- User understands *why* permission is needed (they just saved a script)
-- No scary "all websites" warning at install
-- Permissions can be revoked per-origin
-
-### Required Manifest Changes
+We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScript` requires host permissions to be declared at install time (not optional). The user controls access via Chrome's "Site access" setting:
 
 ```json
 {
   "permissions": ["scripting", "activeTab", "storage", "webNavigation"],
-  "optional_host_permissions": ["<all_urls>"]
+  "host_permissions": ["<all_urls>"]
 }
 ```
 
-The `optional_host_permissions` allows runtime requests without granting anything at install.
+**How it works:**
+1. Extension installs with permission to request all URLs
+2. Chrome shows "On all sites" toggle in extension settings
+3. We check `chrome.permissions.contains({origins: ["<all_urls>"]})` before auto-injection
+4. If not granted, scripts don't auto-run (user can still manually connect via popup)
+
+**Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality. The alternative (`optional_host_permissions`) doesn't work with `scripting.executeScript`.
+
+### Why Not Runtime Permission Prompts?
+
+Original plan was to request permissions per-origin when saving scripts. In practice:
+- `chrome.permissions.request()` requires a user gesture (can't call from background worker)
+- Chrome's built-in "Site access" UI is clearer than custom prompts
+- Users understand "this extension needs site access to run scripts"
+
+The `granted-origins` storage key is retained for potential future use (per-origin opt-out) but currently unused.
 
 ## Auto-Injection Flow
 
@@ -186,32 +170,36 @@ flowchart TD
     WN --> F1{"frameId !== 0?"}
     F1 -->|Yes| IGN[Ignore - only main frame]
     F1 -->|No| GU[Get URL from details.url]
-    GU --> LS[Load scripts from chrome.storage.local]
-    LS --> FI["Filter: enabled && match patterns include URL"]
-    FI --> F2{"No matches?"}
-    F2 -->|Yes| DONE1[Done]
-    F2 -->|No| CP[Check chrome.permissions.contains for origin]
-    CP --> F3{"Not granted?"}
-    F3 -->|Yes| SKIP["Skip (user revoked or never granted)"]
-    F3 -->|No| INJ["Inject Scittle + ws-bridge\n(if not already present)"]
-    INJ --> EXEC[Execute each matching script's code via Scittle]
+    GU --> CP["Check chrome.permissions.contains\nfor <all_urls>"]
+    CP --> F2{"Not granted?"}
+    F2 -->|Yes| SKIP["Skip auto-injection\n(user can still connect manually)"]
+    F2 -->|No| LS[Load scripts from storage atom]
+    LS --> FI["Filter: enabled && url-matches-pattern?"]
+    FI --> F3{"No matches?"}
+    F3 -->|Yes| DONE1[Done]
+    F3 -->|No| INJ["Inject Scittle + ws-bridge\n(ensure-scittle!)"]
+    INJ --> EXEC["Execute each script's code\nvia scittle.core.eval_string"]
 ```
 
 ## UI Distribution
 
 ### Popup (Lightweight Management)
 
-- List all scripts with enable/disable toggles
-- "New Script" button → opens DevTools panel or prompts
-- Status indicators (which scripts active on current tab)
-- Quick access to settings
+- List all scripts with enable/disable toggles and delete buttons
+- Scripts matching current tab URL highlighted with green border
+- Connection status and REPL connect workflow (unchanged from before)
+- Port configuration for browser-nrepl
 
 ### DevTools Panel (Development Focus)
 
-- Simple textarea + Eval button for quick testing
-- "Save as Script" button → prompts for name, match patterns
-- View/edit scripts matching current page
-- REPL output display
+- Simple textarea + Eval button (Ctrl+Enter shortcut)
+- Results display with input echo, output, and errors
+- **Save as Script** section:
+  - Name input field
+  - URL pattern field with **↵ button** to auto-fill from current page
+  - Save button (disabled until all fields filled)
+  - Success/error feedback
+- Dark theme matching DevTools aesthetic
 
 ### Why Not a Dashboard Tab?
 
@@ -246,3 +234,15 @@ A popup + DevTools panel covers these needs without a separate dashboard.
 - [docs/dev.md](../../docs/dev.md) - Development setup
 - [.github/copilot-instructions.md](../../.github/copilot-instructions.md) - Architecture details
 - [userscripts-implementation-plan.md](./userscripts-implementation-plan.md) - Implementation steps
+
+## Implementation Files
+
+| File | Purpose |
+|------|---------|
+| `src/storage.cljs` | Script CRUD, atom-mirror pattern, `chrome.storage.local` |
+| `src/url_matching.cljs` | Glob pattern → regex conversion, URL matching |
+| `src/permissions.cljs` | Permission checking helpers |
+| `src/panel.cljs` | DevTools panel UI with eval and save |
+| `src/devtools.cljs` | DevTools entry point (registers panel) |
+| `src/popup.cljs` | Script list UI, toggle/delete handlers |
+| `src/background.cljs` | Auto-injection via `webNavigation.onCompleted` |

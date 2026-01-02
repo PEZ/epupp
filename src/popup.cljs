@@ -293,7 +293,8 @@
                   :script/code (.-code s)
                   :script/enabled (.-enabled s)
                   :script/created (.-created s)
-                  :script/modified (.-modified s)})))
+                  :script/modified (.-modified s)
+                  :script/approved-patterns (vec (or (.-approvedPatterns s) #js []))})))
     []))
 
 (defn- load-scripts! []
@@ -310,20 +311,84 @@
        :code (:script/code script)
        :enabled (:script/enabled script)
        :created (:script/created script)
-       :modified (:script/modified script)})
+       :modified (:script/modified script)
+       :approvedPatterns (clj->js (:script/approved-patterns script))})
+
+(defn- get-matching-pattern
+  "Find which pattern matches the URL for a script"
+  [url script]
+  (when url
+    (some #(when (url-matches-pattern? url %) %) (:script/match script))))
+
+(defn- pattern-approved?
+  "Check if a pattern is in the script's approved list"
+  [script pattern]
+  (some #(= % pattern) (:script/approved-patterns script)))
 
 (defn- save-scripts! [scripts]
   (js/chrome.storage.local.set
    #js {:scripts (clj->js (mapv script->js scripts))}))
 
-(defn- toggle-script! [script-id]
+(defn- toggle-script!
+  "Toggle enabled state. When disabling, also remove matching pattern from approved list."
+  [script-id matching-pattern]
   (swap! !state update :scripts/list
          (fn [scripts]
-           (let [updated (mapv #(if (= (:script/id %) script-id)
-                                  (update % :script/enabled not)
-                                  %)
+           (let [updated (mapv (fn [s]
+                                 (if (= (:script/id s) script-id)
+                                   (let [new-enabled (not (:script/enabled s))]
+                                     (if new-enabled
+                                       ;; Enabling - just flip the flag (will need approval)
+                                       (assoc s :script/enabled true)
+                                       ;; Disabling - also remove pattern from approved
+                                       (-> s
+                                           (assoc :script/enabled false)
+                                           (update :script/approved-patterns
+                                                   (fn [patterns]
+                                                     (filterv #(not= % matching-pattern) (or patterns [])))))))
+                                   s))
                                scripts)]
              (save-scripts! updated)
+             ;; Notify background to update badge
+             (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
+             updated))))
+
+(defn- approve-script!
+  "Approve a pattern for a script and notify background to execute it"
+  [script-id pattern]
+  (swap! !state update :scripts/list
+         (fn [scripts]
+           (let [updated (mapv (fn [s]
+                                 (if (= (:script/id s) script-id)
+                                   (update s :script/approved-patterns
+                                           (fn [patterns]
+                                             (let [patterns (or patterns [])]
+                                               (if (some #(= % pattern) patterns)
+                                                 patterns
+                                                 (conj patterns pattern)))))
+                                   s))
+                               scripts)]
+             (save-scripts! updated)
+             ;; Notify background to clear pending and execute
+             (js/chrome.runtime.sendMessage
+              #js {:type "pattern-approved"
+                   :scriptId script-id
+                   :pattern pattern})
+             updated))))
+
+(defn- deny-script!
+  "Deny a script by disabling it"
+  [script-id]
+  (swap! !state update :scripts/list
+         (fn [scripts]
+           (let [updated (mapv (fn [s]
+                                 (if (= (:script/id s) script-id)
+                                   (assoc s :script/enabled false)
+                                   s))
+                               scripts)]
+             (save-scripts! updated)
+             ;; Notify background to clear pending
+             (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
              updated))))
 
 (defn- delete-script! [script-id]
@@ -402,8 +467,8 @@
     (load-scripts!)
 
     :toggle-script
-    (let [[script-id] args]
-      (toggle-script! script-id))
+    (let [[script-id matching-pattern] args]
+      (toggle-script! script-id matching-pattern))
 
     :delete-script
     (let [[script-id] args]
@@ -414,6 +479,14 @@
     (-> (get-active-tab)
         (.then (fn [tab]
                  (swap! !state assoc :scripts/current-url (.-url tab)))))
+
+    :approve-script
+    (let [[script-id pattern] args]
+      (approve-script! script-id pattern))
+
+    :deny-script
+    (let [[script-id] args]
+      (deny-script! script-id))
 
     (js/console.warn "Unknown action:" action)))
 
@@ -452,18 +525,34 @@
    [:button.copy-btn {:on-click #(dispatch! [:copy-command])}
     (or copy-feedback "Copy")]])
 
-(defn script-item [{:keys [script/id script/name script/match script/enabled]} current-url]
-  (let [matches-current (and current-url (some #(url-matches-pattern? current-url %) match))]
-    [:div.script-item {:class (when matches-current "script-item-active")}
+(defn script-item [{:keys [script/name script/match script/enabled] :as script}
+                   current-url]
+  (let [script-id (:script/id script)
+        matching-pattern (get-matching-pattern current-url script)
+        matches-current (some? matching-pattern)
+        needs-approval (and matches-current
+                            enabled
+                            (not (pattern-approved? script matching-pattern)))
+        pattern-display (or matching-pattern (first match))]
+    [:div.script-item {:class (str (when matches-current "script-item-active ")
+                                   (when needs-approval "script-item-approval"))}
      [:div.script-info
       [:span.script-name name]
-      [:span.script-match (first match)]]
+      [:span.script-match pattern-display]]
      [:div.script-actions
+      ;; Show approval buttons when script matches current URL but pattern not approved
+      (when needs-approval
+        [:button.approval-allow {:on-click #(dispatch! [:approve-script script-id matching-pattern])}
+         "Allow"])
+      (when needs-approval
+        [:button.approval-deny {:on-click #(dispatch! [:deny-script script-id])}
+         "Deny"])
+      ;; Always show checkbox and delete
       [:input {:type "checkbox"
                :checked enabled
                :title (if enabled "Enabled" "Disabled")
-               :on-change #(dispatch! [:toggle-script id])}]
-      [:button.script-delete {:on-click #(dispatch! [:delete-script id])
+               :on-change #(dispatch! [:toggle-script script-id matching-pattern])}]
+      [:button.script-delete {:on-click #(dispatch! [:delete-script script-id])
                               :title "Delete script"}
        "×"]]]))
 

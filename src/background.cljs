@@ -3,8 +3,10 @@
    Runs in extension context, immune to page CSP.
    Relays WebSocket messages to/from content scripts."
   (:require [storage :as storage]
-            [url-matching :as url-matching]
-            [permissions :as permissions]))
+            [url-matching :as url-matching]))
+
+(declare get-pending-approvals handle-approval! recalculate-pending-approvals!
+         clear-pending-approval! get-active-tab-id ensure-scittle! execute-scripts!)
 
 (js/console.log "[Browser Jack-in Background] Service worker started")
 
@@ -62,7 +64,7 @@
 
         (set! (.-onerror ws)
               (fn [error]
-                (js/console.error "[Background] WebSocket error for tab:" tab-id)
+                (js/console.error "[Background] WebSocket error for tab:" tab-id error)
                 (send-to-tab tab-id {:type "ws-error"
                                      :error (str "WebSocket error connecting to " ws-url)})))
 
@@ -90,18 +92,50 @@
   [tab-id]
   (close-ws! tab-id))
 
-;; Listen for messages from content scripts
+;; Listen for messages from content scripts and popup
 (.addListener js/chrome.runtime.onMessage
-  (fn [message sender _send-response]
-    (let [tab-id (.. sender -tab -id)
+  (fn [message sender send-response]
+    (let [tab-id (when (.-tab sender) (.. sender -tab -id))
           msg-type (.-type message)]
       (case msg-type
-        "ws-connect" (handle-ws-connect tab-id (.-port message))
-        "ws-send" (handle-ws-send tab-id (.-data message))
-        "ws-close" (handle-ws-close tab-id)
-        "ping" nil
-        (js/console.log "[Background] Unknown message type:" msg-type)))
-    false))
+        ;; Content script messages
+        "ws-connect" (do (handle-ws-connect tab-id (.-port message)) false)
+        "ws-send" (do (handle-ws-send tab-id (.-data message)) false)
+        "ws-close" (do (handle-ws-close tab-id) false)
+        "ping" false
+        ;; Popup messages
+        "refresh-approvals"
+        (do
+          ;; Reload scripts from storage and recalculate pending
+          (storage/load!)
+          (recalculate-pending-approvals!)
+          false)
+        "pattern-approved"
+        (do
+          ;; Clear this script from pending and execute it
+          (let [script-id (.-scriptId message)
+                pattern (.-pattern message)]
+            (clear-pending-approval! script-id pattern)
+            ;; Execute the script now
+            (when-let [script (storage/get-script script-id)]
+              (-> (get-active-tab-id)
+                  (.then (fn [active-tab-id]
+                           (when active-tab-id
+                             (-> (ensure-scittle! active-tab-id)
+                                 (.then (fn [_]
+                                          (execute-scripts! active-tab-id [script])))))))))
+            false))
+        ;; Legacy - keep for now
+        "get-pending-approvals"
+        (do (send-response (clj->js (get-pending-approvals)))
+            true)
+        "handle-approval"
+        (do (handle-approval! (.-approvalId message) (.-approved message))
+            (send-response #js {:ok true})
+            true)
+        ;; Unknown
+        (do (js/console.log "[Background] Unknown message type:" msg-type)
+            false)))))
 
 ;; Clean up when tab is closed
 (.addListener js/chrome.tabs.onRemoved
@@ -221,36 +255,139 @@
 (defn execute-scripts!
   "Execute a list of scripts in the page via Scittle"
   [tab-id scripts]
-  (js/Promise.all
-   (clj->js
-    (map (fn [script]
-           (-> (execute-in-page tab-id eval-cljs-fn (:script/code script))
-               (.then (fn [result]
-                        (js/console.log "[Userscript]" (:script/name script)
-                                        (if (.-success result) "✓" "✗"))
-                        result))
-               (.catch (fn [err]
-                         (js/console.error "[Userscript]" (:script/name script) "error:" err)
-                         {:success false :error (.-message err)}))))
-         scripts))))
+  (when (seq scripts)
+    (js/Promise.all
+     (clj->js
+      (map (fn [script]
+             (-> (execute-in-page tab-id eval-cljs-fn (:script/code script))
+                 (.then (fn [result]
+                          (js/console.log "[Userscript]" (:script/name script)
+                                          (if (.-success result) "✓" "✗"))
+                          result))
+                 (.catch (fn [err]
+                           (js/console.error "[Userscript]" (:script/name script) "error:" err)
+                           {:success false :error (.-message err)}))))
+           scripts)))))
+
+(defonce !pending-approvals (atom {}))
+
+(defn update-badge!
+  "Update the extension badge to show pending approval count"
+  []
+  (let [count (count @!pending-approvals)]
+    (if (pos? count)
+      (do
+        (js/chrome.action.setBadgeText #js {:text (str count)})
+        (js/chrome.action.setBadgeBackgroundColor #js {:color "#f59e0b"}))
+      (js/chrome.action.setBadgeText #js {:text ""}))))
+
+(defn request-approval!
+  "Add script to pending approvals and update badge.
+   Uses script-id + pattern as key to prevent duplicates on page reload."
+  [script pattern tab-id _url]
+  (let [approval-id (str (:script/id script) "|" pattern)]
+    ;; Only add if not already pending
+    (when-not (get @!pending-approvals approval-id)
+      (swap! !pending-approvals assoc approval-id
+             {:approval/id approval-id
+              :script/id (:script/id script)
+              :script/name (:script/name script)
+              :script/code (:script/code script)
+              :approval/pattern pattern
+              :approval/tab-id tab-id})
+      (update-badge!)
+      (js/console.log "[Approval] Pending approval for" (:script/name script) "on pattern" pattern))))
+
+(defn get-pending-approvals
+  "Get all pending approvals as a vector for popup"
+  []
+  (let [approvals (vec (vals @!pending-approvals))]
+    (js/console.log "[Background] get-pending-approvals called, count:" (count approvals))
+    (js/console.log "[Background] approvals:" (clj->js approvals))
+    approvals))
+
+(defn get-active-tab-id
+  "Get the active tab ID. Returns a promise."
+  []
+  (js/Promise.
+   (fn [resolve _reject]
+     (js/chrome.tabs.query #js {:active true :currentWindow true}
+                           (fn [tabs]
+                             (resolve (when (seq tabs)
+                                        (.-id (first tabs)))))))))
+
+(defn clear-pending-approval!
+  "Remove a specific script/pattern from pending approvals"
+  [script-id pattern]
+  (let [approval-id (str script-id "|" pattern)]
+    (swap! !pending-approvals dissoc approval-id)
+    (update-badge!)))
+
+(defn recalculate-pending-approvals!
+  "Rebuild pending approvals based on current storage state.
+   Removes any approvals for patterns that are now approved."
+  []
+  (doseq [[approval-id context] @!pending-approvals]
+    (let [script-id (:script/id context)
+          pattern (:approval/pattern context)]
+      (when-let [script (storage/get-script script-id)]
+        (when (storage/pattern-approved? script pattern)
+          (swap! !pending-approvals dissoc approval-id)))))
+  (update-badge!))
+
+(defn handle-approval!
+  "Handle approval response from popup"
+  [approval-id approved?]
+  (when-let [context (get @!pending-approvals approval-id)]
+    (let [script-id (:script/id context)
+          script-name (:script/name context)
+          script-code (:script/code context)
+          pattern (:approval/pattern context)
+          tab-id (:approval/tab-id context)]
+      (swap! !pending-approvals dissoc approval-id)
+      (update-badge!)
+      (if approved?
+        (do
+          (js/console.log "[Approval] User approved" script-name "for" pattern)
+          (storage/approve-pattern! script-id pattern)
+          (-> (ensure-scittle! tab-id)
+              (.then (fn [_]
+                       (execute-scripts! tab-id
+                                         [{:script/id script-id
+                                           :script/name script-name
+                                           :script/code script-code}])))
+              (.catch (fn [err]
+                        (js/console.error "[Approval] Failed to execute after approval:" err)))))
+        (do
+          (js/console.log "[Approval] User denied" script-name "for" pattern)
+          (storage/toggle-script! script-id))))))
 
 (defn handle-navigation!
-  "Handle page navigation: find matching scripts and execute them.
-   Skips permission check - just tries to inject. Chrome's scripting API
-   will fail if we don't have access (respects Site Access settings)."
+  "Handle page navigation: find matching scripts, check approvals, execute or prompt.
+   Scripts with approved patterns run immediately; others trigger approval notifications."
   [tab-id url]
   (let [scripts (url-matching/get-matching-scripts url)]
     (when (seq scripts)
       (js/console.log "[Auto-inject] Found" (count scripts) "scripts for" url)
-      (-> (ensure-scittle! tab-id)
-          (.then (fn [_]
-                   (execute-scripts! tab-id scripts)))
-          (.then (fn [results]
-                   (js/console.log "[Auto-inject] Executed" (count results) "scripts")))
-          (.catch (fn [err]
-                   (js/console.error "[Auto-inject] Failed (may need Site Access permission):" (.-message err))))))))
+      (let [script-contexts (map (fn [script]
+                                   (let [pattern (url-matching/get-matching-pattern url script)]
+                                     {:script script
+                                      :pattern pattern
+                                      :approved? (storage/pattern-approved? script pattern)}))
+                                 scripts)
+            approved (filter :approved? script-contexts)
+            unapproved (remove :approved? script-contexts)]
+        (when (seq approved)
+          (js/console.log "[Auto-inject] Executing" (count approved) "approved scripts")
+          (-> (ensure-scittle! tab-id)
+              (.then (fn [_]
+                       (execute-scripts! tab-id (map :script approved))))
+              (.catch (fn [err]
+                        (js/console.error "[Auto-inject] Failed:" (.-message err))))))
+        (doseq [{:keys [script pattern]} unapproved]
+          (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
+          (request-approval! script pattern tab-id url))))))
 
-;; Listen for page navigation completion
 (.addListener js/chrome.webNavigation.onCompleted
   (fn [details]
     ;; Only handle main frame (not iframes)

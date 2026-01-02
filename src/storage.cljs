@@ -29,7 +29,8 @@
        :code (:script/code script)
        :enabled (:script/enabled script)
        :created (:script/created script)
-       :modified (:script/modified script)})
+       :modified (:script/modified script)
+       :approvedPatterns (clj->js (:script/approved-patterns script))})
 
 (defn- persist!
   "Write current !db state to chrome.storage.local"
@@ -55,7 +56,8 @@
                 :script/code (.-code s)
                 :script/enabled (.-enabled s)
                 :script/created (.-created s)
-                :script/modified (.-modified s)}))))
+                :script/modified (.-modified s)
+                :script/approved-patterns (js-arr->vec (.-approvedPatterns s))}))))
 
 (defn load!
   "Load scripts from chrome.storage.local into !db atom.
@@ -147,6 +149,28 @@
 ;; Granted Origins CRUD
 ;; ============================================================
 
+(defn approve-pattern!
+  "Add a pattern to a script's approved-patterns list"
+  [script-id pattern]
+  (swap! !db update :storage/scripts
+         (fn [scripts]
+           (mapv (fn [s]
+                   (if (= (:script/id s) script-id)
+                     (update s :script/approved-patterns
+                             (fn [patterns]
+                               (let [patterns (or patterns [])]
+                                 (if (some #(= % pattern) patterns)
+                                   patterns
+                                   (conj patterns pattern)))))
+                     s))
+                 scripts)))
+  (persist!))
+
+(defn pattern-approved?
+  "Check if a pattern is approved for a script"
+  [script pattern]
+  (some #(= % pattern) (:script/approved-patterns script)))
+
 (defn get-granted-origins
   "Get all granted origins"
   []
@@ -183,6 +207,8 @@
            :save_script_BANG_ save-script!
            :delete_script_BANG_ delete-script!
            :toggle_script_BANG_ toggle-script!
+           :approve_pattern_BANG_ approve-pattern!
+           :pattern_approved_QMARK_ pattern-approved?
            :get_granted_origins get-granted-origins
            :add_granted_origin_BANG_ add-granted-origin!
            :remove_granted_origin_BANG_ remove-granted-origin!})

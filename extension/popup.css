@@ -316,3 +316,54 @@ button#connect:active {
   border-radius: var(--radius);
   border: 1px dashed var(--border-light);
 }
+
+/* Pending approvals section */
+.approvals-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.approvals-section .step-header {
+  color: #b45309;
+}
+
+/* Approval mode styling for script items */
+.script-item-approval {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+
+.approval-allow {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--clojure-green);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.approval-allow:hover {
+  background: #7dc93a;
+  transform: translateY(-1px);
+}
+
+.approval-deny {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.approval-deny:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+}

@@ -1,13 +1,13 @@
 (ns url-matching
   "URL pattern matching for userscripts.
    Supports TamperMonkey/Greasemonkey-style match patterns.
-   
+
    Pattern syntax:
    - *://example.com/* - matches any scheme (http/https)
    - https://*.example.com/* - matches any subdomain
    - https://example.com/path/* - matches path prefix
    - <all_urls> - matches all URLs
-   
+
    Note: * matches any characters, ? is literal (not a wildcard)."
   (:require [storage :as storage]))
 
@@ -24,7 +24,7 @@
 
 (defn pattern->regex
   "Convert a match pattern to a RegExp.
-   
+
    Examples:
    - '*://github.com/*' -> matches http://github.com/... and https://github.com/...
    - 'https://*.example.com/*' -> matches any subdomain
@@ -34,12 +34,12 @@
     ;; Special pattern for all URLs
     (= pattern "<all_urls>")
     (js/RegExp. "^https?://.*$")
-    
+
     ;; Standard match pattern
     :else
     (let [;; First escape regex special chars (except *)
           escaped (escape-regex pattern)
-          ;; Then convert * to .* for wildcard matching  
+          ;; Then convert * to .* for wildcard matching
           with-wildcards (.replace escaped (js/RegExp. "\\*" "g") ".*")]
       (js/RegExp. (str "^" with-wildcards "$")))))
 
@@ -70,6 +70,13 @@
        (filter #(url-matches-any-pattern? url (:script/match %)))
        vec))
 
+(defn get-matching-pattern
+  "Find which pattern in a script matches the given URL"
+  [url script]
+  (->> (:script/match script)
+       (filter #(url-matches-pattern? url %))
+       first))
+
 (defn get-required-origins
   "Extract unique origin patterns from a list of scripts.
    Used to determine which permissions need to be requested."
@@ -88,4 +95,5 @@
            :url_matches_pattern_QMARK_ url-matches-pattern?
            :url_matches_any_pattern_QMARK_ url-matches-any-pattern?
            :get_matching_scripts get-matching-scripts
+           :get_matching_pattern get-matching-pattern
            :get_required_origins get-required-origins})
