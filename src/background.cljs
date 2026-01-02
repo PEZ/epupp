@@ -1,9 +1,13 @@
 (ns background
   "Background service worker for WebSocket connections.
    Runs in extension context, immune to page CSP.
-   Relays WebSocket messages to/from content scripts.")
+   Relays WebSocket messages to/from content scripts."
+  (:require [storage :as storage]))
 
 (js/console.log "[Browser Jack-in Background] Service worker started")
+
+;; Initialize script storage
+(storage/init!)
 
 ;; Centralized state with namespaced keys
 (def !state (atom {:ws/connections {}}))
