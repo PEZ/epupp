@@ -3,7 +3,11 @@
   "permissions": [
     "scripting",
     "activeTab",
-    "storage"
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "name": "Browser Jack-in",
   "background": {
