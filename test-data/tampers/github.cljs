@@ -8,8 +8,8 @@
 
   (swap! !db assoc :db/bar 42)
 
-  ;; Basic checks
   (js/console.log "hello")
+  (js/console.log "Hello from:" js/window.location.href)
   js/window.navigator.appCodeName
 
   ;; What page are we on?
