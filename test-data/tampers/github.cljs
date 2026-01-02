@@ -1,6 +1,13 @@
 (ns tampers.github)
 
+(defonce !db (atom {:db/foo "bar"}))
+
 (comment
+
+  @!db
+
+  (swap! !db assoc :db/bar 42)
+
   ;; Basic checks
   (js/console.log "hello")
   js/window.navigator.appCodeName
