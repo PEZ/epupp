@@ -1,12 +1,16 @@
 (ns panel
   "DevTools panel for live ClojureScript evaluation.
    Communicates with inspected page via chrome.devtools.inspectedWindow."
-  (:require [reagami :as r]))
+  (:require [reagami :as r]
+            [storage :as storage]))
 
 (defonce !state
   (atom {:panel/results []
          :panel/code ""
-         :panel/evaluating? false}))
+         :panel/evaluating? false
+         :panel/script-name ""
+         :panel/script-match ""
+         :panel/save-status nil}))
 
 ;; ============================================================
 ;; Evaluation via inspectedWindow
@@ -45,6 +49,14 @@
     (let [[code] args]
       (swap! !state assoc :panel/code code))
 
+    :set-script-name
+    (let [[name] args]
+      (swap! !state assoc :panel/script-name name))
+
+    :set-script-match
+    (let [[match] args]
+      (swap! !state assoc :panel/script-match match))
+
     :eval
     (let [code (:panel/code @!state)]
       (when (and (seq code) (not (:panel/evaluating? @!state)))
@@ -58,11 +70,39 @@
              (swap! !state update :panel/results conj {:type :error :text (:error result)})
              (swap! !state update :panel/results conj {:type :output :text (:result result)}))))))
 
+    :save-script
+    (let [{:panel/keys [code script-name script-match]} @!state]
+      (if (or (empty? code) (empty? script-name) (empty? script-match))
+        (swap! !state assoc :panel/save-status {:type :error :text "Name, match pattern, and code are required"})
+        (let [script-id (str "script-" (.now js/Date))
+              script {:script/id script-id
+                      :script/name script-name
+                      :script/match [script-match]
+                      :script/code code
+                      :script/enabled true}]
+          (storage/save-script! script)
+          (swap! !state assoc
+                 :panel/save-status {:type :success :text (str "Saved \"" script-name "\"")}
+                 :panel/script-name ""
+                 :panel/script-match "")
+          ;; Clear status after 3 seconds
+          (js/setTimeout #(swap! !state assoc :panel/save-status nil) 3000))))
+
     :clear-results
     (swap! !state assoc :panel/results [])
 
     :clear-code
     (swap! !state assoc :panel/code "")
+
+    :use-current-url
+    (js/chrome.devtools.inspectedWindow.eval
+     "window.location.href"
+     (fn [url _exception]
+       (when url
+         ;; Convert URL to a match pattern (e.g., https://github.com/* )
+         (let [parsed (js/URL. url)
+               pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
+           (swap! !state assoc :panel/script-match pattern)))))
 
     (js/console.warn "Unknown action:" action)))
 
@@ -76,12 +116,12 @@
     [:div.result-item.result-input
      [:div.result-label "Input"]
      text]
-    
+
     :output
     [:div.result-item.result-output
      [:div.result-label "Result"]
      text]
-    
+
     :error
     [:div.result-item.result-error
      [:div.result-label "Error"]
@@ -104,10 +144,10 @@
                :disabled evaluating?
                :on-input (fn [e] (dispatch! [:set-code (.. e -target -value)]))
                :on-keydown (fn [e]
-                            (when (and (or (.-ctrlKey e) (.-metaKey e))
-                                       (= "Enter" (.-key e)))
-                              (.preventDefault e)
-                              (dispatch! [:eval])))}]
+                             (when (and (or (.-ctrlKey e) (.-metaKey e))
+                                        (= "Enter" (.-key e)))
+                               (.preventDefault e)
+                               (dispatch! [:eval])))}]
    [:div.code-actions
     [:button.btn-eval {:on-click #(dispatch! [:eval])
                        :disabled (or evaluating? (empty? code))}
@@ -115,6 +155,36 @@
     [:button.btn-clear {:on-click #(dispatch! [:clear-results])}
      "Clear"]
     [:span.shortcut-hint "Ctrl+Enter to eval"]]])
+
+(defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status]}]
+  [:div.save-script-section
+   [:div.save-script-header "Save as Userscript"]
+   [:div.save-script-form
+    [:div.save-field
+     [:label {:for "script-name"} "Name"]
+     [:input {:type "text"
+              :id "script-name"
+              :value script-name
+              :placeholder "My Script"
+              :on-input (fn [e] (dispatch! [:set-script-name (.. e -target -value)]))}]]
+    [:div.save-field
+     [:label {:for "script-match"} "URL Pattern"]
+     [:div.match-input-group
+      [:input {:type "text"
+               :id "script-match"
+               :value script-match
+               :placeholder "https://example.com/*"
+               :on-input (fn [e] (dispatch! [:set-script-match (.. e -target -value)]))}]
+      [:button.btn-use-url {:on-click #(dispatch! [:use-current-url])
+                            :title "Use current page URL"}
+       "↵"]]]
+    [:div.save-actions
+     [:button.btn-save {:on-click #(dispatch! [:save-script])
+                        :disabled (or (empty? code) (empty? script-name) (empty? script-match))}
+      "Save Script"]
+     (when save-status
+       [:span {:class (str "save-status save-status-" (name (:type save-status)))}
+        (:text save-status)])]]])
 
 (defn panel-header []
   [:div.panel-header
@@ -128,6 +198,7 @@
    [panel-header]
    [:div.panel-content
     [code-input state]
+    [save-script-section state]
     [results-area state]]])
 
 ;; ============================================================

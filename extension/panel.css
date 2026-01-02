@@ -226,3 +226,127 @@ body {
 .empty-results-text {
   font-size: 13px;
 }
+
+/* Save Script Section */
+.save-script-section {
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.save-script-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.save-script-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.save-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.save-field label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.save-field input {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+}
+
+.save-field input:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+}
+
+.save-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.match-input-group {
+  display: flex;
+  gap: 4px;
+}
+
+.match-input-group input {
+  flex: 1;
+}
+
+.btn-use-url {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.btn-use-url:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.save-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-save {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--clojure-green);
+  color: #1e1e1e;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-save:hover {
+  background: #82cd3a;
+}
+
+.btn-save:disabled {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.save-status {
+  font-size: 11px;
+  animation: fadeIn 0.2s ease;
+}
+
+.save-status-success {
+  color: var(--success);
+}
+
+.save-status-error {
+  color: var(--error);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
