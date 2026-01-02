@@ -1,0 +1,228 @@
+:root {
+  --clojure-blue: #5881d8;
+  --clojure-green: #91dc47;
+  --text-primary: #e8e8e8;
+  --text-secondary: #a0a0a0;
+  --text-muted: #707070;
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-input: #2d2d2d;
+  --border-color: #3c3c3c;
+  --radius: 4px;
+  --success: #4ec9b0;
+  --error: #f14c4c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title img {
+  width: 20px;
+  height: 20px;
+}
+
+.panel-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.panel-status.connected {
+  color: var(--success);
+}
+
+/* Main content area */
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Code input area */
+.code-input-area {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.code-input-area textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+
+.code-input-area textarea:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+}
+
+.code-input-area textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.code-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.code-actions button {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.btn-eval {
+  background: var(--clojure-blue);
+  color: white;
+}
+
+.btn-eval:hover {
+  background: #4a71c4;
+}
+
+.btn-eval:disabled {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-clear {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-clear:hover {
+  background: var(--border-color);
+}
+
+.shortcut-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Results area */
+.results-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.result-item {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.result-input {
+  background: var(--bg-input);
+  border-left: 3px solid var(--clojure-blue);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-output {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--success);
+  color: var(--success);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-error {
+  background: #2d1f1f;
+  border-left: 3px solid var(--error);
+  color: var(--error);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+/* Empty state */
+.empty-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-results-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-results-text {
+  font-size: 13px;
+}

@@ -50,12 +50,17 @@
   (doseq [[name entry] [["popup" "extension/popup.mjs"]
                         ["content-bridge" "extension/content_bridge.mjs"]
                         ["ws-bridge" "extension/ws_bridge.mjs"]
-                        ["background" "extension/background.mjs"]]]
+                        ["background" "extension/background.mjs"]
+                        ["devtools" "extension/devtools.mjs"]
+                        ["panel" "extension/panel.mjs"]]]
     (println (str "  Bundling " name ".js..."))
     (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
   ;; Copy static files
   (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
   (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
+  (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
+  (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
+  (fs/copy "extension/panel.css" "build/panel.css" {:replace-existing true})
   (println "✓ Squint + esbuild compilation complete"))
 
 (defn- adjust-manifest
@@ -113,11 +118,26 @@
                  {:replace-existing true})
         (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")
                  {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.html") (str browser-dir "/devtools.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.js") (str browser-dir "/devtools.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.html") (str browser-dir "/panel.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.js") (str browser-dir "/panel.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.css") (str browser-dir "/panel.css")
+                 {:replace-existing true})
         ;; Remove intermediate .mjs files (keep only bundled .js)
         (fs/delete-if-exists (str browser-dir "/popup.mjs"))
         (fs/delete-if-exists (str browser-dir "/content_bridge.mjs"))
         (fs/delete-if-exists (str browser-dir "/ws_bridge.mjs"))
         (fs/delete-if-exists (str browser-dir "/background.mjs"))
+        (fs/delete-if-exists (str browser-dir "/devtools.mjs"))
+        (fs/delete-if-exists (str browser-dir "/panel.mjs"))
+        (fs/delete-if-exists (str browser-dir "/storage.mjs"))
+        (fs/delete-if-exists (str browser-dir "/url_matching.mjs"))
+        (fs/delete-if-exists (str browser-dir "/permissions.mjs"))
 
         ;; Adjust manifest
         (let [manifest-path (str browser-dir "/manifest.json")

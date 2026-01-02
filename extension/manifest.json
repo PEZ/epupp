@@ -9,6 +9,7 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "devtools_page": "devtools.html",
   "name": "Browser Jack-in",
   "background": {
     "service_worker": "background.js"
