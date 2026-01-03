@@ -482,6 +482,18 @@
       (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
+    :popup/fx.edit-script
+    (let [[script] args]
+      ;; Store script for panel to pick up
+      (js/chrome.storage.local.set
+       #js {:editingScript #js {:id (:script/id script)
+                                :name (:script/name script)
+                                :match (first (:script/match script))
+                                :code (:script/code script)}})
+      ;; Show user hint
+      (dispatch [[:db/ax.assoc :ui/status "Open DevTools panel to edit"]
+                 [:uf/ax.defer-dispatch [[:db/ax.assoc :ui/status nil]] 3000]]))
+
     :popup/fx.load-current-url
     (-> (get-active-tab)
         (.then (fn [tab]
@@ -544,6 +556,12 @@
           scripts (:scripts/list state)]
       {:uf/fxs [[:popup/fx.deny-script scripts script-id]]})
 
+    :popup/ax.edit-script
+    (let [[script-id] args
+          script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
+      (when script
+        {:uf/fxs [[:popup/fx.edit-script script]]}))
+
     :uf/unhandled-ax))
 
 (defn dispatch! [actions]
@@ -605,6 +623,10 @@
       (when needs-approval
         [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
          "Deny"])
+      ;; Edit button to load script in DevTools panel
+      [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
+                            :title "Edit in DevTools panel"}
+       "✎"]
       ;; Always show checkbox and delete
       [:input {:type "checkbox"
                :checked enabled

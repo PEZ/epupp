@@ -307,6 +307,22 @@ button#connect:active {
   color: #dc2626;
 }
 
+.script-edit {
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.script-edit:hover {
+  background: #dbeafe;
+  color: var(--clojure-blue);
+}
+
 .no-scripts {
   padding: 16px;
   text-align: center;

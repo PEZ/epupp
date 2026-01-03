@@ -11,6 +11,7 @@
          :panel/evaluating? false
          :panel/script-name ""
          :panel/script-match ""
+         :panel/script-id nil  ; non-nil when editing existing script
          :panel/save-status nil}))
 
 ;; ============================================================
@@ -70,6 +71,20 @@
                  pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
              (dispatch [(conj action pattern)]))))))
 
+    :editor/fx.check-editing-script
+    (js/chrome.storage.local.get
+     #js ["editingScript"]
+     (fn [result]
+       (when-let [script (.-editingScript result)]
+         ;; Load script into editor
+         (dispatch [[:editor/ax.load-script-for-editing
+                     (.-id script)
+                     (.-name script)
+                     (.-match script)
+                     (.-code script)]])
+         ;; Clear the flag so we don't reload on next panel open
+         (js/chrome.storage.local.remove "editingScript"))))
+
     :uf/unhandled-fx))
 
 (defn handle-action [state uf-data [action & args]]
@@ -102,11 +117,12 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match]} state]
+    (let [{:panel/keys [code script-name script-match script-id]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
-        (let [script-id (str "script-" (:system/now uf-data))
-              script {:script/id script-id
+        (let [;; Use existing id if editing, otherwise generate new
+              id (or script-id (str "script-" (:system/now uf-data)))
+              script {:script/id id
                       :script/name script-name
                       :script/match [script-match]
                       :script/code code
@@ -116,7 +132,16 @@
            :uf/db (assoc state
                          :panel/save-status {:type :success :text (str "Saved \"" script-name "\"")}
                          :panel/script-name ""
-                         :panel/script-match "")})))
+                         :panel/script-match ""
+                         :panel/script-id nil)})))
+
+    :editor/ax.load-script-for-editing
+    (let [[id name match code] args]
+      {:uf/db (assoc state
+                     :panel/script-id id
+                     :panel/script-name name
+                     :panel/script-match match
+                     :panel/code code)})
 
     :editor/ax.clear-results
     {:uf/db (assoc state :panel/results [])}
@@ -126,6 +151,9 @@
 
     :editor/ax.use-current-url
     {:uf/fxs [[:editor/fx.use-current-url [:db/ax.assoc :panel/script-match]]]}
+
+    :editor/ax.check-editing-script
+    {:uf/fxs [[:editor/fx.check-editing-script]]}
 
     :uf/unhandled-ax))
 
@@ -182,9 +210,9 @@
      "Clear"]
     [:span.shortcut-hint "Ctrl+Enter to eval"]]])
 
-(defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status]}]
+(defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status panel/script-id]}]
   [:div.save-script-section
-   [:div.save-script-header "Save as Userscript"]
+   [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
    [:div.save-script-form
     [:div.save-field
      [:label {:for "script-name"} "Name"]
@@ -244,7 +272,15 @@
       (.then (fn [_]
                (js/console.log "[Panel] Storage loaded")
                (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
-               (render!)))))
+               (render!)
+               ;; Check if there's a script to edit
+               (dispatch! [[:editor/ax.check-editing-script]])))))
+
+;; Listen for storage changes (when popup sets editingScript)
+(js/chrome.storage.onChanged.addListener
+ (fn [changes _area]
+   (when (.-editingScript changes)
+     (dispatch! [[:editor/ax.check-editing-script]]))))
 
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
