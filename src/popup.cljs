@@ -298,13 +298,6 @@
                   :script/approved-patterns (vec (or (.-approvedPatterns s) #js []))})))
     []))
 
-(defn- load-scripts! []
-  (js/chrome.storage.local.get
-   #js ["scripts"]
-   (fn [result]
-     (let [scripts (parse-scripts (.-scripts result))]
-       (swap! !state assoc :scripts/list scripts)))))
-
 (defn- script->js [script]
   #js {:id (:script/id script)
        :name (:script/name script)
@@ -330,74 +323,78 @@
   (js/chrome.storage.local.set
    #js {:scripts (clj->js (mapv script->js scripts))}))
 
-(defn- toggle-script!
+;; ============================================================
+;; Pure script transformations (testable)
+;; ============================================================
+
+(defn toggle-script-in-list
   "Toggle enabled state. When disabling, also remove matching pattern from approved list."
-  [script-id matching-pattern]
-  (swap! !state update :scripts/list
-         (fn [scripts]
-           (let [updated (mapv (fn [s]
-                                 (if (= (:script/id s) script-id)
-                                   (let [new-enabled (not (:script/enabled s))]
-                                     (if new-enabled
-                                       ;; Enabling - just flip the flag (will need approval)
-                                       (assoc s :script/enabled true)
-                                       ;; Disabling - also remove pattern from approved
-                                       (-> s
-                                           (assoc :script/enabled false)
-                                           (update :script/approved-patterns
-                                                   (fn [patterns]
-                                                     (filterv #(not= % matching-pattern) (or patterns [])))))))
-                                   s))
-                               scripts)]
-             (save-scripts! updated)
-             ;; Notify background to update badge
-             (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
-             updated))))
+  [scripts script-id matching-pattern]
+  (mapv (fn [s]
+          (if (= (:script/id s) script-id)
+            (let [new-enabled (not (:script/enabled s))]
+              (if new-enabled
+                (assoc s :script/enabled true)
+                (-> s
+                    (assoc :script/enabled false)
+                    (update :script/approved-patterns
+                            (fn [patterns]
+                              (filterv #(not= % matching-pattern) (or patterns [])))))))
+            s))
+        scripts))
 
-(defn- approve-script!
-  "Approve a pattern for a script and notify background to execute it"
-  [script-id pattern]
-  (swap! !state update :scripts/list
-         (fn [scripts]
-           (let [updated (mapv (fn [s]
-                                 (if (= (:script/id s) script-id)
-                                   (update s :script/approved-patterns
-                                           (fn [patterns]
-                                             (let [patterns (or patterns [])]
-                                               (if (some #(= % pattern) patterns)
-                                                 patterns
-                                                 (conj patterns pattern)))))
-                                   s))
-                               scripts)]
-             (save-scripts! updated)
-             ;; Notify background to clear pending and execute
-             (js/chrome.runtime.sendMessage
-              #js {:type "pattern-approved"
-                   :scriptId script-id
-                   :pattern pattern})
-             updated))))
+(defn approve-pattern-in-list
+  "Add pattern to script's approved-patterns if not already present."
+  [scripts script-id pattern]
+  (mapv (fn [s]
+          (if (= (:script/id s) script-id)
+            (update s :script/approved-patterns
+                    (fn [patterns]
+                      (let [patterns (or patterns [])]
+                        (if (some #(= % pattern) patterns)
+                          patterns
+                          (conj patterns pattern)))))
+            s))
+        scripts))
 
-(defn- deny-script!
-  "Deny a script by disabling it"
-  [script-id]
-  (swap! !state update :scripts/list
-         (fn [scripts]
-           (let [updated (mapv (fn [s]
-                                 (if (= (:script/id s) script-id)
-                                   (assoc s :script/enabled false)
-                                   s))
-                               scripts)]
-             (save-scripts! updated)
-             ;; Notify background to clear pending
-             (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
-             updated))))
+(defn disable-script-in-list
+  "Disable a script by setting enabled to false."
+  [scripts script-id]
+  (mapv (fn [s]
+          (if (= (:script/id s) script-id)
+            (assoc s :script/enabled false)
+            s))
+        scripts))
 
-(defn- delete-script! [script-id]
-  (swap! !state update :scripts/list
-         (fn [scripts]
-           (let [updated (filterv #(not= (:script/id %) script-id) scripts)]
-             (save-scripts! updated)
-             updated))))
+(defn remove-script-from-list
+  "Remove script from list by id."
+  [scripts script-id]
+  (filterv #(not= (:script/id %) script-id) scripts))
+
+;; ============================================================
+;; Effect helpers (side-effecting, but factored for clarity)
+;; ============================================================
+
+(defn save-ports-to-storage!
+  "Persist port configuration to chrome.storage.local."
+  [{:keys [ports/nrepl ports/ws]}]
+  (-> (get-active-tab)
+      (.then (fn [tab]
+               (let [key (storage-key tab)]
+                 (js/chrome.storage.local.set
+                  (clj->js {key {:nreplPort nrepl :wsPort ws}})))))))
+
+(defn persist-and-notify-scripts!
+  "Save scripts to storage and notify background worker."
+  [scripts notify-type & {:keys [script-id pattern]}]
+  (save-scripts! scripts)
+  (case notify-type
+    :refresh (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
+    :approved (js/chrome.runtime.sendMessage
+               #js {:type "pattern-approved"
+                    :scriptId script-id
+                    :pattern pattern})
+    nil))
 
 ;; ============================================================
 ;; Uniflow Dispatch
@@ -406,12 +403,8 @@
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
     :popup/fx.save-ports
-    (-> (get-active-tab)
-        (.then (fn [tab]
-                 (let [key (storage-key tab)
-                       {:keys [ports/nrepl ports/ws]} @!state]
-                   (js/chrome.storage.local.set
-                    (clj->js {key {:nreplPort nrepl :wsPort ws}}))))))
+    (let [[ports] args]
+      (save-ports-to-storage! ports))
 
     :popup/fx.copy-command
     (let [[cmd] args]
@@ -426,19 +419,19 @@
           (.then (fn [tab] (connect-to-tab! dispatch (.-id tab) port)))))
 
     :popup/fx.check-status
-    (-> (get-active-tab)
-        (.then (fn [tab]
-                 (execute-in-page (.-id tab) check-status-fn)))
-        (.then (fn [result]
-                 (when result
-                   (let [has-scittle (.-hasScittle result)
-                         has-bridge (.-hasWsBridge result)
-                         ws-port (:ports/ws @!state)]
-                     (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
-                     (when (and has-scittle has-bridge)
-                       (dispatch [[:db/ax.assoc
-                                   :ui/has-connected true
-                                   :ui/status (str "Connected to ws://localhost:" ws-port)]])))))))
+    (let [[ws-port] args]
+      (-> (get-active-tab)
+          (.then (fn [tab]
+                   (execute-in-page (.-id tab) check-status-fn)))
+          (.then (fn [result]
+                   (when result
+                     (let [has-scittle (.-hasScittle result)
+                           has-bridge (.-hasWsBridge result)]
+                       (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
+                       (when (and has-scittle has-bridge)
+                         (dispatch [[:db/ax.assoc
+                                     :ui/has-connected true
+                                     :ui/status (str "Connected to ws://localhost:" ws-port)]]))))))))
 
     :popup/fx.load-saved-ports
     (-> (get-active-tab)
@@ -464,60 +457,26 @@
          (dispatch [[:db/ax.assoc :scripts/list scripts]]))))
 
     :popup/fx.toggle-script
-    (let [[script-id matching-pattern] args
-          scripts (:scripts/list @!state)
-          updated (mapv (fn [s]
-                          (if (= (:script/id s) script-id)
-                            (let [new-enabled (not (:script/enabled s))]
-                              (if new-enabled
-                                (assoc s :script/enabled true)
-                                (-> s
-                                    (assoc :script/enabled false)
-                                    (update :script/approved-patterns
-                                            (fn [patterns]
-                                              (filterv #(not= % matching-pattern) (or patterns [])))))))
-                            s))
-                        scripts)]
-      (save-scripts! updated)
-      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
+    (let [[scripts script-id matching-pattern] args
+          updated (toggle-script-in-list scripts script-id matching-pattern)]
+      (persist-and-notify-scripts! updated :refresh)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.approve-script
-    (let [[script-id pattern] args
-          scripts (:scripts/list @!state)
-          updated (mapv (fn [s]
-                          (if (= (:script/id s) script-id)
-                            (update s :script/approved-patterns
-                                    (fn [patterns]
-                                      (let [patterns (or patterns [])]
-                                        (if (some #(= % pattern) patterns)
-                                          patterns
-                                          (conj patterns pattern)))))
-                            s))
-                        scripts)]
-      (save-scripts! updated)
-      (js/chrome.runtime.sendMessage
-       #js {:type "pattern-approved"
-            :scriptId script-id
-            :pattern pattern})
+    (let [[scripts script-id pattern] args
+          updated (approve-pattern-in-list scripts script-id pattern)]
+      (persist-and-notify-scripts! updated :approved :script-id script-id :pattern pattern)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.deny-script
-    (let [[script-id] args
-          scripts (:scripts/list @!state)
-          updated (mapv (fn [s]
-                          (if (= (:script/id s) script-id)
-                            (assoc s :script/enabled false)
-                            s))
-                        scripts)]
-      (save-scripts! updated)
-      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
+    (let [[scripts script-id] args
+          updated (disable-script-in-list scripts script-id)]
+      (persist-and-notify-scripts! updated :refresh)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.delete-script
-    (let [[script-id] args
-          scripts (:scripts/list @!state)
-          updated (filterv #(not= (:script/id %) script-id) scripts)]
+    (let [[scripts script-id] args
+          updated (remove-script-from-list scripts script-id)]
       (save-scripts! updated)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
@@ -531,14 +490,16 @@
 (defn handle-action [state _uf-data [action & args]]
   (case action
     :popup/ax.set-nrepl-port
-    (let [[port] args]
-      {:uf/db (assoc state :ports/nrepl port)
-       :uf/fxs [[:popup/fx.save-ports]]})
+    (let [[port] args
+          new-state (assoc state :ports/nrepl port)]
+      {:uf/db new-state
+       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
 
     :popup/ax.set-ws-port
-    (let [[port] args]
-      {:uf/db (assoc state :ports/ws port)
-       :uf/fxs [[:popup/fx.save-ports]]})
+    (let [[port] args
+          new-state (assoc state :ports/ws port)]
+      {:uf/db new-state
+       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
 
     :popup/ax.copy-command
     {:uf/fxs [[:popup/fx.copy-command (generate-server-cmd state)]]}
@@ -550,7 +511,7 @@
          :uf/fxs [[:popup/fx.connect port]]}))
 
     :popup/ax.check-status
-    {:uf/fxs [[:popup/fx.check-status]]}
+    {:uf/fxs [[:popup/fx.check-status (:ports/ws state)]]}
 
     :popup/ax.load-saved-ports
     {:uf/fxs [[:popup/fx.load-saved-ports]]}
@@ -559,23 +520,27 @@
     {:uf/fxs [[:popup/fx.load-scripts]]}
 
     :popup/ax.toggle-script
-    (let [[script-id matching-pattern] args]
-      {:uf/fxs [[:popup/fx.toggle-script script-id matching-pattern]]})
+    (let [[script-id matching-pattern] args
+          scripts (:scripts/list state)]
+      {:uf/fxs [[:popup/fx.toggle-script scripts script-id matching-pattern]]})
 
     :popup/ax.delete-script
-    (let [[script-id] args]
-      {:uf/fxs [[:popup/fx.delete-script script-id]]})
+    (let [[script-id] args
+          scripts (:scripts/list state)]
+      {:uf/fxs [[:popup/fx.delete-script scripts script-id]]})
 
     :popup/ax.load-current-url
     {:uf/fxs [[:popup/fx.load-current-url]]}
 
     :popup/ax.approve-script
-    (let [[script-id pattern] args]
-      {:uf/fxs [[:popup/fx.approve-script script-id pattern]]})
+    (let [[script-id pattern] args
+          scripts (:scripts/list state)]
+      {:uf/fxs [[:popup/fx.approve-script scripts script-id pattern]]})
 
     :popup/ax.deny-script
-    (let [[script-id] args]
-      {:uf/fxs [[:popup/fx.deny-script script-id]]})
+    (let [[script-id] args
+          scripts (:scripts/list state)]
+      {:uf/fxs [[:popup/fx.deny-script scripts script-id]]})
 
     :uf/unhandled-ax))
 
@@ -643,7 +608,8 @@
                :checked enabled
                :title (if enabled "Enabled" "Disabled")
                :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
-      [:button.script-delete {:on-click #(dispatch! [[:popup/ax.delete-script script-id]])
+      [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
+                                            (dispatch! [[:popup/ax.delete-script script-id]]))
                               :title "Delete script"}
        "×"]]]))
 
