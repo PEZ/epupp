@@ -323,6 +323,15 @@ button#connect:active {
   color: var(--clojure-blue);
 }
 
+.script-edit-hint {
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--clojure-blue);
+  background: #eff6ff;
+  margin: -1px 0 0 0;
+}
+
 .no-scripts {
   padding: 16px;
   text-align: center;

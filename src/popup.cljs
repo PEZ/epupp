@@ -2,7 +2,8 @@
   "Browser Jack-in extension popup - built with Squint + Reagami
    Inspired by Replicant tic-tac-toe state management pattern"
   (:require [reagami :as r]
-            [event-handler :as event-handler]))
+            [event-handler :as event-handler]
+            [icons :as icons]))
 
 (defonce !state
   (atom {:ports/nrepl "1339"
@@ -10,6 +11,7 @@
          :ui/status nil
          :ui/copy-feedback nil
          :ui/has-connected false  ; Track if we've connected at least once
+         :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
          :browser/brave? false
          :scripts/list []         ; All userscripts
          :scripts/current-url nil ; Current tab URL for matching
@@ -489,10 +491,7 @@
        #js {:editingScript #js {:id (:script/id script)
                                 :name (:script/name script)
                                 :match (first (:script/match script))
-                                :code (:script/code script)}})
-      ;; Show user hint
-      (dispatch [[:db/ax.assoc :ui/status "Open DevTools panel to edit"]
-                 [:uf/ax.defer-dispatch [[:db/ax.assoc :ui/status nil]] 3000]]))
+                                :code (:script/code script)}}))
 
     :popup/fx.load-current-url
     (-> (get-active-tab)
@@ -560,29 +559,14 @@
     (let [[script-id] args
           script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
       (when script
-        {:uf/fxs [[:popup/fx.edit-script script]]}))
+        {:uf/db (assoc state :ui/editing-hint-script-id script-id)
+         :uf/fxs [[:popup/fx.edit-script script]
+                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
 
     :uf/unhandled-ax))
 
 (defn dispatch! [actions]
   (event-handler/dispatch! !state handle-action perform-effect! actions))
-
-(defn jack-in-icon []
-  [:svg {:xmlns "http://www.w3.org/2000/svg"
-         :width 36
-         :height 36
-         :viewBox "0 0 100 100"}
-   [:circle {:cx "50"
-             :cy "50"
-             :r "48"
-             :stroke "#4a71c4"
-             :stroke-width "4"
-             :fill "#4a71c4"}]
-   [:path
-    {:fill "#ffdc73"
-     :transform "translate(50, 50) scale(0.5) translate(-211, -280)"
-     :d
-     "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0 1 2.65 5.53l-2.54 52.23z"}]])
 
 (defn port-input [{:keys [id label value on-change]}]
   [:span
@@ -601,50 +585,57 @@
    [:button.copy-btn {:on-click #(dispatch! [[:popup/ax.copy-command]])}
     (or copy-feedback "Copy")]])
 
-(defn script-item [{:keys [script/name script/match script/enabled] :as script}
-                   current-url]
-  (let [script-id (:script/id script)
-        matching-pattern (get-matching-pattern current-url script)
+(defn script-item [{:keys [script/name script/match script/enabled]
+                    script-id :script/id
+                    :as script}
+                   current-url
+                   editing-hint-script-id]
+  (let [matching-pattern (get-matching-pattern current-url script)
         matches-current (some? matching-pattern)
         needs-approval (and matches-current
                             enabled
                             (not (pattern-approved? script matching-pattern)))
-        pattern-display (or matching-pattern (first match))]
-    [:div.script-item {:class (str (when matches-current "script-item-active ")
-                                   (when needs-approval "script-item-approval"))}
-     [:div.script-info
-      [:span.script-name name]
-      [:span.script-match pattern-display]]
-     [:div.script-actions
-      ;; Show approval buttons when script matches current URL but pattern not approved
-      (when needs-approval
-        [:button.approval-allow {:on-click #(dispatch! [[:popup/ax.approve-script script-id matching-pattern]])}
-         "Allow"])
-      (when needs-approval
-        [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
-         "Deny"])
-      ;; Edit button to load script in DevTools panel
-      [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
-                            :title "Edit in DevTools panel"}
-       "✎"]
-      ;; Always show checkbox and delete
-      [:input {:type "checkbox"
-               :checked enabled
-               :title (if enabled "Enabled" "Disabled")
-               :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
-      [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
+        pattern-display (or matching-pattern (first match))
+        show-edit-hint (= script-id editing-hint-script-id)]
+    [:div
+     [:div.script-item {:class (str (when matches-current "script-item-active ")
+                                    (when needs-approval "script-item-approval"))}
+      [:div.script-info
+       [:span.script-name name]
+       [:span.script-match pattern-display]]
+      [:div.script-actions
+       ;; Show approval buttons when script matches current URL but pattern not approved
+       (when needs-approval
+         [:button.approval-allow {:on-click #(dispatch! [[:popup/ax.approve-script script-id matching-pattern]])}
+          "Allow"])
+       (when needs-approval
+         [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
+          "Deny"])
+       ;; Edit button to load script in DevTools panel
+       [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
+                             :title "Send to editor"}
+        [icons/pencil-icon]]
+       ;; Always show checkbox and delete
+       [:input {:type "checkbox"
+                :checked enabled
+                :title (if enabled "Enabled" "Disabled")
+                :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
+       [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
                                             (dispatch! [[:popup/ax.delete-script script-id]]))
-                              :title "Delete script"}
-       "×"]]]))
+                               :title "Delete script"}
+        [icons/x-icon]]]]
+     (when show-edit-hint
+       [:div.script-edit-hint
+        "Open the Browser Jack-in panel in Developer Tools"])]))
 
-(defn scripts-section [{:keys [scripts/list scripts/current-url]}]
+(defn scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
   [:div.step.scripts-section
    [:div.step-header "Userscripts"]
    (if (seq list)
      [:div.script-list
       (for [script list]
         ^{:key (:script/id script)}
-        [script-item script current-url])]
+        [script-item script current-url editing-hint-script-id])]
      [:div.no-scripts "No scripts yet. Create scripts via DevTools console."])])
 
 (defn popup-ui [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
@@ -652,7 +643,7 @@
    ;; Header with logos
    [:div.header
     [:div.header-left
-     [jack-in-icon]
+     [icons/jack-in-icon]
      [:h1 "Browser Jack-in"]]
     [:div.header-right
      [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
