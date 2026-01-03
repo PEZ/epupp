@@ -1,0 +1,12 @@
+{
+  "calva.replConnectSequences": [
+    {
+      "name": "squint",
+      "projectType": "generic",
+      "fallbackPort": 1337,
+      "replSessionNames": {
+        "primary": "squint"
+      }
+    }
+  ]
+}

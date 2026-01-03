@@ -34,5 +34,8 @@
   watch {:doc "Start Squint watch mode"
          :task (babashka.process/shell "npx squint watch")}
 
+  squint-nrepl {:doc "Start Squint nREPL server for testing code in Node"
+                :task (babashka.process/shell "npx squint nrepl-server :port 1337")}
+
   publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
            :task (tasks/publish)}}}
