@@ -55,7 +55,9 @@
 
     :editor/fx.save-script
     (let [[script] args]
-      (storage/save-script! script))
+      (storage/save-script! script)
+      ;; Notify background to update badge
+      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
 
     :editor/fx.use-current-url
     (let [[action] args]

@@ -98,6 +98,11 @@
   []
   (:storage/scripts @!db))
 
+(defn get-enabled-scripts
+  "Get all enabled scripts"
+  []
+  (filterv :script/enabled (get-scripts)))
+
 (defn get-script
   "Get script by id"
   [script-id]

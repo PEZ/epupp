@@ -478,6 +478,8 @@
     (let [[scripts script-id] args
           updated (remove-script-from-list scripts script-id)]
       (save-scripts! updated)
+      ;; Notify background to update badge
+      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.load-current-url
@@ -681,6 +683,8 @@
   (swap! !state assoc :browser/brave? (some? (.-brave js/navigator)))
 
   (render!)
+  ;; Refresh badge on popup open
+  (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
   (dispatch! [[:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
