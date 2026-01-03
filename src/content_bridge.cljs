@@ -67,6 +67,14 @@
     (.appendChild js/document.head script)
     (js/console.log "[Bridge] Injected script:" url)))
 
+(defn- clear-old-userscripts!
+  "Remove previously injected userscript tags to prevent re-execution on navigation."
+  []
+  (let [old-scripts (js/document.querySelectorAll "script[type='application/x-scittle'][id^='userscript-']")]
+    (when (pos? (.-length old-scripts))
+      (js/console.log "[Bridge] Clearing" (.-length old-scripts) "old userscript tags")
+      (.forEach old-scripts (fn [script] (.remove script))))))
+
 (defn- inject-userscript!
   "Inject a Scittle userscript tag (application/x-scittle)."
   [id code]
@@ -84,6 +92,12 @@
       "inject-script"
       (do
         (inject-script-tag! (.-url message))
+        (send-response #js {:success true})
+        false)
+
+      "clear-userscripts"
+      (do
+        (clear-old-userscripts!)
         (send-response #js {:success true})
         false)
 

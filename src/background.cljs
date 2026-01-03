@@ -5,9 +5,7 @@
   (:require [storage :as storage]
             [url-matching :as url-matching]))
 
-(declare get-pending-approvals handle-approval!
-         get-active-tab-id ensure-scittle! execute-scripts!
-         update-badge-for-tab! update-badge-for-active-tab!)
+(defonce !pending-approvals (atom {}))
 
 (js/console.log "[Browser Jack-in Background] Service worker started")
 
@@ -93,57 +91,79 @@
   [tab-id]
   (close-ws! tab-id))
 
-;; Listen for messages from content scripts and popup
-(.addListener js/chrome.runtime.onMessage
-  (fn [message sender send-response]
-    (let [tab-id (when (.-tab sender) (.. sender -tab -id))
-          msg-type (.-type message)]
-      (case msg-type
-        ;; Content script messages
-        "ws-connect" (do (handle-ws-connect tab-id (.-port message)) false)
-        "ws-send" (do (handle-ws-send tab-id (.-data message)) false)
-        "ws-close" (do (handle-ws-close tab-id) false)
-        "ping" false
-        ;; Popup messages
-        "refresh-approvals"
-        (do
-          ;; Reload scripts from storage, then sync pending + badge
-          (-> (storage/load!)
-              (.then (fn [_]
-                       (sync-pending-approvals!))))
-          false)
-        "pattern-approved"
-        ;; Clear this script from pending and execute it
-        (let [script-id (.-scriptId message)
-              pattern (.-pattern message)]
-          (clear-pending-approval! script-id pattern)
-          ;; Execute the script now
-          (when-let [script (storage/get-script script-id)]
-            (-> (get-active-tab-id)
-                (.then (fn [active-tab-id]
-                         (when active-tab-id
-                           (-> (ensure-scittle! active-tab-id)
-                               (.then (fn [_]
-                                        (execute-scripts! active-tab-id [script])))))))))
-          false)
-        ;; Legacy - keep for now
-        "get-pending-approvals"
-        (do (send-response (clj->js (get-pending-approvals)))
-            true)
-        "handle-approval"
-        (do (handle-approval! (.-approvalId message) (.-approved message))
-            (send-response #js {:ok true})
-            true)
-        ;; Unknown
-        (do (js/console.log "[Background] Unknown message type:" msg-type)
-            false)))))
+(defn get-active-tab-id
+  "Get the active tab ID. Returns a promise."
+  []
+  (js/Promise.
+   (fn [resolve _reject]
+     (js/chrome.tabs.query #js {:active true :currentWindow true}
+                           (fn [tabs]
+                             (resolve (when (seq tabs)
+                                        (.-id (first tabs)))))))))
+;; ============================================================
+;; Badge Management - Calculate from source of truth
+;; ============================================================
 
-;; Clean up when tab is closed
-(.addListener js/chrome.tabs.onRemoved
-  (fn [tab-id _remove-info]
-    (when (get-ws tab-id)
-      (js/console.log "[Background] Tab closed, cleaning up:" tab-id)
-      (close-ws! tab-id))))
+(defn set-badge!
+  "Set the badge text and color based on count."
+  [n]
+  (if (pos? n)
+    (do
+      (js/chrome.action.setBadgeText #js {:text (str n)})
+      (js/chrome.action.setBadgeBackgroundColor #js {:color "#f59e0b"}))
+    (js/chrome.action.setBadgeText #js {:text ""})))
+
+(defn count-pending-for-url
+  "Count scripts needing approval for a given URL.
+   A script needs approval if: enabled, matches URL, and pattern not yet approved."
+  [url]
+  (if (or (nil? url) (= "" url))
+    0
+    (let [scripts (storage/get-enabled-scripts)]
+      (->> scripts
+           (filter (fn [script]
+                     (when-let [pattern (url-matching/get-matching-pattern url script)]
+                       (not (storage/pattern-approved? script pattern)))))
+           count))))
+
+(defn update-badge-for-tab!
+  "Update badge based on pending count for a specific tab's URL."
+  [tab-id]
+  (js/chrome.tabs.get tab-id
+    (fn [tab]
+      (when-not js/chrome.runtime.lastError
+        (let [url (.-url tab)
+              n (count-pending-for-url url)]
+          (set-badge! n))))))
+
+(defn update-badge-for-active-tab!
+  "Update badge based on pending count for the active tab."
+  []
+  (-> (get-active-tab-id)
+      (.then (fn [tab-id]
+               (when tab-id
+                 (update-badge-for-tab! tab-id))))))
+
+(defn clear-pending-approval!
+  "Remove a specific script/pattern from pending approvals and update badge."
+  [script-id pattern]
+  (let [approval-id (str script-id "|" pattern)]
+    (swap! !pending-approvals dissoc approval-id))
+  (update-badge-for-active-tab!))
+
+(defn sync-pending-approvals!
+  "Sync pending approvals atom with storage state.
+   Removes stale entries for deleted/disabled scripts or approved patterns."
+  []
+  (doseq [[approval-id context] @!pending-approvals]
+    (let [script-id (:script/id context)
+          pattern (:approval/pattern context)
+          script (storage/get-script script-id)]
+      (when (or (nil? script)
+                (not (:script/enabled script))
+                (storage/pattern-approved? script pattern))
+        (swap! !pending-approvals dissoc approval-id))))
+  (update-badge-for-active-tab!))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -266,6 +286,17 @@
           (.then (fn [_]
                    ;; Small delay for content script to initialize
                    (js/Promise. (fn [resolve] (js/setTimeout resolve 100)))))
+          ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
+          (.then (fn [_]
+                   (js/Promise.
+                    (fn [resolve reject]
+                      (js/chrome.tabs.sendMessage
+                       tab-id
+                       #js {:type "clear-userscripts"}
+                       (fn [response]
+                         (if js/chrome.runtime.lastError
+                           (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+                           (resolve response))))))))
           ;; Then inject all userscript tags
           (.then (fn [_]
                    (js/Promise.all
@@ -302,107 +333,12 @@
           (.catch (fn [err]
                     (js/console.error "[Userscript] Injection error:" err)))))))
 
-(defonce !pending-approvals (atom {}))
-
-;; ============================================================
-;; Badge Management - Calculate from source of truth
-;; ============================================================
-
-(defn count-pending-for-url
-  "Count scripts needing approval for a given URL.
-   A script needs approval if: enabled, matches URL, and pattern not yet approved."
-  [url]
-  (if (or (nil? url) (= "" url))
-    0
-    (let [scripts (storage/get-enabled-scripts)]
-      (->> scripts
-           (filter (fn [script]
-                     (when-let [pattern (url-matching/get-matching-pattern url script)]
-                       (not (storage/pattern-approved? script pattern)))))
-           count))))
-
-(defn set-badge!
-  "Set the badge text and color based on count."
-  [n]
-  (if (pos? n)
-    (do
-      (js/chrome.action.setBadgeText #js {:text (str n)})
-      (js/chrome.action.setBadgeBackgroundColor #js {:color "#f59e0b"}))
-    (js/chrome.action.setBadgeText #js {:text ""})))
-
-(defn update-badge-for-tab!
-  "Update badge based on pending count for a specific tab's URL."
-  [tab-id]
-  (js/chrome.tabs.get tab-id
-    (fn [tab]
-      (when-not js/chrome.runtime.lastError
-        (let [url (.-url tab)
-              n (count-pending-for-url url)]
-          (set-badge! n))))))
-
-(defn update-badge-for-active-tab!
-  "Update badge based on pending count for the active tab."
-  []
-  (-> (get-active-tab-id)
-      (.then (fn [tab-id]
-               (when tab-id
-                 (update-badge-for-tab! tab-id))))))
-
-(defn request-approval!
-  "Add script to pending approvals (for popup display) and update badge.
-   Uses script-id + pattern as key to prevent duplicates on page reload."
-  [script pattern tab-id _url]
-  (let [approval-id (str (:script/id script) "|" pattern)]
-    ;; Only add if not already pending
-    (when-not (get @!pending-approvals approval-id)
-      (swap! !pending-approvals assoc approval-id
-             {:approval/id approval-id
-              :script/id (:script/id script)
-              :script/name (:script/name script)
-              :script/code (:script/code script)
-              :approval/pattern pattern
-              :approval/tab-id tab-id})
-      (js/console.log "[Approval] Pending approval for" (:script/name script) "on pattern" pattern)))
-  ;; Always update badge from source of truth
-  (update-badge-for-tab! tab-id))
-
 (defn get-pending-approvals
   "Get all pending approvals as a vector for popup"
   []
   (let [approvals (vec (vals @!pending-approvals))]
     (js/console.log "[Background] get-pending-approvals called, count:" (count approvals))
     approvals))
-
-(defn get-active-tab-id
-  "Get the active tab ID. Returns a promise."
-  []
-  (js/Promise.
-   (fn [resolve _reject]
-     (js/chrome.tabs.query #js {:active true :currentWindow true}
-                           (fn [tabs]
-                             (resolve (when (seq tabs)
-                                        (.-id (first tabs)))))))))
-
-(defn clear-pending-approval!
-  "Remove a specific script/pattern from pending approvals and update badge."
-  [script-id pattern]
-  (let [approval-id (str script-id "|" pattern)]
-    (swap! !pending-approvals dissoc approval-id))
-  (update-badge-for-active-tab!))
-
-(defn sync-pending-approvals!
-  "Sync pending approvals atom with storage state.
-   Removes stale entries for deleted/disabled scripts or approved patterns."
-  []
-  (doseq [[approval-id context] @!pending-approvals]
-    (let [script-id (:script/id context)
-          pattern (:approval/pattern context)
-          script (storage/get-script script-id)]
-      (when (or (nil? script)
-                (not (:script/enabled script))
-                (storage/pattern-approved? script pattern))
-        (swap! !pending-approvals dissoc approval-id))))
-  (update-badge-for-active-tab!))
 
 (defn handle-approval!
   "Handle approval response from popup"
@@ -432,6 +368,69 @@
       ;; Update badge after approval/denial
       (update-badge-for-active-tab!))))
 
+;; Listen for messages from content scripts and popup
+(.addListener js/chrome.runtime.onMessage
+  (fn [message sender send-response]
+    (let [tab-id (when (.-tab sender) (.. sender -tab -id))
+          msg-type (.-type message)]
+      (case msg-type
+        ;; Content script messages
+        "ws-connect" (do (handle-ws-connect tab-id (.-port message)) false)
+        "ws-send" (do (handle-ws-send tab-id (.-data message)) false)
+        "ws-close" (do (handle-ws-close tab-id) false)
+        "ping" false
+        ;; Popup messages
+        "refresh-approvals"
+        (do
+          ;; Reload scripts from storage, then sync pending + badge
+          (-> (storage/load!)
+              (.then (fn [_]
+                       (sync-pending-approvals!))))
+          false)
+        "pattern-approved"
+        ;; Clear this script from pending and execute it
+        (let [script-id (.-scriptId message)
+              pattern (.-pattern message)]
+          (clear-pending-approval! script-id pattern)
+          ;; Execute the script now
+          (when-let [script (storage/get-script script-id)]
+            (-> (get-active-tab-id)
+                (.then (fn [active-tab-id]
+                         (when active-tab-id
+                           (-> (ensure-scittle! active-tab-id)
+                               (.then (fn [_]
+                                        (execute-scripts! active-tab-id [script])))))))))
+          false)
+        ;; Legacy - keep for now
+        "get-pending-approvals"
+        (do (send-response (clj->js (get-pending-approvals)))
+            true)
+        "handle-approval"
+        (do (handle-approval! (.-approvalId message) (.-approved message))
+            (send-response #js {:ok true})
+            true)
+        ;; Unknown
+        (do (js/console.log "[Background] Unknown message type:" msg-type)
+            false)))))
+
+(defn request-approval!
+  "Add script to pending approvals (for popup display) and update badge.
+   Uses script-id + pattern as key to prevent duplicates on page reload."
+  [script pattern tab-id _url]
+  (let [approval-id (str (:script/id script) "|" pattern)]
+    ;; Only add if not already pending
+    (when-not (get @!pending-approvals approval-id)
+      (swap! !pending-approvals assoc approval-id
+             {:approval/id approval-id
+              :script/id (:script/id script)
+              :script/name (:script/name script)
+              :script/code (:script/code script)
+              :approval/pattern pattern
+              :approval/tab-id tab-id})
+      (js/console.log "[Approval] Pending approval for" (:script/name script) "on pattern" pattern)))
+  ;; Always update badge from source of truth
+  (update-badge-for-tab! tab-id))
+
 (defn handle-navigation!
   "Handle page navigation: find matching scripts, check approvals, execute or prompt.
    Scripts with approved patterns run immediately; others trigger approval notifications."
@@ -457,6 +456,13 @@
         (doseq [{:keys [script pattern]} unapproved]
           (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
           (request-approval! script pattern tab-id url))))))
+
+;; Clean up when tab is closed
+(.addListener js/chrome.tabs.onRemoved
+  (fn [tab-id _remove-info]
+    (when (get-ws tab-id)
+      (js/console.log "[Background] Tab closed, cleaning up:" tab-id)
+      (close-ws! tab-id))))
 
 (.addListener js/chrome.webNavigation.onCompleted
   (fn [details]
