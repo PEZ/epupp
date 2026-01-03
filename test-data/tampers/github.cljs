@@ -12,9 +12,6 @@
   (js/console.log "Hello from:" js/window.location.href)
   js/window.navigator.appCodeName
 
-  ;; What page are we on?
-  (.-href js/window.location)
-
   ;; Query all links
   (let [links (js/document.querySelectorAll "a")]
     (str "Found " (.-length links) " links on the page"))
