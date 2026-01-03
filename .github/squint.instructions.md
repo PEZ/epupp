@@ -86,6 +86,24 @@ Namespace-qualified keywords work but become strings with the slash:
 :foo/bar  ; Becomes "foo/bar" in JavaScript
 ```
 
+### 4. Auto-Resolved Keywords Don't Work
+
+`::keyword` syntax is not supported. Use fully-qualified keywords instead:
+
+```clojure
+::my-key              ; ❌ Compiler error
+:my-namespace/my-key  ; ✅ Works
+```
+
+### 5. Bare Namespace Requires Don't Work
+
+Always use vector form with `:as` alias:
+
+```clojure
+(:require event-handler)                     ; ❌ Compiler error
+(:require [event-handler :as event-handler]) ; ✅ Works
+```
+
 ## Debugging Squint Issues
 
 1. **Check compiled `.mjs` output** - Look at the generated JavaScript to understand what's happening

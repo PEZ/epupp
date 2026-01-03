@@ -2,6 +2,7 @@
   "DevTools panel for live ClojureScript evaluation.
    Communicates with inspected page via chrome.devtools.inspectedWindow."
   (:require [reagami :as r]
+            [event-handler :as event-handler]
             [storage :as storage]))
 
 (defonce !state
@@ -56,10 +57,6 @@
     (let [[script] args]
       (storage/save-script! script))
 
-    :ex/fx.defer-dispatch
-    (let [[actions timeout] args]
-      (js/setTimeout #(dispatch actions) timeout))
-
     :editor/fx.use-current-url
     (let [[action] args]
       (js/chrome.devtools.inspectedWindow.eval
@@ -71,18 +68,7 @@
                  pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
              (dispatch [(conj action pattern)]))))))
 
-    :log/fx.log
-    (let [[level & ms] args]
-      (apply (case level
-              :debug js/console.debug
-              :log js/console.log
-              :info js/console.info
-              :warn js/console.warn
-              :error js/console.error
-              js/console.log)
-             ms))
-
-    (js/console.warn "Unkown effect:" effect args)))
+    :ex/unhandled-fx))
 
 (defn handle-action [state [action & args]]
   (case action
@@ -130,9 +116,6 @@
                          :panel/script-name ""
                          :panel/script-match "")})))
 
-    :db/ax.assoc
-    {:ex/db (apply (partial assoc state) args)}
-
     :editor/ax.clear-results
     {:ex/db (assoc state :panel/results [])}
 
@@ -142,50 +125,10 @@
     :editor/ax.use-current-url
     {:ex/fxs [[:editor/fx.use-current-url [:db/ax.assoc :panel/script-match]]]}
 
-    (js/console.warn "Unknown action:" action args)))
-
-(defn handle-actions [state actions]
-  (reduce (fn [{state :ex/db :as acc} action]
-            (let [{:ex/keys [fxs dxs db]} (handle-action state action)]
-              (js/console.debug "Triggered action" (first action) action)
-              (cond-> acc
-                db (assoc :ex/db db)
-                dxs (assoc :ex/dxs dxs)
-                fxs (update :ex/fxs into fxs))))
-          {:ex/db state
-           :ex/fxs []}
-          (remove nil? actions)))
+    :ex/unhandled-ax))
 
 (defn dispatch! [actions]
-  (let [{:ex/keys [fxs dxs db]}
-        (try
-          (handle-actions @!state actions)
-          (catch :default e
-            {:ex/fxs [[:log/fx.log :error (ex-info "handle-action error"
-                                                 e
-                                                 ::handle-actions)]]}))]
-    (when db
-      (reset! !state db))
-    (when dxs
-      (dispatch! dxs))
-    (when fxs
-      (try
-        (doseq [fx fxs]
-          (when fx
-            (when-not (= :log/fx.log (first fx))
-              (js/console.debug "Triggered effect" fx))
-            (try
-              (perform-effect! dispatch! fx)
-              (catch :default e
-                (js/console.error (ex-info "perform-effect! Effect failed"
-                                           {:error e
-                                            :effect fx}
-                                           ::perform-effects))
-                (throw e)))))
-        (catch :default e
-          (js/console.error (ex-info "perform-effects! error"
-                                     e
-                                     ::perform-effects)))))))
+  (event-handler/dispatch! !state handle-action perform-effect! actions))
 
 ;; ============================================================
 ;; UI Components
@@ -298,7 +241,7 @@
   (-> (storage/load!)
       (.then (fn [_]
                (js/console.log "[Panel] Storage loaded")
-               (add-watch !state ::render (fn [_ _ _ _] (render!)))
+               (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
                (render!)))))
 
 (if (= "loading" js/document.readyState)
