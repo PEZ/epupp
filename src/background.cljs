@@ -5,15 +5,14 @@
   (:require [storage :as storage]
             [url-matching :as url-matching]))
 
-(defonce !pending-approvals (atom {}))
-
 (js/console.log "[Browser Jack-in Background] Service worker started")
 
 ;; Initialize script storage
 (storage/init!)
 
 ;; Centralized state with namespaced keys
-(def !state (atom {:ws/connections {}}))
+(defonce !state (atom {:ws/connections {}
+                       :pending/approvals {}}))
 
 (defn get-ws
   "Get WebSocket for a tab"
@@ -148,21 +147,21 @@
   "Remove a specific script/pattern from pending approvals and update badge."
   [script-id pattern]
   (let [approval-id (str script-id "|" pattern)]
-    (swap! !pending-approvals dissoc approval-id))
+    (swap! !state update :pending/approvals dissoc approval-id))
   (update-badge-for-active-tab!))
 
 (defn sync-pending-approvals!
   "Sync pending approvals atom with storage state.
    Removes stale entries for deleted/disabled scripts or approved patterns."
   []
-  (doseq [[approval-id context] @!pending-approvals]
+  (doseq [[approval-id context] (:pending/approvals @!state)]
     (let [script-id (:script/id context)
           pattern (:approval/pattern context)
           script (storage/get-script script-id)]
       (when (or (nil? script)
                 (not (:script/enabled script))
                 (storage/pattern-approved? script pattern))
-        (swap! !pending-approvals dissoc approval-id))))
+        (swap! !state update :pending/approvals dissoc approval-id))))
   (update-badge-for-active-tab!))
 
 ;; ============================================================
@@ -336,20 +335,20 @@
 (defn get-pending-approvals
   "Get all pending approvals as a vector for popup"
   []
-  (let [approvals (vec (vals @!pending-approvals))]
+  (let [approvals (vec (vals (:pending/approvals @!state)))]
     (js/console.log "[Background] get-pending-approvals called, count:" (count approvals))
     approvals))
 
 (defn handle-approval!
   "Handle approval response from popup"
   [approval-id approved?]
-  (when-let [context (get @!pending-approvals approval-id)]
+  (when-let [context (get-in @!state [:pending/approvals approval-id])]
     (let [script-id (:script/id context)
           script-name (:script/name context)
           script-code (:script/code context)
           pattern (:approval/pattern context)
           tab-id (:approval/tab-id context)]
-      (swap! !pending-approvals dissoc approval-id)
+      (swap! !state update :pending/approvals dissoc approval-id)
       (if approved?
         (do
           (js/console.log "[Approval] User approved" script-name "for" pattern)
@@ -419,8 +418,8 @@
   [script pattern tab-id _url]
   (let [approval-id (str (:script/id script) "|" pattern)]
     ;; Only add if not already pending
-    (when-not (get @!pending-approvals approval-id)
-      (swap! !pending-approvals assoc approval-id
+    (when-not (get-in @!state [:pending/approvals approval-id])
+      (swap! !state update :pending/approvals assoc approval-id
              {:approval/id approval-id
               :script/id (:script/id script)
               :script/name (:script/name script)
