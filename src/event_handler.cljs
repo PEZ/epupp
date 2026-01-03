@@ -1,6 +1,6 @@
 (ns event-handler)
 
-;; Uni-flow event handling
+;; Uniflow event handling
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -21,7 +21,7 @@
 
     (js/console.warn "Unkown effect:" effect args)))
 
-(defn handle-action [state data [action & args]]
+(defn handle-action [state _data [action & args]]
   (case action
     :db/ax.assoc
     {:uf/db (apply (partial assoc state) args)}

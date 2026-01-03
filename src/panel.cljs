@@ -41,7 +41,7 @@
          (callback (or result {:error "No result"})))))))
 
 ;; ============================================================
-;; Dispatch
+;; Uniflow Dispatch
 ;; ============================================================
 
 (defn perform-effect! [dispatch [effect & args]]
