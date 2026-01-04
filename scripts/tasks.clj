@@ -25,7 +25,7 @@
       (println "  ✓ Patched scittle.js for CSP compatibility"))))
 
 ;; ============================================================
-;; Config generation
+;; Config handling
 ;; ============================================================
 
 (defn- read-config
@@ -38,40 +38,12 @@
       (System/exit 1))
     (edn/read-string (slurp config-file))))
 
-(defn- generate-config-cljs!
-  "Generate src/config.cljs from EDN config file."
+(defn- esbuild-define-flag
+  "Build the --define flag for esbuild to inject EXTENSION_CONFIG.
+   Reads EDN config and converts to JSON (which is valid JS)."
   [mode]
-  (let [config (read-config mode)
-        {:keys [dev?]} config
-        sha (:sci-nrepl/sha config)
-        version (:sci-nrepl/version config)
-        config-content (str "(ns config
-  \"Build configuration for Browser Jack-in.
-
-   GENERATED FILE - Do not edit directly!
-   Edit config/dev.edn or config/prod.edn instead.\")
-
-;; Generated from config/" (or mode "prod") ".edn
-(def dev? " dev? ")
-
-(def sci-nrepl-coords
-  " (if version
-      (str "{:mvn/version \"" version "\"}")
-      (str "{:git/sha \"" sha "\"}")) ")
-
-(defn format-deps-string
-  \"Format the sci.nrepl coords for the bb -Sdeps command\"
-  []
-  " (if version
-      (str "(str \"{:deps {io.github.babashka/sci.nrepl {:mvn/version \\\""
-           version
-           "\\\"}}}\"))")
-  (str "(str \"{:deps {io.github.babashka/sci.nrepl {:git/sha \\\""
-       sha
-       "\\\"}}}\")" )) ")
-")]
-    (spit "src/config.cljs" config-content)
-    (println (str "✓ Generated src/config.cljs from config/" (or mode "prod") ".edn"))))
+  (let [config (read-config mode)]
+    (str "--define:EXTENSION_CONFIG=" (json/write-str config))))
 
 (defn bundle-scittle
   "Download Scittle and nREPL plugin to extension/vendor"
@@ -93,27 +65,32 @@
   "Compile ClojureScript files with Squint and bundle with esbuild.
    Optional mode argument: 'dev' or 'prod' (default: prod)."
   [& [mode]]
-  (generate-config-cljs! mode)
-  (println "Compiling Squint...")
-  (p/shell "npx squint compile")
-  (println "Bundling with esbuild...")
-  (fs/create-dirs "build")
-  ;; Bundle all JS files as IIFE
-  (doseq [[name entry] [["popup" "extension/popup.mjs"]
-                        ["content-bridge" "extension/content_bridge.mjs"]
-                        ["ws-bridge" "extension/ws_bridge.mjs"]
-                        ["background" "extension/background.mjs"]
-                        ["devtools" "extension/devtools.mjs"]
-                        ["panel" "extension/panel.mjs"]]]
-    (println (str "  Bundling " name ".js..."))
-    (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
-  ;; Copy static files
-  (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
-  (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
-  (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
-  (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
-  (fs/copy "extension/panel.css" "build/panel.css" {:replace-existing true})
-  (println "✓ Squint + esbuild compilation complete"))
+  (let [define-flag (esbuild-define-flag mode)]
+    (println (str "Building with " (or mode "prod") " config..."))
+    (println "Compiling Squint...")
+    (p/shell "npx squint compile")
+    (println "Bundling with esbuild...")
+    (fs/create-dirs "build")
+    ;; Bundle all JS files as IIFE
+    ;; popup.mjs needs EXTENSION_CONFIG injected
+    (println "  Bundling popup.js...")
+    (p/shell "npx" "esbuild" "extension/popup.mjs" "--bundle" "--format=iife"
+             define-flag "--outfile=build/popup.js")
+    ;; Other bundles don't need config
+    (doseq [[name entry] [["content-bridge" "extension/content_bridge.mjs"]
+                          ["ws-bridge" "extension/ws_bridge.mjs"]
+                          ["background" "extension/background.mjs"]
+                          ["devtools" "extension/devtools.mjs"]
+                          ["panel" "extension/panel.mjs"]]]
+      (println (str "  Bundling " name ".js..."))
+      (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
+    ;; Copy static files
+    (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
+    (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
+    (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
+    (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
+    (fs/copy "extension/panel.css" "build/panel.css" {:replace-existing true})
+    (println "✓ Squint + esbuild compilation complete")))
 
 (defn- adjust-manifest
   "Adjust manifest.json for specific browser"

@@ -4,8 +4,11 @@
   (:require [reagami :as r]
             [event-handler :as event-handler]
             [icons :as icons]
-            [config :as config]
             [script-utils :as script-utils]))
+
+;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
+;; Shape: {"dev": boolean, "depsString": string}
+(def ^:private config js/EXTENSION_CONFIG)
 
 (defonce !state
   (atom {:ports/nrepl "1339"
@@ -32,7 +35,7 @@
       :else "status")))
 
 (defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
-  (str "bb -Sdeps '" (config/format-deps-string) "' "
+  (str "bb -Sdeps '" (.-depsString config) "' "
        "-e '(require (quote [sci.nrepl.browser-server :as server])) "
        "(server/start! {:nrepl-port " nrepl " :websocket-port " ws "}) "
        "@(promise)'"))

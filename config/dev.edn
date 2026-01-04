@@ -1,14 +1,7 @@
 ;; Development configuration for Browser Jack-in
 ;;
-;; This file is read at build time by tasks.clj to generate src/config.cljs
+;; This file is read at build time and injected via esbuild --define.
 ;; Changes here require a rebuild to take effect.
 
-{:dev? true
-
- ;; sci.nrepl dependency for the browser-nrepl server command
- ;; Using git SHA for latest features
- :sci-nrepl/sha "1042578d5784db07b4d1b6d974f1db7cabf89e3f"
-
- ;; Alternative: Clojars release (more stable, possibly older)
- ;; :sci-nrepl/version "0.0.2"
- }
+{:dev true
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"}
