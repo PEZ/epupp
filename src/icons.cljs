@@ -5,7 +5,7 @@
 (defn pencil
   "Edit/pencil icon - Heroicons mini"
   ([] (pencil {}))
-  ([{:keys [size] :or {size 14}}]
+  ([{:keys [size] :or {size 16}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
           :height size
@@ -19,7 +19,7 @@
 (defn x
   "Close/delete X icon - Heroicons mini"
   ([] (x {}))
-  ([{:keys [size] :or {size 14}}]
+  ([{:keys [size] :or {size 16}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
           :height size

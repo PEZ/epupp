@@ -1,5 +1,26 @@
 # Browser Jack-in - AI Coding Agent Instructions
 
+<principles>
+  <style>No emojis. No em dashes - use hyphens or colons instead.</style>
+
+  <epistemology>
+    Assumptions are the enemy. Never guess numerical values - benchmark instead of estimating.
+    When uncertain, measure. Say "this needs to be measured" rather than inventing statistics.
+  </epistemology>
+
+  <scaling>
+    Validate at small scale before scaling up. Run a sub-minute version first to verify the
+    full pipeline works. When scaling, only the scale parameter should change.
+  </scaling>
+
+  <ground-truth-clarification>
+    For non-trivial tasks, reach ground truth understanding before coding. Simple tasks execute
+    immediately. Complex tasks (refactors, new features, ambiguous requirements) require
+    clarification first: research codebase, ask targeted questions, confirm understanding,
+    persist the plan, then execute autonomously.
+  </ground-truth-clarification>
+</principles>
+
 ## Project Overview
 
 **Browser Jack-in** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
