@@ -45,7 +45,7 @@ bb build:safari
 
 **Chrome:**
 
-0. Unpack `browser-jack-in-chrome.zip` (will unpack a `chrome` folder)
+0. Unpack `scittle-tamper-chrome.zip` (will unpack a `chrome` folder)
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
@@ -55,12 +55,12 @@ bb build:safari
 
 1. Go to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
-3. Select any file in `browser-jack-in-firefox.zip` file
+3. Select any file in `scittle-tamper-firefox.zip` file
 
 **Safari:**
 
 1. Safari → Settings → Developer → Click "Add Temporary Extension"
-2. Select the `browser-jack-in-safari.zip` file
+2. Select the `scittle-tamper-safari.zip` file
 3. Ensure the extension is enabled in Safari → Settings → Extensions
 
 ## Distribution
@@ -76,6 +76,6 @@ GitHub Actions will build all three browser versions and create a draft release.
 
 ### Store Submission
 
-- **Chrome:** Upload `browser-jack-in-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- **Firefox:** Upload `browser-jack-in-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
+- **Chrome:** Upload `scittle-tamper-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+- **Firefox:** Upload `scittle-tamper-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
 - **Safari:** Submit via Xcode to App Store Connect

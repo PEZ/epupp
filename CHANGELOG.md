@@ -1,6 +1,6 @@
 # Changelog
 
-Changes to Browser Jack-in
+Changes to Scittle Tamper
 
 ## [Unreleased]
 

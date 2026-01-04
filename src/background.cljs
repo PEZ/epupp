@@ -5,7 +5,7 @@
   (:require [storage :as storage]
             [url-matching :as url-matching]))
 
-(js/console.log "[Browser Jack-in Background] Service worker started")
+(js/console.log "[Scittle Tamper Background] Service worker started")
 
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
@@ -244,7 +244,7 @@
       } catch(e) {
         // Policy creation may be blocked by CSP - fall back to direct assignment
         // This may fail on very strict TT sites, but extension URLs are typically allowed
-        console.warn('[Browser Jack-in] TrustedTypes policy creation failed, using direct assignment:', e.message);
+        console.warn('[Scittle Tamper] TrustedTypes policy creation failed, using direct assignment:', e.message);
         script.src = url;
       }
     } else {
@@ -527,4 +527,4 @@
 ;; Start initialization immediately for service worker wake scenarios
 (ensure-initialized!)
 
-(js/console.log "[Browser Jack-in Background] Listeners registered")
+(js/console.log "[Scittle Tamper Background] Listeners registered")

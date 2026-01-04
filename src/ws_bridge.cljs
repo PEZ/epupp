@@ -10,7 +10,7 @@
   (when (= (.-source event) js/window)
     (let [msg (.-data event)]
       (when (and msg
-                 (= "browser-jack-in-bridge" (.-source msg))
+                 (= "scittle-tamper-bridge" (.-source msg))
                  (= "bridge-ready" (.-type msg)))
         (js/console.log "[WS Bridge] Bridge is ready")
         (swap! !state assoc :bridge/ready? true)))))
@@ -48,7 +48,7 @@
           (fn [event]
             (when (= (.-source event) js/window)
               (let [msg (.-data event)]
-                (when (and msg (= "browser-jack-in-bridge" (.-source msg)))
+                (when (and msg (= "scittle-tamper-bridge" (.-source msg)))
                   (js/console.log "[WS Bridge] Received message type:" (.-type msg))
                   (case (.-type msg)
                     "ws-open"
@@ -88,7 +88,7 @@
             (fn [data]
               (when (= 1 (.-readyState ws-obj)) ; OPEN
                 (.postMessage js/window
-                              #js {:source "browser-jack-in-page"
+                              #js {:source "scittle-tamper-page"
                                    :type "ws-send"
                                    :data data}
                               "*"))))
@@ -105,7 +105,7 @@
 
       ;; Request connection through bridge
       (.postMessage js/window
-                    #js {:source "browser-jack-in-page"
+                    #js {:source "scittle-tamper-page"
                          :type "ws-connect"
                          :port port}
                     "*"))
@@ -115,7 +115,7 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInWSBridge
   (set! js/window.__browserJackInWSBridge true)
-  (js/console.log "[Browser Jack-in] Installing WebSocket bridge")
+  (js/console.log "[Scittle Tamper] Installing WebSocket bridge")
 
   ;; Wait for bridge ready signal
   (.addEventListener js/window "message" handle-bridge-ready)

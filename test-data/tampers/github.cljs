@@ -26,7 +26,7 @@
       (.appendChild js/document.head style)))
 
   ;; Change the page title
-  (set! (.-title js/document) "🎉 Browser Jack-in works! 🎉")
+  (set! (.-title js/document) "🎉 Scittle Tamper works! 🎉")
 
   ;; Add festive gradient to the header
   (when-let [header (js/document.querySelector "header")]

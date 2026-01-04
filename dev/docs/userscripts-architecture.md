@@ -5,7 +5,7 @@
 
 ## Overview
 
-Browser Jack-in's userscript support enables saved ClojureScript scripts to auto-execute on matching URLs. Unlike traditional userscript managers (TamperMonkey, ViolentMonkey), our focus is **interactive development first**, with script persistence as a natural extension.
+Scittle Tamper's userscript support enables saved ClojureScript scripts to auto-execute on matching URLs. Unlike traditional userscript managers (TamperMonkey, ViolentMonkey), our focus is **interactive development first**, with script persistence as a natural extension.
 
 ## Design Philosophy
 
@@ -23,7 +23,7 @@ A minimal DevTools panel serves as the **on-ramp**; jacking in an editor is the 
 
 ### Compared to TamperMonkey
 
-| Aspect | TamperMonkey | Browser Jack-in |
+| Aspect | TamperMonkey | Scittle Tamper |
 |--------|--------------|-----------------|
 | Primary use | "Write once, run everywhere" | "Explore and iterate on *this* page *now*" |
 | Complexity location | Complex UI, simple runtime | Simple UI, powerful runtime (nREPL + Scittle) |

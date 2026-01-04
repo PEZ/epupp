@@ -1,8 +1,8 @@
 (ns devtools
-  "DevTools entry point - registers the Browser Jack-in panel")
+  "DevTools entry point - registers the Scittle Tamper panel")
 
 (js/chrome.devtools.panels.create
- "Browser Jack-in"
+ "Scittle Tamper"
  "icons/icon-32.png"
  "panel.html"
  (fn [_panel]

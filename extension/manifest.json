@@ -1,16 +1,15 @@
 {
-  "description": "Jack your Clojure editor into any web page",
+  "description": "Live tamper your web using Clojure. Jack your Clojure editor into any web page",
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "permissions": [
     "scripting",
     "activeTab",
     "storage",
     "webNavigation"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "devtools_page": "devtools.html",
-  "name": "Browser Jack-in",
+  "name": "Scittle Tamper",
   "background": {
     "service_worker": "background.js"
   },
@@ -20,6 +19,7 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
+  "devtools_page": "devtools.html",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -30,7 +30,7 @@
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.8",
+  "version": "0.0.7.10",
   "web_accessible_resources": [
     {
       "resources": [

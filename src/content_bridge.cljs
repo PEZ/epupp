@@ -40,7 +40,7 @@
 (defn- handle-page-message [event]
   (when (same-window? event)
     (let [msg (.-data event)]
-      (when (and msg (= "browser-jack-in-page" (.-source msg)))
+      (when (and msg (= "scittle-tamper-page" (.-source msg)))
         (case (.-type msg)
           "ws-connect"
           (do
@@ -121,7 +121,7 @@
         (js/console.log "[Bridge] WebSocket connected")
         (start-keepalive!)
         (.postMessage js/window
-                      #js {:source "browser-jack-in-bridge"
+                      #js {:source "scittle-tamper-bridge"
                            :type "ws-open"}
                       "*")
         false)
@@ -129,7 +129,7 @@
       "ws-message"
       (do
         (.postMessage js/window
-                      #js {:source "browser-jack-in-bridge"
+                      #js {:source "scittle-tamper-bridge"
                            :type "ws-message"
                            :data (.-data message)}
                       "*")
@@ -141,7 +141,7 @@
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
-                      #js {:source "browser-jack-in-bridge"
+                      #js {:source "scittle-tamper-bridge"
                            :type "ws-error"
                            :error (.-error message)}
                       "*")
@@ -153,7 +153,7 @@
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
-                      #js {:source "browser-jack-in-bridge"
+                      #js {:source "scittle-tamper-bridge"
                            :type "ws-close"}
                       "*")
         false)
@@ -164,10 +164,10 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInBridge
   (set! js/window.__browserJackInBridge true)
-  (js/console.log "[Browser Jack-in Bridge] Content script loaded")
+  (js/console.log "[Scittle Tamper Bridge] Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
   (.postMessage js/window
-                #js {:source "browser-jack-in-bridge"
+                #js {:source "scittle-tamper-bridge"
                      :type "bridge-ready"}
                 "*"))

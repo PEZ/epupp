@@ -1,4 +1,4 @@
-# Browser Jack-in - AI Coding Agent Instructions
+# Scittle Tamper - AI Coding Agent Instructions
 
 <principles>
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
@@ -23,7 +23,7 @@
 
 ## Project Overview
 
-**Browser Jack-in** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
+**Scittle Tamper** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
 
 Mandatory reads:
 * [README.md](../README.md) - Usage and high-level architecture
@@ -109,7 +109,7 @@ bb build:safari
 ### Testing the Extension Locally
 
 1. Build: `bb build` (builds all browsers — quick enough, and better to test all targets)
-2. Unzip `dist/browser-jack-in-chrome.zip` (or firefox)
+2. Unzip `dist/scittle-tamper-chrome.zip` (or firefox)
 3. Chrome → `chrome://extensions` → Enable Developer mode → Load unpacked → select `chrome/` folder
 4. On any web page: click extension icon → follow 1-2-3 steps
 

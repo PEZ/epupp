@@ -1,5 +1,5 @@
 (ns popup
-  "Browser Jack-in extension popup - built with Squint + Reagami
+  "Scittle Tamper extension popup - built with Squint + Reagami
    Inspired by Replicant tic-tac-toe state management pattern"
   (:require [reagami :as r]
             [event-handler :as event-handler]
@@ -113,14 +113,14 @@
       } catch(e) {
         // Policy creation may be blocked by CSP - fall back to direct assignment
         // This may fail on very strict TT sites, but extension URLs are typically allowed
-        console.warn('[Browser Jack-in] TrustedTypes policy creation failed, using direct assignment:', e.message);
+        console.warn('[Scittle Tamper] TrustedTypes policy creation failed, using direct assignment:', e.message);
         script.src = url;
       }
     } else {
       script.src = url;
     }
     document.head.appendChild(script);
-    console.log('[Browser Jack-in] Injected:', url, isModule ? '(module)' : '');
+    console.log('[Scittle Tamper] Injected:', url, isModule ? '(module)' : '');
     return 'ok';
   }"))
 
@@ -128,7 +128,7 @@
   (js* "function(port) {
     window.SCITTLE_NREPL_WEBSOCKET_HOST = 'localhost';
     window.SCITTLE_NREPL_WEBSOCKET_PORT = port;
-    console.log('[Browser Jack-in] Set nREPL to ws://localhost:', port);
+    console.log('[Scittle Tamper] Set nREPL to ws://localhost:', port);
   }"))
 
 (def check-scittle-fn
@@ -151,7 +151,7 @@
   (js* "function() {
     var ws = window.ws_nrepl;
     if (ws) {
-      console.log('[Browser Jack-in] Closing existing WebSocket, readyState:', ws.readyState);
+      console.log('[Scittle Tamper] Closing existing WebSocket, readyState:', ws.readyState);
       if (ws.readyState === 0 || ws.readyState === 1) {
         ws.close();
       }
@@ -162,7 +162,7 @@
 (def reconnect-nrepl-fn
   "Reconnect by creating a new WebSocket - reuses existing scittle.nrepl handlers"
   (js* "function(port) {
-    console.log('[Browser Jack-in] Reconnecting nREPL to port:', port);
+    console.log('[Scittle Tamper] Reconnecting nREPL to port:', port);
     // Create new WebSocket - will be intercepted by ws-bridge
     var ws = new WebSocket('ws://localhost:' + port + '/_nrepl');
     // scittle.nrepl sets handlers on window.ws_nrepl which ws-bridge populates
@@ -576,7 +576,7 @@
         [icons/x]]]]
      (when show-edit-hint
        [:div.script-edit-hint
-        "Open the Browser Jack-in panel in Developer Tools"])]))
+        "Open the Scittle Tamper panel in Developer Tools"])]))
 
 (defn scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
   [:div.step.scripts-section
@@ -594,7 +594,7 @@
    [:div.header
     [:div.header-left
      [icons/jack-in]
-     [:h1 "Browser Jack-in"]]
+     [:h1 "Scittle Tamper"]]
     [:div.header-right
      [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
                          :target "_blank"}
@@ -639,7 +639,7 @@
             [popup-ui @!state]))
 
 (defn init! []
-  (js/console.log "Browser Jack-in popup init!")
+  (js/console.log "Scittle Tamper popup init!")
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
 
   ;; Detect browser features
