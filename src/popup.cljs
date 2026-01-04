@@ -3,7 +3,9 @@
    Inspired by Replicant tic-tac-toe state management pattern"
   (:require [reagami :as r]
             [event-handler :as event-handler]
-            [icons :as icons]))
+            [icons :as icons]
+            [config :as config]
+            [script-utils :as script-utils]))
 
 (defonce !state
   (atom {:ports/nrepl "1339"
@@ -30,34 +32,14 @@
       :else "status")))
 
 (defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
-  (str "bb -Sdeps '{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}' "
+  (str "bb -Sdeps '" (config/format-deps-string) "' "
        "-e '(require (quote [sci.nrepl.browser-server :as server])) "
        "(server/start! {:nrepl-port " nrepl " :websocket-port " ws "}) "
        "@(promise)'"))
 
 ;; ============================================================
-;; URL pattern matching (inline for popup bundle)
-;; ============================================================
-
-(defn- escape-regex [s]
-  (.replace s (js/RegExp. "[.+?^${}()|[\\]\\\\]" "g") "\\$&"))
-
-(defn- pattern->regex [pattern]
-  (if (= pattern "<all_urls>")
-    (js/RegExp. "^https?://.*$")
-    (let [escaped (escape-regex pattern)
-          with-wildcards (.replace escaped (js/RegExp. "\\*" "g") ".*")]
-      (js/RegExp. (str "^" with-wildcards "$")))))
-
-(defn- url-matches-pattern? [url pattern]
-  (.test (pattern->regex pattern) url))
-
-(defn- script-matches-url? [script url]
-  (some #(url-matches-pattern? url %) (:script/match script)))
-
-;; ============================================================
 ;; Tab and storage helpers
-;; ============================================================
+;; =============================================================
 
 (defn get-active-tab []
   (js/Promise.
@@ -284,46 +266,9 @@
 ;; Script storage helpers
 ;; ============================================================
 
-(defn- parse-scripts
-  "Convert JS scripts array to Clojure with namespaced keys"
-  [js-scripts]
-  (if js-scripts
-    (->> (vec js-scripts)
-         (mapv (fn [s]
-                 {:script/id (.-id s)
-                  :script/name (.-name s)
-                  :script/match (vec (or (.-match s) #js []))
-                  :script/code (.-code s)
-                  :script/enabled (.-enabled s)
-                  :script/created (.-created s)
-                  :script/modified (.-modified s)
-                  :script/approved-patterns (vec (or (.-approvedPatterns s) #js []))})))
-    []))
-
-(defn- script->js [script]
-  #js {:id (:script/id script)
-       :name (:script/name script)
-       :match (clj->js (:script/match script))
-       :code (:script/code script)
-       :enabled (:script/enabled script)
-       :created (:script/created script)
-       :modified (:script/modified script)
-       :approvedPatterns (clj->js (:script/approved-patterns script))})
-
-(defn- get-matching-pattern
-  "Find which pattern matches the URL for a script"
-  [url script]
-  (when url
-    (some #(when (url-matches-pattern? url %) %) (:script/match script))))
-
-(defn- pattern-approved?
-  "Check if a pattern is in the script's approved list"
-  [script pattern]
-  (some #(= % pattern) (:script/approved-patterns script)))
-
 (defn- save-scripts! [scripts]
   (js/chrome.storage.local.set
-   #js {:scripts (clj->js (mapv script->js scripts))}))
+   #js {:scripts (clj->js (mapv script-utils/script->js scripts))}))
 
 ;; ============================================================
 ;; Pure script transformations (testable)
@@ -455,7 +400,7 @@
     (js/chrome.storage.local.get
      #js ["scripts"]
      (fn [result]
-       (let [scripts (parse-scripts (.-scripts result))]
+       (let [scripts (script-utils/parse-scripts (.-scripts result))]
          (dispatch [[:db/ax.assoc :scripts/list scripts]]))))
 
     :popup/fx.toggle-script
@@ -590,11 +535,11 @@
                     :as script}
                    current-url
                    editing-hint-script-id]
-  (let [matching-pattern (get-matching-pattern current-url script)
+  (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         matches-current (some? matching-pattern)
         needs-approval (and matches-current
                             enabled
-                            (not (pattern-approved? script matching-pattern)))
+                            (not (script-utils/pattern-approved? script matching-pattern)))
         pattern-display (or matching-pattern (first match))
         show-edit-hint (= script-id editing-hint-script-id)]
     [:div

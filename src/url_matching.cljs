@@ -8,58 +8,22 @@
    - https://example.com/path/* - matches path prefix
    - <all_urls> - matches all URLs
 
-   Note: * matches any characters, ? is literal (not a wildcard)."
-  (:require [storage :as storage]))
+   Note: * matches any characters, ? is literal (not a wildcard).
+   
+   Most URL matching functions are in script-utils.cljs for sharing.
+   This module adds storage-dependent filtering functions."
+  (:require [storage :as storage]
+            [script-utils :as script-utils]))
+
+;; Re-export core matching functions for backwards compatibility
+(def pattern->regex script-utils/pattern->regex)
+(def url-matches-pattern? script-utils/url-matches-pattern?)
+(def url-matches-any-pattern? script-utils/url-matches-any-pattern?)
+(def get-matching-pattern script-utils/get-matching-pattern)
+(def get-required-origins script-utils/get-required-origins)
 
 ;; ============================================================
-;; Pattern to Regex conversion
-;; ============================================================
-
-(defn- escape-regex
-  "Escape special regex characters except * which we handle specially"
-  [s]
-  ;; Escape: . + ? ^ $ { } ( ) | [ ] \
-  ;; Don't escape * - we convert it to .*
-  (.replace s (js/RegExp. "[.+?^${}()|[\\]\\\\]" "g") "\\$&"))
-
-(defn pattern->regex
-  "Convert a match pattern to a RegExp.
-
-   Examples:
-   - '*://github.com/*' -> matches http://github.com/... and https://github.com/...
-   - 'https://*.example.com/*' -> matches any subdomain
-   - '<all_urls>' -> matches everything"
-  [pattern]
-  (cond
-    ;; Special pattern for all URLs
-    (= pattern "<all_urls>")
-    (js/RegExp. "^https?://.*$")
-
-    ;; Standard match pattern
-    :else
-    (let [;; First escape regex special chars (except *)
-          escaped (escape-regex pattern)
-          ;; Then convert * to .* for wildcard matching
-          with-wildcards (.replace escaped (js/RegExp. "\\*" "g") ".*")]
-      (js/RegExp. (str "^" with-wildcards "$")))))
-
-;; ============================================================
-;; URL matching
-;; ============================================================
-
-(defn url-matches-pattern?
-  "Check if a URL matches a single pattern"
-  [url pattern]
-  (let [regex (pattern->regex pattern)]
-    (.test regex url)))
-
-(defn url-matches-any-pattern?
-  "Check if a URL matches any pattern in the list"
-  [url patterns]
-  (some #(url-matches-pattern? url %) patterns))
-
-;; ============================================================
-;; Script filtering
+;; Storage-dependent script filtering
 ;; ============================================================
 
 (defn get-matching-scripts
@@ -68,22 +32,6 @@
   (->> (storage/get-scripts)
        (filter :script/enabled)
        (filter #(url-matches-any-pattern? url (:script/match %)))
-       vec))
-
-(defn get-matching-pattern
-  "Find which pattern in a script matches the given URL"
-  [url script]
-  (->> (:script/match script)
-       (filter #(url-matches-pattern? url %))
-       first))
-
-(defn get-required-origins
-  "Extract unique origin patterns from a list of scripts.
-   Used to determine which permissions need to be requested."
-  [scripts]
-  (->> scripts
-       (mapcat :script/match)
-       distinct
        vec))
 
 ;; ============================================================

@@ -4,7 +4,8 @@
    Uses in-memory atom mirroring storage for fast access.
 
    Note: In Squint, keywords become strings and maps are JS objects.
-   We use namespaced string keys like \"script/id\" for consistency.")
+   We use namespaced string keys like \"script/id\" for consistency."
+  (:require [script-utils :as script-utils]))
 
 ;; ============================================================
 ;; State
@@ -20,44 +21,13 @@
 ;; Persistence helpers
 ;; ============================================================
 
-(defn- script->js
-  "Convert script map to JS object with simple keys for storage"
-  [script]
-  #js {:id (:script/id script)
-       :name (:script/name script)
-       :match (clj->js (:script/match script))
-       :code (:script/code script)
-       :enabled (:script/enabled script)
-       :created (:script/created script)
-       :modified (:script/modified script)
-       :approvedPatterns (clj->js (:script/approved-patterns script))})
-
 (defn- persist!
   "Write current !db state to chrome.storage.local"
   []
   (let [{:storage/keys [scripts granted-origins]} @!db]
     (js/chrome.storage.local.set
-     #js {:scripts (clj->js (mapv script->js scripts))
+     #js {:scripts (clj->js (mapv script-utils/script->js scripts))
           :granted-origins (clj->js granted-origins)})))
-
-(defn- js-arr->vec
-  "Convert JS array to Clojure vector (handles nil)"
-  [arr]
-  (if arr (vec arr) []))
-
-(defn- parse-scripts
-  "Convert JS scripts array to Clojure with namespaced keys"
-  [js-scripts]
-  (->> (js-arr->vec js-scripts)
-       (mapv (fn [s]
-               {:script/id (.-id s)
-                :script/name (.-name s)
-                :script/match (js-arr->vec (.-match s))
-                :script/code (.-code s)
-                :script/enabled (.-enabled s)
-                :script/created (.-created s)
-                :script/modified (.-modified s)
-                :script/approved-patterns (js-arr->vec (.-approvedPatterns s))}))))
 
 (defn load!
   "Load scripts from chrome.storage.local into !db atom.
@@ -65,8 +35,10 @@
   []
   (-> (js/chrome.storage.local.get #js ["scripts" "granted-origins"])
       (.then (fn [result]
-               (let [scripts (parse-scripts (.-scripts result))
-                     granted-origins (js-arr->vec (.-granted-origins result))]
+               (let [scripts (script-utils/parse-scripts (.-scripts result))
+                     granted-origins (if (.-granted-origins result)
+                                       (vec (.-granted-origins result))
+                                       [])]
                  (reset! !db {:storage/scripts scripts
                               :storage/granted-origins granted-origins})
                  (js/console.log "[Storage] Loaded" (count scripts) "scripts")
@@ -82,10 +54,12 @@
    (fn [changes area]
      (when (= area "local")
        (when-let [scripts-change (.-scripts changes)]
-         (let [new-scripts (parse-scripts (.-newValue scripts-change))]
+         (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change))]
            (swap! !db assoc :storage/scripts new-scripts)))
        (when-let [origins-change (.-granted-origins changes)]
-         (let [new-origins (js-arr->vec (.-newValue origins-change))]
+         (let [new-origins (if (.-newValue origins-change)
+                             (vec (.-newValue origins-change))
+                             [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
        (js/console.log "[Storage] Updated from external change")))))
 
