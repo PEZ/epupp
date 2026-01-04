@@ -7,7 +7,14 @@ A web browser extension that lets you write userscripts using Clojure. It works 
 > [!NOTE]
 > Currently super **experimental**. I am fumbling quite a bit over the UI/Ux and APIs.
 
-There is a script “editor” (a textarea) in the
+There is a script “editor” (a textarea) in the Development Tools tab named **Scittle Tamper**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script. For this you need to also fill in:
+
+* Script name: (Whatever for now, this is one of the things I am undecided about)
+* Site pattern: a TamperMonkey compatible pattern targeting the sites where this script should be auto-injected and run.
+
+Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
+
+I do not plan to build the code editor out much. Mostly because the preferred way to work with scripts is from your editor connected to the [REPL](#repl-usage) (or via your AI agent connected to the REPL). A thing I will probably add is to evaluate sub expressions (in addition to the whole script).
 
 ## REPL Usage
 
