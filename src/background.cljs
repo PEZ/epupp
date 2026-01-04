@@ -99,6 +99,7 @@
                            (fn [tabs]
                              (resolve (when (seq tabs)
                                         (.-id (first tabs)))))))))
+
 ;; ============================================================
 ;; Badge Management - Calculate from source of truth
 ;; ============================================================
@@ -235,19 +236,18 @@
 ;; - Interactive REPL evaluation from the DevTools panel
 ;; - Dynamic code generation based on page content
 ;; - Sequential execution with dependency ordering
-;;
-;; (def eval-cljs-fn
-;;   "Evaluate ClojureScript code via Scittle"
-;;   (js* "function(code) {
-;;     try {
-;;       var result = scittle.core.eval_string(code);
-;;       console.log('[Userscript] Executed successfully');
-;;       return {success: true, result: String(result)};
-;;     } catch(e) {
-;;       console.error('[Userscript] Error:', e);
-;;       return {success: false, error: e.message};
-;;     }
-;;   }"))
+#_(def eval-cljs-fn
+    "Evaluate ClojureScript code via Scittle"
+    (js* "function(code) {
+    try {
+      var result = scittle.core.eval_string(code);
+      console.log('[Userscript] Executed successfully');
+      return {success: true, result: String(result)};
+    } catch(e) {
+      console.error('[Userscript] Error:', e);
+      return {success: false, error: e.message};
+    }
+  }"))
 
 (defn poll-until
   "Poll a check function until success or timeout"
@@ -339,66 +339,31 @@
           (.catch (fn [err]
                     (js/console.error "[Userscript] Injection error:" err)))))))
 
-(defn get-pending-approvals
-  "Get all pending approvals as a vector for popup"
-  []
-  (let [approvals (vec (vals (:pending/approvals @!state)))]
-    (js/console.log "[Background] get-pending-approvals called, count:" (count approvals))
-    approvals))
-
-(defn handle-approval!
-  "Handle approval response from popup"
-  [approval-id approved?]
-  (when-let [context (get-in @!state [:pending/approvals approval-id])]
-    (let [script-id (:script/id context)
-          script-name (:script/name context)
-          script-code (:script/code context)
-          pattern (:approval/pattern context)
-          tab-id (:approval/tab-id context)]
-      (swap! !state update :pending/approvals dissoc approval-id)
-      (if approved?
-        (do
-          (js/console.log "[Approval] User approved" script-name "for" pattern)
-          (storage/approve-pattern! script-id pattern)
-          (-> (ensure-scittle! tab-id)
-              (.then (fn [_]
-                       (execute-scripts! tab-id
-                                         [{:script/id script-id
-                                           :script/name script-name
-                                           :script/code script-code}])))
-              (.catch (fn [err]
-                        (js/console.error "[Approval] Failed to execute after approval:" err)))))
-        (do
-          (js/console.log "[Approval] User denied" script-name "for" pattern)
-          (storage/toggle-script! script-id)))
-      ;; Update badge after approval/denial
-      (update-badge-for-active-tab!))))
-
 ;; Listen for messages from content scripts and popup
 (.addListener js/chrome.runtime.onMessage
-              (fn [message sender send-response]
+              (fn [message sender _send-response]
                 (let [tab-id (when (.-tab sender) (.. sender -tab -id))
                       msg-type (.-type message)]
                   (case msg-type
-        ;; Content script messages
+                    ;; Content script messages
                     "ws-connect" (do (handle-ws-connect tab-id (.-port message)) false)
                     "ws-send" (do (handle-ws-send tab-id (.-data message)) false)
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
-        ;; Popup messages
+                    ;; Popup messages
                     "refresh-approvals"
                     (do
-          ;; Reload scripts from storage, then sync pending + badge
+                      ;; Reload scripts from storage, then sync pending + badge
                       (-> (storage/load!)
                           (.then (fn [_]
                                    (sync-pending-approvals!))))
                       false)
                     "pattern-approved"
-        ;; Clear this script from pending and execute it
+                    ;; Clear this script from pending and execute it
                     (let [script-id (.-scriptId message)
                           pattern (.-pattern message)]
                       (clear-pending-approval! script-id pattern)
-          ;; Execute the script now
+                      ;; Execute the script now
                       (when-let [script (storage/get-script script-id)]
                         (-> (get-active-tab-id)
                             (.then (fn [active-tab-id]
@@ -407,15 +372,7 @@
                                            (.then (fn [_]
                                                     (execute-scripts! active-tab-id [script])))))))))
                       false)
-        ;; Legacy - keep for now
-                    "get-pending-approvals"
-                    (do (send-response (clj->js (get-pending-approvals)))
-                        true)
-                    "handle-approval"
-                    (do (handle-approval! (.-approvalId message) (.-approved message))
-                        (send-response #js {:ok true})
-                        true)
-        ;; Unknown
+                    ;; Unknown
                     (do (js/console.log "[Background] Unknown message type:" msg-type)
                         false)))))
 
@@ -472,7 +429,7 @@
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]
-    ;; Only handle main frame (not iframes)
+                ;; Only handle main frame (not iframes)
                 (when (zero? (.-frameId details))
                   (handle-navigation! (.-tabId details) (.-url details)))))
 
