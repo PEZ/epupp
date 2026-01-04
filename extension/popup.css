@@ -1,12 +1,59 @@
 :root {
   --clojure-blue: #5881d8;
   --clojure-green: #91dc47;
+  --radius: 6px;
+}
+
+/* Light theme (default for popup) */
+:root {
   --text-primary: #1a1a1a;
   --text-secondary: #666;
   --text-muted: #999;
+  --bg-body: #ffffff;
   --bg-subtle: #f8f9fa;
   --border-light: #e5e7eb;
-  --radius: 6px;
+  --code-bg: #f8f9fa;
+  --btn-bg: #ffffff;
+  --btn-hover-bg: #f8f9fa;
+  --status-failed-bg: #fff5f5;
+  --status-failed-border: #e53935;
+  --approval-bg: #fffbeb;
+  --approval-border: #fcd34d;
+  --edit-hover-bg: #dbeafe;
+  --edit-hint-bg: #eff6ff;
+  --delete-hover-bg: #fee2e2;
+  --delete-hover-color: #dc2626;
+  --approval-header-color: #b45309;
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+  --scrollbar-track: var(--bg-body);
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --text-muted: #707070;
+    --bg-body: #1e1e1e;
+    --bg-subtle: #252526;
+    --border-light: #3c3c3c;
+    --code-bg: #2d2d2d;
+    --btn-bg: #2d2d2d;
+    --btn-hover-bg: #3c3c3c;
+    --status-failed-bg: #2d1f1f;
+    --status-failed-border: #f14c4c;
+    --approval-bg: #3d3520;
+    --approval-border: #5c4d1f;
+    --edit-hover-bg: #1e3a5f;
+    --edit-hint-bg: #1e3a5f;
+    --delete-hover-bg: #3d1f1f;
+    --delete-hover-color: #f14c4c;
+    --approval-header-color: #fcd34d;
+    --scrollbar-thumb: #5a5a5a;
+    --scrollbar-thumb-hover: #6a6a6a;
+    --scrollbar-track: var(--bg-body);
+  }
 }
 
 body {
@@ -14,6 +61,7 @@ body {
   padding: 20px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text-primary);
+  background: var(--bg-body);
   line-height: 1.5;
   margin: 0;
 }
@@ -135,7 +183,7 @@ body {
 
 code {
   flex: 1;
-  background: var(--bg-subtle);
+  background: var(--code-bg);
   padding: 10px 12px;
   border-radius: var(--radius);
   font-size: 10px;
@@ -152,7 +200,7 @@ code {
   font-weight: 500;
   cursor: pointer;
   border: 1px solid var(--border-light);
-  background: #fff;
+  background: var(--btn-bg);
   border-radius: var(--radius);
   color: var(--text-primary);
   transition: all 0.15s;
@@ -160,8 +208,8 @@ code {
 }
 
 .copy-btn:hover {
-  background: var(--bg-subtle);
-  border-color: #d1d5db;
+  background: var(--btn-hover-bg);
+  border-color: var(--border-light);
 }
 
 /* Connect section */
@@ -215,8 +263,8 @@ button#connect:active {
 }
 
 .status.status-failed {
-  border-left-color: #e53935;
-  background: #fff5f5;
+  border-left-color: var(--status-failed-border);
+  background: var(--status-failed-bg);
 }
 
 .status.status-pending {
@@ -303,8 +351,8 @@ button#connect:active {
 }
 
 .script-delete:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--delete-hover-bg);
+  color: var(--delete-hover-color);
 }
 
 .script-edit {
@@ -319,7 +367,7 @@ button#connect:active {
 }
 
 .script-edit:hover {
-  background: #dbeafe;
+  background: var(--edit-hover-bg);
   color: var(--clojure-blue);
 }
 
@@ -328,7 +376,7 @@ button#connect:active {
   margin-top: 6px;
   font-size: 11px;
   color: var(--clojure-blue);
-  background: #eff6ff;
+  background: var(--edit-hint-bg);
   margin: -1px 0 0 0;
 }
 
@@ -350,13 +398,13 @@ button#connect:active {
 }
 
 .approvals-section .step-header {
-  color: #b45309;
+  color: var(--approval-header-color);
 }
 
 /* Approval mode styling for script items */
 .script-item-approval {
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
+  background: var(--approval-bg);
+  border: 1px solid var(--approval-border);
 }
 
 .approval-allow {
@@ -381,14 +429,43 @@ button#connect:active {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  background: #fff;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: var(--btn-bg);
+  color: var(--delete-hover-color);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius);
   transition: all 0.15s;
 }
 
 .approval-deny:hover {
-  background: #fee2e2;
-  border-color: #dc2626;
+  background: var(--delete-hover-bg);
+  border-color: var(--delete-hover-color);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
