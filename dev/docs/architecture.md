@@ -1,0 +1,371 @@
+# Scittle Tamper Architecture
+
+This document describes the technical architecture of the Scittle Tamper browser extension, serving as the authoritative reference derived from the source code.
+
+## Overview
+
+Scittle Tamper bridges your Clojure editor to the browser's page execution environment through a multi-layer message relay system. The architecture handles three main use cases:
+
+1. **REPL Connection** - Live code evaluation from editor via nREPL
+2. **Userscript Auto-Injection** - Saved scripts execute on matching URLs
+3. **DevTools Panel Evaluation** - Direct evaluation from the panel UI
+
+## Component Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser
+        subgraph Extension
+            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Approvals"]
+            Popup["Popup<br/>- REPL connect<br/>- Script list<br/>- Approvals UI"]
+            Panel["DevTools Panel<br/>- Code eval<br/>- Save script"]
+
+            Popup -->|"chrome.runtime"| BG
+            Panel -->|"chrome.runtime"| BG
+        end
+
+        CB["Content Bridge (ISOLATED)<br/>- Relay messages<br/>- Inject scripts<br/>- Keepalive pings"]
+        BG -->|"chrome.tabs.sendMessage"| CB
+        Panel -.->|"inspectedWindow.eval"| Page
+
+        subgraph Page["Page (MAIN world)"]
+            WSB["WebSocket Bridge<br/>(virtual WS)"]
+            Scittle["Scittle REPL"]
+            DOM["DOM"]
+            WSB <--> Scittle <--> DOM
+        end
+
+        CB -->|"postMessage"| WSB
+    end
+
+    Relay["Babashka browser-nrepl<br/>(relay server)"]
+    Editor["Editor / AI Agent<br/>(nREPL client)"]
+
+    BG <-->|"ws://localhost:12346"| Relay
+    Editor -->|"nrepl://localhost:12345"| Relay
+```
+
+**Note:** Panel evaluates code directly in page context via `chrome.devtools.inspectedWindow.eval` (dotted line), but requests Scittle injection via background worker.
+
+## Source Files
+
+| File | Context | Purpose |
+|------|---------|---------|
+| `background.cljs` | Service Worker | WebSocket management, script injection orchestration, approval handling |
+| `content_bridge.cljs` | Content Script (ISOLATED) | Message relay, DOM injection, keepalive |
+| `ws_bridge.cljs` | Page Script (MAIN) | Virtual WebSocket for Scittle REPL |
+| `popup.cljs` | Extension Popup | REPL connection UI, script management |
+| `panel.cljs` | DevTools Panel | Code evaluation, script editing |
+| `devtools.cljs` | DevTools Entry | Registers the panel |
+| `storage.cljs` | Shared | Script CRUD, chrome.storage.local |
+| `url_matching.cljs` | Shared | URL pattern matching with storage |
+| `script_utils.cljs` | Shared | Pure utilities for script data and URL pattern matching |
+| `event_handler.cljs` | Shared | Uniflow event system |
+| `icons.cljs` | Shared | SVG icon components |
+| `config.cljs` | Shared | Generated configuration |
+
+## Message Protocol
+
+All messages are JavaScript objects with a `type` field. Source identifiers distinguish origins in `postMessage` communication.
+
+### Page ↔ Content Bridge
+
+Via `window.postMessage` with source identifiers.
+
+**Page → Content Bridge** (`source: "scittle-tamper-page"`):
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `ws-connect` | `{port}` | Request WebSocket connection |
+| `ws-send` | `{data}` | Send data through WebSocket |
+
+**Content Bridge → Page** (`source: "scittle-tamper-bridge"`):
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `bridge-ready` | - | Bridge loaded and ready |
+| `ws-open` | - | WebSocket connected |
+| `ws-message` | `{data}` | Incoming WebSocket message |
+| `ws-error` | `{error}` | WebSocket error |
+| `ws-close` | - | WebSocket closed |
+
+### Content Bridge ↔ Background
+
+Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
+
+**Content Bridge → Background**:
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `ws-connect` | `{port}` | Create WebSocket for tab |
+| `ws-send` | `{data}` | Send through tab's WebSocket |
+| `ping` | - | Keepalive (every 5s) |
+
+**Background → Content Bridge**:
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `bridge-ping` | - | Check bridge readiness |
+| `ws-open` | - | WebSocket connected |
+| `ws-message` | `{data}` | Relay WebSocket message |
+| `ws-error` | `{error}` | WebSocket error |
+| `ws-close` | `{code, reason}` | WebSocket closed |
+| `inject-script` | `{url}` | Inject script tag with src |
+| `inject-userscript` | `{id, code}` | Inject `<script type="application/x-scittle">` |
+| `clear-userscripts` | - | Remove old userscript tags |
+
+### Popup/Panel → Background
+
+Via `chrome.runtime.sendMessage`.
+
+| Type | Payload | Response | Purpose |
+|------|---------|----------|---------|
+| `refresh-approvals` | - | - | Reload scripts, sync pending, update badge |
+| `pattern-approved` | `{scriptId, pattern}` | - | Pattern approved, clear pending + execute |
+| `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
+
+## State Management
+
+Each component maintains its own state atom with namespaced keys.
+
+### Background Worker (`background.cljs`)
+
+```clojure
+;; Uses `def` (not defonce) so state resets on service worker wake.
+;; WebSocket connections don't survive script termination anyway.
+
+!init-promise  ; atom - initialization promise (reset per wake)
+!state         ; atom
+  {:ws/connections {}        ; tab-id -> WebSocket instance
+   :pending/approvals {}}    ; approval-id -> approval context map
+
+;; Approval context shape:
+{:approval/id "script-id|pattern"
+ :script/id "..."
+ :script/name "..."
+ :script/code "..."
+ :approval/pattern "..."
+ :approval/tab-id 123}
+```
+
+### Content Bridge (`content_bridge.cljs`)
+
+```clojure
+!state  ; atom
+  {:bridge/connected? false
+   :bridge/keepalive-interval nil}
+```
+
+### WebSocket Bridge (`ws_bridge.cljs`)
+
+```clojure
+!state  ; atom
+  {:bridge/ready? false
+   :ws/message-handler nil}  ; current event listener reference
+```
+
+### Popup (`popup.cljs`)
+
+```clojure
+!state  ; atom, rendered via add-watch
+  {:ports/nrepl "1339"
+   :ports/ws "1340"
+   :ui/status nil
+   :ui/copy-feedback nil
+   :ui/has-connected false
+   :ui/editing-hint-script-id nil
+   :browser/brave? false
+   :scripts/list []
+   :scripts/current-url nil}
+```
+
+### Panel (`panel.cljs`)
+
+```clojure
+!state  ; atom, rendered via add-watch, persisted per hostname
+  {:panel/results []
+   :panel/code ""
+   :panel/evaluating? false
+   :panel/scittle-status :unknown  ; :checking, :loading, :loaded
+   :panel/script-name ""
+   :panel/script-match ""
+   :panel/script-id nil            ; non-nil when editing
+   :panel/save-status nil
+   :panel/init-version nil
+   :panel/needs-refresh? false
+   :panel/current-hostname nil}
+```
+
+### Storage (`storage.cljs`)
+
+```clojure
+!db  ; atom, synced with chrome.storage.local
+  {:storage/scripts []
+   :storage/granted-origins []}  ; reserved for future use
+```
+
+## Uniflow Event System
+
+The popup and panel use a Re-frame-inspired unidirectional data flow pattern called Uniflow. See [uniflow.instructions.md](../../.github/uniflow.instructions.md) for full documentation.
+
+### Popup Actions (`:popup/ax.*`)
+
+| Action | Args | Purpose |
+|--------|------|---------|
+| `:popup/ax.set-nrepl-port` | `[port]` | Update nREPL port, persist to storage |
+| `:popup/ax.set-ws-port` | `[port]` | Update WebSocket port, persist to storage |
+| `:popup/ax.copy-command` | - | Copy bb server command to clipboard |
+| `:popup/ax.connect` | - | Initiate REPL connection to current tab |
+| `:popup/ax.check-status` | - | Check if page has Scittle/bridge loaded |
+| `:popup/ax.load-saved-ports` | - | Load ports from chrome.storage |
+| `:popup/ax.load-scripts` | - | Load userscripts from storage |
+| `:popup/ax.load-current-url` | - | Get current tab URL for matching |
+| `:popup/ax.toggle-script` | `[script-id pattern]` | Toggle script enabled, revoke pattern on disable |
+| `:popup/ax.delete-script` | `[script-id]` | Remove script from storage |
+| `:popup/ax.approve-script` | `[script-id pattern]` | Add pattern to approved list, execute script |
+| `:popup/ax.deny-script` | `[script-id]` | Disable script (deny approval) |
+| `:popup/ax.edit-script` | `[script-id]` | Send script to DevTools panel for editing |
+
+### Panel Actions (`:editor/ax.*`)
+
+| Action | Args | Purpose |
+|--------|------|---------|
+| `:editor/ax.set-code` | `[code]` | Update code textarea |
+| `:editor/ax.set-script-name` | `[name]` | Update script name field |
+| `:editor/ax.set-script-match` | `[pattern]` | Update URL pattern field |
+| `:editor/ax.eval` | - | Evaluate code (inject Scittle if needed) |
+| `:editor/ax.do-eval` | `[code]` | Execute evaluation (internal) |
+| `:editor/ax.handle-eval-result` | `[result]` | Process eval result/error |
+| `:editor/ax.save-script` | - | Save current code as userscript |
+| `:editor/ax.load-script-for-editing` | `[id name match code]` | Load script from popup |
+| `:editor/ax.clear-results` | - | Clear results area |
+| `:editor/ax.clear-code` | - | Clear code textarea |
+| `:editor/ax.use-current-url` | - | Fill pattern from current page URL |
+| `:editor/ax.check-scittle` | - | Check Scittle status in page |
+| `:editor/ax.update-scittle-status` | `[status]` | Update status (`:unknown`, `:checking`, `:loading`, `:loaded`) |
+| `:editor/ax.check-editing-script` | - | Check for script sent from popup |
+
+### Generic Actions (`:db/ax.*`)
+
+| Action | Args | Purpose |
+|--------|------|---------|
+| `:db/ax.assoc` | `[k v ...]` | Directly update state keys |
+
+### Generic Effects (`:uf/fx.*`, `:log/fx.*`)
+
+| Effect | Args | Purpose |
+|--------|------|---------|
+| `:uf/fx.defer-dispatch` | `[actions timeout-ms]` | Dispatch actions after delay |
+| `:log/fx.log` | `[level & messages]` | Log to console (`:debug`, `:log`, `:info`, `:warn`, `:error`) |
+
+## Injection Flows
+
+### REPL Connection (from Popup)
+
+1. User clicks "Connect" in popup
+2. `connect-to-tab!` executes `check-status-fn` in page context
+3. If no bridge: inject `content-bridge.js` (ISOLATED world)
+4. Then inject `ws-bridge.js` (MAIN world)
+5. If no Scittle: inject `vendor/scittle.js`
+6. Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
+7. Inject `vendor/scittle.nrepl.js` (auto-connects)
+8. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
+9. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
+
+### Userscript Auto-Injection (on Navigation)
+
+1. `webNavigation.onCompleted` fires (main frame only)
+2. `handle-navigation!` waits for storage initialization
+3. `process-navigation!` gets matching enabled scripts
+4. For each script, check if matching pattern is approved
+5. **Approved**: `ensure-scittle!` → `execute-scripts!`
+6. **Unapproved**: `request-approval!` (adds to pending, updates badge)
+7. `execute-scripts!` flow:
+   - Inject content bridge
+   - Wait for bridge ready (ping/pong)
+   - Send `clear-userscripts` message
+   - Send `inject-userscript` for each script
+   - Send `inject-script` for `trigger-scittle.js`
+
+### Panel Evaluation (from DevTools)
+
+1. User enters code, presses Ctrl+Enter
+2. `:editor/ax.eval` action dispatched
+3. Check `:panel/scittle-status`:
+   - If `:loaded`: evaluate directly
+   - Otherwise: send `ensure-scittle` to background, then eval
+4. `eval-in-page!` uses `chrome.devtools.inspectedWindow.eval`
+5. Wrapper calls `scittle.core.eval_string(code)`
+6. Result returned via `:editor/ax.handle-eval-result`
+
+## Module Dependencies
+
+```mermaid
+graph TD
+    background.cljs --> storage.cljs
+    background.cljs --> url_matching.cljs
+
+    popup.cljs --> reagami
+    popup.cljs --> event_handler.cljs
+    popup.cljs --> icons.cljs
+    popup.cljs --> script_utils.cljs
+
+    panel.cljs --> reagami
+    panel.cljs --> event_handler.cljs
+    panel.cljs --> storage.cljs
+
+    storage.cljs --> script_utils.cljs
+    url_matching.cljs --> storage.cljs
+    url_matching.cljs --> script_utils.cljs
+
+    content_bridge.cljs:::standalone
+    ws_bridge.cljs:::standalone
+    devtools.cljs:::standalone
+    script_utils.cljs:::standalone
+    event_handler.cljs:::standalone
+    icons.cljs:::standalone
+    config.cljs:::standalone
+
+    classDef standalone fill:#f9f,stroke:#333,stroke-dasharray: 5 5
+```
+
+**Standalone modules** (dashed): No internal dependencies, can be used independently.
+
+## Security Model
+
+### CSP Bypass Strategy
+
+Strict Content Security Policies (GitHub, YouTube) block:
+- Inline scripts
+- `eval()`
+- WebSocket connections to localhost
+
+Our solution:
+1. **Background worker** makes WebSocket connections (extension context bypasses page CSP)
+2. **Content bridge** in ISOLATED world can inject script tags
+3. **Scittle patched** to remove `eval()` usage (see `bb bundle-scittle`)
+
+### Per-Pattern Approval
+
+Despite having `<all_urls>` host permission (required for `scripting.executeScript`), we implement additional user control:
+
+1. Each script tracks `:script/approved-patterns`
+2. New URL patterns require explicit user approval
+3. Disabling a script revokes all pattern approvals
+4. Badge shows count of pending approvals
+
+### Injection Guards
+
+Scripts guard against multiple injections using global window flags:
+
+| Module | Flag | Purpose |
+|--------|------|---------|
+| `content_bridge.cljs` | `window.__browserJackInBridge` | Prevent duplicate content bridge |
+| `ws_bridge.cljs` | `window.__browserJackInWSBridge` | Prevent duplicate WS bridge |
+
+## Build Pipeline
+
+```mermaid
+flowchart LR
+    src["src/*.cljs"] -->|"Squint compile"| mjs["extension/*.mjs"]
+    mjs -->|"esbuild bundle"| js["build/*.js"]
+    js --> zip["dist/*.zip"]
+```
+
+See [dev.md](dev.md) for build commands.

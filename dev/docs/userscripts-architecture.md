@@ -3,6 +3,8 @@
 **Created:** January 2, 2026
 **Status:** Implemented
 
+This document captures design decisions and rationale for the userscript feature. For technical implementation details (message protocols, state schemas, injection flows), see [architecture.md](architecture.md).
+
 ## Overview
 
 Scittle Tamper's userscript support enables saved ClojureScript scripts to auto-execute on matching URLs. Unlike traditional userscript managers (TamperMonkey, ViolentMonkey), our focus is **interactive development first**, with script persistence as a natural extension.
@@ -30,107 +32,44 @@ A minimal DevTools panel serves as the **on-ramp**; jacking in an editor is the 
 | Editor | Built-in CodeMirror | External via nREPL (or minimal built-in) |
 | Dashboard | Tab-based (global management) | Popup + DevTools (contextual) |
 
-## Component Architecture
+## Component Overview
 
-```mermaid
-flowchart TB
-    subgraph BG["Background Service Worker"]
-        direction TB
-        subgraph Storage["chrome.storage.local"]
-            SL[Script library + approved-patterns]
-        end
-        subgraph Nav["webNavigation listener"]
-            OC["onCompleted → check URLs"]
-            PA["Pending approvals (in-memory)"]
-            BD["Badge count update"]
-        end
-        WS["WebSocket relay to Babashka browser-nrepl"]
-    end
+See [architecture.md](architecture.md) for the full component diagram and technical details. Key userscript-related components:
 
-    subgraph Popup
-        LS[List scripts]
-        ED[Enable/disable checkbox]
-        AD["Allow/Deny buttons\n(for pending approvals)"]
-        AR[Delete button]
-        REPL[REPL connect workflow]
-    end
-
-    subgraph CB["Content Bridge (ISOLATED world)"]
-        IS["Inject script tags"]
-        IU["Inject userscript tags\n(application/x-scittle)"]
-        RM[Relay REPL messages]
-    end
-
-    subgraph Page["Page Context (MAIN world)"]
-        direction LR
-        SR[Scittle REPL] <--> WSB[WebSocket Bridge] <--> DOM
-        US["Userscripts execute here\nvia <script type='application/x-scittle'>"]
-    end
-
-    BG -->|"chrome.runtime.sendMessage"| Popup
-    BG -->|"chrome.tabs.sendMessage"| CB
-    CB -->|"postMessage"| Page
-    Popup -->|"pattern-approved / refresh-approvals"| BG
-```
+- **Background Worker** - Handles `webNavigation.onCompleted`, manages pending approvals
+- **Content Bridge** - Injects `<script type="application/x-scittle">` tags
+- **Popup** - Script list with Allow/Deny approval workflow
+- **DevTools Panel** - Script editing and "Save as Userscript" functionality
 
 ## Data Model
 
 ### Script Storage Schema
 
+See [architecture.md](architecture.md) for complete state schemas. Script fields:
+
 ```clojure
 ;; Stored in chrome.storage.local under key "scripts"
-{:storage/scripts
- [{:script/id "github-tweaks"               ; unique identifier
-   :script/name "GitHub Tweaks"             ; display name
-   :script/match ["*://github.com/*"        ; URL patterns (glob)
-                  "*://gist.github.com/*"]
-   :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
-   :script/enabled true                     ; active flag
-   :script/created "2026-01-02T12:00:00Z"
-   :script/modified "2026-01-02T14:30:00Z"
-   :script/approved-patterns ["*://github.com/*"]}  ; patterns user has approved
-
-  {:script/id "youtube-tweaks"
-   :script/name "YouTube Tweaks"
-   :script/match ["*://youtube.com/*"
-                  "*://www.youtube.com/*"]
-   :script/code "(js/console.log \"YT loaded\")"
-   :script/enabled false
-   :script/created "2026-01-02T13:00:00Z"
-   :script/modified "2026-01-02T13:00:00Z"
-   :script/approved-patterns []}]}
-
-;; Note: granted-origins key exists for potential future use but is currently unused.
-;; Per-pattern approval is handled via :script/approved-patterns on each script.
+{:script/id "github-tweaks"               ; unique identifier
+ :script/name "GitHub Tweaks"             ; display name
+ :script/match ["*://github.com/*"        ; URL patterns (glob)
+                "*://gist.github.com/*"]
+ :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
+ :script/enabled true                     ; active flag
+ :script/created "2026-01-02T..."         ; ISO timestamp
+ :script/modified "2026-01-02T..."        ; ISO timestamp
+ :script/approved-patterns ["*://github.com/*"]}  ; patterns user has approved
 ```
+
+Note: `granted-origins` storage key exists for potential future use but is currently unused.
+Per-pattern approval is handled via `:script/approved-patterns` on each script.
 
 ### Storage Access Pattern
 
-`chrome.storage.local` is key-value blob storage—no queries, read-modify-write only. Our pattern:
+`chrome.storage.local` is key-value blob storage - no queries, read-modify-write only. Our pattern:
 
 1. **In-memory atom** mirrors storage for fast access and Clojure sequence operations
-2. **Persist on mutation** — after `swap!`, write the whole blob back
-3. **Listen for external changes** — popup, DevTools panel, and background worker share storage; use `chrome.storage.onChanged` to keep atoms in sync
-
-### Script Metadata Annotations (Future)
-
-For scripts loaded from files or shared, support TamperMonkey-style header comments:
-
-```clojure
-;; ==UserScript==
-;; @name        GitHub Tweaks
-;; @match       *://github.com/*
-;; @match       *://gist.github.com/*
-;; @description Enhance GitHub UX
-;; ==/UserScript==
-
-(ns github-tweaks)
-
-(defn init []
-  (println "GitHub Tweaks loaded!"))
-
-(init)
-```
+2. **Persist on mutation** - after `swap!`, write the whole blob back
+3. **Listen for external changes** - popup, DevTools panel, and background worker share storage; use `chrome.storage.onChanged` to keep atoms in sync
 
 ## Permission Model
 
@@ -189,13 +128,7 @@ flowchart TD
     ALLOW -->|No/Deny| DIS["Disable script"]
 ```
 
-### Script Execution Method
-
-Scripts are executed via Scittle's script tag mechanism rather than direct `eval_string`:
-
-1. Content bridge injects `<script type="application/x-scittle">` tags with userscript code
-2. A trigger script (`trigger-scittle.js`) tells Scittle to evaluate all unprocessed tags
-3. This approach leverages Scittle's native loading mechanism
+For the detailed step-by-step implementation of injection flows, see [architecture.md](architecture.md#injection-flows).
 
 ## UI Distribution
 
@@ -238,6 +171,26 @@ A popup + DevTools panel covers these needs without a separate dashboard.
 - Import from file (parse header for match patterns)
 - Potential: GreasyFork-style repository (later)
 
+### Script Metadata Annotations
+
+For scripts loaded from files or shared, support TamperMonkey-style header comments:
+
+```clojure
+;; ==UserScript==
+;; @name        GitHub Tweaks
+;; @match       *://github.com/*
+;; @match       *://gist.github.com/*
+;; @description Enhance GitHub UX
+;; ==/UserScript==
+
+(ns github-tweaks)
+
+(defn init []
+  (println "GitHub Tweaks loaded!"))
+
+(init)
+```
+
 ### Multi-Tab REPL
 
 - Current: One REPL connection at a time
@@ -246,25 +199,11 @@ A popup + DevTools panel covers these needs without a separate dashboard.
 ### Sync Support
 
 - `chrome.storage.sync` for cross-browser script library
-- ~100KB limit—may need chunking for large scripts
+- ~100KB limit - may need chunking for large scripts
 
 ## Related Documents
 
 - [README.md](../../README.md) - Project overview and usage
-- [docs/dev.md](../../docs/dev.md) - Development setup
-- [.github/copilot-instructions.md](../../.github/copilot-instructions.md) - Architecture details
-
-## Implementation Files
-
-| File | Purpose |
-|------|---------|
-| `src/script_utils.cljs` | Shared utilities: script data transforms, URL pattern matching |
-| `src/storage.cljs` | Script CRUD, atom-mirror pattern, per-pattern approval, `chrome.storage.local` |
-| `src/url_matching.cljs` | Storage-dependent script filtering (uses script_utils) |
-| `src/panel.cljs` | DevTools panel UI with eval and save |
-| `src/devtools.cljs` | DevTools entry point (registers panel) |
-| `src/popup.cljs` | Script list UI, toggle/delete/approve handlers, REPL connection |
-| `src/background.cljs` | Auto-injection via `webNavigation.onCompleted`, pending approvals, badge updates |
-| `src/content_bridge.cljs` | Content script: relays messages, injects userscript tags |
-| `src/ws_bridge.cljs` | Page-context WebSocket bridge for nREPL connection |
-| `extension/trigger-scittle.js` | Triggers Scittle to evaluate injected `<script type="application/x-scittle">` tags |
+- [architecture.md](architecture.md) - Technical reference (state, messages, flows)
+- [dev.md](dev.md) - Development setup
+- [.github/copilot-instructions.md](../../.github/copilot-instructions.md) - AI agent instructions

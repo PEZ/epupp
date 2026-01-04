@@ -26,7 +26,7 @@ I do not plan to build the code editor out much. Mostly because the preferred wa
 On the web page where you want to jack-in your REPL client: open the **Scittle Tamper** extension
 and follow the 1-2-3 step instructions.
 
-![Scittle Tamper Popup UI](scittle-tamper-screenshot.png)
+![Scittle Tamper Popup UI](browser-jack-in-screenshot.png)
 
 Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
@@ -115,7 +115,7 @@ The extension does not collect any data whatsoever, and never will.
 
 ## Development
 
-To build and hack on the extension, see the [development docs](docs/dev.md).
+To build and hack on the extension, see the [development docs](dev/docs/dev.md).
 
 ## Enjoy! ♥️
 

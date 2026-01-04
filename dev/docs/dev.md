@@ -29,9 +29,14 @@ The patch is applied automatically when running `bb bundle-scittle`.
 
 ### Build
 
-Build for all browsers:
+Build for all browsers (production):
 ```bash
 bb build
+```
+
+Build for development (bumps dev version for testing):
+```bash
+bb build:dev
 ```
 
 Build for specific browser:
@@ -40,6 +45,8 @@ bb build:chrome
 bb build:firefox
 bb build:safari
 ```
+
+Dev versions use 4-part format (`0.0.7.0`, `0.0.7.1`). The 4th number is the build number, bumped by `bb build:dev`.
 
 ### Load Extension Locally
 
@@ -65,12 +72,21 @@ bb build:safari
 
 ## Distribution
 
-Push a tag to create a release:
+### Release Process
+
+Use the automated publish workflow:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+bb publish
 ```
+
+This will:
+1. Verify git is clean and on master branch
+2. Check CHANGELOG.md has unreleased content
+3. Strip build number from version (e.g., `0.0.7.8` -> `0.0.7`)
+4. Update CHANGELOG with release date
+5. Commit, tag `vN.N.N`, and push
+6. Bump to next dev version (e.g., `0.0.8.0`)
 
 GitHub Actions will build all three browser versions and create a draft release.
 

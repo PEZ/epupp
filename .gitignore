@@ -6,7 +6,7 @@ build/
 
 # Squint compiled output (intermediate .mjs files)
 extension/*.mjs
-docs/working-backwards/
+dev/docs/working-backwards/
 .nrepl-port
 !.clj-kondo/imports/
 .clj-kondo/cache/

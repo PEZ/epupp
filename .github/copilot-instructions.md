@@ -21,13 +21,26 @@
   </ground-truth-clarification>
 </principles>
 
+## Source Code: Squint ClojureScript
+
+This is a **Squint** project. All application logic lives in `src/*.cljs` files.
+
+**Source of truth:** `src/*.cljs` (ClojureScript)
+
+**Ignore when reading code** (compiled artifacts, not source):
+- `extension/*.mjs` - Squint compiler output
+- `build/*.js` - esbuild bundled output
+
+Only read `.mjs` or `build/*.js` files when debugging compilation issues. Never edit them.
+
 ## Project Overview
 
 **Scittle Tamper** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
 
 Mandatory reads:
 * [README.md](../README.md) - Usage and high-level architecture
-* [Developer docs](../docs/dev.md)
+* [Developer docs](../dev/docs/dev.md)
+* [Architecture reference](../dev/docs/architecture.md) - Message protocol, state management, injection flows
 * [Userscript architecture](../dev/docs/userscripts-architecture.md)
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
 * [Reagami](reagami.instructions.md) - Lightweight Reagent-like UI patterns
@@ -37,26 +50,6 @@ Mandatory reads:
 `Editor/AI nREPL client` ↔ `Babashka browser-nrepl (ports 12345/12346)` ↔ `Extension background worker` ↔ `Content bridge script` ↔ `Page WebSocket bridge` ↔ `Scittle REPL` ↔ `DOM`
 
 ## Critical Build System Understanding
-
-### Project Structure
-
-```
-src/           # ClojureScript source files (compiled by Squint)
-extension/     # Static assets + compiled .mjs (Squint output)
-build/         # Bundled .js files (esbuild output)
-dist/          # Final browser extension zips
-```
-
-**Source files:**
-- `background.cljs` — Service worker: WebSocket relay, auto-injection, pending approvals
-- `content_bridge.cljs` — Content script: message relay, script injection
-- `ws_bridge.cljs` — Page context: virtual WebSocket for Scittle
-- `popup.cljs` — Extension popup: connection UI, script management, approvals
-- `panel.cljs` — DevTools panel: REPL textarea, save-as-userscript
-- `devtools.cljs` — DevTools entry point (registers panel)
-- `storage.cljs` — Script CRUD, per-pattern approval, chrome.storage.local
-- `url_matching.cljs` — Storage-dependent script filtering (uses script_utils)
-- `script_utils.cljs` — Shared utilities: script data transforms, URL pattern matching
 
 ### Squint Compilation Model
 
@@ -76,94 +69,35 @@ npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 
 ### Scittle CSP Patching
 
-The vendored [extension/vendor/scittle.js](extension/vendor/scittle.js) is **patched** during `bb bundle-scittle` to remove `eval()` usage that violates strict Content Security Policies on sites like GitHub/YouTube.
-
-**Original code:**
-```javascript
-globalThis["import"]=eval("(x) => import(x)");
-```
-
-**Patched to:**
-```javascript
-globalThis["import"]=function(x){return import(x);};
-```
-
-See [tasks.clj:patch-scittle-for-csp](scripts/tasks.clj). **Always run `bb bundle-scittle` after updating Scittle version.**
+Scittle is patched to remove `eval()` for CSP compatibility. See [dev.md](../dev/docs/dev.md#patching-scittle-for-csp-compatibility) for details. **Always run `bb bundle-scittle` after updating Scittle version.**
 
 ## Key Developer Workflows
 
-### Development Cycle
+See [dev.md](../dev/docs/dev.md) for build commands, loading extension locally, and release process.
 
-```bash
-# Watch mode (auto-recompile on changes)
-bb watch  # or: npx squint watch
-
-# Dev build (bumps dev version, use during development)
-bb build:dev  # creates zips in dist/, bumps 4th version part
-
-# Release build for all browsers
-bb build  # creates zips in dist/
-```
-
-### Testing the Extension Locally
-
-1. Build: `bb build:dev` (bumps dev version, builds all browsers)
-2. Unzip `dist/scittle-tamper-chrome.zip` (or firefox)
-3. Chrome → `chrome://extensions` → Enable Developer mode → Load unpacked → select `chrome/` folder
-4. On any web page: click extension icon → follow 1-2-3 steps
-
-Use `bb build:chrome` or `bb build:firefox` only when debugging browser-specific issues.
+**Quick reference:**
+- `bb watch` - Watch mode (auto-recompile)
+- `bb build:dev` - Dev build (bumps version)
+- `bb build` - Release build
+- `bb browser-nrepl` - Start relay server
 
 **Important:** After building, wait for the user to test before committing changes.
 
-**REPL Connection:**
-1. Copy Babashka command from extension popup (Step 1)
-2. Run in terminal: `bb browser-nrepl --nrepl-port 12345 --websocket-port 12346`
-3. Connect editor nREPL client to `localhost:12345`
-4. Click "Connect REPL" in extension (Step 3)
-
-### Babashka Tasks Reference
-
-```bash
-bb browser-nrepl         # Start relay server (options: --nrepl-port, --websocket-port)
-bb bundle-scittle        # Download + patch Scittle vendor files
-bb build [browsers...]   # Build for chrome/firefox/safari (default: all)
-```
-
-See [bb.edn](bb.edn) for complete task definitions.
-
 ## Architecture Deep Dive
 
-### Message Flow: Three-Layer Bridge
+See [docs/architecture.md](../dev/docs/architecture.md) for the complete reference including:
+- Message protocol (all message types and flows)
+- State management (all atoms and their keys)
+- Injection flows (REPL, userscript, panel evaluation)
+- Module dependencies
 
-1. **Background Service Worker** ([background.cljs](src/background.cljs))
-   - Runs in extension context (immune to page CSP)
-   - Manages WebSocket connections to Babashka relay (`ws://localhost:12346/_nrepl`)
-   - Relays messages to/from content scripts via `chrome.runtime.sendMessage`
+### Quick Reference: Three-Layer Bridge
 
-2. **Content Bridge** ([content_bridge.cljs](src/content_bridge.cljs))
-   - Runs in ISOLATED world (content script)
-   - Relays between background worker and page via `postMessage`
-   - Implements keepalive pings to prevent service worker termination
+1. **Background Service Worker** - WebSocket management, script injection orchestration
+2. **Content Bridge** (ISOLATED world) - Message relay, DOM injection, keepalive
+3. **WebSocket Bridge** (MAIN world) - Virtual WebSocket API for Scittle
 
-3. **WebSocket Bridge** ([ws_bridge.cljs](src/ws_bridge.cljs))
-   - Runs in MAIN world (page context, injected script)
-   - **Intercepts WebSocket constructor** for `/_nrepl` URLs
-   - Provides virtual WebSocket API to Scittle using `postMessage`
-
-**Why three layers?** CSP restrictions prevent page scripts from making WebSocket connections. The background worker bypasses this, while bridges tunnel messages through allowed channels (`postMessage`, `chrome.runtime`).
-
-### Userscript Auto-Injection
-
-Scripts stored in `chrome.storage.local` auto-execute on matching URLs via `webNavigation.onCompleted`:
-
-1. **URL Match**: Background checks enabled scripts against page URL
-2. **Per-Pattern Approval**: Each script tracks `:script/approved-patterns` — user must approve each URL pattern before execution
-3. **Pending Approvals**: Unapproved matches stored in-memory, badge shows count
-4. **Injection**: Content bridge injects `<script type="application/x-scittle">` tags
-5. **Execution**: `trigger-scittle.js` tells Scittle to evaluate unprocessed tags
-
-See [userscripts-architecture.md](../dev/docs/userscripts-architecture.md) for full details.
+**Why three layers?** CSP restrictions prevent page scripts from making WebSocket connections. The background worker bypasses this, while bridges tunnel messages through allowed channels.
 
 ### Browser-Specific Manifest Adjustments
 
@@ -178,20 +112,19 @@ See [tasks.clj:adjust-manifest](scripts/tasks.clj). Key differences:
 
 ### State Management
 
-Prefer a single `!state` atom with namespaced keys over multiple separate atoms. This provides a consistent pattern and makes it clear where to add new state:
+Prefer a single `!state` atom with namespaced keys over multiple separate atoms. See [docs/architecture.md](../dev/docs/architecture.md) for complete state schemas per module.
 
 ```clojure
 ;; Preferred: single !state atom with namespaced keys
 (def !state (atom {:ws/connections {}      ; per-tab WebSocket map
-                   :bridge/connected? false
-                   :bridge/keepalive-interval nil}))
+                   :bridge/connected? false}))
 
 ;; Access with namespaced keys
 (get-in @!state [:ws/connections tab-id])
 (swap! !state assoc :bridge/connected? true)
 ```
 
-Even when tracking just one thing, use `!state` with a namespaced key — it signals where future state belongs.
+Even when tracking just one thing, use `!state` with a namespaced key - it signals where future state belongs.
 
 ### Namespace Naming
 
@@ -201,18 +134,7 @@ Even when tracking just one thing, use `!state` with a namespaced key — it sig
 
 ### Message Protocol
 
-All cross-context messages use `#js {:type "..." ...}` objects with these types:
-
-**Page → Bridge:**
-- `ws-connect` (with `:port`)
-- `ws-send` (with `:data`)
-
-**Bridge ↔ Background:**
-- `ws-connect`, `ws-send`, `ws-close`
-- `ping` (keepalive to prevent worker termination)
-
-**Bridge → Page:**
-- `ws-open`, `ws-message` (with `:data`), `ws-error`, `ws-close`
+All cross-context messages use `#js {:type "..." ...}` objects. See [docs/architecture.md](../dev/docs/architecture.md) for the complete message protocol reference.
 
 ### Guard Against Multiple Injections
 
@@ -229,36 +151,35 @@ The popup UI ([popup.cljs](src/popup.cljs)) uses **Reagami** (a lightweight Reag
 
 ### State Management Pattern
 
-Single atom with namespaced keys, rendered via `add-watch`:
+Single atom with namespaced keys, rendered via `add-watch`. See [architecture.md](../dev/docs/architecture.md#state-management) for complete state schemas per module.
 
 ```clojure
-(defonce !state
-  (atom {:ports/nrepl "1339"
-         :ports/ws "1340"
-         :ui/status nil
-         :ui/has-connected false
-         :scripts/list []              ; userscripts from storage
-         :scripts/pending-approvals [] ; scripts needing user approval
-         :browser/brave? false}))
-
 ;; Re-render on any state change
 (add-watch !state ::render (fn [_ _ _ _] (render!)))
 ```
 
+Note: Pending approvals are managed in the **background worker**, not the popup.
+
 ### Dispatch Pattern
 
-Actions dispatched as vectors `[action & args]`, handled in central `dispatch!` function:
+Actions dispatched as vectors of vectors (batched), using Uniflow pattern:
 
 ```clojure
-(defn dispatch! [[action & args]]
-  (case action
-    :set-nrepl-port (let [[port] args] (swap! !state assoc :ports/nrepl port))
-    :connect (-> (get-active-tab) (.then ...))
-    :copy-command (-> (js/navigator.clipboard.writeText cmd) ...)))
+;; Uniflow dispatch - actions are vectors within a vector
+(defn dispatch! [actions]
+  (event-handler/dispatch! !state handle-action perform-effect! actions))
 
-;; Usage in UI
-[:button {:on-click #(dispatch! [:connect])} "Connect"]
+;; Usage in UI - note the nested vector
+[:button {:on-click #(dispatch! [[:popup/ax.connect]])} "Connect"]
+
+;; Multiple actions in one dispatch
+[:button {:on-click #(dispatch! [[:popup/ax.set-nrepl-port "1339"]
+                                  [:popup/ax.check-status]])} "Reset"]
 ```
+
+See [uniflow.instructions.md](uniflow.instructions.md) for full event system documentation.
+
+See [architecture.md](../dev/docs/architecture.md#uniflow-event-system) for complete lists of popup and panel actions/effects.
 
 ### Page Script Injection Pattern
 
@@ -304,17 +225,19 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 **Pattern:**
 ```clojure
 ;; In icons.cljs
-(defn pencil-icon [{:keys [size] :or {size 14}}]
-  [:svg {:xmlns "http://www.w3.org/2000/svg"
-         :viewBox "0 0 20 20"
-         :width size :height size
-         :fill "currentColor"}
-   [:path {:d "..."}]])
+(defn pencil
+  ([] (pencil {}))
+  ([{:keys [size] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size :height size
+          :viewBox "0 0 20 20"
+          :fill "currentColor"}
+    [:path {:d "..."}]]))
 
 ;; Usage in components
 (:require [icons :as icons])
-[:button.edit [icons/pencil-icon]]
-[:button.edit [icons/pencil-icon {:size 18}]]  ; custom size
+[:button.edit [icons/pencil]]
+[:button.edit [icons/pencil {:size 18}]]  ; custom size
 ```
 
 **Guidelines:**
@@ -354,30 +277,10 @@ Currently manual testing workflow:
 
 **Future:** Core/pure logic (game logic, data transformations) could be extracted to separate `.cljs` files testable with [nbb](https://github.com/babashka/nbb) for automated testing.
 
-## Version Management
-
-**Dev versions** use 4-part format: `0.0.7.0`, `0.0.7.1`, etc. The 4th number is the build number.
-
-- `bb build --dev` auto-bumps the build number for testing version detection
-- Dev version bumps in `manifest.json` **should be committed** - they track development progress
-- Release strips the build number: `0.0.7.8` becomes `0.0.7`
-
 ## Committing Changes
 
 Use the `commit` subagent.
 
 ## Release Process
 
-**Automated via `bb publish`:**
-1. Checks: clean git, on master, CHANGELOG has [Unreleased] content
-2. Strips build number from version (e.g., `0.0.7.8` → `0.0.7`)
-3. Updates CHANGELOG with release date
-4. Commits, tags `vN.N.N`, pushes
-5. Bumps to next dev version (e.g., `0.0.8.0`)
-6. GitHub Actions builds zips and creates draft release
-
-**Manual store submission:**
-- Chrome: Upload zip to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- Firefox: Upload to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
-
-See [tasks.clj:publish](scripts/tasks.clj) for full workflow.
+See [dev.md](../dev/docs/dev.md#release-process) for the full `bb publish` workflow and store submission details.
