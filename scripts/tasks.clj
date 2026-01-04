@@ -129,15 +129,8 @@
         (fs/copy (str build-dir "/panel.css") (str browser-dir "/panel.css")
                  {:replace-existing true})
         ;; Remove intermediate .mjs files (keep only bundled .js)
-        (fs/delete-if-exists (str browser-dir "/popup.mjs"))
-        (fs/delete-if-exists (str browser-dir "/content_bridge.mjs"))
-        (fs/delete-if-exists (str browser-dir "/ws_bridge.mjs"))
-        (fs/delete-if-exists (str browser-dir "/background.mjs"))
-        (fs/delete-if-exists (str browser-dir "/devtools.mjs"))
-        (fs/delete-if-exists (str browser-dir "/panel.mjs"))
-        (fs/delete-if-exists (str browser-dir "/storage.mjs"))
-        (fs/delete-if-exists (str browser-dir "/url_matching.mjs"))
-        (fs/delete-if-exists (str browser-dir "/permissions.mjs"))
+        (doseq [mjs-file (fs/glob browser-dir "*.mjs")]
+          (fs/delete mjs-file))
 
         ;; Adjust manifest
         (let [manifest-path (str browser-dir "/manifest.json")
