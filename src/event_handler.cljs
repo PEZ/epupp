@@ -19,21 +19,24 @@
                js/console.log)
              ms))
 
-    (js/console.warn "Unkown effect:" effect args)))
+    :uf/unhandled-fx))
 
 (defn handle-action [state _uf-data [action & args]]
   (case action
     :db/ax.assoc
     {:uf/db (apply (partial assoc state) args)}
 
-    (js/console.warn "Unknown action:" action args)))
+    :uf/unhandled-ax))
 
 (defn handle-actions [state uf-data handler actions]
   (reduce (fn [{state :uf/db :as acc} action]
-            (let [{:uf/keys [fxs dxs db]} (let [result (handler state uf-data action)]
-                                            (if-not (= :uf/unhandled-ax result)
-                                              result
-                                              (handle-action state uf-data action)))]
+            (let [result (handler state uf-data action)
+                  {:uf/keys [fxs dxs db]} (if-not (= :uf/unhandled-ax result)
+                                            result
+                                            (let [generic-result (handle-action state uf-data action)]
+                                              (when (= :uf/unhandled-ax generic-result)
+                                                (js/console.warn "Unhandled action:" action))
+                                              generic-result))]
               (js/console.debug "Triggered action" (first action) action)
               (cond-> acc
                 db (assoc :uf/db db)
@@ -67,7 +70,10 @@
                     result (ex-handler dispatch fx)]
                 (if-not (= :uf/unhandled-fx result)
                   result
-                  (perform-effect! dispatch fx)))
+                  (let [generic-result (perform-effect! dispatch fx)]
+                    (when (= :uf/unhandled-fx generic-result)
+                      (js/console.warn "Unhandled effect:" fx))
+                    generic-result)))
               (catch :default e
                 (js/console.error (ex-info "perform-effect! Effect failed"
                                            {:error e
