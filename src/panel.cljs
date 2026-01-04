@@ -299,7 +299,7 @@
   [:div.refresh-banner
    [:span "Extension updated - please "]
    [:strong "close and reopen DevTools"]
-   [:span " to use new version"]])
+   [:span " to use the new version of this panel"]])
 
 (defn panel-header [{:panel/keys [needs-refresh?]}]
   [:div.panel-header-wrapper
