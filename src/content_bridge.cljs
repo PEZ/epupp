@@ -88,7 +88,15 @@
 (defn- handle-runtime-message [message _sender send-response]
   (let [msg-type (.-type message)]
     (case msg-type
-      ;; Script injection messages
+      ;; Readiness check - background pings to confirm bridge is ready
+      "bridge-ping"
+      (do
+        (js/console.log "[Bridge] Responding to ping")
+        (send-response #js {:ready true})
+        ;; Return true to keep sendResponse valid for async use
+        true)
+
+      ;; Script injection messages - respond synchronously
       "inject-script"
       (do
         (inject-script-tag! (.-url message))
@@ -107,6 +115,7 @@
         (send-response #js {:success true})
         false)
 
+      ;; WebSocket relay messages - no response needed
       "ws-open"
       (do
         (js/console.log "[Bridge] WebSocket connected")
@@ -114,14 +123,17 @@
         (.postMessage js/window
                       #js {:source "browser-jack-in-bridge"
                            :type "ws-open"}
-                      "*"))
+                      "*")
+        false)
 
       "ws-message"
-      (.postMessage js/window
-                    #js {:source "browser-jack-in-bridge"
-                         :type "ws-message"
-                         :data (.-data message)}
-                    "*")
+      (do
+        (.postMessage js/window
+                      #js {:source "browser-jack-in-bridge"
+                           :type "ws-message"
+                           :data (.-data message)}
+                      "*")
+        false)
 
       "ws-error"
       (do
@@ -132,7 +144,8 @@
                       #js {:source "browser-jack-in-bridge"
                            :type "ws-error"
                            :error (.-error message)}
-                      "*"))
+                      "*")
+        false)
 
       "ws-close"
       (do
@@ -142,10 +155,11 @@
         (.postMessage js/window
                       #js {:source "browser-jack-in-bridge"
                            :type "ws-close"}
-                      "*"))
+                      "*")
+        false)
 
-      nil))
-  false)
+      ;; Unknown message type
+      false)))
 
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInBridge

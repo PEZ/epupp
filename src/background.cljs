@@ -7,12 +7,40 @@
 
 (js/console.log "[Browser Jack-in Background] Service worker started")
 
-;; Initialize script storage
-(storage/init!)
+;; ============================================================
+;; Initialization Promise - single source of truth for readiness
+;; ============================================================
 
-;; Centralized state with namespaced keys
-(defonce !state (atom {:ws/connections {}
-                       :pending/approvals {}}))
+;; Use a mutable variable (not defonce) so each script wake gets fresh state.
+;; The init-promise ensures all operations wait for storage to load.
+(def !init-promise (atom nil))
+
+(defn ensure-initialized!
+  "Returns a promise that resolves when initialization is complete.
+   Safe to call multiple times - only initializes once per script lifetime."
+  []
+  (if-let [p @!init-promise]
+    p
+    (let [p (-> (storage/init!)
+                (.then (fn [_]
+                         (js/console.log "[Background] Initialization complete")
+                         true))
+                (.catch (fn [err]
+                          (js/console.error "[Background] Initialization failed:" err)
+                          ;; Reset so next call can retry
+                          (reset! !init-promise nil)
+                          (throw err))))]
+      (reset! !init-promise p)
+      p)))
+
+;; ============================================================
+;; State - WebSocket connections and pending approvals
+;; ============================================================
+
+;; Note: Use def (not defonce) for state that should reset on script wake.
+;; WebSocket connections don't survive script termination anyway.
+(def !state (atom {:ws/connections {}
+                   :pending/approvals {}}))
 
 (defn get-ws
   "Get WebSocket for a tab"
@@ -281,17 +309,46 @@
                                  (fn [r] (and r (.-hasScittle r)))
                                  5000))))))))))
 
+(defn wait-for-bridge-ready
+  "Wait for content bridge to be ready by pinging it.
+   Returns a promise that resolves when bridge responds."
+  [tab-id]
+  (js/Promise.
+   (fn [resolve reject]
+     (let [start (js/Date.now)
+           timeout 5000]
+       (letfn [(ping []
+                 (js/chrome.tabs.sendMessage
+                  tab-id
+                  #js {:type "bridge-ping"}
+                  (fn [response]
+                    (cond
+                      ;; Success - bridge responded
+                      (and response (.-ready response))
+                      (do
+                        (js/console.log "[Background] Content bridge ready for tab:" tab-id)
+                        (resolve true))
+
+                      ;; Timeout
+                      (> (- (js/Date.now) start) timeout)
+                      (reject (js/Error. "Timeout waiting for content bridge"))
+
+                      ;; Not ready yet or error - retry
+                      :else
+                      (js/setTimeout ping 50)))))]
+         (ping))))))
+
 (defn execute-scripts!
   "Execute a list of scripts in the page via Scittle using script tag injection.
-   Injects content bridge, then userscript tags, then triggers Scittle to evaluate them."
+   Injects content bridge, waits for readiness signal, then injects userscripts."
   [tab-id scripts]
   (when (seq scripts)
     (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
       ;; First ensure content bridge is loaded
       (-> (inject-content-script tab-id "content-bridge.js")
+          ;; Wait for bridge to signal readiness via ping response
           (.then (fn [_]
-                   ;; Small delay for content script to initialize
-                   (js/Promise. (fn [resolve] (js/setTimeout resolve 100)))))
+                   (wait-for-bridge-ready tab-id)))
           ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
           (.then (fn [_]
                    (js/Promise.
@@ -394,9 +451,9 @@
   ;; Always update badge from source of truth
   (update-badge-for-tab! tab-id))
 
-(defn handle-navigation!
-  "Handle page navigation: find matching scripts, check approvals, execute or prompt.
-   Scripts with approved patterns run immediately; others trigger approval notifications."
+(defn process-navigation!
+  "Process a navigation event after ensuring initialization is complete.
+   Find matching scripts, check approvals, execute or prompt."
   [tab-id url]
   (let [scripts (url-matching/get-matching-scripts url)]
     (when (seq scripts)
@@ -420,6 +477,16 @@
           (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
           (request-approval! script pattern tab-id url))))))
 
+(defn handle-navigation!
+  "Handle page navigation by waiting for init then processing.
+   Never drops navigation events - always waits for readiness."
+  [tab-id url]
+  (-> (ensure-initialized!)
+      (.then (fn [_]
+               (process-navigation! tab-id url)))
+      (.catch (fn [err]
+                (js/console.error "[Auto-inject] Navigation handler error:" err)))))
+
 ;; Clean up when tab is closed
 (.addListener js/chrome.tabs.onRemoved
               (fn [tab-id _remove-info]
@@ -433,4 +500,25 @@
                 (when (zero? (.-frameId details))
                   (handle-navigation! (.-tabId details) (.-url details)))))
 
-(js/console.log "[Browser Jack-in Background] Message listeners registered")
+;; ============================================================
+;; Lifecycle Events
+;; ============================================================
+
+;; These ensure initialization happens on browser/extension lifecycle events.
+;; The ensure-initialized! pattern guarantees we only init once even if
+;; multiple events fire.
+
+(.addListener js/chrome.runtime.onInstalled
+              (fn [details]
+                (js/console.log "[Background] onInstalled:" (.-reason details))
+                (ensure-initialized!)))
+
+(.addListener js/chrome.runtime.onStartup
+              (fn []
+                (js/console.log "[Background] onStartup")
+                (ensure-initialized!)))
+
+;; Start initialization immediately for service worker wake scenarios
+(ensure-initialized!)
+
+(js/console.log "[Browser Jack-in Background] Listeners registered")

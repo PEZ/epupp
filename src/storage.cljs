@@ -46,9 +46,9 @@
 
 (defn init!
   "Initialize storage: load existing data and set up onChanged listener.
+   Returns a promise that resolves when storage is loaded.
    Call this once from background worker on startup."
   []
-  (load!)
   ;; Listen for changes from other contexts (popup, devtools panel)
   (js/chrome.storage.onChanged.addListener
    (fn [changes area]
@@ -61,7 +61,9 @@
                              (vec (.-newValue origins-change))
                              [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
-       (js/console.log "[Storage] Updated from external change")))))
+       (js/console.log "[Storage] Updated from external change"))))
+  ;; Return promise from load! so caller can await initialization
+  (load!))
 
 ;; ============================================================
 ;; Script CRUD
