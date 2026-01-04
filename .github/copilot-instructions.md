@@ -113,6 +113,8 @@ bb build  # creates zips in dist/
 
 Use `bb build:chrome` or `bb build:firefox` only when debugging browser-specific issues.
 
+**Important:** After building, wait for the user to test before committing changes.
+
 **REPL Connection:**
 1. Copy Babashka command from extension popup (Step 1)
 2. Run in terminal: `bb browser-nrepl --nrepl-port 12345 --websocket-port 12346`
@@ -358,6 +360,10 @@ Currently manual testing workflow:
 - `bb build --dev` auto-bumps the build number for testing version detection
 - Dev version bumps in `manifest.json` **should be committed** - they track development progress
 - Release strips the build number: `0.0.7.8` becomes `0.0.7`
+
+## Committing Changes
+
+When committing, use a Claude Sonnet 4.5 subagent. Use your knowledge of the project, commit all changed files in a series of logically connected groupings with commit messages for each. Use hunks where it makes sense. Take your time to do it right. Don't edit the code at all. Don't commit obviously ephemeral files. Use ultrathink.
 
 ## Release Process
 
