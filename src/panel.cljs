@@ -254,8 +254,7 @@
    [:div.panel-content
     [code-input state]
     [save-script-section state]
-    [results-area state]]
-   [:textarea (pr-str state)]])
+    [results-area state]]])
 
 ;; ============================================================
 ;; Init
