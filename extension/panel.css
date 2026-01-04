@@ -1,6 +1,11 @@
 :root {
   --clojure-blue: #5881d8;
   --clojure-green: #91dc47;
+  --radius: 4px;
+}
+
+/* Dark theme (default) */
+:root {
   --text-primary: #e8e8e8;
   --text-secondary: #a0a0a0;
   --text-muted: #707070;
@@ -8,9 +13,39 @@
   --bg-secondary: #252526;
   --bg-input: #2d2d2d;
   --border-color: #3c3c3c;
-  --radius: 4px;
   --success: #4ec9b0;
   --error: #f14c4c;
+  --result-error-bg: #2d1f1f;
+  --refresh-banner-bg: #3d3520;
+  --refresh-banner-border: #5c4d1f;
+  --refresh-banner-text: #f0c674;
+  --refresh-banner-strong: #ffd866;
+  --scrollbar-thumb: #5a5a5a;
+  --scrollbar-thumb-hover: #6a6a6a;
+  --scrollbar-track: var(--bg-primary);
+}
+
+/* Light theme */
+@media (prefers-color-scheme: light) {
+  :root {
+    --text-primary: #1e1e1e;
+    --text-secondary: #505050;
+    --text-muted: #808080;
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-input: #ffffff;
+    --border-color: #d4d4d4;
+    --success: #2d8a6e;
+    --error: #c72e2e;
+    --result-error-bg: #ffeaea;
+    --refresh-banner-bg: #fff3cd;
+    --refresh-banner-border: #e6d9a3;
+    --refresh-banner-text: #856404;
+    --refresh-banner-strong: #6d4c00;
+    --scrollbar-thumb: #c0c0c0;
+    --scrollbar-thumb-hover: #a0a0a0;
+    --scrollbar-track: var(--bg-primary);
+  }
 }
 
 * {
@@ -70,15 +105,15 @@ body {
 /* Refresh banner */
 .refresh-banner {
   padding: 8px 12px;
-  background: #3d3520;
-  border-bottom: 1px solid #5c4d1f;
-  color: #f0c674;
+  background: var(--refresh-banner-bg);
+  border-bottom: 1px solid var(--refresh-banner-border);
+  color: var(--refresh-banner-text);
   font-size: 12px;
   text-align: center;
 }
 
 .refresh-banner strong {
-  color: #ffd866;
+  color: var(--refresh-banner-strong);
 }
 
 /* Main content area */
@@ -204,7 +239,7 @@ body {
 }
 
 .result-error {
-  background: #2d1f1f;
+  background: var(--result-error-bg);
   border-left: 3px solid var(--error);
   color: var(--error);
   white-space: pre-wrap;
@@ -363,4 +398,33 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
