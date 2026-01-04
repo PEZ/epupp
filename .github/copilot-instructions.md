@@ -363,7 +363,7 @@ Currently manual testing workflow:
 
 ## Committing Changes
 
-When committing, use a Claude Sonnet 4.5 subagent. Use your knowledge of the project, commit all changed files in a series of logically connected groupings with commit messages for each. Use hunks where it makes sense. Take your time to do it right. Don't edit the code at all. Don't commit obviously ephemeral files. Use ultrathink.
+Use the `commit` subagent.
 
 ## Release Process
 
