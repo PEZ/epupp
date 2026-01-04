@@ -233,12 +233,18 @@
     if (isModule) script.type = 'module';
     if (window.trustedTypes && window.trustedTypes.createPolicy) {
       try {
-        var policy = window.trustedTypes.createPolicy('browser-jack-in', {
-          createScriptURL: function(s) { return s; }
-        });
+        // Try using 'default' policy first (commonly allowed by strict CSPs)
+        var policy = window.trustedTypes.defaultPolicy;
+        if (!policy) {
+          policy = window.trustedTypes.createPolicy('default', {
+            createScriptURL: function(s) { return s; }
+          });
+        }
         script.src = policy.createScriptURL(url);
       } catch(e) {
-        if (!(e.name === 'TypeError' && e.message.includes('already exists'))) throw e;
+        // Policy creation may be blocked by CSP - fall back to direct assignment
+        // This may fail on very strict TT sites, but extension URLs are typically allowed
+        console.warn('[Browser Jack-in] TrustedTypes policy creation failed, using direct assignment:', e.message);
         script.src = url;
       }
     } else {
