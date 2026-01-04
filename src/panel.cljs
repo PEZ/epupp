@@ -245,8 +245,18 @@
        ^{:key idx}
        [result-item result])
      [:div.empty-results
-      [:div.empty-results-icon "λ"]
-      [:div.empty-results-text "Evaluate ClojureScript code above"]])])
+      [:div.empty-results-logos
+       [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
+        [:img {:src "images/sci.png" :alt "SCI"}]]
+       [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
+        [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
+       [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
+        [:img {:src "images/clojure.png" :alt "Clojure"}]]]
+      [:div.empty-results-text
+       "Evaluate ClojureScript code above"
+       [:br]
+       "Powered by "
+       [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]])])
 
 (defn code-input [{:keys [panel/code panel/evaluating?]}]
   [:div.code-input-area

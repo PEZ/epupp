@@ -266,14 +266,39 @@ body {
   padding: 20px;
 }
 
-.empty-results-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+.empty-results-logos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.empty-results-logos a {
+  transition: opacity 0.15s;
+}
+
+.empty-results-logos a:hover {
+  opacity: 0.8;
+}
+
+.empty-results-logos img {
+  width: 32px;
+  height: 32px;
 }
 
 .empty-results-text {
   font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-results-text a {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.empty-results-text a:hover {
+  text-decoration: underline;
 }
 
 /* Save Script Section */
