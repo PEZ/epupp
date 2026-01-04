@@ -54,8 +54,8 @@ dist/          # Final browser extension zips
 - `panel.cljs` — DevTools panel: REPL textarea, save-as-userscript
 - `devtools.cljs` — DevTools entry point (registers panel)
 - `storage.cljs` — Script CRUD, per-pattern approval, chrome.storage.local
-- `url_matching.cljs` — Glob pattern → regex conversion
-- `permissions.cljs` — Permission helpers (reserved for future use)
+- `url_matching.cljs` — Storage-dependent script filtering (uses script_utils)
+- `script_utils.cljs` — Shared utilities: script data transforms, URL pattern matching
 
 ### Squint Compilation Model
 

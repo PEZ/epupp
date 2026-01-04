@@ -164,7 +164,7 @@ The original plan was to rely on Chrome's "Site access" setting. In practice:
 - Per-pattern approval lets users allow a script on `github.com/*` but not yet on `gist.github.com/*`
 - Disabling a script also revokes its pattern approvals, so re-enabling requires re-approval
 
-The `granted-origins` storage key and `permissions.cljs` module are retained for potential future use but currently unused.
+The `granted-origins` storage key is retained for potential future use but currently unused.
 
 ## Auto-Injection Flow
 
@@ -258,9 +258,9 @@ A popup + DevTools panel covers these needs without a separate dashboard.
 
 | File | Purpose |
 |------|---------|
+| `src/script_utils.cljs` | Shared utilities: script data transforms, URL pattern matching |
 | `src/storage.cljs` | Script CRUD, atom-mirror pattern, per-pattern approval, `chrome.storage.local` |
-| `src/url_matching.cljs` | Glob pattern → regex conversion, URL matching |
-| `src/permissions.cljs` | Permission checking helpers (retained for future use, currently unused) |
+| `src/url_matching.cljs` | Storage-dependent script filtering (uses script_utils) |
 | `src/panel.cljs` | DevTools panel UI with eval and save |
 | `src/devtools.cljs` | DevTools entry point (registers panel) |
 | `src/popup.cljs` | Script list UI, toggle/delete/approve handlers, REPL connection |

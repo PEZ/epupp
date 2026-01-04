@@ -227,20 +227,27 @@
     };
   }"))
 
-#_{:clojure-lsp/ignore [:clojure-lsp/unused-public-var]}
-;; Unused for now, until we know if we want to keep injecting user scripts
-(def eval-cljs-fn
-  "Evaluate ClojureScript code via Scittle"
-  (js* "function(code) {
-    try {
-      var result = scittle.core.eval_string(code);
-      console.log('[Userscript] Executed successfully');
-      return {success: true, result: String(result)};
-    } catch(e) {
-      console.error('[Userscript] Error:', e);
-      return {success: false, error: e.message};
-    }
-  }"))
+;; RESERVED: Direct ClojureScript evaluation via Scittle's eval_string.
+;; Currently unused - userscripts are injected as <script type="application/x-scittle">
+;; tags and evaluated by Scittle's built-in script tag processing. This function
+;; is kept for potential future use cases where direct programmatic evaluation
+;; (rather than tag injection) is needed, such as:
+;; - Interactive REPL evaluation from the DevTools panel
+;; - Dynamic code generation based on page content
+;; - Sequential execution with dependency ordering
+;;
+;; (def eval-cljs-fn
+;;   "Evaluate ClojureScript code via Scittle"
+;;   (js* "function(code) {
+;;     try {
+;;       var result = scittle.core.eval_string(code);
+;;       console.log('[Userscript] Executed successfully');
+;;       return {success: true, result: String(result)};
+;;     } catch(e) {
+;;       console.error('[Userscript] Error:', e);
+;;       return {success: false, error: e.message};
+;;     }
+;;   }"))
 
 (defn poll-until
   "Poll a check function until success or timeout"

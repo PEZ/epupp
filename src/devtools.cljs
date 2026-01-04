@@ -5,5 +5,5 @@
  "Browser Jack-in"
  "icons/icon-32.png"
  "panel.html"
- (fn [panel]
+ (fn [_panel]
    (js/console.log "[DevTools] Panel created")))
