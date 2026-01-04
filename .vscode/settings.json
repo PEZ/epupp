@@ -8,5 +8,12 @@
         "primary": "squint"
       }
     }
-  ]
+  ],
+  "search.exclude": {
+    ".calva/**": true,
+    "**/*.mjs": true,
+    "build/**": true,
+    "dist/**": true,
+    "node_modules/**": true
+  }
 }
