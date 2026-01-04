@@ -12,7 +12,56 @@
          :panel/script-name ""
          :panel/script-match ""
          :panel/script-id nil  ; non-nil when editing existing script
-         :panel/save-status nil}))
+         :panel/save-status nil
+         :panel/init-version nil
+         :panel/needs-refresh? false
+         :panel/current-hostname nil}))  ; Track current hostname for persistence
+
+;; ============================================================
+;; Panel State Persistence (per hostname)
+;; ============================================================
+
+(def panel-state-prefix "panelState:")
+
+(defn get-inspected-hostname [callback]
+  "Get the hostname of the inspected page."
+  (js/chrome.devtools.inspectedWindow.eval
+   "window.location.hostname"
+   (fn [hostname _exception]
+     (callback (or hostname "unknown")))))
+
+(defn panel-state-key [hostname]
+  (str panel-state-prefix hostname))
+
+(defn save-panel-state! []
+  "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
+  (when-let [hostname (:panel/current-hostname @!state)]
+    (let [{:panel/keys [code script-name script-match script-id]} @!state
+          key (panel-state-key hostname)
+          state-to-save #js {:code code
+                             :scriptName script-name
+                             :scriptMatch script-match
+                             :scriptId script-id}]
+      (js/chrome.storage.local.set (js-obj key state-to-save)))))
+
+(defn restore-panel-state! [callback]
+  "Restore editor state from storage for current hostname."
+  (get-inspected-hostname
+   (fn [hostname]
+     (let [key (panel-state-key hostname)]
+       ;; Update tracked hostname BEFORE restoring state
+       (swap! !state assoc :panel/current-hostname hostname)
+       (js/chrome.storage.local.get
+        #js [key]
+        (fn [result]
+          (let [saved (aget result key)]
+            ;; Reset editor fields - either from saved state or to empty
+            (swap! !state merge
+                   {:panel/code (if saved (or (.-code saved) "") "")
+                    :panel/script-name (if saved (or (.-scriptName saved) "") "")
+                    :panel/script-match (if saved (or (.-scriptMatch saved) "") "")
+                    :panel/script-id (when saved (.-scriptId saved))}))
+          (when callback (callback))))))))
 
 ;; ============================================================
 ;; Evaluation via inspectedWindow
@@ -59,6 +108,10 @@
       (storage/save-script! script)
       ;; Notify background to update badge
       (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
+
+    :editor/fx.clear-persisted-state
+    (when-let [hostname (:panel/current-hostname @!state)]
+      (js/chrome.storage.local.remove (panel-state-key hostname)))
 
     :editor/fx.use-current-url
     (let [[action] args]
@@ -128,7 +181,8 @@
                       :script/code code
                       :script/enabled true}]
           {:uf/fxs [[:editor/fx.save-script script]
-                    [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]
+                    [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
+                    [:editor/fx.clear-persisted-state]]
            :uf/db (assoc state
                          :panel/save-status {:type :success :text (str "Saved \"" script-name "\"")}
                          :panel/script-name ""
@@ -241,16 +295,25 @@
        [:span {:class (str "save-status save-status-" (:type save-status))}
         (:text save-status)])]]])
 
-(defn panel-header []
-  [:div.panel-header
-   [:div.panel-title
-    [:img {:src "icons/icon-32.png" :alt ""}]
-    "Browser Jack-in"]
-   [:div.panel-status "Ready"]])
+(defn refresh-banner []
+  [:div.refresh-banner
+   [:span "Extension updated - please "]
+   [:strong "close and reopen DevTools"]
+   [:span " to use new version"]])
+
+(defn panel-header [{:panel/keys [needs-refresh?]}]
+  [:div.panel-header-wrapper
+   (when needs-refresh?
+     [refresh-banner])
+   [:div.panel-header
+    [:div.panel-title
+     [:img {:src "icons/icon-32.png" :alt ""}]
+     "Browser Jack-in"]
+    [:div.panel-status "Ready"]]])
 
 (defn panel-ui [state]
   [:div
-   [panel-header]
+   [panel-header state]
    [:div.panel-content
     [code-input state]
     [save-script-section state]
@@ -264,16 +327,60 @@
   (r/render (js/document.getElementById "app")
             [panel-ui @!state]))
 
+(defn get-extension-version []
+  (try
+    (.-version (js/chrome.runtime.getManifest))
+    (catch :default _e
+      ;; Extension context invalidated - extension was updated/reloaded
+      nil)))
+
+(defn check-version! []
+  (let [current-version (get-extension-version)
+        init-version (:panel/init-version @!state)]
+    (when (or (nil? current-version)  ; Context invalidated
+              (and init-version (not= current-version init-version)))
+      (js/console.log "[Panel] Extension updated or context invalidated")
+      (swap! !state assoc :panel/needs-refresh? true))))
+
+(defn on-page-navigated [_url]
+  (js/console.log "[Panel] Page navigated")
+  (check-version!)
+  ;; Clear results and restore state for the new hostname
+  (dispatch! [[:editor/ax.clear-results]])
+  (restore-panel-state! nil))
+
 (defn init! []
   (js/console.log "[Panel] Initializing...")
-  ;; Load existing scripts from storage before rendering
-  (-> (storage/load!)
-      (.then (fn [_]
-               (js/console.log "[Panel] Storage loaded")
-               (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
-               (render!)
-               ;; Check if there's a script to edit
-               (dispatch! [[:editor/ax.check-editing-script]])))))
+  ;; Store version at init time
+  (swap! !state assoc :panel/init-version (get-extension-version))
+  ;; Restore panel state, then continue initialization
+  (restore-panel-state!
+   (fn []
+     ;; Load existing scripts from storage before rendering
+     (-> (storage/load!)
+         (.then (fn [_]
+                  (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
+                  ;; Watch for render
+                  (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
+                  ;; Watch for state changes to persist editor state
+                  (add-watch !state :panel/persist
+                             (fn [_ _ old-state new-state]
+                               ;; Only save when editor fields change
+                               (when (or (not= (:panel/code old-state) (:panel/code new-state))
+                                         (not= (:panel/script-name old-state) (:panel/script-name new-state))
+                                         (not= (:panel/script-match old-state) (:panel/script-match new-state))
+                                         (not= (:panel/script-id old-state) (:panel/script-id new-state)))
+                                 (save-panel-state!))))
+                  (render!)
+                  ;; Check if there's a script to edit (from popup)
+                  (dispatch! [[:editor/ax.check-editing-script]])))
+         (.then (fn [_]
+                  ;; Listen for page navigation to clear stale results
+                  (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
+                  ;; Check version when panel becomes visible
+                  (js/document.addEventListener "visibilitychange"
+                                                (fn [_] (when (= "visible" js/document.visibilityState)
+                                                          (check-version!))))))))))
 
 ;; Listen for storage changes (when popup sets editingScript)
 (js/chrome.storage.onChanged.addListener

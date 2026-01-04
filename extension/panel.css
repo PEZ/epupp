@@ -67,6 +67,20 @@ body {
   color: var(--success);
 }
 
+/* Refresh banner */
+.refresh-banner {
+  padding: 8px 12px;
+  background: #3d3520;
+  border-bottom: 1px solid #5c4d1f;
+  color: #f0c674;
+  font-size: 12px;
+  text-align: center;
+}
+
+.refresh-banner strong {
+  color: #ffd866;
+}
+
 /* Main content area */
 .panel-content {
   display: flex;
