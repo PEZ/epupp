@@ -30,6 +30,7 @@ Mandatory reads:
 * [Developer docs](../docs/dev.md)
 * [Userscript architecture](../dev/docs/userscripts-architecture.md)
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
+* [Reagami](reagami.instructions.md) - Lightweight Reagent-like UI patterns
 * [State and event management](uniflow.instructions.md) - Uniflow patterns
 
 **Architecture in brief:**

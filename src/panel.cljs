@@ -9,13 +9,14 @@
   (atom {:panel/results []
          :panel/code ""
          :panel/evaluating? false
+         :panel/scittle-status :unknown  ; :unknown, :checking, :loading, :loaded
          :panel/script-name ""
          :panel/script-match ""
          :panel/script-id nil  ; non-nil when editing existing script
          :panel/save-status nil
          :panel/init-version nil
          :panel/needs-refresh? false
-         :panel/current-hostname nil}))  ; Track current hostname for persistence
+         :panel/current-hostname nil}))  ; Track current hostname for persistence  ; Track current hostname for persistence
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -91,11 +92,36 @@
      (fn [result exception-info]
        (if exception-info
          (callback {:error (or (.-value exception-info) "Evaluation failed")})
-         (callback (or result {:error "No result"})))))))
+         ;; Convert JS object to Clojure map
+         (if (and result (.-error result))
+           (callback {:error (.-error result)})
+           (callback {:result (when result (.-result result))})))))))
 
 ;; ============================================================
-;; Uniflow Dispatch
+;; Scittle Status & Injection (via background worker)
 ;; ============================================================
+
+(defn check-scittle-status!
+  "Check if Scittle is loaded in the inspected page."
+  [callback]
+  (js/chrome.devtools.inspectedWindow.eval
+   "(function() {
+      if (window.scittle && window.scittle.core) return {status: 'loaded'};
+      return {status: 'not-loaded'};
+    })()"
+   (fn [result _exception]
+     (callback (if result (.-status result) "not-loaded")))))
+
+(defn ensure-scittle!
+  "Request background worker to inject Scittle. Callback receives nil on success, error map on failure."
+  [callback]
+  (let [tab-id js/chrome.devtools.inspectedWindow.tabId]
+    (js/chrome.runtime.sendMessage
+     #js {:type "ensure-scittle" :tabId tab-id}
+     (fn [response]
+       (if (and response (.-success response))
+         (callback nil)
+         (callback {:error (or (and response (.-error response)) "Failed to inject Scittle")}))))))
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -105,6 +131,23 @@
        code
        (fn [result]
          (dispatch [[:editor/ax.handle-eval-result result]]))))
+
+    :editor/fx.check-scittle
+    (check-scittle-status!
+     (fn [status]
+       (dispatch [[:editor/ax.update-scittle-status status]])))
+
+    :editor/fx.inject-and-eval
+    (let [[code] args]
+      (ensure-scittle!
+       (fn [err]
+         (if err
+           ;; Injection failed
+           (dispatch [[:editor/ax.update-scittle-status "error"]
+                      [:editor/ax.handle-eval-result err]])
+           ;; Injection succeeded - Scittle is ready
+           (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                      [:editor/ax.do-eval code]])))))
 
     :editor/fx.save-script
     (let [[script] args]
@@ -157,13 +200,41 @@
     (let [[match] args]
       {:uf/db (assoc state :panel/script-match match)})
 
+    :editor/ax.update-scittle-status
+    (let [[status] args]
+      ;; In Squint, keywords are strings, so "loaded" equals :loaded
+      {:uf/db (assoc state :panel/scittle-status (or status :unknown))})
+
+    :editor/ax.check-scittle
+    {:uf/db (assoc state :panel/scittle-status :checking)
+     :uf/fxs [[:editor/fx.check-scittle]]}
+
     :editor/ax.eval
-    (let [code (:panel/code state)]
-      (when (and (seq code) (not (:panel/evaluating? state)))
+    (let [code (:panel/code state)
+          scittle-status (:panel/scittle-status state)]
+      (cond
+        ;; No code or already evaluating - no change
+        (or (empty? code) (:panel/evaluating? state))
+        nil
+
+        ;; Scittle ready - eval directly
+        (= :loaded scittle-status)
         {:uf/db (-> state
                     (assoc :panel/evaluating? true)
                     (update :panel/results conj {:type :input :text code}))
-         :uf/fxs [[:editor/fx.eval-in-page code]]}))
+         :uf/fxs [[:editor/fx.eval-in-page code]]}
+
+        ;; Scittle not ready - inject first
+        :else
+        {:uf/db (-> state
+                    (assoc :panel/evaluating? true)
+                    (assoc :panel/scittle-status :loading)
+                    (update :panel/results conj {:type :input :text code}))
+         :uf/fxs [[:editor/fx.inject-and-eval code]]}))
+
+    :editor/ax.do-eval
+    (let [[code] args]
+      {:uf/fxs [[:editor/fx.eval-in-page code]]})
 
     :editor/ax.handle-eval-result
     (let [[result] args]
@@ -258,24 +329,30 @@
        "Powered by "
        [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]])])
 
-(defn code-input [{:keys [panel/code panel/evaluating?]}]
-  [:div.code-input-area
-   [:textarea {:value code
-               :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter to evaluate"
-               :disabled evaluating?
-               :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
-               :on-keydown (fn [e]
-                             (when (and (or (.-ctrlKey e) (.-metaKey e))
-                                        (= "Enter" (.-key e)))
-                               (.preventDefault e)
-                               (dispatch! [[:editor/ax.eval]])))}]
-   [:div.code-actions
-    [:button.btn-eval {:on-click #(dispatch! [[:editor/ax.eval]])
-                       :disabled (or evaluating? (empty? code))}
-     (if evaluating? "Evaluating..." "Eval")]
-    [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
-     "Clear"]
-    [:span.shortcut-hint "Ctrl+Enter to eval"]]])
+(defn code-input [{:keys [panel/code panel/evaluating? panel/scittle-status]}]
+  (let [loading? (= :loading scittle-status)
+        button-text (cond
+                      loading? "Loading Scittle..."
+                      evaluating? "Evaluating..."
+                      (= :loaded scittle-status) "Eval"
+                      :else "Eval")]
+    [:div.code-input-area
+     [:textarea {:value code
+                 :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter to evaluate"
+                 :disabled (or evaluating? loading?)
+                 :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
+                 :on-keydown (fn [e]
+                               (when (and (or (.-ctrlKey e) (.-metaKey e))
+                                          (= "Enter" (.-key e)))
+                                 (.preventDefault e)
+                                 (dispatch! [[:editor/ax.eval]])))}]
+     [:div.code-actions
+      [:button.btn-eval {:on-click #(dispatch! [[:editor/ax.eval]])
+                         :disabled (or evaluating? loading? (empty? code))}
+       button-text]
+      [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
+       "Clear"]
+      [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status panel/script-id]}]
   [:div.save-script-section
@@ -325,7 +402,7 @@
     [:div.panel-status "Ready"]]])
 
 (defn panel-ui [state]
-  [:div
+  [:div.panel-root
    [panel-header state]
    [:div.panel-content
     [code-input state]
@@ -358,8 +435,12 @@
 (defn on-page-navigated [_url]
   (js/console.log "[Panel] Page navigated")
   (check-version!)
-  ;; Clear results and restore state for the new hostname
-  (dispatch! [[:editor/ax.clear-results]])
+  ;; Reset state for the new page
+  (swap! !state assoc
+         :panel/evaluating? false
+         :panel/scittle-status :unknown)
+  (dispatch! [[:editor/ax.clear-results]
+              [:editor/ax.check-scittle]])
   (restore-panel-state! nil))
 
 (defn init! []
@@ -385,6 +466,8 @@
                                          (not= (:panel/script-id old-state) (:panel/script-id new-state)))
                                  (save-panel-state!))))
                   (render!)
+                  ;; Check Scittle status on init
+                  (dispatch! [[:editor/ax.check-scittle]])
                   ;; Check if there's a script to edit (from popup)
                   (dispatch! [[:editor/ax.check-editing-script]])))
          (.then (fn [_]

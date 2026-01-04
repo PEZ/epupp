@@ -402,9 +402,9 @@
           (.catch (fn [err]
                     (js/console.error "[Userscript] Injection error:" err)))))))
 
-;; Listen for messages from content scripts and popup
+;; Listen for messages from content scripts, popup, and panel
 (.addListener js/chrome.runtime.onMessage
-              (fn [message sender _send-response]
+              (fn [message sender send-response]
                 (let [tab-id (when (.-tab sender) (.. sender -tab -id))
                       msg-type (.-type message)]
                   (case msg-type
@@ -435,6 +435,15 @@
                                            (.then (fn [_]
                                                     (execute-scripts! active-tab-id [script])))))))))
                       false)
+                    ;; Panel messages - ensure Scittle is loaded
+                    "ensure-scittle"
+                    (let [target-tab-id (.-tabId message)]
+                      (-> (ensure-scittle! target-tab-id)
+                          (.then (fn [_]
+                                   (send-response #js {:success true})))
+                          (.catch (fn [err]
+                                    (send-response #js {:success false :error (.-message err)}))))
+                      true)  ; Return true to indicate async response
                     ;; Unknown
                     (do (js/console.log "[Background] Unknown message type:" msg-type)
                         false)))))
