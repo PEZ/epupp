@@ -9,7 +9,7 @@
    - <all_urls> - matches all URLs
 
    Note: * matches any characters, ? is literal (not a wildcard).
-   
+
    Most URL matching functions are in script-utils.cljs for sharing.
    This module adds storage-dependent filtering functions."
   (:require [storage :as storage]

@@ -47,7 +47,7 @@
         version (:sci-nrepl/version config)
         config-content (str "(ns config
   \"Build configuration for Browser Jack-in.
-   
+
    GENERATED FILE - Do not edit directly!
    Edit config/dev.edn or config/prod.edn instead.\")
 

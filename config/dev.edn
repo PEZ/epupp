@@ -4,11 +4,11 @@
 ;; Changes here require a rebuild to take effect.
 
 {:dev? true
- 
+
  ;; sci.nrepl dependency for the browser-nrepl server command
  ;; Using git SHA for latest features
  :sci-nrepl/sha "1042578d5784db07b4d1b6d974f1db7cabf89e3f"
- 
+
  ;; Alternative: Clojars release (more stable, possibly older)
  ;; :sci-nrepl/version "0.0.2"
  }
