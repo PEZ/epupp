@@ -353,14 +353,22 @@ Currently manual testing workflow:
 
 **Future:** Core/pure logic (game logic, data transformations) could be extracted to separate `.cljs` files testable with [nbb](https://github.com/babashka/nbb) for automated testing.
 
+## Version Management
+
+**Dev versions** use 4-part format: `0.0.7.0`, `0.0.7.1`, etc. The 4th number is the build number.
+
+- `bb build --dev` auto-bumps the build number for testing version detection
+- Dev version bumps in `manifest.json` **should be committed** - they track development progress
+- Release strips the build number: `0.0.7.8` becomes `0.0.7`
+
 ## Release Process
 
 **Automated via `bb publish`:**
 1. Checks: clean git, on master, CHANGELOG has [Unreleased] content
-2. Bumps manifest version (e.g., `0.0.3.0` → `0.0.3`)
+2. Strips build number from version (e.g., `0.0.7.8` → `0.0.7`)
 3. Updates CHANGELOG with release date
 4. Commits, tags `vN.N.N`, pushes
-5. Bumps to next dev version (e.g., `0.0.4.0`)
+5. Bumps to next dev version (e.g., `0.0.8.0`)
 6. GitHub Actions builds zips and creates draft release
 
 **Manual store submission:**
