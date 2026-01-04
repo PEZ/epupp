@@ -16,7 +16,7 @@
   bundle-scittle {:doc "Download Scittle and nREPL plugin to src/vendor"
                   :task (tasks/bundle-scittle)}
 
-  build {:doc "Build extension for all browsers (or specify one or more of: chrome, firefox, safari)"
+  build {:doc "Build extension for all browsers. Use --dev for dev config. Specify browsers: chrome, firefox, safari"
          :task (apply tasks/build *command-line-args*)}
 
   build:chrome {:doc "Build extension for Chrome"
@@ -27,6 +27,9 @@
 
   build:safari {:doc "Build extension for Safari"
                 :task (tasks/build "safari")}
+
+  build:dev {:doc "Build extension for all browsers with dev config"
+             :task (apply tasks/build "--dev" *command-line-args*)}
 
   dev {:doc "Start Squint watch and Vite dev server"
        :task (babashka.process/shell "npx squint watch & npx vite")}

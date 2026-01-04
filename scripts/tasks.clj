@@ -3,6 +3,7 @@
             [babashka.http-client :as http]
             [babashka.process :as p]
             [clojure.data.json :as json]
+            [clojure.edn :as edn]
             [clojure.string :as str]))
 
 (defn- patch-scittle-for-csp
@@ -23,6 +24,55 @@
     (when (not= content patched)
       (println "  ✓ Patched scittle.js for CSP compatibility"))))
 
+;; ============================================================
+;; Config generation
+;; ============================================================
+
+(defn- read-config
+  "Read config from config/dev.edn or config/prod.edn based on mode.
+   Defaults to prod."
+  [mode]
+  (let [config-file (str "config/" (or mode "prod") ".edn")]
+    (when-not (fs/exists? config-file)
+      (println (str "Error: " config-file " not found"))
+      (System/exit 1))
+    (edn/read-string (slurp config-file))))
+
+(defn- generate-config-cljs!
+  "Generate src/config.cljs from EDN config file."
+  [mode]
+  (let [config (read-config mode)
+        {:keys [dev?]} config
+        sha (:sci-nrepl/sha config)
+        version (:sci-nrepl/version config)
+        config-content (str "(ns config
+  \"Build configuration for Browser Jack-in.
+   
+   GENERATED FILE - Do not edit directly!
+   Edit config/dev.edn or config/prod.edn instead.\")
+
+;; Generated from config/" (or mode "prod") ".edn
+(def dev? " dev? ")
+
+(def sci-nrepl-coords
+  " (if version
+      (str "{:mvn/version \"" version "\"}")
+      (str "{:git/sha \"" sha "\"}")) ")
+
+(defn format-deps-string
+  \"Format the sci.nrepl coords for the bb -Sdeps command\"
+  []
+  " (if version
+      (str "(str \"{:deps {io.github.babashka/sci.nrepl {:mvn/version \\\""
+           version
+           "\\\"}}}\"))")
+  (str "(str \"{:deps {io.github.babashka/sci.nrepl {:git/sha \\\""
+       sha
+       "\\\"}}}\")" )) ")
+")]
+    (spit "src/config.cljs" config-content)
+    (println (str "✓ Generated src/config.cljs from config/" (or mode "prod") ".edn"))))
+
 (defn bundle-scittle
   "Download Scittle and nREPL plugin to extension/vendor"
   []
@@ -40,8 +90,10 @@
     (println "✓ Scittle" version "bundled to" vendor-dir)))
 
 (defn compile-squint
-  "Compile ClojureScript files with Squint and bundle with esbuild"
-  []
+  "Compile ClojureScript files with Squint and bundle with esbuild.
+   Optional mode argument: 'dev' or 'prod' (default: prod)."
+  [& [mode]]
+  (generate-config-cljs! mode)
   (println "Compiling Squint...")
   (p/shell "npx squint compile")
   (println "Bundling with esbuild...")
@@ -83,14 +135,23 @@
     manifest))
 
 (defn build
-  "Build extension for specified browser(s)"
-  [& browsers]
-  (let [browsers (if (seq browsers) browsers ["chrome" "firefox" "safari"])
+  "Build extension for specified browser(s).
+   Supports browser names (chrome/firefox/safari) and mode flag (--dev or --prod).
+   Default mode is prod."
+  [& args]
+  (let [mode (cond
+               (some #(= "--dev" %) args) "dev"
+               (some #(= "--prod" %) args) "prod"
+               :else "prod")
+        browsers (->> args
+                      (remove #(str/starts-with? % "--"))
+                      seq)
+        browsers (or browsers ["chrome" "firefox" "safari"])
         extension-dir "extension"
         build-dir "build"
         dist-dir "dist"]
     ;; Compile Squint + bundle with esbuild
-    (compile-squint)
+    (compile-squint mode)
     (fs/create-dirs dist-dir)
     (doseq [browser browsers]
       (println (str "Building for " browser "..."))
