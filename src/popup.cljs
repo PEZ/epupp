@@ -614,7 +614,7 @@
        ;; Edit button to load script in DevTools panel
        [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
                              :title "Send to editor"}
-        [icons/pencil-icon]]
+        [icons/pencil]]
        ;; Always show checkbox and delete
        [:input {:type "checkbox"
                 :checked enabled
@@ -623,7 +623,7 @@
        [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
                                             (dispatch! [[:popup/ax.delete-script script-id]]))
                                :title "Delete script"}
-        [icons/x-icon]]]]
+        [icons/x]]]]
      (when show-edit-hint
        [:div.script-edit-hint
         "Open the Browser Jack-in panel in Developer Tools"])]))
@@ -643,7 +643,7 @@
    ;; Header with logos
    [:div.header
     [:div.header-left
-     [icons/jack-in-icon]
+     [icons/jack-in]
      [:h1 "Browser Jack-in"]]
     [:div.header-right
      [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"

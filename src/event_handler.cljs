@@ -11,12 +11,12 @@
     :log/fx.log
     (let [[level & ms] args]
       (apply (case level
-              :debug js/console.debug
-              :log js/console.log
-              :info js/console.info
-              :warn js/console.warn
-              :error js/console.error
-              js/console.log)
+               :debug js/console.debug
+               :log js/console.log
+               :info js/console.info
+               :warn js/console.warn
+               :error js/console.error
+               js/console.log)
              ms))
 
     (js/console.warn "Unkown effect:" effect args)))

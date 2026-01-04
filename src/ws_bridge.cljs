@@ -85,30 +85,30 @@
 
       ;; Add send method
       (set! (.-send ws-obj)
-        (fn [data]
-          (when (= 1 (.-readyState ws-obj)) ; OPEN
-            (.postMessage js/window
-              #js {:source "browser-jack-in-page"
-                   :type "ws-send"
-                   :data data}
-              "*"))))
+            (fn [data]
+              (when (= 1 (.-readyState ws-obj)) ; OPEN
+                (.postMessage js/window
+                              #js {:source "browser-jack-in-page"
+                                   :type "ws-send"
+                                   :data data}
+                              "*"))))
 
       ;; Add close method
       (set! (.-close ws-obj)
-        (fn []
-          (set! (.-readyState ws-obj) 3) ; CLOSED
-          (when-let [handler (:ws/message-handler @!state)]
-            (.removeEventListener js/window "message" handler)
-            (swap! !state assoc :ws/message-handler nil))
-          (when-let [onclose (.-onclose ws-obj)]
-            (onclose))))
+            (fn []
+              (set! (.-readyState ws-obj) 3) ; CLOSED
+              (when-let [handler (:ws/message-handler @!state)]
+                (.removeEventListener js/window "message" handler)
+                (swap! !state assoc :ws/message-handler nil))
+              (when-let [onclose (.-onclose ws-obj)]
+                (onclose))))
 
       ;; Request connection through bridge
       (.postMessage js/window
-        #js {:source "browser-jack-in-page"
-             :type "ws-connect"
-             :port port}
-        "*"))
+                    #js {:source "browser-jack-in-page"
+                         :type "ws-connect"
+                         :port port}
+                    "*"))
 
     ws-obj))
 
@@ -125,15 +125,15 @@
 
   ;; Override WebSocket for nREPL URLs only
   (set! js/WebSocket
-    (fn [url protocols]
-      (if (and (string? url) (.includes url "/_nrepl"))
-        (do
-          (js/console.log "[WS Bridge] Intercepting nREPL WebSocket:" url)
-          (let [ws (bridged-websocket url)]
+        (fn [url protocols]
+          (if (and (string? url) (.includes url "/_nrepl"))
+            (do
+              (js/console.log "[WS Bridge] Intercepting nREPL WebSocket:" url)
+              (let [ws (bridged-websocket url)]
             ;; Store reference for Scittle's usage
-            (set! (.-ws_nrepl js/window) ws)
-            ws))
-        (new (.-_OriginalWebSocket js/window) url protocols))))
+                (set! (.-ws_nrepl js/window) ws)
+                ws))
+            (new (.-_OriginalWebSocket js/window) url protocols))))
 
   ;; Copy static properties
   (set! (.-CONNECTING js/WebSocket) 0)

@@ -2,9 +2,9 @@
   "SVG icon components for the extension UI.
    Icons sourced from Heroicons (MIT) and Lucide (ISC) - inline for zero dependencies.")
 
-(defn pencil-icon
+(defn pencil
   "Edit/pencil icon - Heroicons mini"
-  ([] (pencil-icon {}))
+  ([] (pencil {}))
   ([{:keys [size] :or {size 14}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
@@ -16,9 +16,9 @@
             :d "M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
             :clip-rule "evenodd"}]]))
 
-(defn x-icon
+(defn x
   "Close/delete X icon - Heroicons mini"
-  ([] (x-icon {}))
+  ([] (x {}))
   ([{:keys [size] :or {size 14}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
@@ -29,9 +29,9 @@
             :d "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
             :clip-rule "evenodd"}]]))
 
-(defn jack-in-icon
+(defn jack-in
   "Browser Jack-in logo - lightning bolt in circle"
-  ([] (jack-in-icon {}))
+  ([] (jack-in {}))
   ([{:keys [size] :or {size 36}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
