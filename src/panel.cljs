@@ -23,8 +23,9 @@
 
 (def panel-state-prefix "panelState:")
 
-(defn get-inspected-hostname [callback]
+(defn get-inspected-hostname
   "Get the hostname of the inspected page."
+  [callback]
   (js/chrome.devtools.inspectedWindow.eval
    "window.location.hostname"
    (fn [hostname _exception]
@@ -33,8 +34,9 @@
 (defn panel-state-key [hostname]
   (str panel-state-prefix hostname))
 
-(defn save-panel-state! []
+(defn save-panel-state!
   "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
+  []
   (when-let [hostname (:panel/current-hostname @!state)]
     (let [{:panel/keys [code script-name script-match script-id]} @!state
           key (panel-state-key hostname)
@@ -44,8 +46,9 @@
                              :scriptId script-id}]
       (js/chrome.storage.local.set (js-obj key state-to-save)))))
 
-(defn restore-panel-state! [callback]
+(defn restore-panel-state!
   "Restore editor state from storage for current hostname."
+  [callback]
   (get-inspected-hostname
    (fn [hostname]
      (let [key (panel-state-key hostname)]
