@@ -111,10 +111,44 @@
                         {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
     manifest))
 
+;; ============================================================
+;; Manifest Version Helpers (used by build and publish)
+;; ============================================================
+
+(defn- read-manifest-version
+  "Read current version from manifest.json"
+  []
+  (let [manifest (json/read-str (slurp "extension/manifest.json") :key-fn keyword)]
+    (:version manifest)))
+
+(defn- update-manifest-version!
+  "Update version in manifest.json"
+  [new-version]
+  (let [manifest-path "extension/manifest.json"
+        manifest (json/read-str (slurp manifest-path) :key-fn keyword)
+        updated (assoc manifest :version new-version)]
+    (spit manifest-path (json/write-str updated :indent true :escape-slash false))))
+
+(defn- bump-dev-version!
+  "Bump the dev version's build number: 0.0.3.0 -> 0.0.3.1
+   Used during development to test version detection in panel."
+  []
+  (let [current (read-manifest-version)
+        parts (str/split current #"\.")
+        ;; Ensure we have 4 parts for dev version
+        parts (if (< (count parts) 4)
+                (conj (vec parts) "0")
+                parts)
+        build-num (Integer/parseInt (nth parts 3))
+        new-version (str/join "." [(nth parts 0) (nth parts 1) (nth parts 2) (inc build-num)])]
+    (update-manifest-version! new-version)
+    (println (str "  Bumped dev version: " current " -> " new-version))
+    new-version))
+
 (defn build
   "Build extension for specified browser(s).
    Supports browser names (chrome/firefox/safari) and mode flag (--dev or --prod).
-   Default mode is prod."
+   Default mode is prod. In dev mode, bumps the build number for version detection testing."
   [& args]
   (let [mode (cond
                (some #(= "--dev" %) args) "dev"
@@ -127,6 +161,9 @@
         extension-dir "extension"
         build-dir "build"
         dist-dir "dist"]
+    ;; Bump version in dev mode for testing version detection
+    (when (= "dev" mode)
+      (bump-dev-version!))
     ;; Compile Squint + bundle with esbuild
     (compile-squint mode)
     (fs/create-dirs dist-dir)
@@ -209,12 +246,6 @@
                            (str/trim (second unreleased-match)))
      :has-unreleased? (some? unreleased-match)}))
 
-(defn- read-manifest-version
-  "Read current version from manifest.json"
-  []
-  (let [manifest (json/read-str (slurp "extension/manifest.json") :key-fn keyword)]
-    (:version manifest)))
-
 (defn- increment-version
   "Increment patch version: 0.0.1 -> 0.0.2"
   [version]
@@ -242,14 +273,6 @@
          (map second)
          distinct
          sort)))
-
-(defn- update-manifest-version!
-  "Update version in manifest.json"
-  [new-version]
-  (let [manifest-path "extension/manifest.json"
-        manifest (json/read-str (slurp manifest-path) :key-fn keyword)
-        updated (assoc manifest :version new-version)]
-    (spit manifest-path (json/write-str updated :indent true :escape-slash false))))
 
 (defn- update-changelog!
   "Update CHANGELOG.md: add version header, keep empty Unreleased"
