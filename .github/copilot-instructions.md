@@ -97,18 +97,16 @@ See [tasks.clj:patch-scittle-for-csp](scripts/tasks.clj). **Always run `bb bundl
 # Watch mode (auto-recompile on changes)
 bb watch  # or: npx squint watch
 
-# Full build for all browsers
-bb build  # creates zips in dist/
+# Dev build (bumps dev version, use during development)
+bb build:dev  # creates zips in dist/, bumps 4th version part
 
-# Build for specific browser
-bb build:chrome
-bb build:firefox
-bb build:safari
+# Release build for all browsers
+bb build  # creates zips in dist/
 ```
 
 ### Testing the Extension Locally
 
-1. Build: `bb build` (builds all browsers — quick enough, and better to test all targets)
+1. Build: `bb build:dev` (bumps dev version, builds all browsers)
 2. Unzip `dist/scittle-tamper-chrome.zip` (or firefox)
 3. Chrome → `chrome://extensions` → Enable Developer mode → Load unpacked → select `chrome/` folder
 4. On any web page: click extension icon → follow 1-2-3 steps
