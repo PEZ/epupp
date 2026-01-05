@@ -38,6 +38,35 @@ This project uses [Squint](https://github.com/squint-cljs/squint), a light-weigh
 
 * No Persistent Data Structures. There's no structural sharing or immutability guarantees. If you need immutability, explicitly clone data.
 
+* Async/Await Support
+
+  Squint supports JavaScript async/await with `^:async` metadata and `js-await`:
+
+  ```clojure
+  ;; Mark functions as async with ^:async metadata
+  (defn ^:async fetch-data []
+    (let [response (js-await (js/fetch "/api/data"))
+          json (js-await (.json response))]
+      json))
+
+  ;; Chain multiple awaits
+  (defn ^:async process []
+    (let [a (js-await (js/Promise.resolve 10))
+          b (js-await (js/Promise.resolve 20))]
+      (+ a b)))  ; => 30
+
+  ;; Anonymous async functions need ^:async on fn
+  ((^:async fn []
+     (let [x (js-await (js/Promise.resolve "hello"))]
+       (str x " world"))))  ; => "hello world"
+  ```
+
+  **Key points:**
+  - `^:async` goes on `defn` or on the `fn` symbol for anonymous functions
+  - `js-await` unwraps promises, similar to JavaScript's `await`
+  - Async functions always return a Promise
+  - Can use `try`/`finally` for cleanup in async code
+
 ## Finding Squint Documentation
 
 ### Primary Sources
