@@ -4,7 +4,8 @@
   (:require [reagami :as r]
             [event-handler :as event-handler]
             [icons :as icons]
-            [script-utils :as script-utils]))
+            [script-utils :as script-utils]
+            [popup-utils :as popup-utils]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
 ;; Shape: {"dev": boolean, "depsString": string}
@@ -27,18 +28,10 @@
        (when (:browser/brave? @!state)
          " Brave Shields may block WebSocket connections.")))
 
-(defn status-class [status]
-  (when status
-    (cond
-      (or (.startsWith status "Failed") (.startsWith status "Error")) "status status-failed"
-      (or (.endsWith status "...") (.includes status "not connected")) "status status-pending"
-      :else "status")))
-
 (defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
-  (str "bb -Sdeps '" (.-depsString config) "' "
-       "-e '(require (quote [sci.nrepl.browser-server :as server])) "
-       "(server/start! {:nrepl-port " nrepl " :websocket-port " ws "}) "
-       "@(promise)'"))
+  (popup-utils/generate-server-cmd {:deps-string (.-depsString config)
+                                    :nrepl-port nrepl
+                                    :ws-port ws}))
 
 ;; ============================================================
 ;; Tab and storage helpers
@@ -275,53 +268,7 @@
   (js/chrome.storage.local.set
    #js {:scripts (clj->js (mapv script-utils/script->js scripts))}))
 
-;; ============================================================
-;; Pure script transformations (testable)
-;; ============================================================
 
-(defn toggle-script-in-list
-  "Toggle enabled state. When disabling, revoke ALL pattern approvals.
-   This ensures re-enabling requires fresh approval for each pattern,
-   preventing scripts from silently running on forgotten sites."
-  [scripts script-id _matching-pattern]
-  (mapv (fn [s]
-          (if (= (:script/id s) script-id)
-            (let [new-enabled (not (:script/enabled s))]
-              (if new-enabled
-                (assoc s :script/enabled true)
-                (-> s
-                    (assoc :script/enabled false)
-                    (assoc :script/approved-patterns []))))
-            s))
-        scripts))
-
-(defn approve-pattern-in-list
-  "Add pattern to script's approved-patterns if not already present."
-  [scripts script-id pattern]
-  (mapv (fn [s]
-          (if (= (:script/id s) script-id)
-            (update s :script/approved-patterns
-                    (fn [patterns]
-                      (let [patterns (or patterns [])]
-                        (if (some #(= % pattern) patterns)
-                          patterns
-                          (conj patterns pattern)))))
-            s))
-        scripts))
-
-(defn disable-script-in-list
-  "Disable a script by setting enabled to false."
-  [scripts script-id]
-  (mapv (fn [s]
-          (if (= (:script/id s) script-id)
-            (assoc s :script/enabled false)
-            s))
-        scripts))
-
-(defn remove-script-from-list
-  "Remove script from list by id."
-  [scripts script-id]
-  (filterv #(not= (:script/id %) script-id) scripts))
 
 ;; ============================================================
 ;; Effect helpers (side-effecting, but factored for clarity)
@@ -409,26 +356,26 @@
          (dispatch [[:db/ax.assoc :scripts/list scripts]]))))
 
     :popup/fx.toggle-script
-    (let [[scripts script-id matching-pattern] args
-          updated (toggle-script-in-list scripts script-id matching-pattern)]
+    (let [[scripts script-id _matching-pattern] args
+          updated (popup-utils/toggle-script-in-list scripts script-id)]
       (persist-and-notify-scripts! updated :refresh)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.approve-script
     (let [[scripts script-id pattern] args
-          updated (approve-pattern-in-list scripts script-id pattern)]
+          updated (popup-utils/approve-pattern-in-list scripts script-id pattern)]
       (persist-and-notify-scripts! updated :approved :script-id script-id :pattern pattern)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.deny-script
     (let [[scripts script-id] args
-          updated (disable-script-in-list scripts script-id)]
+          updated (popup-utils/disable-script-in-list scripts script-id)]
       (persist-and-notify-scripts! updated :refresh)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.delete-script
     (let [[scripts script-id] args
-          updated (remove-script-from-list scripts script-id)]
+          updated (popup-utils/remove-script-from-list scripts script-id)]
       (save-scripts! updated)
       ;; Notify background to update badge
       (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
@@ -624,8 +571,7 @@
      [:button#connect {:on-click #(dispatch! [[:popup/ax.connect]])}
       (if has-connected "Reconnect" "Connect")]]
     (when status
-      [:div#status {:class (status-class status)} status])]
-
+      [:div#status {:class (popup-utils/status-class status)} status])]
    [:div.step
     [:div.step-header "3. Connect editor to browser (via server)"]
     [:div.connect-row
