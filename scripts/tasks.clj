@@ -76,10 +76,13 @@
     (println "  Bundling popup.js...")
     (p/shell "npx" "esbuild" "extension/popup.mjs" "--bundle" "--format=iife"
              define-flag "--outfile=build/popup.js")
+    ;; background.mjs also needs EXTENSION_CONFIG for dev-only test hooks
+    (println "  Bundling background.js...")
+    (p/shell "npx" "esbuild" "extension/background.mjs" "--bundle" "--format=iife"
+             define-flag "--outfile=build/background.js")
     ;; Other bundles don't need config
     (doseq [[name entry] [["content-bridge" "extension/content_bridge.mjs"]
                           ["ws-bridge" "extension/ws_bridge.mjs"]
-                          ["background" "extension/background.mjs"]
                           ["devtools" "extension/devtools.mjs"]
                           ["panel" "extension/panel.mjs"]]]
       (println (str "  Bundling " name ".js..."))

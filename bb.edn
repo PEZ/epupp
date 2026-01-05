@@ -1,8 +1,10 @@
 {:paths ["." "scripts"]
  :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
         org.babashka/cli {:mvn/version "0.2.23"}
-        babashka/fs {:mvn/version "0.5.22"}
-        org.clojure/data.json {:mvn/version "2.4.0"}}
+        org.babashka/http-server {:mvn/version "0.1.14"}
+        babashka/fs {:mvn/version "0.5.30"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
+        io.github.babashka/nrepl-client {:git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}}
  :tasks
  {:requires ([babashka.cli :as cli]
              [start-nrepl]
@@ -67,6 +69,11 @@
   test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner"
                :depends [build:chrome test:e2e:compile]
                :task (babashka.process/shell "npx playwright test --ui")}
+
+  test:repl {:doc "Run REPL integration tests (full pipeline: editor -> browser-nrepl -> extension -> page)"
+             :depends [build:dev]
+             :task (do (load-file "e2e/repl_test.clj")
+                       (System/exit ((resolve 'repl-test/run-integration-tests))))}
 
   publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
            :task (tasks/publish)}}}

@@ -5,6 +5,8 @@
   (:require [storage :as storage]
             [url-matching :as url-matching]))
 
+(def ^:private config js/EXTENSION_CONFIG)
+
 (js/console.log "[Scittle Tamper Background] Service worker started")
 
 ;; ============================================================
@@ -385,6 +387,126 @@
       (catch :default err
         (js/console.error "[Userscript] Injection error:" err)))))
 
+(defn ws-fail-message []
+  "WebSocket connection failed. Is the server running?")
+
+(def set-nrepl-config-fn
+  (js* "function(port) {
+    window.SCITTLE_NREPL_WEBSOCKET_HOST = 'localhost';
+    window.SCITTLE_NREPL_WEBSOCKET_PORT = port;
+  }"))
+
+(def check-status-fn
+  (js* "function() {
+    return {
+      hasScittle: !!(window.scittle && window.scittle.core),
+      hasScittleNrepl: !!(window.scittle && window.scittle.nrepl && window.scittle.nrepl.core),
+      hasWsBridge: !!window.__browserJackInWSBridge,
+      hasContentBridge: !!window.__browserJackInContentBridge
+    };
+  }"))
+
+(def close-websocket-fn
+  (js* "function() {
+    var ws = window.ws_nrepl;
+    if (ws) {
+      if (ws.readyState === 0 || ws.readyState === 1) {
+        ws.close();
+      }
+      window.ws_nrepl = null;
+    }
+  }"))
+
+(def reconnect-nrepl-fn
+  (js* "function(port) {
+    // Create new WebSocket - will be intercepted by ws-bridge
+    var ws = new WebSocket('ws://localhost:' + port + '/_nrepl');
+  }"))
+
+(def check-connection-fn
+  (js* "function() {
+    var ws = window.ws_nrepl;
+    if (!ws) return {connected: false, state: -1};
+    return {connected: ws.readyState === 1, state: ws.readyState};
+  }"))
+
+(defn find-tab-id-by-url-pattern!
+  "Return the first tab id matching url-pattern, or nil if none match."
+  [url-pattern]
+  (js/Promise.
+   (fn [resolve reject]
+     (js/chrome.tabs.query
+      #js {:url url-pattern}
+      (fn [tabs]
+        (cond
+          js/chrome.runtime.lastError
+          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+
+          (pos? (.-length tabs))
+          (resolve (.-id (aget tabs 0)))
+
+          :else
+          (resolve nil)))))))
+
+(defn poll-until-connection
+  "Poll for window.ws_nrepl to reach OPEN state."
+  [tab-id timeout]
+  (js/Promise.
+   (fn [resolve reject]
+     (let [start (js/Date.now)]
+       (letfn [(poll []
+                 (-> (execute-in-page tab-id check-connection-fn)
+                     (.then (fn [result]
+                              (cond
+                                (and result (.-connected result))
+                                (resolve result)
+
+                                (= 3 (.-state result))
+                                (reject (js/Error. (ws-fail-message)))
+
+                                (> (- (js/Date.now) start) timeout)
+                                (reject (js/Error. "Timeout"))
+
+                                :else
+                                (js/setTimeout poll 100))))
+                     (.catch reject)))]
+         (poll))))))
+
+(defn ^:async ensure-bridge!
+  "Ensure the content bridge is injected and the ws-bridge is installed in the page."
+  [tab-id status]
+  (js-await (inject-content-script tab-id "content-bridge.js"))
+  (when-not (and status (.-hasWsBridge status))
+    (let [bridge-url (js/chrome.runtime.getURL "ws-bridge.js")]
+      (js-await (execute-in-page tab-id inject-script-fn bridge-url false))))
+  (js-await (wait-for-bridge-ready tab-id))
+  true)
+
+(defn ^:async ensure-scittle-nrepl!
+  "Ensure scittle.nrepl is loaded and connected."
+  [tab-id ws-port status]
+  (let [nrepl-url (js/chrome.runtime.getURL "vendor/scittle.nrepl.js")]
+    (js-await (execute-in-page tab-id close-websocket-fn))
+    (js-await (execute-in-page tab-id set-nrepl-config-fn ws-port))
+    (if (and status (.-hasScittleNrepl status))
+      (js-await (execute-in-page tab-id reconnect-nrepl-fn ws-port))
+      (js-await (execute-in-page tab-id inject-script-fn nrepl-url false)))
+    (js-await (poll-until-connection tab-id 3000))
+    true))
+
+(defn ^:async connect-tab!
+  "End-to-end connect flow for a specific tab.
+   Ensures bridge + Scittle + scittle.nrepl and waits for connection."
+  [tab-id ws-port]
+  (when-not (and tab-id ws-port)
+    (throw (js/Error. "connect-tab: Missing tab-id or ws-port")))
+  (let [status (js-await (execute-in-page tab-id check-status-fn))]
+    (js-await (ensure-bridge! tab-id status))
+    (js-await (ensure-scittle! tab-id))
+    (let [status2 (js-await (execute-in-page tab-id check-status-fn))]
+      (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
+    true))
+
 (.addListener js/chrome.runtime.onMessage
               (fn [message sender send-response]
                 (let [tab-id (when (.-tab sender) (.. sender -tab -id))
@@ -398,6 +520,7 @@
                     ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
+
                     ;; Popup messages
                     "refresh-approvals"
                     (do
@@ -406,6 +529,45 @@
                          (js-await (storage/load!))
                          (sync-pending-approvals!)))
                       false)
+
+                    "connect-tab"
+                    (let [target-tab-id (.-tabId message)
+                          ws-port (.-wsPort message)]
+                      ((^:async fn []
+                         (try
+                           (js-await (connect-tab! target-tab-id ws-port))
+                           (send-response #js {:success true})
+                           (catch :default err
+                             (send-response #js {:success false :error (.-message err)})))))
+                      true)
+
+                    "check-status"
+                    (let [target-tab-id (.-tabId message)]
+                      ((^:async fn []
+                         (try
+                           (let [status (js-await (execute-in-page target-tab-id check-status-fn))]
+                             (send-response #js {:success true :status status}))
+                           (catch :default err
+                             (send-response #js {:success false :error (.-message err)})))))
+                      true)
+
+                    "e2e/find-tab-id"
+                    (if (.-dev config)
+                      (let [url-pattern (.-urlPattern message)]
+                        ((^:async fn []
+                           (try
+                             (if url-pattern
+                               (if-let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
+                                 (send-response #js {:success true :tabId found-tab-id})
+                                 (send-response #js {:success false :error "No matching tab"}))
+                               (send-response #js {:success false :error "Missing urlPattern"}))
+                             (catch :default err
+                               (send-response #js {:success false :error (.-message err)})))))
+                        true)
+                      (do
+                        (send-response #js {:success false :error "Not available"})
+                        false))
+
                     "pattern-approved"
                     ;; Clear this script from pending and execute it
                     (let [script-id (.-scriptId message)
@@ -418,6 +580,7 @@
                              (js-await (ensure-scittle! active-tab-id))
                              (js-await (execute-scripts! active-tab-id [script]))))))
                       false)
+
                     ;; Panel messages - ensure Scittle is loaded
                     "ensure-scittle"
                     (let [target-tab-id (.-tabId message)]
@@ -428,6 +591,7 @@
                            (catch :default err
                              (send-response #js {:success false :error (.-message err)})))))
                       true)  ; Return true to indicate async response
+
                     ;; Unknown
                     (do (js/console.log "[Background] Unknown message type:" msg-type)
                         false)))))

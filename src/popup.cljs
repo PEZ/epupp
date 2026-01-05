@@ -24,10 +24,7 @@
          :scripts/current-url nil ; Current tab URL for matching
          }))
 
-(defn ws-fail-message []
-  (str "Failed: WebSocket connection failed. Is the server running?"
-       (when (:browser/brave? @!state)
-         " Brave Shields may block WebSocket connections.")))
+
 
 (defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
   (popup-utils/generate-server-cmd {:deps-string (.-depsString config)
@@ -53,33 +50,9 @@
 (defn storage-key [tab]
   (str "ports_" (get-hostname tab)))
 
-(defn execute-in-page
-  "Execute function in page context (MAIN world)."
-  [tab-id func & args]
-  (js/Promise.
-   (fn [resolve reject]
-     (js/chrome.scripting.executeScript
-      #js {:target #js {:tabId tab-id}
-           :world "MAIN"
-           :func func
-           :args (clj->js (vec args))}
-      (fn [results]
-        (if js/chrome.runtime.lastError
-          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-          (resolve (when (seq results) (.-result (first results))))))))))
 
-(defn inject-content-script
-  "Inject a script file into ISOLATED world (content script context)."
-  [tab-id file]
-  (js/Promise.
-   (fn [resolve reject]
-     (js/chrome.scripting.executeScript
-      #js {:target #js {:tabId tab-id}
-           :files #js [file]}
-      (fn [_results]
-        (if js/chrome.runtime.lastError
-          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-          (resolve true)))))))
+
+
 
 ;; ============================================================
 ;; Page injection functions (for execute-in-page)
@@ -87,174 +60,34 @@
 ;; They get serialized and run in page context.
 ;; ============================================================
 
-(def inject-script-fn
-  (js* "function(url, isModule) {
-    var script = document.createElement('script');
-    if (isModule) {
-      script.type = 'module';
-    }
-    // Handle Trusted Types if required by the page
-    if (window.trustedTypes && window.trustedTypes.createPolicy) {
-      try {
-        // Try using 'default' policy first (commonly allowed by strict CSPs)
-        var policy = window.trustedTypes.defaultPolicy;
-        if (!policy) {
-          policy = window.trustedTypes.createPolicy('default', {
-            createScriptURL: function(s) { return s; }
-          });
-        }
-        script.src = policy.createScriptURL(url);
-      } catch(e) {
-        // Policy creation may be blocked by CSP - fall back to direct assignment
-        // This may fail on very strict TT sites, but extension URLs are typically allowed
-        console.warn('[Scittle Tamper] TrustedTypes policy creation failed, using direct assignment:', e.message);
-        script.src = url;
-      }
-    } else {
-      script.src = url;
-    }
-    document.head.appendChild(script);
-    console.log('[Scittle Tamper] Injected:', url, isModule ? '(module)' : '');
-    return 'ok';
-  }"))
 
-(def set-nrepl-config-fn
-  (js* "function(port) {
-    window.SCITTLE_NREPL_WEBSOCKET_HOST = 'localhost';
-    window.SCITTLE_NREPL_WEBSOCKET_PORT = port;
-    console.log('[Scittle Tamper] Set nREPL to ws://localhost:', port);
-  }"))
 
-(def check-scittle-fn
-  (js* "function() {
-    if (window.scittle && window.scittle.core) return {ready: true};
-    return {ready: false};
-  }"))
 
-(def check-status-fn
-  (js* "function() {
-    return {
-      hasScittle: !!(window.scittle && window.scittle.core),
-      hasScittleNrepl: !!(window.scittle && window.scittle.nrepl && window.scittle.nrepl.core),
-      hasWsBridge: !!window.__browserJackInWSBridge,
-      hasContentBridge: !!window.__browserJackInContentBridge
-    };
-  }"))
 
-(def close-websocket-fn
-  (js* "function() {
-    var ws = window.ws_nrepl;
-    if (ws) {
-      console.log('[Scittle Tamper] Closing existing WebSocket, readyState:', ws.readyState);
-      if (ws.readyState === 0 || ws.readyState === 1) {
-        ws.close();
-      }
-      window.ws_nrepl = null;
-    }
-  }"))
 
-(def reconnect-nrepl-fn
-  "Reconnect by creating a new WebSocket - reuses existing scittle.nrepl handlers"
-  (js* "function(port) {
-    console.log('[Scittle Tamper] Reconnecting nREPL to port:', port);
-    // Create new WebSocket - will be intercepted by ws-bridge
-    var ws = new WebSocket('ws://localhost:' + port + '/_nrepl');
-    // scittle.nrepl sets handlers on window.ws_nrepl which ws-bridge populates
-  }"))
 
-(def check-connection-fn
-  "Check if WebSocket is connected"
-  (js* "function() {
-    var ws = window.ws_nrepl;
-    if (!ws) return {connected: false, state: -1};
-    return {connected: ws.readyState === 1, state: ws.readyState};
-  }"))
 
-(defn poll-until [check-fn success? fail? timeout]
-  (js/Promise.
-   (fn [resolve reject]
-     (let [start (js/Date.now)]
-       (letfn [(poll []
-                 (-> (check-fn)
-                     (.then (fn [result]
-                              (cond
-                                (fail? result) (reject (fail? result))
-                                (success? result) (resolve result)
-                                (> (- (js/Date.now) start) timeout)
-                                (reject (js/Error. "Timeout"))
-                                :else (js/setTimeout poll 100))))
-                     (.catch reject)))]
-         (poll))))))
+
+
+
+
+
+
+
+
 
 ;; ============================================================
 ;; Connection step functions
 ;; Each returns a Promise, composable in sequence
 ;; ============================================================
 
-(defn ^:async ensure-bridge!
-  "Inject content bridge and WS bridge if not already present."
-  [dispatch tab-id has-bridge]
-  (when-not has-bridge
-    (let [bridge-url (js/chrome.runtime.getURL "ws-bridge.js")]
-      (dispatch [[:db/ax.assoc :ui/status "Loading bridge..."]])
-      (js-await (inject-content-script tab-id "content-bridge.js"))
-      (js-await (execute-in-page tab-id inject-script-fn bridge-url false)))))
 
-(defn ^:async ensure-scittle!
-  "Inject Scittle if not already present, wait for it to load."
-  [dispatch tab-id has-scittle]
-  (when-not has-scittle
-    (let [scittle-url (js/chrome.runtime.getURL "vendor/scittle.js")]
-      (dispatch [[:db/ax.assoc :ui/status "Loading Scittle..."]])
-      (js-await (execute-in-page tab-id inject-script-fn scittle-url false))
-      (js-await (poll-until
-                 (fn [] (execute-in-page tab-id check-scittle-fn))
-                 (fn [result] (.-ready result))
-                 (constantly nil)
-                 5000)))))
 
-(defn ^:async configure-and-connect!
-  "Close any existing connection, set nREPL config and connect.
-   If scittle.nrepl is already loaded, just reconnect without re-injecting."
-  [dispatch tab-id port has-scittle-nrepl]
-  (try
-    (let [nrepl-url (js/chrome.runtime.getURL "vendor/scittle.nrepl.js")]
-      (dispatch [[:db/ax.assoc :ui/status "Connecting..."]])
-      (js-await (execute-in-page tab-id close-websocket-fn))
-      (js-await (execute-in-page tab-id set-nrepl-config-fn port))
-      (if has-scittle-nrepl
-        ;; Already have scittle.nrepl - just create new WebSocket (reuses existing handlers)
-        (js-await (execute-in-page tab-id reconnect-nrepl-fn port))
-        ;; First time - inject the script (it auto-connects on load)
-        (js-await (execute-in-page tab-id inject-script-fn nrepl-url false)))
-      ;; Poll for connection success (up to 3 seconds)
-      (js-await (poll-until
-                 (fn [] (execute-in-page tab-id check-connection-fn))
-                 (fn [result] (.-connected result))
-                 (fn [result]
-                   (when (= 3 (.-state result))
-                     (js/Error. (ws-fail-message))))
-                 3000))
-      (dispatch [[:db/ax.assoc
-                  :ui/status (str "Connected to ws://localhost:" port)
-                  :ui/has-connected true]]))
-    (catch :default err
-      (dispatch [[:db/ax.assoc :ui/status (str "Failed: " (.-message err))]]))))
 
-(defn ^:async connect-to-tab!
-  "Main connection flow for a tab. Injects what's needed (idempotent), then connects."
-  [dispatch tab-id port]
-  (try
-    (let [status (js-await (execute-in-page tab-id check-status-fn))
-          has-bridge (and status (.-hasWsBridge status))
-          has-scittle (and status (.-hasScittle status))
-          has-scittle-nrepl (and status (.-hasScittleNrepl status))]
-      (js/console.log "[Connect] Status:" (js/JSON.stringify status))
-      (js-await (ensure-bridge! dispatch tab-id has-bridge))
-      (js-await (ensure-scittle! dispatch tab-id has-scittle))
-      (js-await (configure-and-connect! dispatch tab-id port has-scittle-nrepl)))
-    (catch :default err
-      (dispatch [[:db/ax.assoc :ui/status (str "Failed: " (.-message err))]]))))
+
+
+
+
 
 ;; ============================================================
 ;; Script storage helpers
@@ -309,20 +142,54 @@
     :popup/fx.connect
     (let [[port] args
           tab (js-await (get-active-tab))]
-      (js-await (connect-to-tab! dispatch (.-id tab) port)))
+      (try
+        (dispatch [[:db/ax.assoc :ui/status "Connecting..."]])
+        (let [resp (js-await
+                    (js/Promise.
+                     (fn [resolve reject]
+                       (js/chrome.runtime.sendMessage
+                        #js {:type "connect-tab"
+                             :tabId (.-id tab)
+                             :wsPort port}
+                        (fn [response]
+                          (if js/chrome.runtime.lastError
+                            (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+                            (resolve response)))))))]
+          (if (and resp (.-success resp))
+            (dispatch [[:db/ax.assoc
+                        :ui/status (str "Connected to ws://localhost:" port)
+                        :ui/has-connected true]])
+            (dispatch [[:db/ax.assoc
+                        :ui/status (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
+        (catch :default err
+          (dispatch [[:db/ax.assoc :ui/status (str "Failed: " (.-message err))]]))))
 
     :popup/fx.check-status
     (let [[ws-port] args
-          tab (js-await (get-active-tab))
-          result (js-await (execute-in-page (.-id tab) check-status-fn))]
-      (when result
-        (let [has-scittle (.-hasScittle result)
-              has-bridge (.-hasWsBridge result)]
-          (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
-          (when (and has-scittle has-bridge)
-            (dispatch [[:db/ax.assoc
-                        :ui/has-connected true
-                        :ui/status (str "Connected to ws://localhost:" ws-port)]])))))
+          tab (js-await (get-active-tab))]
+      (try
+        (let [resp (js-await
+                    (js/Promise.
+                     (fn [resolve reject]
+                       (js/chrome.runtime.sendMessage
+                        #js {:type "check-status"
+                             :tabId (.-id tab)}
+                        (fn [response]
+                          (if js/chrome.runtime.lastError
+                            (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+                            (resolve response)))))))
+              status (when (and resp (.-success resp))
+                       (.-status resp))]
+          (when status
+            (let [has-scittle (.-hasScittle status)
+                  has-bridge (.-hasWsBridge status)]
+              (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
+              (when (and has-scittle has-bridge)
+                (dispatch [[:db/ax.assoc
+                            :ui/has-connected true
+                            :ui/status (str "Connected to ws://localhost:" ws-port)]])))))
+        (catch :default _err
+          nil)))
 
     :popup/fx.load-saved-ports
     ;; chrome.storage.local.get uses callback API, keep as-is

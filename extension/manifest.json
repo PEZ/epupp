@@ -1,5 +1,5 @@
 {
-  "description": "Live tamper your web using Clojure. Jack your Clojure editor into any web page",
+  "description": "Live tamper your web. Use existing userscripts or develop your own. Jack your  editor into any web page to tamper with it in real-time. Or let your AI agent hack the page while you are browsing.",
   "host_permissions": [
     "<all_urls>"
   ],
@@ -30,7 +30,7 @@
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.32",
+  "version": "0.0.7.39",
   "web_accessible_resources": [
     {
       "resources": [
