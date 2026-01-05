@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './build/e2e',
+  testMatch: '**/*.mjs',
   timeout: 30000,
   use: {
     headless: false, // Extensions require headed mode
