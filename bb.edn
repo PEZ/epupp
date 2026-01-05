@@ -1,4 +1,4 @@
-{:paths ["." "scripts"]
+{:paths ["." "scripts" "e2e"]
  :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
         org.babashka/cli {:mvn/version "0.2.23"}
         org.babashka/http-server {:mvn/version "0.1.14"}
@@ -73,13 +73,11 @@
 
   test:repl-e2e {:doc "Run REPL integration tests (full pipeline: editor -> browser-nrepl -> extension -> page)"
                  :depends [build:dev]
-                 :task (do (load-file "e2e/repl_test.clj")
-                           (System/exit ((resolve 'repl-test/run-integration-tests))))}
+                 :task repl-test/run-integration-tests}
 
   test:repl-e2e:ui {:doc "Run REPL integration tests with Playwright interactive UI"
                     :depends [build:dev]
-                    :task (let [_ (repl-test/run-integration-tests)
-                                {:keys [cleanup-fn]} ((resolve 'repl-test/start-servers!))]
+                    :task (let [{:keys [cleanup-fn]} ((resolve 'repl-test/start-servers!))]
                             (try
                               (babashka.process/shell "npx playwright test --ui --config e2e/playwright.repl.config.js")
                               (finally

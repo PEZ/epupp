@@ -85,118 +85,18 @@
 (defn run-playwright-connect!
   "Run Playwright to launch browser, load extension, navigate to test page,
    and connect via background worker APIs (no popup interaction needed).
-   Returns process (browser stays open for eval tests)."
+   Returns process (browser stays open for eval tests).
+
+   Requires: bb test:e2e:compile to build the connect_helper.mjs script first."
   []
   (println "Launching browser with extension...")
   (let [extension-path (str (fs/absolutize "dist/chrome"))
         test-page-url (str "http://localhost:" http-port "/")
-        helper-script (str "
-const { chromium } = require('@playwright/test');
-
-(async () => {
-  const extensionPath = '" extension-path "';
-  const testPageUrl = '" test-page-url "';
-  const wsPort = " ws-port ";
-  console.log('Extension path:', extensionPath);
-
-  try {
-    const context = await chromium.launchPersistentContext('', {
-      headless: false,
-      args: [
-        '--no-sandbox',
-        '--allow-file-access-from-files',
-        '--enable-features=ExtensionsManifestV3Only',
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`
-      ]
-    });
-
-    // Get extension ID from service worker
-    const workers = context.serviceWorkers();
-    let extId;
-    if (workers.length > 0) {
-      extId = workers[0].url().split('/')[2];
-    } else {
-      const sw = await context.waitForEvent('serviceworker');
-      extId = sw.url().split('/')[2];
-    }
-    console.log('Extension ID:', extId);
-
-    // Open test page
-    const testPage = await context.newPage();
-    await testPage.goto(testPageUrl);
-    console.log('Test page loaded:', testPageUrl);
-
-    // Give page a moment to settle
-    await new Promise(r => setTimeout(r, 500));
-
-    // Use background worker APIs to find tab and connect
-    // We evaluate in the context of an extension page to access chrome.runtime
-    console.log('Opening extension helper page...');
-    const bgPage = await context.newPage();
-    console.log('Navigating to popup.html...');
-    await bgPage.goto(`chrome-extension://${extId}/popup.html`, { waitUntil: 'networkidle' });
-    await bgPage.waitForLoadState('domcontentloaded');
-    console.log('Popup page loaded');
-
-    // Wait for popup to initialize and for chrome.runtime to be available
-    await new Promise(r => setTimeout(r, 2000));
-    console.log('Starting find-tab-id call...');
-
-    // Ask background for tab ID matching our test page URL
-    const findTabResult = await bgPage.evaluate(async (urlPattern) => {
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { type: 'e2e/find-tab-id', urlPattern },
-          (response) => resolve(response)
-        );
-      });
-    }, 'http://localhost:*/*');
-
-    console.log('Find tab result:', JSON.stringify(findTabResult));
-
-    if (!findTabResult || !findTabResult.success) {
-      console.log('ERROR: Could not find test page tab:', findTabResult?.error || 'unknown');
-      process.exit(1);
-    }
-
-    const tabId = findTabResult.tabId;
-    console.log('Found test page tab ID:', tabId);
-
-    // Request background to connect this tab
-    const connectResult = await bgPage.evaluate(async ({ tabId, wsPort }) => {
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { type: 'connect-tab', tabId, wsPort },
-          (response) => resolve(response)
-        );
-      });
-    }, { tabId, wsPort });
-
-    console.log('Connect result:', JSON.stringify(connectResult));
-
-    if (!connectResult || !connectResult.success) {
-      console.log('ERROR: Connection failed:', connectResult?.error || 'unknown');
-      process.exit(1);
-    }
-
-    // Close the helper page (optional, keeps things tidy)
-    await bgPage.close();
-
-    console.log('READY');
-
-    // Keep browser open - parent process will kill us
-    await new Promise(() => {});
-  } catch (err) {
-    console.log('ERROR:', err.message);
-    process.exit(1);
-  }
-})();
-")
-        script-path "build/e2e/connect-helper.cjs"]
-    (fs/create-dirs "build/e2e")
-    (spit script-path helper-script)
-    (let [proc (p/process ["node" script-path]
+        script-path "build/e2e/connect_helper.mjs"]
+    (when-not (fs/exists? script-path)
+      (throw (ex-info "connect_helper.mjs not found. Run 'bb compile:e2e' first."
+                      {:script-path script-path})))
+    (let [proc (p/process ["node" script-path extension-path test-page-url (str ws-port)]
                           {:out :pipe :err :inherit})]
       ;; Wait for READY signal with timeout
       (let [reader (java.io.BufferedReader.
