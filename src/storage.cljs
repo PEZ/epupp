@@ -29,20 +29,19 @@
      #js {:scripts (clj->js (mapv script-utils/script->js scripts))
           :granted-origins (clj->js granted-origins)})))
 
-(defn load!
+(defn ^:async load!
   "Load scripts from chrome.storage.local into !db atom.
    Returns a promise that resolves when loaded."
   []
-  (-> (js/chrome.storage.local.get #js ["scripts" "granted-origins"])
-      (.then (fn [result]
-               (let [scripts (script-utils/parse-scripts (.-scripts result))
-                     granted-origins (if (.-granted-origins result)
-                                       (vec (.-granted-origins result))
-                                       [])]
-                 (reset! !db {:storage/scripts scripts
-                              :storage/granted-origins granted-origins})
-                 (js/console.log "[Storage] Loaded" (count scripts) "scripts")
-                 @!db)))))
+  (let [result (js-await (js/chrome.storage.local.get #js ["scripts" "granted-origins"]))
+        scripts (script-utils/parse-scripts (.-scripts result))
+        granted-origins (if (.-granted-origins result)
+                          (vec (.-granted-origins result))
+                          [])]
+    (reset! !db {:storage/scripts scripts
+                 :storage/granted-origins granted-origins})
+    (js/console.log "[Storage] Loaded" (count scripts) "scripts")
+    @!db))
 
 (defn init!
   "Initialize storage: load existing data and set up onChanged listener.

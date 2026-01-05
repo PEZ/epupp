@@ -352,33 +352,33 @@
   ;; Restore panel state, then continue initialization
   (restore-panel-state!
    (fn []
-     ;; Load existing scripts from storage before rendering
-     (-> (storage/load!)
-         (.then (fn [_]
-                  (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
-                  ;; Watch for render
-                  (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
-                  ;; Watch for state changes to persist editor state
-                  (add-watch !state :panel/persist
-                             (fn [_ _ old-state new-state]
-                               ;; Only save when editor fields change
-                               (when (or (not= (:panel/code old-state) (:panel/code new-state))
-                                         (not= (:panel/script-name old-state) (:panel/script-name new-state))
-                                         (not= (:panel/script-match old-state) (:panel/script-match new-state))
-                                         (not= (:panel/script-id old-state) (:panel/script-id new-state)))
-                                 (save-panel-state!))))
-                  (render!)
-                  ;; Check Scittle status on init
-                  (dispatch! [[:editor/ax.check-scittle]])
-                  ;; Check if there's a script to edit (from popup)
-                  (dispatch! [[:editor/ax.check-editing-script]])))
-         (.then (fn [_]
-                  ;; Listen for page navigation to clear stale results
-                  (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
-                  ;; Check version when panel becomes visible
-                  (js/document.addEventListener "visibilitychange"
-                                                (fn [_] (when (= "visible" js/document.visibilityState)
-                                                          (check-version!))))))))))
+     ;; Use async IIFE for the rest of initialization
+     ((^:async fn []
+        ;; Load existing scripts from storage before rendering
+        (js-await (storage/load!))
+        (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
+        ;; Watch for render
+        (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
+        ;; Watch for state changes to persist editor state
+        (add-watch !state :panel/persist
+                   (fn [_ _ old-state new-state]
+                     ;; Only save when editor fields change
+                     (when (or (not= (:panel/code old-state) (:panel/code new-state))
+                               (not= (:panel/script-name old-state) (:panel/script-name new-state))
+                               (not= (:panel/script-match old-state) (:panel/script-match new-state))
+                               (not= (:panel/script-id old-state) (:panel/script-id new-state)))
+                       (save-panel-state!))))
+        (render!)
+        ;; Check Scittle status on init
+        (dispatch! [[:editor/ax.check-scittle]])
+        ;; Check if there's a script to edit (from popup)
+        (dispatch! [[:editor/ax.check-editing-script]])
+        ;; Listen for page navigation to clear stale results
+        (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
+        ;; Check version when panel becomes visible
+        (js/document.addEventListener "visibilitychange"
+                                      (fn [_] (when (= "visible" js/document.visibilityState)
+                                                (check-version!)))))))))
 
 ;; Listen for storage changes (when popup sets editingScript)
 (js/chrome.storage.onChanged.addListener

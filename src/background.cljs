@@ -15,22 +15,22 @@
 ;; The init-promise ensures all operations wait for storage to load.
 (def !init-promise (atom nil))
 
-(defn ensure-initialized!
+(defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
    Safe to call multiple times - only initializes once per script lifetime."
   []
   (if-let [p @!init-promise]
-    p
-    (let [p (-> (storage/init!)
-                (.then (fn [_]
-                         (js/console.log "[Background] Initialization complete")
-                         true))
-                (.catch (fn [err]
-                          (js/console.error "[Background] Initialization failed:" err)
-                          ;; Reset so next call can retry
-                          (reset! !init-promise nil)
-                          (throw err))))]
-      (reset! !init-promise p)
+    (js-await p)
+    (let [p (try
+              (js-await (storage/init!))
+              (js/console.log "[Background] Initialization complete")
+              true
+              (catch :default err
+                (js/console.error "[Background] Initialization failed:" err)
+                ;; Reset so next call can retry
+                (reset! !init-promise nil)
+                (throw err)))]
+      (reset! !init-promise (js/Promise.resolve p))
       p)))
 
 ;; ============================================================
@@ -164,13 +164,12 @@
                                 n (count-pending-for-url url)]
                             (set-badge! n))))))
 
-(defn update-badge-for-active-tab!
+(defn ^:async update-badge-for-active-tab!
   "Update badge based on pending count for the active tab."
   []
-  (-> (get-active-tab-id)
-      (.then (fn [tab-id]
-               (when tab-id
-                 (update-badge-for-tab! tab-id))))))
+  (let [tab-id (js-await (get-active-tab-id))]
+    (when tab-id
+      (update-badge-for-tab! tab-id))))
 
 (defn clear-pending-approval!
   "Remove a specific script/pattern from pending approvals and update badge."
@@ -300,20 +299,18 @@
                      (.catch reject)))]
          (poll))))))
 
-(defn ensure-scittle!
-  "Ensure Scittle is loaded in the page. Returns promise."
+(defn ^:async ensure-scittle!
+  "Ensure Scittle is loaded in the page."
   [tab-id]
-  (-> (execute-in-page tab-id check-scittle-fn)
-      (.then (fn [status]
-               (if (and status (.-hasScittle status))
-                 (js/Promise.resolve true)
-                 (let [scittle-url (js/chrome.runtime.getURL "vendor/scittle.js")]
-                   (-> (execute-in-page tab-id inject-script-fn scittle-url false)
-                       (.then (fn [_]
-                                (poll-until
-                                 (fn [] (execute-in-page tab-id check-scittle-fn))
-                                 (fn [r] (and r (.-hasScittle r)))
-                                 5000))))))))))
+  (let [status (js-await (execute-in-page tab-id check-scittle-fn))]
+    (when-not (and status (.-hasScittle status))
+      (let [scittle-url (js/chrome.runtime.getURL "vendor/scittle.js")]
+        (js-await (execute-in-page tab-id inject-script-fn scittle-url false))
+        (js-await (poll-until
+                   (fn [] (execute-in-page tab-id check-scittle-fn))
+                   (fn [r] (and r (.-hasScittle r)))
+                   5000))))
+    true))
 
 (defn wait-for-bridge-ready
   "Wait for content bridge to be ready by pinging it.
@@ -344,65 +341,50 @@
                       (js/setTimeout ping 50)))))]
          (ping))))))
 
-(defn execute-scripts!
+(defn send-tab-message
+  "Send message to a tab and return a promise."
+  [tab-id message]
+  (js/Promise.
+   (fn [resolve reject]
+     (js/chrome.tabs.sendMessage
+      tab-id
+      (clj->js message)
+      (fn [response]
+        (if js/chrome.runtime.lastError
+          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+          (resolve response)))))))
+
+;; Listen for messages from content scripts, popup, and panel
+(defn ^:async execute-scripts!
   "Execute a list of scripts in the page via Scittle using script tag injection.
    Injects content bridge, waits for readiness signal, then injects userscripts."
   [tab-id scripts]
   (when (seq scripts)
-    (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
-      ;; First ensure content bridge is loaded
-      (-> (inject-content-script tab-id "content-bridge.js")
-          ;; Wait for bridge to signal readiness via ping response
-          (.then (fn [_]
-                   (wait-for-bridge-ready tab-id)))
-          ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
-          (.then (fn [_]
-                   (js/Promise.
-                    (fn [resolve reject]
-                      (js/chrome.tabs.sendMessage
-                       tab-id
-                       #js {:type "clear-userscripts"}
-                       (fn [response]
-                         (if js/chrome.runtime.lastError
-                           (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-                           (resolve response))))))))
-          ;; Then inject all userscript tags
-          (.then (fn [_]
-                   (js/Promise.all
-                    (clj->js
-                     (map (fn [script]
-                            (js/Promise.
-                             (fn [resolve reject]
-                               (js/chrome.tabs.sendMessage
-                                tab-id
-                                #js {:type "inject-userscript"
-                                     :id (str "userscript-" (:script/id script))
-                                     :code (:script/code script)}
-                                (fn [response]
-                                  (if js/chrome.runtime.lastError
-                                    (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-                                    (do
-                                      (js/console.log "[Userscript]" (:script/name script) "tag injected")
-                                      (resolve response))))))))
-                          scripts)))))
-          ;; Then trigger Scittle to evaluate them
-          (.then (fn [_]
-                   (js/Promise.
-                    (fn [resolve reject]
-                      (js/chrome.tabs.sendMessage
-                       tab-id
-                       #js {:type "inject-script"
-                            :url trigger-url}
-                       (fn [response]
-                         (if js/chrome.runtime.lastError
-                           (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-                           (do
-                             (js/console.log "[Userscript] Triggered Scittle evaluation")
-                             (resolve response)))))))))
-          (.catch (fn [err]
-                    (js/console.error "[Userscript] Injection error:" err)))))))
+    (try
+      (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
+        ;; First ensure content bridge is loaded
+        (js-await (inject-content-script tab-id "content-bridge.js"))
+        ;; Wait for bridge to signal readiness via ping response
+        (js-await (wait-for-bridge-ready tab-id))
+        ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
+        (js-await (send-tab-message tab-id {:type "clear-userscripts"}))
+        ;; Inject all userscript tags
+        (js-await
+         (js/Promise.all
+          (clj->js
+           (map (fn [script]
+                  (-> (send-tab-message tab-id {:type "inject-userscript"
+                                                :id (str "userscript-" (:script/id script))
+                                                :code (:script/code script)})
+                      (.then (fn [_]
+                               (js/console.log "[Userscript]" (:script/name script) "tag injected")))))
+                scripts))))
+        ;; Trigger Scittle to evaluate them
+        (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url}))
+        (js/console.log "[Userscript] Triggered Scittle evaluation"))
+      (catch :default err
+        (js/console.error "[Userscript] Injection error:" err)))))
 
-;; Listen for messages from content scripts, popup, and panel
 (.addListener js/chrome.runtime.onMessage
               (fn [message sender send-response]
                 (let [tab-id (when (.-tab sender) (.. sender -tab -id))
@@ -420,9 +402,9 @@
                     "refresh-approvals"
                     (do
                       ;; Reload scripts from storage, then sync pending + badge
-                      (-> (storage/load!)
-                          (.then (fn [_]
-                                   (sync-pending-approvals!))))
+                      ((^:async fn []
+                         (js-await (storage/load!))
+                         (sync-pending-approvals!)))
                       false)
                     "pattern-approved"
                     ;; Clear this script from pending and execute it
@@ -431,21 +413,20 @@
                       (clear-pending-approval! script-id pattern)
                       ;; Execute the script now
                       (when-let [script (storage/get-script script-id)]
-                        (-> (get-active-tab-id)
-                            (.then (fn [active-tab-id]
-                                     (when active-tab-id
-                                       (-> (ensure-scittle! active-tab-id)
-                                           (.then (fn [_]
-                                                    (execute-scripts! active-tab-id [script])))))))))
+                        ((^:async fn []
+                           (when-let [active-tab-id (js-await (get-active-tab-id))]
+                             (js-await (ensure-scittle! active-tab-id))
+                             (js-await (execute-scripts! active-tab-id [script]))))))
                       false)
                     ;; Panel messages - ensure Scittle is loaded
                     "ensure-scittle"
                     (let [target-tab-id (.-tabId message)]
-                      (-> (ensure-scittle! target-tab-id)
-                          (.then (fn [_]
-                                   (send-response #js {:success true})))
-                          (.catch (fn [err]
-                                    (send-response #js {:success false :error (.-message err)}))))
+                      ((^:async fn []
+                         (try
+                           (js-await (ensure-scittle! target-tab-id))
+                           (send-response #js {:success true})
+                           (catch :default err
+                             (send-response #js {:success false :error (.-message err)})))))
                       true)  ; Return true to indicate async response
                     ;; Unknown
                     (do (js/console.log "[Background] Unknown message type:" msg-type)
@@ -469,7 +450,7 @@
   ;; Always update badge from source of truth
   (update-badge-for-tab! tab-id))
 
-(defn process-navigation!
+(defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
    Find matching scripts, check approvals, execute or prompt."
   [tab-id url]
@@ -486,24 +467,24 @@
             unapproved (remove :approved? script-contexts)]
         (when (seq approved)
           (js/console.log "[Auto-inject] Executing" (count approved) "approved scripts")
-          (-> (ensure-scittle! tab-id)
-              (.then (fn [_]
-                       (execute-scripts! tab-id (map :script approved))))
-              (.catch (fn [err]
-                        (js/console.error "[Auto-inject] Failed:" (.-message err))))))
+          (try
+            (js-await (ensure-scittle! tab-id))
+            (js-await (execute-scripts! tab-id (map :script approved)))
+            (catch :default err
+              (js/console.error "[Auto-inject] Failed:" (.-message err)))))
         (doseq [{:keys [script pattern]} unapproved]
           (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
           (request-approval! script pattern tab-id url))))))
 
-(defn handle-navigation!
+(defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
    Never drops navigation events - always waits for readiness."
   [tab-id url]
-  (-> (ensure-initialized!)
-      (.then (fn [_]
-               (process-navigation! tab-id url)))
-      (.catch (fn [err]
-                (js/console.error "[Auto-inject] Navigation handler error:" err)))))
+  (try
+    (js-await (ensure-initialized!))
+    (js-await (process-navigation! tab-id url))
+    (catch :default err
+      (js/console.error "[Auto-inject] Navigation handler error:" err))))
 
 ;; Clean up when tab is closed
 (.addListener js/chrome.tabs.onRemoved
