@@ -5,7 +5,8 @@
             [event-handler :as event-handler]
             [icons :as icons]
             [script-utils :as script-utils]
-            [popup-utils :as popup-utils]))
+            [popup-utils :as popup-utils]
+            [popup-actions :as popup-actions]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
 ;; Shape: {"dev": boolean, "depsString": string}
@@ -397,73 +398,11 @@
 
     :uf/unhandled-fx))
 
-(defn handle-action [state _uf-data [action & args]]
-  (case action
-    :popup/ax.set-nrepl-port
-    (let [[port] args
-          new-state (assoc state :ports/nrepl port)]
-      {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
-
-    :popup/ax.set-ws-port
-    (let [[port] args
-          new-state (assoc state :ports/ws port)]
-      {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
-
-    :popup/ax.copy-command
-    {:uf/fxs [[:popup/fx.copy-command (generate-server-cmd state)]]}
-
-    :popup/ax.connect
-    (let [port (js/parseInt (:ports/ws state) 10)]
-      (when (and (not (js/isNaN port)) (<= 1 port 65535))
-        {:uf/db (assoc state :ui/status "Checking...")
-         :uf/fxs [[:popup/fx.connect port]]}))
-
-    :popup/ax.check-status
-    {:uf/fxs [[:popup/fx.check-status (:ports/ws state)]]}
-
-    :popup/ax.load-saved-ports
-    {:uf/fxs [[:popup/fx.load-saved-ports]]}
-
-    :popup/ax.load-scripts
-    {:uf/fxs [[:popup/fx.load-scripts]]}
-
-    :popup/ax.toggle-script
-    (let [[script-id matching-pattern] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.toggle-script scripts script-id matching-pattern]]})
-
-    :popup/ax.delete-script
-    (let [[script-id] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.delete-script scripts script-id]]})
-
-    :popup/ax.load-current-url
-    {:uf/fxs [[:popup/fx.load-current-url]]}
-
-    :popup/ax.approve-script
-    (let [[script-id pattern] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.approve-script scripts script-id pattern]]})
-
-    :popup/ax.deny-script
-    (let [[script-id] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.deny-script scripts script-id]]})
-
-    :popup/ax.edit-script
-    (let [[script-id] args
-          script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
-      (when script
-        {:uf/db (assoc state :ui/editing-hint-script-id script-id)
-         :uf/fxs [[:popup/fx.edit-script script]
-                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
-
-    :uf/unhandled-ax))
+(defn- make-uf-data []
+  {:config/deps-string (.-depsString config)})
 
 (defn dispatch! [actions]
-  (event-handler/dispatch! !state handle-action perform-effect! actions))
+  (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))
 
 (defn port-input [{:keys [id label value on-change]}]
   [:span

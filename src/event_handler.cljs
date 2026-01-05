@@ -46,41 +46,47 @@
            :uf/fxs []}
           (remove nil? actions)))
 
-(defn dispatch! [!state ax-handler ex-handler actions]
-  (let [uf-data {:system/now (.now js/Date)}
-        {:uf/keys [fxs dxs db]}
-        (try
-          (handle-actions @!state uf-data ax-handler actions)
-          (catch :default e
-            {:uf/fxs [[:log/fx.log :error (ex-info "handle-action error"
-                                                   {:error e}
-                                                   :event-handler/handle-actions)]]}))]
-    (when db
-      (reset! !state db))
-    (when dxs
-      (dispatch! !state ax-handler ex-handler dxs))
-    (when fxs
-      (try
-        (doseq [fx fxs]
-          (when fx
-            (when-not (= :log/fx.log (first fx))
-              (js/console.debug "Triggered effect" fx))
-            (try
-              (let [dispatch (partial dispatch! !state ax-handler ex-handler)
-                    result (ex-handler dispatch fx)]
-                (if-not (= :uf/unhandled-fx result)
-                  result
-                  (let [generic-result (perform-effect! dispatch fx)]
-                    (when (= :uf/unhandled-fx generic-result)
-                      (js/console.warn "Unhandled effect:" fx))
-                    generic-result)))
-              (catch :default e
-                (js/console.error (ex-info "perform-effect! Effect failed"
-                                           {:error e
-                                            :effect fx}
-                                           :event-handler/perform-effects))
-                (throw e)))))
-        (catch :default e
-          (js/console.error (ex-info "perform-effects! error"
-                                     {:error e}
-                                     :event-handler/perform-effects)))))))
+(defn dispatch!
+  "Dispatch actions through the Uniflow system.
+   Optionally accepts additional-uf-data to merge into the framework context."
+  ([!state ax-handler ex-handler actions]
+   (dispatch! !state ax-handler ex-handler actions nil))
+  ([!state ax-handler ex-handler actions additional-uf-data]
+   (let [uf-data (merge {:system/now (.now js/Date)} additional-uf-data)
+         {:uf/keys [fxs dxs db]}
+         (try
+           (handle-actions @!state uf-data ax-handler actions)
+           (catch :default e
+             {:uf/fxs [[:log/fx.log :error (ex-info "handle-action error"
+                                                    {:error e}
+                                                    :event-handler/handle-actions)]]}))]
+     (when db
+       (reset! !state db))
+     (when dxs
+       (dispatch! !state ax-handler ex-handler dxs additional-uf-data))
+     (when fxs
+       (try
+         (doseq [fx fxs]
+           (when fx
+             (when-not (= :log/fx.log (first fx))
+               (js/console.debug "Triggered effect" fx))
+             (try
+               (let [dispatch (fn [actions]
+                                (dispatch! !state ax-handler ex-handler actions additional-uf-data))
+                     result (ex-handler dispatch fx)]
+                 (if-not (= :uf/unhandled-fx result)
+                   result
+                   (let [generic-result (perform-effect! dispatch fx)]
+                     (when (= :uf/unhandled-fx generic-result)
+                       (js/console.warn "Unhandled effect:" fx))
+                     generic-result)))
+               (catch :default e
+                 (js/console.error (ex-info "perform-effect! Effect failed"
+                                            {:error e
+                                             :effect fx}
+                                            :event-handler/perform-effects))
+                 (throw e)))))
+         (catch :default e
+           (js/console.error (ex-info "perform-effects! error"
+                                      {:error e}
+                                      :event-handler/perform-effects))))))))

@@ -135,7 +135,7 @@
       (fn []
         (let [state {}
               captured-uf-data (atom nil)
-              handler (fn [s uf-data [action & _args]]
+              handler (fn [s uf-data [_action & _args]]
                         (reset! captured-uf-data uf-data)
                         {:uf/db s})
               uf-data {:system/now 1234567890}]
