@@ -60,13 +60,13 @@
   test:e2e:compile {:doc "Compile e2e test files"
                     :task (babashka.process/shell "npx squint compile --paths src e2e --output-dir build/e2e")}
 
-  test:e2e {:doc "Run Playwright E2E tests (builds extension first)"
+  test:e2e {:doc "Run Playwright E2E tests (builds extension first, opens browser - extensions require headed mode)"
             :depends [build:chrome test:e2e:compile]
             :task (babashka.process/shell "npx playwright test")}
 
-  test:e2e:headed {:doc "Run Playwright E2E tests with visible browser"
-                   :depends [build:chrome test:e2e:compile]
-                   :task (babashka.process/shell "npx playwright test --headed")}
+  test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner"
+               :depends [build:chrome test:e2e:compile]
+               :task (babashka.process/shell "npx playwright test --ui")}
 
   publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
            :task (tasks/publish)}}}
