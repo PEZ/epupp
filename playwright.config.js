@@ -4,6 +4,7 @@ import path from 'path';
 export default defineConfig({
   testDir: './build/e2e',
   testMatch: '**/*_{test,spec}.mjs',
+  testIgnore: '**/repl_ui_spec.mjs',  // REPL tests need infrastructure, run via test:repl-e2e
   timeout: 30000,
   use: {
     // Use Chrome channel for extension support
