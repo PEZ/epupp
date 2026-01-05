@@ -13,17 +13,33 @@ npm install
 
 ### Testing
 
-Run tests once:
+Run unit tests once:
 ```bash
 bb test
 ```
 
-Start test watchers (Squint + Vitest in parallel):
+Start unit test watchers (Squint + Vitest in parallel):
 ```bash
 bb test:watch
 ```
 
-Tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint compiles them to `build/test/*.mjs` which Vitest watches and runs.
+Unit tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint compiles them to `build/test/*.mjs` which Vitest watches and runs.
+
+#### E2E Tests
+
+Run Playwright E2E tests for popup UI:
+```bash
+bb test:e2e          # Run tests
+bb test:e2e:ui       # Interactive Playwright UI
+```
+
+Run REPL integration tests (full pipeline with browser-nrepl):
+```bash
+bb test:repl-e2e     # Run tests
+bb test:repl-e2e:ui  # Interactive Playwright UI
+```
+
+E2E tests live in `e2e/*.cljs` and are compiled to `build/e2e/*.mjs`. See [e2e-testing-research.md](e2e-testing-research.md) for architecture details.
 
 ### Patching Scittle for CSP Compatibility
 
@@ -52,6 +68,13 @@ Build for development (bumps dev version for testing):
 ```bash
 bb build:dev
 ```
+
+Build for e2e tests (dev config without version bump):
+```bash
+bb build:test
+```
+
+The `build:test` task uses dev config (needed for test-only message handlers like `e2e/find-tab-id`) but doesn't bump the manifest version. This prevents version drift when running e2e tests repeatedly.
 
 Build for specific browser:
 ```bash
