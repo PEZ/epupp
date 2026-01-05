@@ -3,7 +3,7 @@ import path from 'path';
 
 export default defineConfig({
   testDir: './build/e2e',
-  testMatch: '**/*_test.mjs',
+  testMatch: '**/*_{test,spec}.mjs',
   timeout: 30000,
   use: {
     // Use Chrome channel for extension support

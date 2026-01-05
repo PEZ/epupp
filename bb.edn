@@ -76,7 +76,7 @@
                  :task repl-test/run-integration-tests}
 
   test:repl-e2e:ui {:doc "Run REPL integration tests with Playwright interactive UI"
-                    :depends [build:dev]
+                    :depends [build:dev test:e2e:compile]
                     :task (let [{:keys [cleanup-fn]} ((resolve 'repl-test/start-servers!))]
                             (try
                               (babashka.process/shell "npx playwright test --ui --config e2e/playwright.repl.config.js")
