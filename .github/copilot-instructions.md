@@ -73,17 +73,43 @@ Scittle is patched to remove `eval()` for CSP compatibility. See [dev.md](../dev
 
 ## Key Developer Workflows
 
-See [dev.md](../dev/docs/dev.md) for build commands, loading extension locally, and release process.
+See [dev.md](../dev/docs/dev.md) for build commands, loading extension locally, and release process. Note that the the instructions there for setting up for local development are meant for the human.
 
-**Quick reference:**
-- `bb watch` - Watch mode (auto-recompile)
-- `bb build:dev` - Dev build (bumps version)
-- `bb build` - Release build
-- `bb browser-nrepl` - Start relay server
-- `bb test` - Run tests once
-- `bb test:watch` - Start test watchers (Squint + Vitest)
+The Squint REPL is useful for testing code and pure functions interactively before editing files. See [squint.instructions.md](squint.instructions.md#testing-code-in-squint-nrepl).
+
+### Quick Command Reference
+
+| Command | Purpose |
+|---------|--------|
+| `bb watch` | Watch mode (auto-recompile) |
+| `bb test:watch` | Unit test watcher |
+| `bb squint-nrepl` | Squint nREPL for testing code |
+| `bb build:dev` | Dev build (bumps version) |
+| `bb build` | Release build |
+| `bb browser-nrepl` | Start relay server |
+| `bb test` | Run unit tests once |
+| `bb test:e2e` | Run Playwright E2E tests |
+| `bb test:repl-e2e` | Run full REPL integration tests |
 
 **Important:** After building, wait for the user to test before committing changes.
+
+### AI Development Workflow
+
+**Before starting work:**
+1. **Verify watchers are running** - check watcher task output for compilation/test status
+2. **Check problem report** - review any existing lint errors
+3. **Verify Squint REPL** - use `clojure_list_sessions` to confirm connection
+
+If the environment is not ready, ask the user to start it (default build task + Squint REPL).
+
+**While working:**
+- Use the Squint REPL to test pure functions before editing files
+- Develop solutions incrementally in the REPL
+
+**After editing files:**
+1. **Check watcher output** - verify compilation succeeded and tests pass
+2. **Check problem report** - fix any new lint errors
+3. Address any issues before proceeding
 
 ## Architecture Deep Dive
 
@@ -259,6 +285,24 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 ## Testing Strategy
 
+### Test Hierarchy
+
+| Layer | Command | What it tests |
+|-------|---------|---------------|
+| Unit tests | `bb test` | Pure functions, action handlers |
+| E2E popup | `bb test:e2e` | Extension loading, popup UI |
+| E2E REPL | `bb test:repl-e2e` | Full pipeline: editor -> browser |
+
+### When to Run Tests
+
+**After code changes:** Always run the appropriate tests:
+
+1. **Changed pure functions** (action handlers, utilities): `bb test`
+2. **Changed UI code** (popup, panel): `bb test` then `bb test:e2e`
+3. **Changed extension messaging** (background, bridges): `bb test:e2e` and `bb test:repl-e2e`
+
+**Before committing:** Run `bb test:e2e` to verify the build works end-to-end.
+
 ### Automated Tests
 
 Unit tests for pure functions use [Vitest](https://vitest.dev/). Test files live in `test/*.cljs`.
@@ -288,6 +332,22 @@ bb test:watch     # Watch mode (Squint + Vitest in parallel)
 - Vitest watches and runs `build/test/**/*_test.mjs`
 - Clojure `nil` becomes JS `undefined` - use `.toBeUndefined()` not `.toBeNull()`
 - Prefer namespace aliases (`vt/test`) over `:refer`
+
+### E2E Tests
+
+**Playwright popup tests:** Verify extension loads and UI renders correctly.
+```bash
+bb test:e2e       # Headless run
+bb test:e2e:ui    # Interactive Playwright UI
+```
+
+**REPL integration tests:** Full pipeline from nREPL client through browser-nrepl to Scittle in page.
+```bash
+bb test:repl-e2e     # Headless run
+bb test:repl-e2e:ui  # Interactive Playwright UI
+```
+
+E2E tests live in `e2e/*.cljs`. See [e2e-testing-research.md](../dev/docs/e2e-testing-research.md) for architecture.
 
 ### Manual Testing
 

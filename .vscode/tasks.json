@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Squint Watch",
+      "type": "shell",
+      "command": "bb watch",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "watch"
+      }
+    },
+    {
+      "label": "Unit Test Watch",
+      "type": "shell",
+      "command": "bb test:watch",
+      "group": "test",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "watch"
+      }
+    },
+    {
+      "label": "Squint REPL",
+      "type": "shell",
+      "command": "bb squint-nrepl",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Dev Environment",
+      "dependsOn": [
+        "Squint Watch",
+        "Unit Test Watch"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

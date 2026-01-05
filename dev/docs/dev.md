@@ -11,7 +11,32 @@
 npm install
 ```
 
+### Local Development Workflow
+
+Start the development environment:
+
+If you are using VS Code:
+
+1. **Run the default build task** (Cmd/Ctrl+Shift+B) - starts Squint watch + unit test watcher
+2. **Start Squint nREPL**: `bb squint-nrepl` (or run the "Squint nREPL" VS Code task)
+3. **Connect your editor** to the Squint nREPL (port 1337)
+   - Calva: "Connect to a running REPL" -> select "squint"
+**VS Code tasks** (defined in `.vscode/tasks.json`):
+- `Start Dev Environment` (default build) - runs watch + test:watch in parallel
+- `Squint nREPL` - starts the nREPL server on port 1337
+
+**Manual alternative** (separate terminals):
+```bash
+bb watch        # Terminal 1: Auto-compile on save
+bb test:watch   # Terminal 2: Unit test watcher
+bb squint-nrepl # Terminal 3: Squint nREPL
+```
+
+The Squint REPL lets you evaluate code in a Node.js environment, useful for testing pure functions that do not need the browser execution environment. See [squint.instructions.md](../../.github/squint.instructions.md#testing-code-in-squint-nrepl) for details.
+
 ### Testing
+
+#### Unit Tests
 
 Run unit tests once:
 ```bash
@@ -29,17 +54,47 @@ Unit tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint c
 
 Run Playwright E2E tests for popup UI:
 ```bash
-bb test:e2e          # Run tests
+bb test:e2e          # Run tests (builds extension first)
 bb test:e2e:ui       # Interactive Playwright UI
 ```
 
 Run REPL integration tests (full pipeline with browser-nrepl):
 ```bash
-bb test:repl-e2e     # Run tests
+bb test:repl-e2e     # Run tests (builds extension first)
 bb test:repl-e2e:ui  # Interactive Playwright UI
 ```
 
 E2E tests live in `e2e/*.cljs` and are compiled to `build/e2e/*.mjs`. See [e2e-testing-research.md](e2e-testing-research.md) for architecture details.
+
+**CI variants** (skip build step, assume artifacts exist):
+```bash
+bb test:e2e:ci       # Used by GitHub Actions
+bb test:repl-e2e:ci  # Used by GitHub Actions
+```
+
+### CI/CD Pipeline
+
+GitHub Actions runs on every push and PR:
+
+```
+┌───────────────┐   ┌─────────────┐
+│ build-release │   │ build-test  │  <- Parallel builds
+└───────────────┘   └──────┬──────┘
+                           │
+                   ┌───────┴───────┐
+                   ▼               ▼
+            ┌────────────┐  ┌────────────┐
+            │ unit-tests │  │ e2e-tests  │  <- Parallel tests
+            └────────────┘  └────────────┘
+                   │               │
+                   └───────┬───────┘
+                           ▼
+                     ┌─────────┐
+                     │ release │  <- On version tags only
+                     └─────────┘
+```
+
+See [.github/workflows/build.yml](../../.github/workflows/build.yml) for details.
 
 ### Patching Scittle for CSP Compatibility
 

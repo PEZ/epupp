@@ -1,7 +1,7 @@
 # E2E Testing Strategy for Scittle Tamper
 
 **Created:** January 5, 2026
-**Status:** Implementing
+**Status:** Implemented
 
 This document describes the testing strategy for Scittle Tamper browser extension.
 
@@ -296,11 +296,13 @@ bb test              # Run Vitest once
 bb test:watch        # Watch mode (Squint + Vitest in parallel)
 
 # E2E tests - Popup/UI (Playwright + Squint)
-bb test:e2e          # Popup tests (excludes REPL tests)
+bb test:e2e          # Popup tests (builds first)
+bb test:e2e:ci       # CI variant (assumes artifacts exist)
 bb test:e2e:ui       # Interactive Playwright UI
 
 # E2E tests - REPL Integration
-bb test:repl-e2e     # Full pipeline: servers + Playwright + nREPL eval
+bb test:repl-e2e     # Full pipeline (builds first)
+bb test:repl-e2e:ci  # CI variant (assumes artifacts exist)
 bb test:repl-e2e:ui  # Interactive Playwright UI for REPL tests
 ```
 
@@ -317,21 +319,21 @@ bb test:repl-e2e:ui  # Interactive Playwright UI for REPL tests
 GitHub Actions runs all tests on every push and PR:
 
 ```
-┌─────────┐
-│  build  │ Build extension + compile tests
-└────┬────┘
-     │
-     ├──────────────────┐
-     ▼                  ▼
-┌────────────┐   ┌────────────┐
-│ unit-tests │   │ e2e-tests  │  Run in parallel
-└────────────┘   └────────────┘
-     │                  │
-     └────────┬─────────┘
-              ▼
-         ┌─────────┐
-         │ release │  On version tags only
-         └─────────┘
+┌───────────────┐   ┌─────────────┐
+│ build-release │   │ build-test  │  <- Parallel builds
+└───────────────┘   └──────┬──────┘
+                           │
+                   ┌───────┴───────┐
+                   ▼               ▼
+            ┌────────────┐  ┌────────────┐
+            │ unit-tests │  │ e2e-tests  │  <- Parallel tests
+            └────────────┘  └────────────┘
+                   │               │
+                   └───────┬───────┘
+                           ▼
+                     ┌─────────┐
+                     │ release │  <- On version tags only
+                     └─────────┘
 ```
 
 **Workflow:** [.github/workflows/build.yml](../../.github/workflows/build.yml)
