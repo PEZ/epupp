@@ -1,41 +1,55 @@
 (ns popup-test
-  "E2E tests for the popup UI."
-  (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [with-extension]]))
+  "E2E tests for the popup UI.
+   Uses describe.serial with shared browser context to improve speed."
+  (:require ["@playwright/test" :as playwright]
+            [fixtures :refer [create-extension-context get-extension-id]]))
 
-(test "extension loads and popup renders"
-  (^:async fn []
-    (js-await
-      (with-extension
-        (^:async fn [context ext-id]
-          (let [page (js-await (.newPage context))]
-            (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
-            ;; Verify port inputs render
-            (js-await (-> (expect (.locator page "#nrepl-port")) (.toBeVisible)))
-            (js-await (-> (expect (.locator page "#ws-port")) (.toBeVisible)))
-            ;; Verify copy command button exists
-            (js-await (-> (expect (.locator page "button:has-text(\"Copy\")")) (.toBeVisible)))))))))
+(def test playwright/test)
+(def expect playwright/expect)
+(def describe (.-describe test))
 
-(test "popup shows connect button"
-  (^:async fn []
-    (js-await
-      (with-extension
-        (^:async fn [context ext-id]
-          (let [page (js-await (.newPage context))]
-            (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
-            ;; Connect button should be visible
-            (js-await (-> (expect (.locator page "button:has-text(\"Connect\")")) (.toBeVisible)))))))))
+;; Shared state for the test suite
+(def !shared-state (atom {}))
 
-(test "port inputs accept values"
-  (^:async fn []
-    (js-await
-      (with-extension
-        (^:async fn [context ext-id]
-          (let [page (js-await (.newPage context))]
-            (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
-            ;; Clear and fill nREPL port
-            (js-await (.fill page "#nrepl-port" "9999"))
-            (js-await (-> (expect (.locator page "#nrepl-port")) (.toHaveValue "9999")))
-            ;; Clear and fill WebSocket port
-            (js-await (.fill page "#ws-port" "8888"))
-            (js-await (-> (expect (.locator page "#ws-port")) (.toHaveValue "8888")))))))))
+;; Use describe with shared context to improve speed (single browser launch)
+(describe "Popup UI Tests"
+  (fn []
+    (.beforeAll test
+      (^:async fn []
+        (let [context (js-await (create-extension-context))
+              ext-id (js-await (get-extension-id context))]
+          (swap! !shared-state assoc :context context :ext-id ext-id))))
+    
+    (.afterAll test
+      (^:async fn []
+        (when-let [context (:context @!shared-state)]
+          (js-await (.close context)))))
+    
+    (test "extension loads and popup renders"
+      (^:async fn []
+        (let [{:keys [context ext-id]} @!shared-state
+              page (js-await (.newPage context))]
+          (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
+          (js-await (-> (expect (.locator page "#nrepl-port")) (.toBeVisible)))
+          (js-await (-> (expect (.locator page "#ws-port")) (.toBeVisible)))
+          (js-await (-> (expect (.locator page "button:has-text(\"Copy\")")) (.toBeVisible)))
+          (js-await (.close page)))))
+    
+    (test "popup shows connect button"
+      (^:async fn []
+        (let [{:keys [context ext-id]} @!shared-state
+              page (js-await (.newPage context))]
+          (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
+          (js-await (-> (expect (.locator page "button:has-text(\"Connect\")")) (.toBeVisible)))
+          (js-await (.close page)))))
+    
+    (test "port inputs accept values"
+      (^:async fn []
+        (let [{:keys [context ext-id]} @!shared-state
+              page (js-await (.newPage context))]
+          (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
+          (js-await (.fill page "#nrepl-port" "9999"))
+          (js-await (-> (expect (.locator page "#nrepl-port")) (.toHaveValue "9999")))
+          (js-await (.fill page "#ws-port" "8888"))
+          (js-await (-> (expect (.locator page "#ws-port")) (.toHaveValue "8888")))
+          (js-await (.close page)))))))
