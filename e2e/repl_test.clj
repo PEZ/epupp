@@ -269,10 +269,38 @@ const { chromium } = require('@playwright/test');
       (is (some #(= "30" %) (:values result))))))
 
 ;; ============================================================
+;; Test Infrastructure Management
+;; ============================================================
+
+(defn ^:export start-servers!
+  "Start only the servers (browser-nrepl + HTTP test page).
+   Used by Playwright UI mode where Playwright manages the browser.
+   Returns a map with :cleanup-fn to call when done."
+  []
+  (println "\n=== Starting Servers ===\n")
+  (let [browser-nrepl (atom nil)
+        test-server (atom nil)]
+    (try
+      (reset! browser-nrepl (start-browser-nrepl!))
+      (reset! test-server (create-test-page!))
+      (println "\n=== Servers Ready ===\n")
+      {:cleanup-fn (fn []
+                     (println "\nCleaning up servers...")
+                     (stop-server! @test-server)
+                     (stop-process! @browser-nrepl)
+                     (println "Done."))}
+      (catch Exception e
+        (println "Server setup failed:" (.getMessage e))
+        (.printStackTrace e)
+        (stop-server! @test-server)
+        (stop-process! @browser-nrepl)
+        (throw e)))))
+
+;; ============================================================
 ;; Test Runner
 ;; ============================================================
 
-(defn run-integration-tests
+(defn ^:export run-integration-tests
   "Run all REPL integration tests with proper setup/teardown."
   []
   (println "\n=== REPL Integration Tests ===\n")
@@ -314,5 +342,3 @@ const { chromium } = require('@playwright/test');
         (stop-process! @browser-nrepl)
         (println "Done.")))))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (System/exit (run-integration-tests)))
