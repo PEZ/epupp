@@ -11,6 +11,20 @@
 npm install
 ```
 
+### Testing
+
+Run tests once:
+```bash
+bb test
+```
+
+Start test watchers (Squint + Vitest in parallel):
+```bash
+bb test:watch
+```
+
+Tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint compiles them to `build/test/*.mjs` which Vitest watches and runs.
+
 ### Patching Scittle for CSP Compatibility
 
 The vendored `scittle.js` contains a dynamic import polyfill that uses `eval()`:

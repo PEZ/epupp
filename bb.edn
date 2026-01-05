@@ -40,5 +40,21 @@
   squint-nrepl {:doc "Start Squint nREPL server for testing code in Node"
                 :task (babashka.process/shell "npx squint nrepl-server :port 1337")}
 
+  ;; Test tasks
+  test:watch:squint {:doc "Watch and compile test files"
+                     :task (babashka.process/shell "npx squint watch --paths src test --output-dir build/test")}
+
+  test:watch:vitest {:doc "Run Vitest in watch mode"
+                     :task (babashka.process/shell "npx vitest")}
+
+  -test:watch {:depends [test:watch:squint test:watch:vitest]}
+
+  test:watch {:doc "Start test watchers (Squint + Vitest) in parallel"
+              :task (run '-test:watch {:parallel true})}
+
+  test {:doc "Run tests once"
+        :task (do (babashka.process/shell "npx squint compile --paths src test --output-dir build/test")
+                  (babashka.process/shell "npx vitest run"))}
+
   publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
            :task (tasks/publish)}}}

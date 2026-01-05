@@ -80,6 +80,8 @@ See [dev.md](../dev/docs/dev.md) for build commands, loading extension locally, 
 - `bb build:dev` - Dev build (bumps version)
 - `bb build` - Release build
 - `bb browser-nrepl` - Start relay server
+- `bb test` - Run tests once
+- `bb test:watch` - Start test watchers (Squint + Vitest)
 
 **Important:** After building, wait for the user to test before committing changes.
 
@@ -257,7 +259,39 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 ## Testing Strategy
 
-Currently manual testing workflow:
+### Automated Tests
+
+Unit tests for pure functions use [Vitest](https://vitest.dev/). Test files live in `test/*.cljs`.
+
+**Run tests:**
+```bash
+bb test           # Run once
+bb test:watch     # Watch mode (Squint + Vitest in parallel)
+```
+
+**Test file pattern:**
+```clojure
+(ns my-module-test
+  (:require ["vitest" :as vt]
+            [my-module :as my-module]))
+
+(vt/describe "feature-name"
+  (fn []
+    (vt/test "specific behavior"
+          (fn []
+            (-> (vt/expect (my-module/some-fn input))
+                (.toBe expected))))))
+```
+
+**Key points:**
+- Squint compiles `test/*.cljs` to `build/test/*.mjs`
+- Vitest watches and runs `build/test/**/*_test.mjs`
+- Clojure `nil` becomes JS `undefined` - use `.toBeUndefined()` not `.toBeNull()`
+- Prefer namespace aliases (`vt/test`) over `:refer`
+
+### Manual Testing
+
+Manual testing workflow:
 1. Build extension for target browser
 2. Load unpacked in browser (reload extension after rebuilds)
 3. Start `bb browser-nrepl`
@@ -267,15 +301,13 @@ Currently manual testing workflow:
 
 **Tamper scripts:** The `test-data/tampers/` directory contains pre-cooked evaluation scripts for testing against specific sites (e.g., `github.cljs`). These serve as manual test cases and examples.
 
-**Key test cases:**
+**Key manual test cases:**
 - Connection establishment on CSP-strict sites (GitHub, YouTube)
 - Multiple tab connections (background worker stores per-tab WebSockets)
 - Service worker keepalive (5s ping interval in content bridge)
 - Clean disconnect/reconnect cycles
 - Userscript auto-injection with per-pattern approval flow
 - Pending approvals badge count and Allow/Deny workflow
-
-**Future:** Core/pure logic (game logic, data transformations) could be extracted to separate `.cljs` files testable with [nbb](https://github.com/babashka/nbb) for automated testing.
 
 ## Committing Changes
 

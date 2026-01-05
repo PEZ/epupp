@@ -37,6 +37,9 @@ jobs:
           restore-keys: |
             bb-deps-${{ runner.os }}-
 
+      - name: Run tests
+        run: bb test
+
       - name: Build extensions
         run: bb build
 

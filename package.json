@@ -3,9 +3,14 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "squint-cljs": "^0.9.182"
+    "squint-cljs": "^0.9.182",
+    "vitest": "^2.1.3"
   },
   "dependencies": {
     "reagami": "^0.0.36"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }
