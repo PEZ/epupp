@@ -1,4 +1,4 @@
-(ns repl-spec
+(ns e2e.repl-ui-spec
   "REPL Integration Tests for Playwright UI
 
    These tests mirror the Babashka tests in repl_test.clj but run through
