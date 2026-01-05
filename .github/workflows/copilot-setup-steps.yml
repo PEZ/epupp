@@ -1,0 +1,85 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation,
+# and allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Setup Babashka
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          bb: latest
+
+      - name: Cache Babashka dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gitlibs
+            ~/.m2
+          key: bb-deps-${{ runner.os }}-${{ hashFiles('bb.edn') }}
+          restore-keys: |
+            bb-deps-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Start Squint watch (background)
+        run: bb watch &
+
+      - name: Build extension for development
+        run: bb build:test
+
+      - name: Compile test files
+        run: |
+          npx squint compile --paths src test --output-dir build/test
+          npx squint compile --paths src e2e --output-dir build/e2e
+
+      - name: Start Squint nREPL server (background)
+        run: |
+          bb squint-nrepl &
+          # Wait for nREPL server to be ready
+          sleep 3
+          echo "Squint nREPL started on port 1337"
+
+      - name: Verify setup
+        run: |
+          echo "=== Environment Verification ==="
+          echo "Node.js: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "Babashka: $(bb --version)"
+          echo "Squint: $(npx squint --version)"
+          echo ""
+          echo "=== Build artifacts ==="
+          ls -la build/
+          ls -la dist/ 2>/dev/null || echo "dist/ not yet created"
+          echo ""
+          echo "=== Available bb tasks ==="
+          bb tasks

@@ -93,7 +93,7 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 
 **Important:** After building, wait for the user to test before committing changes.
 
-### AI Development Workflow
+### AI Development Workflow (Local - VS Code with Human)
 
 **Before starting work:**
 1. **Verify watchers are running** - check watcher task output for compilation/test status
@@ -110,6 +110,39 @@ If the environment is not ready, ask the user to start it (default build task + 
 1. **Check watcher output** - verify compilation succeeded and tests pass
 2. **Check problem report** - fix any new lint errors
 3. Address any issues before proceeding
+
+### Remote Agent Workflow (GitHub Copilot Coding Agent)
+
+The remote agent runs in an ephemeral GitHub Actions environment with pre-configured tools. The setup is defined in `.github/workflows/copilot-setup-steps.yml`.
+
+**Pre-installed environment:**
+- Node.js 20 with npm dependencies (`npm ci` already run)
+- Babashka (bb) with cached dependencies
+- Playwright with Chromium browser
+- Squint watch running in background
+- Squint nREPL server on port 1337
+- Extension built for testing (`bb build:test` already run)
+- Test files compiled to `build/test/` and `build/e2e/`
+
+**Running tests:**
+```bash
+bb test              # Unit tests (Vitest)
+bb test:e2e:ci       # Playwright E2E popup tests (use xvfb-run)
+bb test:repl-e2e:ci  # REPL integration tests (use xvfb-run)
+```
+
+**E2E tests require xvfb for headed Chrome:**
+```bash
+xvfb-run --auto-servernum bb test:e2e:ci
+xvfb-run --auto-servernum bb test:repl-e2e:ci
+```
+
+**Building after code changes:**
+```bash
+bb build:test   # Rebuild extension (dev config)
+```
+
+**Squint nREPL:** The REPL server is started during setup on port 1337. You can evaluate Squint code for testing pure functions, but note this runs in Node.js context (no browser APIs).
 
 ## Architecture Deep Dive
 
