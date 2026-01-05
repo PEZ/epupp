@@ -26,12 +26,15 @@
 (def panel-state-prefix "panelState:")
 
 (defn get-inspected-hostname
-  "Get the hostname of the inspected page."
+  "Get the hostname of the inspected page. Only works in DevTools context."
   [callback]
-  (js/chrome.devtools.inspectedWindow.eval
-   "window.location.hostname"
-   (fn [hostname _exception]
-     (callback (or hostname "unknown")))))
+  (if (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+    (js/chrome.devtools.inspectedWindow.eval
+     "window.location.hostname"
+     (fn [hostname _exception]
+       (callback (or hostname "unknown"))))
+    ;; Not in DevTools context - use fallback
+    (callback "standalone")))
 
 (defn panel-state-key [hostname]
   (str panel-state-prefix hostname))
@@ -74,55 +77,65 @@
 
 (defn eval-in-page!
   "Evaluate code in the inspected page context.
-   Uses chrome.devtools.inspectedWindow.eval"
+   Uses chrome.devtools.inspectedWindow.eval. Only works in DevTools context."
   [code callback]
-  (let [;; Wrap ClojureScript code for Scittle evaluation
-        wrapper (str "(() => {"
-                     "  if (!window.scittle || !window.scittle.core) {"
-                     "    return {error: 'Scittle not loaded. Connect REPL first via popup.'};"
-                     "  }"
-                     "  try {"
-                     "    const result = scittle.core.eval_string(" (js/JSON.stringify code) ");"
-                     "    return {success: true, result: String(result)};"
-                     "  } catch(e) {"
-                     "    return {error: e.message};"
-                     "  }"
-                     "})()")]
-    (js/chrome.devtools.inspectedWindow.eval
-     wrapper
-     (fn [result exception-info]
-       (if exception-info
-         (callback {:error (or (.-value exception-info) "Evaluation failed")})
-         ;; Convert JS object to Clojure map
-         (if (and result (.-error result))
-           (callback {:error (.-error result)})
-           (callback {:result (when result (.-result result))})))))))
+  (if (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+    (let [;; Wrap ClojureScript code for Scittle evaluation
+          wrapper (str "(() => {"
+                       "  if (!window.scittle || !window.scittle.core) {"
+                       "    return {error: 'Scittle not loaded. Connect REPL first via popup.'};"
+                       "  }"
+                       "  try {"
+                       "    const result = scittle.core.eval_string(" (js/JSON.stringify code) ");"
+                       "    return {success: true, result: String(result)};"
+                       "  } catch(e) {"
+                       "    return {error: e.message};"
+                       "  }"
+                       "})()")]
+      (js/chrome.devtools.inspectedWindow.eval
+       wrapper
+       (fn [result exception-info]
+         (if exception-info
+           (callback {:error (or (.-value exception-info) "Evaluation failed")})
+           ;; Convert JS object to Clojure map
+           (if (and result (.-error result))
+             (callback {:error (.-error result)})
+             (callback {:result (when result (.-result result))}))))))
+    ;; Not in DevTools context
+    (callback {:error "Not in DevTools context"})))
 
 ;; ============================================================
 ;; Scittle Status & Injection (via background worker)
 ;; ============================================================
 
 (defn check-scittle-status!
-  "Check if Scittle is loaded in the inspected page."
+  "Check if Scittle is loaded in the inspected page. Only works in DevTools context."
   [callback]
-  (js/chrome.devtools.inspectedWindow.eval
-   "(function() {
-      if (window.scittle && window.scittle.core) return {status: 'loaded'};
-      return {status: 'not-loaded'};
-    })()"
-   (fn [result _exception]
-     (callback (if result (.-status result) "not-loaded")))))
+  (if (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+    (js/chrome.devtools.inspectedWindow.eval
+     "(function() {
+        if (window.scittle && window.scittle.core) return {status: 'loaded'};
+        return {status: 'not-loaded'};
+      })()"
+     (fn [result _exception]
+       (callback (if result (.-status result) "not-loaded"))))
+    ;; Not in DevTools context
+    (callback "not-loaded")))
 
 (defn ensure-scittle!
-  "Request background worker to inject Scittle. Callback receives nil on success, error map on failure."
+  "Request background worker to inject Scittle. Callback receives nil on success, error map on failure.
+   Only works in DevTools context."
   [callback]
-  (let [tab-id js/chrome.devtools.inspectedWindow.tabId]
-    (js/chrome.runtime.sendMessage
-     #js {:type "ensure-scittle" :tabId tab-id}
-     (fn [response]
-       (if (and response (.-success response))
-         (callback nil)
-         (callback {:error (or (and response (.-error response)) "Failed to inject Scittle")}))))))
+  (if (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+    (let [tab-id js/chrome.devtools.inspectedWindow.tabId]
+      (js/chrome.runtime.sendMessage
+       #js {:type "ensure-scittle" :tabId tab-id}
+       (fn [response]
+         (if (and response (.-success response))
+           (callback nil)
+           (callback {:error (or (and response (.-error response)) "Failed to inject Scittle")})))))
+    ;; Not in DevTools context
+    (callback {:error "Not in DevTools context"})))
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -162,14 +175,17 @@
 
     :editor/fx.use-current-url
     (let [[action] args]
-      (js/chrome.devtools.inspectedWindow.eval
-       "window.location.href"
-       (fn [url _exception]
-         (when url
-           ;; Convert URL to a match pattern (e.g., https://github.com/* )
-           (let [parsed (js/URL. url)
-                 pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
-             (dispatch [(conj action pattern)]))))))
+      (if (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+        (js/chrome.devtools.inspectedWindow.eval
+         "window.location.href"
+         (fn [url _exception]
+           (when url
+             ;; Convert URL to a match pattern (e.g., https://github.com/* )
+             (let [parsed (js/URL. url)
+                   pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
+               (dispatch [(conj action pattern)])))))
+        ;; Not in DevTools context - use fallback pattern
+        (dispatch [(conj action "https://example.com/*")])))
 
     :editor/fx.check-editing-script
     (js/chrome.storage.local.get
@@ -369,12 +385,14 @@
                                (not= (:panel/script-id old-state) (:panel/script-id new-state)))
                        (save-panel-state!))))
         (render!)
-        ;; Check Scittle status on init
-        (dispatch! [[:editor/ax.check-scittle]])
+        ;; Check Scittle status on init (only in DevTools context)
+        (when (and js/chrome.devtools js/chrome.devtools.inspectedWindow)
+          (dispatch! [[:editor/ax.check-scittle]]))
         ;; Check if there's a script to edit (from popup)
         (dispatch! [[:editor/ax.check-editing-script]])
-        ;; Listen for page navigation to clear stale results
-        (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
+        ;; Listen for page navigation to clear stale results (only in DevTools context)
+        (when (and js/chrome.devtools js/chrome.devtools.network)
+          (js/chrome.devtools.network.onNavigated.addListener on-page-navigated))
         ;; Check version when panel becomes visible
         (js/document.addEventListener "visibilitychange"
                                       (fn [_] (when (= "visible" js/document.visibilityState)
