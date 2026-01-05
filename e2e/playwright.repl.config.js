@@ -9,4 +9,7 @@ export default defineConfig({
   },
   // Run tests sequentially - extension context needs isolation
   workers: 1,
+  // Output for CI
+  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  outputDir: 'test-results',
 });

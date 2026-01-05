@@ -7,7 +7,53 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Babashka
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          bb: latest
+
+      - name: Cache Babashka dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gitlibs
+            ~/.m2
+          key: bb-deps-${{ runner.os }}-${{ hashFiles('bb.edn') }}
+          restore-keys: |
+            bb-deps-${{ runner.os }}-
+
+      - name: Build release extensions
+        run: bb build
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep '"version"' extension/manifest.json | sed 's/.*: "\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-extensions-${{ github.ref_name }}-${{ steps.version.outputs.version }}
+          path: dist/*.zip
+
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,23 +93,14 @@ jobs:
       - name: Upload test build
         uses: actions/upload-artifact@v4
         with:
-          name: test-build
+          name: test-build-${{ github.ref_name }}
           path: |
             dist/
             build/
             extension/
 
-      - name: Build release extensions
-        run: bb build
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-extensions
-          path: dist/*.zip
-
   unit-tests:
-    needs: [build]
+    needs: [build-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,13 +117,13 @@ jobs:
       - name: Download test build
         uses: actions/download-artifact@v4
         with:
-          name: test-build
+          name: test-build-${{ github.ref_name }}
 
       - name: Run unit tests
         run: npx vitest run
 
   e2e-tests:
-    needs: [build]
+    needs: [build-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -118,29 +155,30 @@ jobs:
       - name: Download test build
         uses: actions/download-artifact@v4
         with:
-          name: test-build
+          name: test-build-${{ github.ref_name }}
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
       - name: Run Playwright E2E tests
-        run: xvfb-run --auto-servernum bb test:e2e
+        run: xvfb-run --auto-servernum bb test:e2e:ci
 
       - name: Run REPL integration tests
-        run: xvfb-run --auto-servernum bb test:repl-e2e
+        run: xvfb-run --auto-servernum bb test:repl-e2e:ci
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ github.ref_name }}
           path: |
             test-results/
             playwright-report/
+          if-no-files-found: ignore
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, unit-tests, e2e-tests]
+    needs: [build-release, unit-tests, e2e-tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -161,7 +199,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: browser-extensions
+          name: browser-extensions-${{ github.ref_name }}-${{ needs.build-release.outputs.version }}
           path: dist
 
       - name: Create Release

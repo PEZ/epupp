@@ -1,5 +1,4 @@
 import { defineConfig } from '@playwright/test';
-import path from 'path';
 
 export default defineConfig({
   testDir: './build/e2e',
@@ -12,4 +11,7 @@ export default defineConfig({
   },
   // Run tests sequentially - extension context needs isolation
   workers: 1,
+  // Output for CI
+  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  outputDir: 'test-results',
 });
