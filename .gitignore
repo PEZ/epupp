@@ -12,3 +12,4 @@ dev/docs/working-backwards/
 .clj-kondo/cache/
 .lsp/cache/
 test-results/
+playwright-report/
