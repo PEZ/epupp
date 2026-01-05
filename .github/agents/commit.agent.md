@@ -1,7 +1,7 @@
 ---
 description: 'Commits changed files in logical groupings with good commit messages'
 model: Claude Sonnet 4.5 (copilot)
-tools: ['run_in_terminal', 'get_changed_files', 'read_file', 'grep_search']
+# tools: ['run_in_terminal', 'get_changed_files', 'read_file', 'grep_search']
 ---
 
 # Git Commit Agent
