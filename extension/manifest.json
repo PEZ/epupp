@@ -6,6 +6,7 @@
     "storage"
   ],
   "name": "Browser Jack-in",
+  "devtools_page": "devtools.html",
   "background": {
     "service_worker": "background.js"
   },

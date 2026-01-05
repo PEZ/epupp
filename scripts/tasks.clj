@@ -50,12 +50,16 @@
   (doseq [[name entry] [["popup" "extension/popup.mjs"]
                         ["content-bridge" "extension/content_bridge.mjs"]
                         ["ws-bridge" "extension/ws_bridge.mjs"]
-                        ["background" "extension/background.mjs"]]]
+                        ["background" "extension/background.mjs"]
+                        ["devtools" "extension/devtools.mjs"]
+                        ["panel" "extension/panel.mjs"]]]
     (println (str "  Bundling " name ".js..."))
     (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
   ;; Copy static files
   (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
   (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
+  (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
+  (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
   (println "✓ Squint + esbuild compilation complete"))
 
 (defn- adjust-manifest
@@ -113,11 +117,21 @@
                  {:replace-existing true})
         (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")
                  {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.html") (str browser-dir "/devtools.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.js") (str browser-dir "/devtools.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.html") (str browser-dir "/panel.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.js") (str browser-dir "/panel.js")
+                 {:replace-existing true})
         ;; Remove intermediate .mjs files (keep only bundled .js)
         (fs/delete-if-exists (str browser-dir "/popup.mjs"))
         (fs/delete-if-exists (str browser-dir "/content_bridge.mjs"))
         (fs/delete-if-exists (str browser-dir "/ws_bridge.mjs"))
         (fs/delete-if-exists (str browser-dir "/background.mjs"))
+        (fs/delete-if-exists (str browser-dir "/devtools.mjs"))
+        (fs/delete-if-exists (str browser-dir "/panel.mjs"))
 
         ;; Adjust manifest
         (let [manifest-path (str browser-dir "/manifest.json")
@@ -131,6 +145,78 @@
           (fs/zip zip-path browser-dir {:root browser-dir})
           (println (str "  Created: " zip-path)))))
     (println "Build complete!")))
+
+(defn build-test
+  "Build extension for testing (Chrome only, no zip)"
+  []
+  (let [extension-dir "extension"
+        build-dir "build"
+        dist-dir "dist"
+        browser "chrome"
+        browser-dir (str dist-dir "/" browser)]
+    ;; Compile Squint + bundle with esbuild
+    (compile-squint)
+    (fs/create-dirs dist-dir)
+    (println (str "Building for " browser " (test mode)..."))
+    
+    ;; Clean and copy extension directory
+    (when (fs/exists? browser-dir)
+      (fs/delete-tree browser-dir))
+    (fs/copy-tree extension-dir browser-dir)
+
+    ;; Remove macOS metadata files
+    (doseq [pattern [".DS_Store" "**/.DS_Store"]
+            ds-store (fs/glob browser-dir pattern)]
+      (fs/delete ds-store))
+
+    ;; Copy bundled files over the intermediate ones
+    (fs/copy (str build-dir "/popup.html") (str browser-dir "/popup.html")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/popup.js") (str browser-dir "/popup.js")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/popup.css") (str browser-dir "/popup.css")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/content-bridge.js") (str browser-dir "/content-bridge.js")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/devtools.html") (str browser-dir "/devtools.html")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/devtools.js") (str browser-dir "/devtools.js")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/panel.html") (str browser-dir "/panel.html")
+             {:replace-existing true})
+    (fs/copy (str build-dir "/panel.js") (str browser-dir "/panel.js")
+             {:replace-existing true})
+    
+    ;; Remove intermediate .mjs files (keep only bundled .js)
+    (fs/delete-if-exists (str browser-dir "/popup.mjs"))
+    (fs/delete-if-exists (str browser-dir "/content_bridge.mjs"))
+    (fs/delete-if-exists (str browser-dir "/ws_bridge.mjs"))
+    (fs/delete-if-exists (str browser-dir "/background.mjs"))
+    (fs/delete-if-exists (str browser-dir "/devtools.mjs"))
+    (fs/delete-if-exists (str browser-dir "/panel.mjs"))
+
+    ;; Adjust manifest (no changes needed for Chrome test build)
+    (let [manifest-path (str browser-dir "/manifest.json")
+          manifest (json/read-str (slurp manifest-path) :key-fn keyword)
+          adjusted (adjust-manifest manifest browser)]
+      (spit manifest-path (json/write-str adjusted :indent true :escape-slash false)))
+
+    (println (str "  Test build created at: " browser-dir))
+    (println "Build complete!")))
+
+(defn squint-nrepl
+  "Start Squint nREPL server for development"
+  []
+  (println "Starting Squint REPL on port 1337...")
+  ;; Squint doesn't have a built-in nREPL server
+  ;; This is a placeholder for development workflows
+  ;; In practice, use `npx squint repl` for interactive development
+  (p/shell "echo" "Squint REPL placeholder - use 'npx squint repl' for interactive REPL"))
+
 
 ;; ============================================================
 ;; Release/Publish workflow

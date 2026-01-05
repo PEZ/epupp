@@ -28,6 +28,12 @@
   build:safari {:doc "Build extension for Safari"
                 :task (tasks/build "safari")}
 
+  build:test {:doc "Build extension for testing (Chrome only, no zip)"
+              :task (tasks/build-test)}
+
+  squint-nrepl {:doc "Start Squint nREPL server for development"
+                :task (tasks/squint-nrepl)}
+
   dev {:doc "Start Squint watch and Vite dev server"
        :task (babashka.process/shell "npx squint watch & npx vite")}
 
