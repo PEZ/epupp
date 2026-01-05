@@ -408,9 +408,12 @@
                 (let [tab-id (when (.-tab sender) (.. sender -tab -id))
                       msg-type (.-type message)]
                   (case msg-type
-                    ;; Content script messages
+                    ;; Content script messages (from content-bridge.cljs)
                     "ws-connect" (do (handle-ws-connect tab-id (.-port message)) false)
                     "ws-send" (do (handle-ws-send tab-id (.-data message)) false)
+                    ;; Note: "ws-close" is currently unused - page-side close() only cleans up
+                    ;; locally, and reconnection is handled by ws-connect calling close-ws! first.
+                    ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
                     ;; Popup messages

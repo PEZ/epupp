@@ -202,7 +202,6 @@
 
     :editor/ax.update-scittle-status
     (let [[status] args]
-      ;; In Squint, keywords are strings, so "loaded" equals :loaded
       {:uf/db (assoc state :panel/scittle-status (or status :unknown))})
 
     :editor/ax.check-scittle

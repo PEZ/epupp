@@ -94,6 +94,11 @@
                               "*"))))
 
       ;; Add close method
+      ;; Note: This only closes the page-side proxy, not the background WebSocket.
+      ;; The background WebSocket is cleaned up when:
+      ;; - A new connection is requested (handle-ws-connect calls close-ws! first)
+      ;; - The tab is closed (onRemoved listener)
+      ;; This design avoids extra message round-trips for the common reconnect case.
       (set! (.-close ws-obj)
             (fn []
               (set! (.-readyState ws-obj) 3) ; CLOSED

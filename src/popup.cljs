@@ -280,8 +280,10 @@
 ;; ============================================================
 
 (defn toggle-script-in-list
-  "Toggle enabled state. When disabling, also remove matching pattern from approved list."
-  [scripts script-id matching-pattern]
+  "Toggle enabled state. When disabling, revoke ALL pattern approvals.
+   This ensures re-enabling requires fresh approval for each pattern,
+   preventing scripts from silently running on forgotten sites."
+  [scripts script-id _matching-pattern]
   (mapv (fn [s]
           (if (= (:script/id s) script-id)
             (let [new-enabled (not (:script/enabled s))]
@@ -289,9 +291,7 @@
                 (assoc s :script/enabled true)
                 (-> s
                     (assoc :script/enabled false)
-                    (update :script/approved-patterns
-                            (fn [patterns]
-                              (filterv #(not= % matching-pattern) (or patterns [])))))))
+                    (assoc :script/approved-patterns []))))
             s))
         scripts))
 
