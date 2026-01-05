@@ -312,11 +312,34 @@ bb test:repl-e2e:ui  # Interactive Playwright UI for REPL tests
 | Playwright UI tests | 3 |
 | REPL integration | 4 |
 
-## Future Work: CI Integration
+## CI Integration
 
-1. Configure GitHub Actions for Playwright
-2. Add browser-nrepl integration tests to CI
-3. Set up test reporting
+GitHub Actions runs all tests on every push and PR:
+
+```
+┌─────────┐
+│  build  │ Build extension + compile tests
+└────┬────┘
+     │
+     ├──────────────────┐
+     ▼                  ▼
+┌────────────┐   ┌────────────┐
+│ unit-tests │   │ e2e-tests  │  Run in parallel
+└────────────┘   └────────────┘
+     │                  │
+     └────────┬─────────┘
+              ▼
+         ┌─────────┐
+         │ release │  On version tags only
+         └─────────┘
+```
+
+**Workflow:** [.github/workflows/build.yml](../../.github/workflows/build.yml)
+
+**Key details:**
+- E2E tests use `xvfb-run` for headed Chrome on Linux
+- Test artifacts uploaded on failure for debugging
+- Release job requires all tests to pass
 
 ## References
 
