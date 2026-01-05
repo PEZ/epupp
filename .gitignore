@@ -3,6 +3,8 @@ dist/
 build/
 *.zip
 .DS_Store
+test-results/
+playwright-report/
 
 # Squint compiled output (intermediate .mjs files)
 extension/*.mjs
