@@ -11,3 +11,4 @@ dev/docs/working-backwards/
 !.clj-kondo/imports/
 .clj-kondo/cache/
 .lsp/cache/
+test-results/
