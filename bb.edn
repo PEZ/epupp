@@ -34,6 +34,9 @@
   build:dev {:doc "Build extension for all browsers with dev config"
              :task (apply tasks/build "--dev" *command-line-args*)}
 
+  build:test {:doc "Build extension for Chrome with dev config but no version bump (for e2e tests)"
+              :task (tasks/build "--test" "chrome")}
+
   dev {:doc "Start Squint watch and Vite dev server"
        :task (babashka.process/shell "npx squint watch & npx vite")}
 
@@ -64,19 +67,19 @@
                     :task (babashka.process/shell "npx squint compile --paths src e2e --output-dir build/e2e")}
 
   test:e2e {:doc "Run Playwright E2E tests (builds extension first, opens browser - extensions require headed mode)"
-            :depends [build:chrome test:e2e:compile]
+            :depends [build:test test:e2e:compile]
             :task (babashka.process/shell "npx playwright test")}
 
   test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner"
-               :depends [build:chrome test:e2e:compile]
+               :depends [build:test test:e2e:compile]
                :task (babashka.process/shell "npx playwright test --ui")}
 
   test:repl-e2e {:doc "Run REPL integration tests (full pipeline: editor -> browser-nrepl -> extension -> page)"
-                 :depends [build:dev]
+                 :depends [build:test test:e2e:compile]
                  :task repl-test/run-integration-tests}
 
   test:repl-e2e:ui {:doc "Run REPL integration tests with Playwright interactive UI"
-                    :depends [build:dev test:e2e:compile]
+                    :depends [build:test test:e2e:compile]
                     :task (let [{:keys [cleanup-fn]} ((resolve 'repl-test/start-servers!))]
                             (try
                               (babashka.process/shell "npx playwright test --ui --config e2e/playwright.repl.config.js")

@@ -150,13 +150,18 @@
 
 (defn build
   "Build extension for specified browser(s).
-   Supports browser names (chrome/firefox/safari) and mode flag (--dev or --prod).
-   Default mode is prod. In dev mode, bumps the build number for version detection testing."
+   Supports browser names (chrome/firefox/safari) and mode flags:
+   - --dev: Uses dev config AND bumps the build number
+   - --test: Uses dev config WITHOUT bumping version (for e2e tests)
+   - --prod: Uses prod config (default)
+   Default mode is prod."
   [& args]
-  (let [mode (cond
-               (some #(= "--dev" %) args) "dev"
-               (some #(= "--prod" %) args) "prod"
-               :else "prod")
+  (let [bump-version? (some #(= "--dev" %) args)
+        config-mode (cond
+                      (some #(= "--dev" %) args) "dev"
+                      (some #(= "--test" %) args) "dev"  ; test uses dev config
+                      (some #(= "--prod" %) args) "prod"
+                      :else "prod")
         browsers (->> args
                       (remove #(str/starts-with? % "--"))
                       seq)
@@ -164,11 +169,11 @@
         extension-dir "extension"
         build-dir "build"
         dist-dir "dist"]
-    ;; Bump version in dev mode for testing version detection
-    (when (= "dev" mode)
+    ;; Bump version only in --dev mode (not --test)
+    (when bump-version?
       (bump-dev-version!))
     ;; Compile Squint + bundle with esbuild
-    (compile-squint mode)
+    (compile-squint config-mode)
     (fs/create-dirs dist-dir)
     (doseq [browser browsers]
       (println (str "Building for " browser "..."))
