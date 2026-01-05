@@ -62,7 +62,6 @@ flowchart TB
 | `script_utils.cljs` | Shared | Pure utilities for script data and URL pattern matching |
 | `event_handler.cljs` | Shared | Uniflow event system |
 | `icons.cljs` | Shared | SVG icon components |
-| `config.cljs` | Shared | Generated configuration |
 
 ## Message Protocol
 
@@ -320,7 +319,6 @@ graph TD
     script_utils.cljs:::standalone
     event_handler.cljs:::standalone
     icons.cljs:::standalone
-    config.cljs:::standalone
 
     classDef standalone fill:#f9f,stroke:#333,stroke-dasharray: 5 5
 ```
@@ -366,6 +364,21 @@ flowchart LR
     src["src/*.cljs"] -->|"Squint compile"| mjs["extension/*.mjs"]
     mjs -->|"esbuild bundle"| js["build/*.js"]
     js --> zip["dist/*.zip"]
+```
+
+### Build-Time Configuration
+
+Configuration is injected at bundle time via esbuild, not through a source file:
+
+1. **Config files**: `config/dev.edn` and `config/prod.edn` contain build settings
+2. **Build script**: `tasks.clj` reads the appropriate config based on mode
+3. **Injection**: esbuild's `--define:EXTENSION_CONFIG=...` injects config as a global
+4. **Access**: `popup.cljs` accesses it via `js/EXTENSION_CONFIG`
+
+Config shape:
+```clojure
+{:dev true/false
+ :depsString "{:deps {...}}"} ; bb -Sdeps string for browser-nrepl
 ```
 
 See [dev.md](dev.md) for build commands.

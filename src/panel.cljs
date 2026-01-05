@@ -16,7 +16,7 @@
          :panel/save-status nil
          :panel/init-version nil
          :panel/needs-refresh? false
-         :panel/current-hostname nil}))  ; Track current hostname for persistence  ; Track current hostname for persistence
+         :panel/current-hostname nil}))
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
