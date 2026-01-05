@@ -50,45 +50,6 @@
 (defn storage-key [tab]
   (str "ports_" (get-hostname tab)))
 
-
-
-
-
-;; ============================================================
-;; Page injection functions (for execute-in-page)
-;; These must be JS proper - no Squint runtime dependencies
-;; They get serialized and run in page context.
-;; ============================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;; ============================================================
-;; Connection step functions
-;; Each returns a Promise, composable in sequence
-;; ============================================================
-
-
-
-
-
-
-
-
-
 ;; ============================================================
 ;; Script storage helpers
 ;; ============================================================

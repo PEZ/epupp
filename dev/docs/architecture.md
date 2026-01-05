@@ -258,14 +258,17 @@ The popup and panel use a Re-frame-inspired unidirectional data flow pattern cal
 ### REPL Connection (from Popup)
 
 1. User clicks "Connect" in popup
-2. `connect-to-tab!` executes `check-status-fn` in page context
-3. If no bridge: inject `content-bridge.js` (ISOLATED world)
-4. Then inject `ws-bridge.js` (MAIN world)
-5. If no Scittle: inject `vendor/scittle.js`
-6. Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
-7. Inject `vendor/scittle.nrepl.js` (auto-connects)
-8. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
-9. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
+2. Popup sends `connect-tab` message to background worker with `tabId` and `wsPort`
+3. Background's `connect-tab!` orchestrates the connection:
+   - Execute `check-status-fn` in page context
+   - If no bridge: inject `content-bridge.js` (ISOLATED world)
+   - Inject `ws-bridge.js` (MAIN world) if needed
+   - Wait for bridge ready (ping/pong)
+   - Ensure Scittle is loaded
+   - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
+   - Inject `vendor/scittle.nrepl.js` (auto-connects)
+4. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
+5. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
 
 ### Userscript Auto-Injection (on Navigation)
 

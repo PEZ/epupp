@@ -37,48 +37,7 @@ Step **1** let's you copy a Babashka command line that starts the browser-nrepl 
 
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
 
-### How it Works
-
-You connect to the browser's page execution environment using an nREPL client in your editor. The nREPL client is in turn connected to the Babashka **browser-nrepl** server which bridges nREPL (port 12345) to WebSocket (port 12346). This WebSocket port is what the browser extension connects to.
-
-```mermaid
-flowchart
-    Human["You"] --> Editor
-
-    subgraph Editor["Your Favorite Editor"]
-         editor-nREPL["nREPL Client"]
-    end
-
-    AI["Your AI Agent"] --> nREPL["nREPL Client"]
-
-    Editor -->|"nrepl://localhost:12345"| nPort
-    nREPL -->|"nrepl://localhost:12345"| nPort
-
-    nPort["Babashka browser-nrepl"]
-
-    nPort <-->|ws://localhost:12346| BG
-
-    subgraph Browser["Browser"]
-        subgraph Extension
-            BG["Background Service Worker"]
-            BG <-->|"runtime.sendMessage"| Bridge["Content Bridge"]
-        end
-        Bridge <-->|"postMessage"| WS-Bridge
-        Bridge -->|"Injects"| Scittle
-        Bridge -->|"Injects"| WS-Bridge
-        subgraph Page
-          DOM["DOM/Execution Environment"]
-          WS-Bridge["WebSocket Bridge"]
-          Scittle["Scittle REPL"]
-          WS-Bridge <--> Scittle
-          Scittle <--> DOM
-        end
-    end
-```
-
-The extension uses a background service worker to handle WebSocket connections, which bypasses strict Content Security Policies (like GitHub's) that would otherwise block connections to localhost. Messages are relayed through the content bridge to the page's WebSocket bridge, which provides a virtual WebSocket interface for the Scittle REPL.
-
-### Installing
+## Installing
 
 Available on the Chrome Web Store: https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei
 
