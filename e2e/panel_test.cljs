@@ -1,18 +1,15 @@
 (ns panel-test
-  "Testing DevTools panel UI with mocked chrome.devtools APIs.
+  "E2E tests for DevTools panel and popup - user journey style.
 
-     Strategy: Load panel.html directly as extension page, inject mock
-     chrome.devtools APIs via addInitScript before panel.js loads.
+   Strategy: Load panel.html directly as extension page, inject mock
+   chrome.devtools APIs via addInitScript before panel.js loads.
 
-     This enables testing:
-     - Panel UI rendering and interactions
-     - Form inputs (code, script name, URL pattern)
-     - Button clicks (Eval, Clear, Save, Use URL)
-     - State management and storage integration
+   Tests are structured as user journeys - one browser context, multiple
+   sequential operations that build on each other, like a real user session.
 
-     What this doesn't test (use bb test:repl-e2e instead):
-     - Actual code evaluation in inspected page
-     - Real chrome.devtools.inspectedWindow.eval behavior"
+   What this doesn't test (use bb test:repl-e2e instead):
+   - Actual code evaluation in inspected page
+   - Real chrome.devtools.inspectedWindow.eval behavior"
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["path" :as path]
             ["url" :as url]))
@@ -57,13 +54,10 @@
           if (expr.includes('location.hostname')) {
             callback(window.__mockHostname, undefined);
           } else if (expr.includes('location.href')) {
-            // Full URL for use-current-url
             callback('https://test.example.com/some/path', undefined);
           } else if (expr.includes('scittle') && !expr.includes('eval_string')) {
-            // Scittle status check - report as loaded
             callback({ hasScittle: true, hasNrepl: false }, undefined);
           } else if (expr.includes('eval_string')) {
-            // Code evaluation - return mock success
             callback({ value: 'mock-result', error: null }, undefined);
           } else {
             callback(undefined, undefined);
@@ -86,142 +80,8 @@
         panel-url (str "chrome-extension://" ext-id "/panel.html")]
     (js-await (.addInitScript panel-page mock-devtools-script))
     (js-await (.goto panel-page panel-url #js {:timeout 10000}))
-    (js-await (sleep 1500))  ;; Let panel initialize
+    (js-await (sleep 1500))
     panel-page))
-
-;; =============================================================================
-;; Tests
-;; =============================================================================
-
-(test "Panel renders with mocked chrome.devtools"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))]
-              ;; Check essential UI elements rendered
-              (js-await (-> (expect (.locator panel-page "textarea"))
-                            (.toBeVisible)))
-              (js-await (-> (expect (.locator panel-page "button.btn-eval"))
-                            (.toBeVisible)))
-              (js-await (-> (expect (.locator panel-page "button.btn-clear"))
-                            (.toBeVisible)))
-              (js-await (-> (expect (.locator panel-page "#script-name"))
-                            (.toBeVisible)))
-              (js-await (-> (expect (.locator panel-page "#script-match"))
-                            (.toBeVisible))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Code textarea accepts input"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  textarea (.locator panel-page "textarea")]
-              (js-await (.fill textarea "(+ 1 2 3)"))
-              (js-await (-> (expect textarea) (.toHaveValue "(+ 1 2 3)"))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Clear button clears results area"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  textarea (.locator panel-page "textarea")
-                  eval-btn (.locator panel-page "button.btn-eval")
-                  clear-btn (.locator panel-page "button.btn-clear")]
-              ;; Enter code and evaluate to create results
-              (js-await (.fill textarea "(+ 1 2)"))
-              (js-await (.click eval-btn))
-              (js-await (sleep 500))
-              ;; Results should contain the evaluated code
-              (js-await (-> (expect (.locator panel-page ".results-area"))
-                            (.toContainText "(+ 1 2)")))
-              ;; Click clear
-              (js-await (.click clear-btn))
-              (js-await (sleep 300))
-              ;; Results should no longer contain the code (shows empty logos instead)
-              (js-await (-> (expect (.locator panel-page ".results-area"))
-                            (.not.toContainText "(+ 1 2)"))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Eval button triggers evaluation"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  textarea (.locator panel-page "textarea")
-                  eval-btn (.locator panel-page "button.btn-eval")]
-              ;; Enter code
-              (js-await (.fill textarea "(+ 1 2)"))
-              ;; Click eval
-              (js-await (.click eval-btn))
-              (js-await (sleep 500))
-              ;; Results area should appear with input echo
-              (let [results (.locator panel-page ".results-area")]
-                (js-await (-> (expect results) (.toBeVisible)))
-                (js-await (-> (expect results) (.toContainText "(+ 1 2)")))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Save script form accepts input"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  name-input (.locator panel-page "#script-name")
-                  match-input (.locator panel-page "#script-match")]
-              (js-await (.fill name-input "My Test Script"))
-              (js-await (.fill match-input "*://example.com/*"))
-              (js-await (-> (expect name-input) (.toHaveValue "My Test Script")))
-              (js-await (-> (expect match-input) (.toHaveValue "*://example.com/*"))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Use URL button fills pattern from mock hostname"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  match-input (.locator panel-page "#script-match")
-                  use-url-btn (.locator panel-page "button.btn-use-url")]
-              (js-await (.click use-url-btn))
-              (js-await (sleep 200))
-              ;; Check the value contains the mock hostname
-              (let [value (js-await (.inputValue match-input))]
-                (js-await (-> (expect (.includes value "test.example.com"))
-                              (.toBeTruthy)))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Panel shows Ready status when Scittle detected"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  status (.locator panel-page ".panel-status")]
-              ;; Mock returns hasScittle: true, so status should show Ready
-              (js-await (-> (expect status) (.toContainText "Ready"))))
-            (finally
-              (js-await (.close context)))))))
-
-;; =============================================================================
-;; Integration Tests - Panel <-> Popup via chrome.storage
-;; =============================================================================
-
-(defn ^:async clear-storage
-  "Clear extension storage to ensure clean test state"
-  [page]
-  (js-await (.evaluate page "() => chrome.storage.local.clear()")))
 
 (defn ^:async create-popup-page
   "Create a popup page"
@@ -229,119 +89,215 @@
   (let [popup-page (js-await (.newPage context))
         popup-url (str "chrome-extension://" ext-id "/popup.html")]
     (js-await (.goto popup-page popup-url #js {:timeout 10000}))
-    (js-await (sleep 1000))  ;; Let popup initialize
+    (js-await (sleep 1000))
     popup-page))
 
-(test "Integration: Panel save -> Popup shows script"
+(defn ^:async clear-storage
+  "Clear extension storage to ensure clean test state"
+  [page]
+  (js-await (.evaluate page "() => chrome.storage.local.clear()")))
+
+;; =============================================================================
+;; Panel User Journey: Code Evaluation Workflow
+;; =============================================================================
+
+(test "Panel: code evaluation workflow"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; Clear storage first
-            (let [temp-page (js-await (.newPage context))]
-              (js-await (.goto temp-page (str "chrome-extension://" ext-id "/popup.html")))
-              (js-await (clear-storage temp-page))
-              (js-await (.close temp-page)))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "textarea")
+                  eval-btn (.locator panel "button.btn-eval")
+                  clear-btn (.locator panel "button.btn-clear")
+                  results (.locator panel ".results-area")
+                  status (.locator panel ".panel-status")]
 
-            ;; Save script from panel
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  textarea (.locator panel-page "textarea")
-                  name-input (.locator panel-page "#script-name")
-                  match-input (.locator panel-page "#script-match")
-                  save-btn (.locator panel-page "button.btn-save")]
-              ;; Fill in script details
-              (js-await (.fill textarea "(println \"Integration test script\")"))
-              (js-await (.fill name-input "Integration Test"))
-              (js-await (.fill match-input "*://integration-test.com/*"))
-              ;; Save
+              ;; 1. Panel renders with all UI elements
+              (js-await (-> (expect textarea) (.toBeVisible)))
+              (js-await (-> (expect eval-btn) (.toBeVisible)))
+              (js-await (-> (expect clear-btn) (.toBeVisible)))
+              (js-await (-> (expect (.locator panel "#script-name")) (.toBeVisible)))
+              (js-await (-> (expect (.locator panel "#script-match")) (.toBeVisible)))
+
+              ;; 2. Status shows Ready (mock returns hasScittle: true)
+              (js-await (-> (expect status) (.toContainText "Ready")))
+
+              ;; 3. Enter code in textarea
+              (js-await (.fill textarea "(+ 1 2 3)"))
+              (js-await (-> (expect textarea) (.toHaveValue "(+ 1 2 3)")))
+
+              ;; 4. Click eval - results should show input echo
+              (js-await (.click eval-btn))
+              (js-await (sleep 500))
+              (js-await (-> (expect results) (.toBeVisible)))
+              (js-await (-> (expect results) (.toContainText "(+ 1 2 3)")))
+
+              ;; 5. Evaluate more code - results accumulate
+              (js-await (.fill textarea "(str \"hello\" \" world\")"))
+              (js-await (.click eval-btn))
+              (js-await (sleep 500))
+              (js-await (-> (expect results) (.toContainText "hello")))
+
+              ;; 6. Clear results - code stays, results go
+              (js-await (.click clear-btn))
+              (js-await (sleep 300))
+              (js-await (-> (expect results) (.not.toContainText "(+ 1 2 3)")))
+              (js-await (-> (expect results) (.not.toContainText "hello")))
+              ;; Textarea still has last code
+              (js-await (-> (expect textarea) (.toHaveValue "(str \"hello\" \" world\")"))))
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Panel User Journey: Save Script Workflow
+;; =============================================================================
+
+(test "Panel: save script workflow"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "textarea")
+                  name-input (.locator panel "#script-name")
+                  match-input (.locator panel "#script-match")
+                  use-url-btn (.locator panel "button.btn-use-url")
+                  save-btn (.locator panel "button.btn-save")]
+
+              ;; Clear storage for clean slate
+              (js-await (clear-storage panel))
+
+              ;; 1. Save button should be disabled with empty fields
+              (js-await (-> (expect save-btn) (.toBeDisabled)))
+
+              ;; 2. Fill in code
+              (js-await (.fill textarea "(println \"My userscript\")"))
+
+              ;; 3. Fill in script name
+              (js-await (.fill name-input "Test Userscript"))
+              (js-await (-> (expect name-input) (.toHaveValue "Test Userscript")))
+
+              ;; 4. Use URL button fills pattern from mock hostname
+              (js-await (.click use-url-btn))
+              (js-await (sleep 200))
+              (let [match-value (js-await (.inputValue match-input))]
+                (js-await (-> (expect (.includes match-value "test.example.com"))
+                              (.toBeTruthy))))
+
+              ;; 5. Save button now enabled - click it
+              (js-await (-> (expect save-btn) (.toBeEnabled)))
               (js-await (.click save-btn))
               (js-await (sleep 500))
-              ;; Verify success message
-              (js-await (-> (expect (.locator panel-page ".save-status"))
+
+              ;; 6. Success message appears
+              (js-await (-> (expect (.locator panel ".save-status"))
                             (.toContainText "Saved")))
-              (js-await (.close panel-page)))
 
-            ;; Open popup and verify script appears
-            (let [popup-page (js-await (create-popup-page context ext-id))
-                  script-list (.locator popup-page ".script-list")]
-              ;; Script should appear in the list
-              (js-await (-> (expect script-list)
-                            (.toContainText "Integration Test")))
-              (js-await (.close popup-page)))
+              ;; 7. Form fields cleared after save
+              (js-await (-> (expect name-input) (.toHaveValue "")))
+              (js-await (-> (expect match-input) (.toHaveValue ""))))
             (finally
               (js-await (.close context)))))))
 
-(test "Integration: Popup edit -> Panel receives script"
+;; =============================================================================
+;; Integration: Script Lifecycle (save, view, enable/disable, edit, delete)
+;; =============================================================================
+
+(test "Integration: script lifecycle - save, view, toggle, edit, delete"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; Clear storage first
+            ;; Start with clean storage
             (let [temp-page (js-await (.newPage context))]
               (js-await (.goto temp-page (str "chrome-extension://" ext-id "/popup.html")))
               (js-await (clear-storage temp-page))
               (js-await (.close temp-page)))
 
-            ;; Save a script via panel first
-            (let [panel-page (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel-page "textarea") "(println \"Edit me\")"))
-              (js-await (.fill (.locator panel-page "#script-name") "Script To Edit"))
-              (js-await (.fill (.locator panel-page "#script-match") "*://edit-test.com/*"))
-              (js-await (.click (.locator panel-page "button.btn-save")))
+            ;; === PHASE 1: Save script from panel ===
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (.fill (.locator panel "textarea") "(println \"Original code\")"))
+              (js-await (.fill (.locator panel "#script-name") "Lifecycle Test"))
+              (js-await (.fill (.locator panel "#script-match") "*://lifecycle.test/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
               (js-await (sleep 500))
-              (js-await (.close panel-page)))
+              (js-await (-> (expect (.locator panel ".save-status"))
+                            (.toContainText "Saved")))
+              (js-await (.close panel)))
 
-            ;; Open panel FIRST (it needs to be listening for storage changes)
-            (let [panel-page (js-await (create-panel-page context ext-id))
-                  ;; Then open popup and click edit
-                  popup-page (js-await (create-popup-page context ext-id))
-                  edit-btn (.locator popup-page "button.script-edit")]
+            ;; === PHASE 2: Verify script in popup, test enable/disable ===
+            (let [popup (js-await (create-popup-page context ext-id))
+                  script-item (.locator popup ".script-item")
+                  checkbox (.locator script-item "input[type='checkbox']")
+                  edit-btn (.locator script-item "button.script-edit")
+                  delete-btn (.locator script-item "button.script-delete")]
+
+              ;; Script appears in list with pattern
+              (js-await (-> (expect script-item) (.toContainText "Lifecycle Test")))
+              (js-await (-> (expect script-item) (.toContainText "*://lifecycle.test/*")))
+
+              ;; Has enable checkbox (unchecked by default)
+              (js-await (-> (expect checkbox) (.toBeVisible)))
+              (js-await (-> (expect checkbox) (.not.toBeChecked)))
+
+              ;; Has edit and delete buttons
+              (js-await (-> (expect edit-btn) (.toBeVisible)))
+              (js-await (-> (expect delete-btn) (.toBeVisible)))
+
+              ;; Enable script
+              (js-await (.click checkbox))
+              (js-await (sleep 300))
+              (js-await (-> (expect checkbox) (.toBeChecked)))
+
+              ;; Disable script
+              (js-await (.click checkbox))
+              (js-await (sleep 300))
+              (js-await (-> (expect checkbox) (.not.toBeChecked)))
+
+              (js-await (.close popup)))
+
+            ;; === PHASE 3: Edit script - panel receives it ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  popup (js-await (create-popup-page context ext-id))
+                  edit-btn (.locator popup "button.script-edit")]
+
+              ;; Click edit in popup
               (js-await (.click edit-btn))
-              (js-await (sleep 500))  ;; Wait for storage update to propagate
-              (js-await (.close popup-page))
-
-              ;; Now check panel received the script
-              (let [textarea (.locator panel-page "textarea")
-                    name-input (.locator panel-page "#script-name")]
-                ;; Panel should have the script loaded
-                (js-await (-> (expect textarea)
-                              (.toHaveValue "(println \"Edit me\")")))
-                (js-await (-> (expect name-input)
-                              (.toHaveValue "Script To Edit")))
-                (js-await (.close panel-page))))
-            (finally
-              (js-await (.close context)))))))
-
-(test "Integration: Saved script shows in popup with enable checkbox"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Clear storage
-            (let [temp-page (js-await (.newPage context))]
-              (js-await (.goto temp-page (str "chrome-extension://" ext-id "/popup.html")))
-              (js-await (clear-storage temp-page))
-              (js-await (.close temp-page)))
-
-            ;; Save a script from panel
-            (let [panel-page (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel-page "textarea") "(println \"My script\")"))
-              (js-await (.fill (.locator panel-page "#script-name") "Checkbox Test"))
-              (js-await (.fill (.locator panel-page "#script-match") "*://checkbox-test.com/*"))
-              (js-await (.click (.locator panel-page "button.btn-save")))
               (js-await (sleep 500))
-              (js-await (.close panel-page)))
 
-            ;; Open popup - script should show with enable checkbox
-            (let [popup-page (js-await (create-popup-page context ext-id))
-                  script-item (.locator popup-page ".script-item")
-                  enable-checkbox (.locator script-item "input[type='checkbox']")]
-              ;; Script should be in the list
-              (js-await (-> (expect script-item)
-                            (.toContainText "Checkbox Test")))
-              ;; Should have enable checkbox
-              (js-await (-> (expect enable-checkbox)
-                            (.toBeVisible)))
-              (js-await (.close popup-page)))
+              ;; Panel should receive the script
+              (js-await (-> (expect (.locator panel "textarea"))
+                            (.toHaveValue "(println \"Original code\")")))
+              (js-await (-> (expect (.locator panel "#script-name"))
+                            (.toHaveValue "Lifecycle Test")))
+
+              ;; Modify and save
+              (js-await (.fill (.locator panel "textarea") "(println \"Updated code\")"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 500))
+
+              (js-await (.close popup))
+              (js-await (.close panel)))
+
+            ;; === PHASE 4: Delete script ===
+            (let [popup (js-await (create-popup-page context ext-id))
+                  script-item (.locator popup ".script-item")
+                  delete-btn (.locator script-item "button.script-delete")]
+
+              ;; Script still exists
+              (js-await (-> (expect script-item) (.toContainText "Lifecycle Test")))
+
+              ;; Handle confirm dialog
+              (.on popup "dialog" (fn [dialog] (.accept dialog)))
+
+              ;; Delete
+              (js-await (.click delete-btn))
+              (js-await (sleep 500))
+
+              ;; Script should be gone
+              (js-await (-> (expect script-item) (.toHaveCount 0)))
+
+              (js-await (.close popup)))
             (finally
               (js-await (.close context)))))))
