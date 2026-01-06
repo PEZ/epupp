@@ -35,12 +35,18 @@
 ;; Tab and storage helpers
 ;; =============================================================
 
-(defn get-active-tab []
+(defn get-active-tab
+  "Gets the active tab. In tests, checks for window.__scittle_tamper_test_url override."
+  []
   (js/Promise.
    (fn [resolve]
-     (js/chrome.tabs.query
-      #js {:active true :currentWindow true}
-      (fn [tabs] (resolve (first tabs)))))))
+     ;; Test override: if window.__scittle_tamper_test_url is set, return a mock tab
+     (if-let [test-url js/window.__scittle_tamper_test_url]
+       (resolve #js {:id -1 :url test-url})
+       ;; Normal: query Chrome tabs API
+       (js/chrome.tabs.query
+        #js {:active true :currentWindow true}
+        (fn [tabs] (resolve (first tabs))))))))
 
 (defn get-hostname [tab]
   (try
@@ -362,3 +368,12 @@
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
   (init!))
+
+;; =============================================================================
+;; Test Helpers (exported for E2E tests)
+;; =============================================================================
+
+(defn get-state
+  "Returns current popup state as JS object. For E2E test inspection."
+  []
+  (clj->js @!state))

@@ -112,3 +112,49 @@
               (js-await (.close popup)))
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Integration: Edit hint message appears in popup
+;; =============================================================================
+
+(test "Integration: edit button shows hint message in popup"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Start with clean storage
+            (let [temp-page (js-await (.newPage context))]
+              (js-await (.goto temp-page (str "chrome-extension://" ext-id "/popup.html")))
+              (js-await (clear-storage temp-page))
+              (js-await (.close temp-page)))
+
+            ;; Create script via panel (the working approach)
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (.fill (.locator panel "textarea") "(println \"hint test\")"))
+              (js-await (.fill (.locator panel "#script-name") "Hint Test"))
+              (js-await (.fill (.locator panel "#script-match") "*://hint.test/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 500))
+              (js-await (.close panel)))
+
+            ;; Open popup and test edit hint
+            (let [popup (js-await (create-popup-page context ext-id))
+                  edit-btn (.locator popup "button.script-edit")
+                  hint (.locator popup ".script-edit-hint")]
+
+              ;; Wait for script to appear
+              (js-await (-> (expect edit-btn) (.toBeVisible #js {:timeout 5000})))
+
+              ;; Hint not visible initially
+              (js-await (-> (expect hint) (.toHaveCount 0)))
+
+              ;; Click edit
+              (js-await (.click edit-btn))
+
+              ;; Hint appears with DevTools message
+              (js-await (-> (expect hint) (.toBeVisible #js {:timeout 2000})))
+              (js-await (-> (expect hint) (.toContainText "Developer Tools")))
+
+              (js-await (.close popup)))
+            (finally
+              (js-await (.close context)))))))

@@ -133,5 +133,39 @@
   [page]
   (js-await (.evaluate page "() => chrome.storage.local.clear()")))
 
+(defn ^:async seed-scripts
+  "Seed scripts directly into chrome.storage for testing.
+   Scripts should be JS objects with script/id, script/name, script/match, etc."
+  [page scripts]
+  ;; Playwright evaluates arrow functions directly. Just ensure we return the Promise.
+  (js-await (.evaluate page
+                       "async (data) => {
+                          console.log('[seed] data received:', data?.length);
+                          await chrome.storage.local.set({ scripts: data });
+                          return 'done';
+                        }"
+                       scripts)))
+
+(defn ^:async get-popup-state
+  "Get current popup state via the exported get-state function."
+  [page]
+  (js-await (.evaluate page "() => window.popup.get_state()")))
+
+(defn ^:async get-stored-scripts
+  "Get scripts directly from chrome.storage."
+  [page]
+  (js-await (.evaluate page "(async () => { const r = await chrome.storage.local.get('scripts'); return r.scripts || []; })()")))
+
 ;; Re-export test for convenience
 (def base-test test)
+
+;; =============================================================================
+;; Test URL Override (for approval workflow testing)
+;; =============================================================================
+
+(defn ^:async set-test-url
+  "Set a test URL override that popup.cljs will use instead of querying chrome.tabs.
+   This allows testing URL-dependent features like approval workflow in Playwright.
+   Call before creating popup page (use addInitScript for reliability)."
+  [page url]
+  (js-await (.evaluate page (str "window.__scittle_tamper_test_url = '" url "';"))))
