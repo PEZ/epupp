@@ -253,7 +253,7 @@
                          :disabled (or evaluating? loading? (empty? code))}
        button-text]
       [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
-       "Clear"]
+       "Clear Results"]
       [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status panel/script-id]}]
@@ -307,8 +307,8 @@
   [:div.panel-root
    [panel-header state]
    [:div.panel-content
-    [code-input state]
     [save-script-section state]
+    [code-input state]
     [results-area state]]])
 
 ;; ============================================================
