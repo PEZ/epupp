@@ -237,23 +237,23 @@
               (js-await (-> (expect script-item) (.toContainText "Lifecycle Test")))
               (js-await (-> (expect script-item) (.toContainText "*://lifecycle.test/*")))
 
-              ;; Has enable checkbox (unchecked by default)
+              ;; Has enable checkbox (checked by default - scripts save as enabled)
               (js-await (-> (expect checkbox) (.toBeVisible)))
-              (js-await (-> (expect checkbox) (.not.toBeChecked)))
+              (js-await (-> (expect checkbox) (.toBeChecked)))
 
               ;; Has edit and delete buttons
               (js-await (-> (expect edit-btn) (.toBeVisible)))
               (js-await (-> (expect delete-btn) (.toBeVisible)))
 
-              ;; Enable script
-              (js-await (.click checkbox))
-              (js-await (sleep 300))
-              (js-await (-> (expect checkbox) (.toBeChecked)))
-
-              ;; Disable script
+              ;; Disable script (it starts enabled)
               (js-await (.click checkbox))
               (js-await (sleep 300))
               (js-await (-> (expect checkbox) (.not.toBeChecked)))
+
+              ;; Re-enable script
+              (js-await (.click checkbox))
+              (js-await (sleep 300))
+              (js-await (-> (expect checkbox) (.toBeChecked)))
 
               (js-await (.close popup)))
 

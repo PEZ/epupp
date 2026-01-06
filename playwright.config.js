@@ -11,7 +11,7 @@ export default defineConfig({
   },
   // Run tests sequentially - extension context needs isolation
   workers: 1,
-  // Output for CI
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  // Output for CI - don't auto-open report in browser
+  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
   outputDir: 'test-results',
 });
