@@ -252,3 +252,26 @@
                   (.toBe "test"))
               (-> (expect (.-name result))
                   (.toBeNull)))))))
+
+(describe "parse-install-manifest"
+  (fn []
+    (test "parses manifest from preamble"
+          (fn []
+            (let [txt (str ";; Scittle Tamper UserScript\n"
+                           "#_{:script-name \"Something\"\n"
+                           "   :site-match \"*://example.com/*\"\n"
+                           "   :script-code [\"https://example.com/foo.cljs\"]}\n\n"
+                           "(println \"hi\")")
+                  manifest (script-utils/parse-install-manifest txt)]
+              (-> (expect (get manifest :script-name))
+                  (.toBe "Something"))
+              (-> (expect (get manifest :site-match))
+                  (.toBe "*://example.com/*"))
+              (-> (expect (get manifest :script-code))
+                  (.toEqual ["https://example.com/foo.cljs"])))))
+
+    (test "returns nil when marker is missing"
+          (fn []
+            ;; Clojure nil becomes JS undefined
+            (-> (expect (script-utils/parse-install-manifest "(println 1)"))
+                (.toBeUndefined))))))

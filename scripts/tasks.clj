@@ -93,6 +93,9 @@
     (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
     (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
     (fs/copy "extension/panel.css" "build/panel.css" {:replace-existing true})
+    ;; Copy userscripts (raw source, evaluated by Scittle)
+    (fs/create-dirs "build/userscripts")
+    (fs/copy "extension/userscripts/gist_installer.cljs" "build/userscripts/gist_installer.cljs" {:replace-existing true})
     (println "✓ Squint + esbuild compilation complete")))
 
 (defn- adjust-manifest
@@ -197,6 +200,9 @@
                  {:replace-existing true})
         (fs/copy (str build-dir "/content-bridge.js") (str browser-dir "/content-bridge.js")
                  {:replace-existing true})
+        ;; Copy userscripts directory (raw source)
+        (fs/copy-tree (str build-dir "/userscripts") (str browser-dir "/userscripts")
+                      {:replace-existing true})
         (fs/copy (str build-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
                  {:replace-existing true})
         (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")

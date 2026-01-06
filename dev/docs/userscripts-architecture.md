@@ -51,13 +51,13 @@ See [architecture.md](architecture.md) for complete state schemas. Script fields
 ;; Stored in chrome.storage.local under key "scripts"
 {:script/id "github-tweaks"               ; unique identifier
  :script/name "GitHub Tweaks"             ; display name
- :script/match ["*://github.com/*"        ; URL patterns (glob)
-                "*://gist.github.com/*"]
+ :script/match ["https://github.com/*"        ; URL patterns (glob)
+                "https://gist.github.com/*"]
  :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
  :script/enabled true                     ; active flag
  :script/created "2026-01-02T..."         ; ISO timestamp
  :script/modified "2026-01-02T..."        ; ISO timestamp
- :script/approved-patterns ["*://github.com/*"]}  ; patterns user has approved
+ :script/approved-patterns ["https://github.com/*"]}  ; patterns user has approved
 ```
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
@@ -178,8 +178,8 @@ For scripts loaded from files or shared, support TamperMonkey-style header comme
 ```clojure
 ;; ==UserScript==
 ;; @name        GitHub Tweaks
-;; @match       *://github.com/*
-;; @match       *://gist.github.com/*
+;; @match       https://github.com/*
+;; @match       https://gist.github.com/*
 ;; @description Enhance GitHub UX
 ;; ==/UserScript==
 

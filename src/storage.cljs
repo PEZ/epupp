@@ -177,6 +177,32 @@
   (persist!))
 
 ;; ============================================================
+;; Built-in userscripts
+;; ============================================================
+
+(defn ^:async ensure-gist-installer!
+  "Ensure the gist installer built-in userscript exists in storage.
+   Loads it from userscripts/gist_installer.cljs and updates if code changed."
+  []
+  (let [installer-id "scittle-tamper-builtin-gist-installer"]
+    (try
+      (let [response (js-await (js/fetch (js/chrome.runtime.getURL "userscripts/gist_installer.cljs")))
+            code (js-await (.text response))
+            existing (get-script installer-id)]
+        ;; Install if missing, or update if code changed
+        (when (or (not existing)
+                  (not= (:script/code existing) code))
+          (save-script! {:script/id installer-id
+                        :script/name "GitHub Gist Installer (Built-in)"
+                        :script/match ["https://gist.github.com/*"]
+                        :script/code code
+                        :script/enabled true
+                        :script/approved-patterns ["https://gist.github.com/*"]})
+          (js/console.log "[Storage] Installed/updated built-in gist installer")))
+      (catch :default err
+        (js/console.error "[Storage] Failed to load gist installer:" err)))))
+
+;; ============================================================
 ;; Debug: Expose for console testing
 ;; ============================================================
 

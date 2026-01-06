@@ -39,7 +39,7 @@
 
 (comment
   ;; GitHub Party Mode - Scittle Tamper Userscript
-  ;; Pattern: *://github.com/*
+  ;; Pattern: https://github.com/*
 
   ;; Add all the keyframe animations
   (let [style-el (js/document.createElement "style")]

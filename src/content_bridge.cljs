@@ -40,6 +40,7 @@
 (defn- handle-page-message [event]
   (when (same-window? event)
     (let [msg (.-data event)]
+      ;; Handle messages from WebSocket bridge (scittle-tamper-page)
       (when (and msg (= "scittle-tamper-page" (.-source msg)))
         (case (.-type msg)
           "ws-connect"
@@ -55,6 +56,27 @@
             (js/chrome.runtime.sendMessage
              #js {:type "ws-send"
                   :data (.-data msg)}))
+
+          nil))
+
+      ;; Handle messages from userscripts (scittle-tamper-userscript)
+      (when (and msg (= "scittle-tamper-userscript" (.-source msg)))
+        (case (.-type msg)
+          "install-from-gist"
+          (do
+            (js/console.log "[Bridge] Forwarding install request to background")
+            (js/chrome.runtime.sendMessage
+             #js {:type "install-from-gist"
+                  :manifest (.-manifest msg)
+                  :gistUrl (.-gistUrl msg)}
+             (fn [response]
+               ;; Send response back to page
+               (.postMessage js/window
+                            #js {:source "scittle-tamper-bridge"
+                                 :type "install-response"
+                                 :success (.-success response)
+                                 :error (.-error response)}
+                            "*"))))
 
           nil)))))
 
