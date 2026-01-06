@@ -50,13 +50,14 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Empty state ===
+            ;; === PHASE 1: Initial state (built-in Gist Installer exists) ===
             (let [popup (js-await (create-popup-page context ext-id))]
               (js-await (clear-storage popup))
               (js-await (.reload popup))
               (js-await (sleep 500))
-              (js-await (-> (expect (.locator popup ".no-scripts"))
-                            (.toContainText "No scripts yet")))
+              ;; Built-in Gist Installer script is auto-created, so we have 1 script
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"Gist Installer\")"))
+                            (.toBeVisible)))
               (js-await (.close popup)))
 
             ;; === PHASE 2: Create scripts via panel ===
@@ -78,7 +79,8 @@
 
             ;; === PHASE 3: Verify scripts, test enable/disable ===
             (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2 #js {:timeout 3000})))
+              ;; 3 scripts: built-in Gist Installer + 2 user scripts
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3 #js {:timeout 3000})))
 
               ;; Toggle disable
               (let [item (.locator popup ".script-item:has-text(\"Script One\")")
@@ -94,7 +96,8 @@
                     delete-btn (.locator item "button.script-delete")]
                 (js-await (.click delete-btn))
                 (js-await (sleep 300))
-                (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 1))))
+                ;; 2 remaining: built-in Gist Installer + Script One
+                (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2))))
 
               (js-await (.close popup)))
 

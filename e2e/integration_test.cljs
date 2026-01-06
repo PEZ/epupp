@@ -36,7 +36,8 @@
 
             ;; === PHASE 2: Verify in popup, toggle, check edit hint ===
             (let [popup (js-await (create-popup-page context ext-id))
-                  script-item (.locator popup ".script-item")
+                  ;; Use specific locator to find our test script (not the built-in Gist Installer)
+                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
                   checkbox (.locator script-item "input[type='checkbox']")
                   edit-btn (.locator script-item "button.script-edit")
                   hint (.locator popup ".script-edit-hint")]
@@ -65,7 +66,9 @@
             ;; === PHASE 3: Edit script - panel receives it ===
             (let [panel (js-await (create-panel-page context ext-id))
                   popup (js-await (create-popup-page context ext-id))
-                  edit-btn (.locator popup "button.script-edit")]
+                  ;; Use specific locator for our test script
+                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
+                  edit-btn (.locator script-item "button.script-edit")]
 
               ;; Click edit in popup
               (js-await (.click edit-btn))
@@ -87,12 +90,14 @@
 
             ;; === PHASE 4: Delete script ===
             (let [popup (js-await (create-popup-page context ext-id))
-                  script-item (.locator popup ".script-item")
+                  ;; Use specific locator for our test script
+                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
                   delete-btn (.locator script-item "button.script-delete")]
 
               (.on popup "dialog" (fn [dialog] (.accept dialog)))
               (js-await (.click delete-btn))
               (js-await (sleep 300))
+              ;; Only our test script should be gone, built-in Gist Installer remains
               (js-await (-> (expect script-item) (.toHaveCount 0)))
 
               (js-await (.close popup)))
