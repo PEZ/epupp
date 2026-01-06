@@ -62,13 +62,13 @@
       ;; Handle messages from userscripts (scittle-tamper-userscript)
       (when (and msg (= "scittle-tamper-userscript" (.-source msg)))
         (case (.-type msg)
-          "install-from-gist"
+          "install-userscript"
           (do
             (js/console.log "[Bridge] Forwarding install request to background")
             (js/chrome.runtime.sendMessage
-             #js {:type "install-from-gist"
+             #js {:type "install-userscript"
                   :manifest (.-manifest msg)
-                  :gistUrl (.-gistUrl msg)}
+                  :scriptUrl (.-scriptUrl msg)}
              (fn [response]
                ;; Send response back to page
                (.postMessage js/window

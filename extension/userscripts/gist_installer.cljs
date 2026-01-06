@@ -94,7 +94,7 @@
 
 (defn- send-install-request
   "Send install request to extension via postMessage (content bridge forwards it)"
-  [manifest gist-url callback]
+  [manifest script-url callback]
   ;; Listen for response from content bridge
   (let [listener (fn listener[event]
                    (let [data (.-data event)]
@@ -108,9 +108,9 @@
     ;; Must use clj->js on manifest so postMessage serializes the actual keys
     (.postMessage js/window
                   #js {:source "scittle-tamper-userscript"
-                       :type "install-from-gist"
+                       :type "install-userscript"
                        :manifest (clj->js manifest)
-                       :gistUrl gist-url}
+                       :scriptUrl script-url}
                   "*")))
 
 (defn get-gist-raw-url

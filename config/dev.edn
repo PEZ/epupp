@@ -4,4 +4,11 @@
 ;; Changes here require a rebuild to take effect.
 
 {:dev true
- :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"}
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"
+ ;; Allowed hosts for userscript installation (must be https)
+ :allowedScriptHosts ["github.com"
+                      "gist.github.com"
+                      "raw.githubusercontent.com"
+                      "gitlab.com"
+                      "gitlab.io"
+                      "codeberg.org"]}

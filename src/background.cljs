@@ -509,10 +509,6 @@
       (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
     true))
 
-(defn- js-arr->vec
-  [arr]
-  (if arr (vec arr) []))
-
 (defn ^:async fetch-text!
   [url]
   (let [resp (js-await (js/fetch url))]
@@ -520,27 +516,44 @@
       (throw (js/Error. (str "Failed to fetch " url " (" (.-status resp) ")"))))
     (js-await (.text resp))))
 
+(defn- allowed-script-hosts
+  "Get the list of allowed hosts from config"
+  []
+  (or (.-allowedScriptHosts config) []))
+
+(defn- url-host-allowed?
+  "Check if a URL is from an allowed host (must be https)"
+  [url]
+  (try
+    (let [parsed (js/URL. url)
+          protocol (.-protocol parsed)
+          hostname (.-hostname parsed)]
+      (and (= protocol "https:")
+           (some #(or (= hostname %)
+                      (.endsWith hostname (str "." %)))
+                 (allowed-script-hosts))))
+    (catch :default _
+      false)))
+
 (defn ^:async install-userscript!
-  [script-name site-match script-code-urls]
+  "Install a userscript from a URL. Validates that the URL is from an allowed host."
+  [script-name site-match script-url]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
-  (let [urls (cond
-               (nil? script-code-urls) []
-               (string? script-code-urls) [script-code-urls]
-               :else (js-arr->vec script-code-urls))]
-    (when-not (seq urls)
-      (throw (js/Error. "Missing scriptCodeUrls")))
-    (js-await (ensure-initialized!))
-    (let [parts (js-await (js/Promise.all (clj->js (mapv fetch-text! urls))))
-          code (.join parts "\n\n")
-          id (str "script-" (js/Date.now))
-          script {:script/id id
-                  :script/name script-name
-                  :script/match [site-match]
-                  :script/code code
-                  :script/enabled true
-                  :script/approved-patterns []}]
-      (storage/save-script! script))))
+  (when (nil? script-url)
+    (throw (js/Error. "Missing script URL")))
+  (when-not (url-host-allowed? script-url)
+    (throw (js/Error. (str "Script URL not from allowed host. Allowed: " (allowed-script-hosts)))))
+  (js-await (ensure-initialized!))
+  (let [code (js-await (fetch-text! script-url))
+        id (str "script-" (js/Date.now))
+        script {:script/id id
+                :script/name script-name
+                :script/match [site-match]
+                :script/code code
+                :script/enabled true
+                :script/approved-patterns []}]
+    (storage/save-script! script)))
 
 (.addListener js/chrome.runtime.onMessage
               (fn [message sender send-response]
@@ -617,30 +630,16 @@
                       false)
 
                     "install-userscript"
-                    (let [script-name (.-scriptName message)
-                          site-match (.-siteMatch message)
-                          script-code-urls (.-scriptCodeUrls message)]
-                      ((^:async fn []
-                         (try
-                           (let [saved (js-await (install-userscript! script-name site-match script-code-urls))]
-                             (send-response #js {:success true
-                                                 :scriptId (:script/id saved)
-                                                 :scriptName (:script/name saved)}))
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
-                      true)
-
-                    "install-from-gist"
-                    ;; Manifest already parsed by gist installer using Scittle
-                    ;; gistUrl is the raw URL to fetch the script from
+                    ;; Manifest already parsed by the installer userscript using Scittle
+                    ;; scriptUrl is the raw URL to fetch the script from
                     ;; In Squint, keywords work as accessors on JS objects with string keys
                     (let [manifest (.-manifest message)
-                          gist-url (.-gistUrl message)]
+                          script-url (.-scriptUrl message)]
                       ((^:async fn []
                          (try
                            (let [script-name (:script-name manifest)
                                  site-match (:site-match manifest)
-                                 saved (js-await (install-userscript! script-name site-match gist-url))]
+                                 saved (js-await (install-userscript! script-name site-match script-url))]
                              (send-response #js {:success true
                                                  :scriptId (:script/id saved)
                                                  :scriptName (:script/name saved)}))
