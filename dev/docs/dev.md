@@ -64,7 +64,7 @@ bb test:repl-e2e     # Run tests (builds extension first)
 bb test:repl-e2e:ui  # Interactive Playwright UI
 ```
 
-E2E tests live in `e2e/*.cljs` and are compiled to `build/e2e/*.mjs`. See [e2e-testing-research.md](e2e-testing-research.md) for architecture details.
+E2E tests live in `e2e/*.cljs` and are compiled to `build/e2e/*.mjs`. See [testing.md](testing.md) for strategy, setup, and test utilities.
 
 **CI variants** (skip build step, assume artifacts exist):
 ```bash

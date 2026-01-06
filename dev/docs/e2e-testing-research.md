@@ -74,103 +74,106 @@ Relentlessly extract pure functions from side-effectful code. Every piece of log
 
 For testing real browser interactions that cannot be unit tested. Tests are written in Squint and compiled to `.mjs` files that Playwright runs.
 
+### Test Design Philosophy: Consolidated User Journeys
+
+**Prefer fewer, comprehensive workflow tests over many small isolated tests.**
+
+Each E2E test should represent a complete user journey with multiple sequential phases that build on each other. This approach:
+
+- **Reduces browser launches** - Each test launches a fresh browser context, which is expensive (~2-3s overhead)
+- **Tests realistic flows** - Users don't perform isolated actions; they complete workflows
+- **Catches integration issues** - Sequential operations reveal state management bugs
+- **Keeps test count manageable** - Aim for 4-6 comprehensive tests, not 20+ micro-tests
+
+**Structure pattern:**
+```clojure
+(test "Component: feature workflow"
+  (^:async fn []
+    (let [context (js-await (launch-browser))
+          ext-id (js-await (get-extension-id context))]
+      (try
+        ;; === PHASE 1: Setup/initial state ===
+        ;; ...
+
+        ;; === PHASE 2: Primary action ===
+        ;; ...
+
+        ;; === PHASE 3: Verify effects ===
+        ;; ...
+
+        ;; === PHASE 4: Related feature ===
+        ;; ...
+        (finally
+          (js-await (.close context)))))))
+```
+
+**What NOT to test in E2E:**
+- Timing-based UI feedback (e.g., "message disappears after 3 seconds") - test in unit tests
+- Pure function logic - belongs in Vitest
+- Every edge case - pick representative scenarios
+
+### Current Test Organization
+
+| Test | Coverage |
+|------|----------|
+| Panel: evaluation and save workflow | UI rendering, code eval, clear results, save form, validation |
+| Popup: REPL connection setup | Port inputs, command generation, copy button |
+| Popup: script management and approval | Empty state, create via panel, enable/disable, delete, Allow/Deny approval |
+| Integration: script lifecycle | Cross-component: panel save -> popup view -> popup edit -> panel receive -> delete |
+
 ### Setup
 
-Playwright is already configured as a dev dependency. Tests are compiled separately from the main source:
+Playwright is configured as a dev dependency. Tests compile separately from main source:
 
 ```bash
 bb test:e2e:compile  # Compiles e2e/*.cljs to build/e2e/*.mjs
 ```
 
-### Playwright Configuration
-
-Two Playwright configs handle different test categories:
-
-```javascript
-// playwright.config.js - UI tests (popup, panel)
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  testDir: './build/e2e',
-  testMatch: '**/*_{test,spec}.mjs',
-  testIgnore: '**/repl_ui_spec.mjs',  // REPL tests need infrastructure
-  timeout: 30000,
-  use: { channel: 'chromium' },
-  workers: 1,  // Extensions need isolation
-});
-```
-
-```javascript
-// e2e/playwright.repl.config.js - REPL integration tests
-// Uses same settings but includes repl_ui_spec.mjs
-```
-
-### Test Fixture
+### Test Fixtures
 
 The `fixtures.cljs` module provides extension context helpers:
 
 ```clojure
-;; e2e/fixtures.cljs
-(ns fixtures
-  (:require ["@playwright/test" :refer [test chromium]]
-            ["path" :as path]
-            ["url" :as url]))
-
-(def extension-path
-  (path/resolve __dirname ".." ".." "dist" "chrome"))
-
-(defn ^:async create-extension-context []
-  (js-await
-    (.launchPersistentContext chromium ""
-      #js {:headless false
-           :args #js ["--no-sandbox"
-                      (str "--disable-extensions-except=" extension-path)
-                      (str "--load-extension=" extension-path)]})))
-
-(defn ^:async get-extension-id [context]
-  (let [workers (.serviceWorkers context)]
-    (if (pos? (.-length workers))
-      (-> (aget workers 0) (.url) (.split "/") (aget 2))
-      (let [sw (js-await (.waitForEvent context "serviceworker"))]
-        (-> (.url sw) (.split "/") (aget 2))))))
-
-(defn ^:async with-extension [test-fn]
-  "Helper that sets up extension context, runs test fn, then cleans up."
-  (let [context (js-await (create-extension-context))
-        ext-id (js-await (get-extension-id context))]
-    (try
-      (js-await (test-fn context ext-id))
-      (finally
-        (js-await (.close context))))))
+;; Key helpers
+(defn ^:async launch-browser [] ...)        ; Launch Chrome with extension
+(defn ^:async get-extension-id [context] ...)
+(defn ^:async create-popup-page [context ext-id] ...)
+(defn ^:async create-panel-page [context ext-id] ...)  ; Includes mock chrome.devtools
+(defn ^:async clear-storage [page] ...)
+(defn ^:async sleep [ms] ...)
 ```
 
-### Popup Tests
+### Test URL Override for Approval Workflow
+
+The popup uses `chrome.tabs.query` to detect the current URL, which doesn't work reliably in Playwright. Use `addInitScript` to override:
 
 ```clojure
-;; e2e/popup_test.cljs
-(ns popup-test
-  (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [with-extension]]))
+;; Set test URL BEFORE navigating - popup reads URL on init
+(let [popup (js-await (.newPage context))
+      popup-url (str "chrome-extension://" ext-id "/popup.html")]
+  (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'https://example.com/';"))
+  (js-await (.goto popup popup-url))
+  ;; Now popup thinks current tab is on example.com
+  ...)
+```
 
-(test "extension loads and popup renders"
-  (^:async fn []
-    (js-await
-      (with-extension
-        (^:async fn [context ext-id]
-          (let [page (js-await (.newPage context))]
-            (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
-            (js-await (-> (expect (.locator page "#nrepl-port")) (.toBeVisible)))
-            (js-await (-> (expect (.locator page "#ws-port")) (.toBeVisible)))))))))
+This is implemented in `popup.cljs`'s `get-active-tab` function which checks for the override.
 
-(test "port inputs accept values"
-  (^:async fn []
-    (js-await
-      (with-extension
-        (^:async fn [context ext-id]
-          (let [page (js-await (.newPage context))]
-            (js-await (.goto page (str "chrome-extension://" ext-id "/popup.html")))
-            (js-await (.fill page "#nrepl-port" "9999"))
-            (js-await (-> (expect (.locator page "#nrepl-port")) (.toHaveValue "9999")))))))))
+### Creating Test Data
+
+**Important:** `page.evaluate()` returns `undefined` for chrome-extension:// pages in Playwright. You cannot seed storage directly via JavaScript evaluation.
+
+**Solution:** Create scripts through the panel UI, just like a real user:
+
+```clojure
+;; Create script via panel (the working approach)
+(let [panel (js-await (create-panel-page context ext-id))]
+  (js-await (.fill (.locator panel "textarea") "(println \"test\")"))
+  (js-await (.fill (.locator panel "#script-name") "Test Script"))
+  (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+  (js-await (.click (.locator panel "button.btn-save")))
+  (js-await (sleep 300))
+  (js-await (.close panel)))
 ```
 
 ### What Playwright Tests
@@ -178,8 +181,9 @@ The `fixtures.cljs` module provides extension context helpers:
 | Scenario | Why Playwright |
 |----------|----------------|
 | Extension loads without errors | Verifies build output works |
-| Popup UI renders correctly | Real DOM, real CSS |
-| Port inputs work | Real form interactions |
+| UI renders correctly | Real DOM, real CSS |
+| Cross-component data flow | Panel -> storage -> Popup |
+| User interactions | Click, fill, dialog handling |
 
 ## Layer 3: browser-nrepl Integration Tests
 
@@ -279,9 +283,11 @@ bb test:repl-e2e:ui  # Interactive Playwright UI
 ```
 e2e/
   connect_helper.cljs     ; Playwright helper for REPL tests
-  fixtures.cljs           ; Extension context setup for popup tests
+  fixtures.cljs           ; Extension context setup, page helpers
+  integration_test.cljs   ; Cross-component workflow (1 test)
+  panel_test.cljs         ; Panel UI workflow (1 test)
+  popup_test.cljs         ; Popup UI workflows (2 tests)
   playwright.repl.config.js  ; Playwright config for REPL integration
-  popup_test.cljs         ; Popup UI tests (3 tests)
   repl_test.clj           ; Babashka test orchestration
   repl_ui_spec.cljs       ; Full REPL pipeline tests (4 tests)
 
@@ -296,7 +302,7 @@ bb test              # Run Vitest once
 bb test:watch        # Watch mode (Squint + Vitest in parallel)
 
 # E2E tests - Popup/UI (Playwright + Squint)
-bb test:e2e          # Popup tests (builds first)
+bb test:e2e          # UI tests (builds first)
 bb test:e2e:ci       # CI variant (assumes artifacts exist)
 bb test:e2e:ui       # Interactive Playwright UI
 
@@ -311,7 +317,7 @@ bb test:repl-e2e:ui  # Interactive Playwright UI for REPL tests
 | Layer | Tests |
 |-------|-------|
 | Unit tests (Vitest) | 92 |
-| Playwright UI tests | 3 |
+| Playwright UI tests | 4 |
 | REPL integration | 4 |
 
 ## CI Integration

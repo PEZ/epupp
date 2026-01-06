@@ -47,6 +47,7 @@ Only read `.mjs` or `build/*.js` files when debugging compilation issues. Never 
 Mandatory reads:
 * [README.md](../README.md) - Usage and high-level architecture
 * [Developer docs](../dev/docs/dev.md)
+* [Testing](../dev/docs/testing.md) - Strategy, setup, and utilities
 * [Architecture reference](../dev/docs/architecture.md) - Message protocol, state management, injection flows
 * [Userscript architecture](../dev/docs/userscripts-architecture.md)
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
@@ -343,51 +344,7 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 **Before committing:** Run `bb test:e2e` to verify the build works end-to-end.
 
-### Automated Tests
-
-Unit tests for pure functions use [Vitest](https://vitest.dev/). Test files live in `test/*.cljs`.
-
-**Run tests:**
-```bash
-bb test           # Run once
-bb test:watch     # Watch mode (Squint + Vitest in parallel)
-```
-
-**Test file pattern:**
-```clojure
-(ns my-module-test
-  (:require ["vitest" :as vt]
-            [my-module :as my-module]))
-
-(vt/describe "feature-name"
-  (fn []
-    (vt/test "specific behavior"
-          (fn []
-            (-> (vt/expect (my-module/some-fn input))
-                (.toBe expected))))))
-```
-
-**Key points:**
-- Squint compiles `test/*.cljs` to `build/test/*.mjs`
-- Vitest watches and runs `build/test/**/*_test.mjs`
-- Clojure `nil` becomes JS `undefined` - use `.toBeUndefined()` not `.toBeNull()`
-- Prefer namespace aliases (`vt/test`) over `:refer`
-
-### E2E Tests
-
-**Playwright popup tests:** Verify extension loads and UI renders correctly.
-```bash
-bb test:e2e       # Headless run
-bb test:e2e:ui    # Interactive Playwright UI
-```
-
-**REPL integration tests:** Full pipeline from nREPL client through browser-nrepl to Scittle in page.
-```bash
-bb test:repl-e2e     # Headless run
-bb test:repl-e2e:ui  # Interactive Playwright UI
-```
-
-E2E tests live in `e2e/*.cljs`. See [e2e-testing-research.md](../dev/docs/e2e-testing-research.md) for architecture.
+For the detailed testing strategy, setup, utilities, and common gotchas, see [testing.md](../dev/docs/testing.md).
 
 ### Manual Testing
 
