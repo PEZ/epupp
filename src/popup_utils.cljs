@@ -71,3 +71,25 @@
   "Remove script from list by id."
   [scripts script-id]
   (filterv #(not= (:script/id %) script-id) scripts))
+
+;; ============================================================
+;; Origin validation
+;; ============================================================
+
+(defn valid-origin?
+  "Validate an origin string for allowed script origins.
+   Must start with http:// or https:// and end with / or :"
+  [origin]
+  (when (and origin (not= "" (.trim origin)))
+    (let [trimmed (.trim origin)]
+      (and (or (.startsWith trimmed "http://")
+               (.startsWith trimmed "https://"))
+           (or (.endsWith trimmed "/")
+               (.endsWith trimmed ":"))))))
+
+(defn origin-already-exists?
+  "Check if an origin already exists in either default or user lists."
+  [origin default-origins user-origins]
+  (let [trimmed (.trim origin)]
+    (or (some #(= % trimmed) default-origins)
+        (some #(= % trimmed) user-origins))))

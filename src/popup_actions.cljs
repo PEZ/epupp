@@ -6,10 +6,11 @@
 (defn handle-action
   "Pure action handler for popup state transitions.
    Returns map with :uf/db, :uf/fxs, :uf/dxs keys.
-   
+
    uf-data should contain:
    - :system/now - current timestamp
-   - :config/deps-string - deps string for server command generation"
+   - :config/deps-string - deps string for server command generation
+   - :config/allowed-origins - default allowed origins from config"
   [state uf-data [action & args]]
   (case action
     :popup/ax.set-nrepl-port
@@ -77,5 +78,46 @@
         {:uf/db (assoc state :ui/editing-hint-script-id script-id)
          :uf/fxs [[:popup/fx.edit-script script]
                   [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
+
+    ;; Settings view actions
+    :popup/ax.show-settings
+    {:uf/db (assoc state :ui/view :settings)
+     :uf/fxs [[:popup/fx.load-user-origins]]}
+
+    :popup/ax.show-main
+    {:uf/db (assoc state :ui/view :main)}
+
+    :popup/ax.load-user-origins
+    {:uf/fxs [[:popup/fx.load-user-origins]]}
+
+    :popup/ax.set-new-origin
+    (let [[value] args]
+      {:uf/db (assoc state :settings/new-origin value)})
+
+    :popup/ax.add-origin
+    (let [origin (.trim (:settings/new-origin state))
+          default-origins (:settings/default-origins state)
+          user-origins (:settings/user-origins state)]
+      (cond
+        (not (popup-utils/valid-origin? origin))
+        {:uf/db (assoc state :settings/error "Must start with http:// or https:// and end with / or :")
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 3000]]}
+
+        (popup-utils/origin-already-exists? origin default-origins user-origins)
+        {:uf/db (assoc state :settings/error "Origin already exists")
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 3000]]}
+
+        :else
+        {:uf/db (-> state
+                    (update :settings/user-origins conj origin)
+                    (assoc :settings/new-origin "")
+                    (assoc :settings/error nil))
+         :uf/fxs [[:popup/fx.add-user-origin origin]]}))
+
+    :popup/ax.remove-origin
+    (let [[origin] args]
+      {:uf/db (update state :settings/user-origins
+                      (fn [origins] (filterv #(not= % origin) origins)))
+       :uf/fxs [[:popup/fx.remove-user-origin origin]]})
 
     :uf/unhandled-ax))

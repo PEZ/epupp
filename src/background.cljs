@@ -516,34 +516,26 @@
       (throw (js/Error. (str "Failed to fetch " url " (" (.-status resp) ")"))))
     (js-await (.text resp))))
 
-(defn- allowed-script-hosts
-  "Get the list of allowed hosts from config"
+(defn- allowed-script-origins
+  "Get the merged list of allowed origins from config and user storage"
   []
-  (or (.-allowedScriptHosts config) []))
+  (concat (or (.-allowedScriptOrigins config) [])
+          (storage/get-user-allowed-origins)))
 
-(defn- url-host-allowed?
-  "Check if a URL is from an allowed host (must be https)"
+(defn- url-origin-allowed?
+  "Check if a URL starts with any allowed origin prefix"
   [url]
-  (try
-    (let [parsed (js/URL. url)
-          protocol (.-protocol parsed)
-          hostname (.-hostname parsed)]
-      (and (= protocol "https:")
-           (some #(or (= hostname %)
-                      (.endsWith hostname (str "." %)))
-                 (allowed-script-hosts))))
-    (catch :default _
-      false)))
+  (some #(.startsWith url %) (allowed-script-origins)))
 
 (defn ^:async install-userscript!
-  "Install a userscript from a URL. Validates that the URL is from an allowed host."
+  "Install a userscript from a URL. Validates that the URL is from an allowed origin."
   [script-name site-match script-url]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
   (when (nil? script-url)
     (throw (js/Error. "Missing script URL")))
-  (when-not (url-host-allowed? script-url)
-    (throw (js/Error. (str "Script URL not from allowed host. Allowed: " (allowed-script-hosts)))))
+  (when-not (url-origin-allowed? script-url)
+    (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
   (js-await (ensure-initialized!))
   (let [code (js-await (fetch-text! script-url))
         id (str "script-" (js/Date.now))

@@ -469,3 +469,228 @@ button#connect:active {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
+
+/* ============================================================
+   Settings View
+   ============================================================ */
+
+.settings-btn {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-btn:hover {
+  background: var(--btn-hover-bg);
+  color: var(--clojure-blue);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.settings-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.back-btn {
+  padding: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-btn:hover {
+  background: var(--btn-hover-bg);
+  color: var(--clojure-blue);
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.section-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.settings-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.settings-format-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.origins-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.origins-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.origin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.origin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+}
+
+.origin-item-default {
+  opacity: 0.7;
+}
+
+.origin-url {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.origin-delete {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.origin-delete:hover {
+  background: var(--delete-hover-bg);
+  color: var(--delete-hover-color);
+}
+
+.no-origins {
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-light);
+}
+
+.add-origin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.add-origin-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-origin-form input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-body);
+  color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.add-origin-form input:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+  box-shadow: 0 0 0 3px rgba(88, 129, 216, 0.1);
+}
+
+.add-origin-form input::placeholder {
+  color: var(--text-muted);
+}
+
+.add-origin-error {
+  font-size: 11px;
+  color: var(--delete-hover-color);
+  padding: 4px 0;
+}
+
+.add-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--clojure-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.add-btn:hover {
+  background: #4a71c4;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}

@@ -19,9 +19,14 @@
          :ui/copy-feedback nil
          :ui/has-connected false  ; Track if we've connected at least once
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
+         :ui/view :main           ; :main or :settings
          :browser/brave? false
          :scripts/list []         ; All userscripts
          :scripts/current-url nil ; Current tab URL for matching
+         :settings/user-origins []    ; User-added allowed origins
+         :settings/new-origin ""      ; Input field for new origin
+         :settings/default-origins [] ; Config origins (read-only)
+         :settings/error nil          ; Validation error message
          }))
 
 
@@ -221,10 +226,47 @@
     (let [tab (js-await (get-active-tab))]
       (dispatch [[:db/ax.assoc :scripts/current-url (.-url tab)]]))
 
+    :popup/fx.load-user-origins
+    (js/chrome.storage.local.get
+     #js ["userAllowedOrigins"]
+     (fn [result]
+       (let [user-origins (if (.-userAllowedOrigins result)
+                            (vec (.-userAllowedOrigins result))
+                            [])
+             default-origins (or (.-allowedScriptOrigins config) [])]
+         (dispatch [[:db/ax.assoc
+                     :settings/user-origins user-origins
+                     :settings/default-origins (vec default-origins)]]))))
+
+    :popup/fx.add-user-origin
+    (let [[origin] args]
+      (js/chrome.storage.local.get
+       #js ["userAllowedOrigins"]
+       (fn [result]
+         (let [current (if (.-userAllowedOrigins result)
+                         (vec (.-userAllowedOrigins result))
+                         [])
+               updated (conj current origin)]
+           (js/chrome.storage.local.set
+            #js {:userAllowedOrigins (clj->js updated)})))))
+
+    :popup/fx.remove-user-origin
+    (let [[origin] args]
+      (js/chrome.storage.local.get
+       #js ["userAllowedOrigins"]
+       (fn [result]
+         (let [current (if (.-userAllowedOrigins result)
+                         (vec (.-userAllowedOrigins result))
+                         [])
+               updated (filterv #(not= % origin) current)]
+           (js/chrome.storage.local.set
+            #js {:userAllowedOrigins (clj->js updated)})))))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
-  {:config/deps-string (.-depsString config)})
+  {:config/deps-string (.-depsString config)
+   :config/allowed-origins (or (.-allowedScriptOrigins config) [])})
 
 (defn dispatch! [actions]
   (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))
@@ -299,21 +341,79 @@
         [script-item script current-url editing-hint-script-id])]
      [:div.no-scripts "No scripts yet. Create scripts via DevTools console."])])
 
-(defn popup-ui [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
-  [:div
-   ;; Header with logos
-   [:div.header
-    [:div.header-left
-     [icons/jack-in]
-     [:h1 "Scittle Tamper"]]
-    [:div.header-right
-     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
-                         :target "_blank"}
-      "Scittle nREPL"]
-     [:div.header-logos
-      [:img {:src "images/sci.png" :alt "SCI"}]
-      [:img {:src "images/clojure.png" :alt "Clojure"}]]]]
+;; ============================================================
+;; Settings View Components
+;; ============================================================
 
+(defn settings-header []
+  [:div.settings-header
+   [:button.back-btn {:on-click #(dispatch! [[:popup/ax.show-main]])
+                      :title "Back to main view"}
+    [icons/arrow-left]]
+   [:h2 "Scittle Tamper Settings"]])
+
+(defn origin-item [{:keys [origin editable on-delete]}]
+  [:div.origin-item {:class (when-not editable "origin-item-default")}
+   [:span.origin-url origin]
+   (when editable
+     [:button.origin-delete {:on-click #(on-delete origin)
+                             :title "Remove origin"}
+      [icons/x]])])
+
+(defn default-origins-list [origins]
+  [:div.origins-section
+   [:div.origins-label "Default origins (from extension)"]
+   [:div.origin-list
+    (for [origin origins]
+      ^{:key origin}
+      [origin-item {:origin origin :editable false}])]])
+
+(defn user-origins-list [origins]
+  [:div.origins-section
+   [:div.origins-label "Your custom origins"]
+   (if (seq origins)
+     [:div.origin-list
+      (for [origin origins]
+        ^{:key origin}
+        [origin-item {:origin origin
+                      :editable true
+                      :on-delete #(dispatch! [[:popup/ax.remove-origin %]])}])]
+     [:div.no-origins "No custom origins added yet."])])
+
+(defn add-origin-form [{:keys [value error]}]
+  [:div.add-origin-form
+   [:div.add-origin-input-row
+    [:input {:type "text"
+             :placeholder "https://git.example.com/"
+             :value value
+             :on-input #(dispatch! [[:popup/ax.set-new-origin (.. % -target -value)]])
+             :on-key-down #(when (= "Enter" (.-key %))
+                             (dispatch! [[:popup/ax.add-origin]]))}]
+    [:button.add-btn {:on-click #(dispatch! [[:popup/ax.add-origin]])
+                      :title "Add origin"}
+     "Add"]]
+   (when error
+     [:div.add-origin-error error])])
+
+(defn settings-view [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error]}]
+  [:div.settings-view
+   [settings-header]
+   [:div.settings-content
+    [:div.settings-section
+     [:h3.section-title "Allowed Userscript-install Base URLs"]
+     [:p.section-description
+      "Scripts can only be installed from URLs that start with one of these prefixes. "
+      "Format: Must start with http:// or https:// and end with / or :"]
+     [default-origins-list default-origins]
+     [user-origins-list user-origins]
+     [add-origin-form {:value new-origin :error error}]]]])
+
+;; ============================================================
+;; Main View
+;; ============================================================
+
+(defn main-view [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
+  [:div
    [:div.step
     [:div.step-header "1. Start the browser-nrepl server"]
     [:div.port-row
@@ -343,6 +443,29 @@
 
    ;; Userscripts section
    [scripts-section state]])
+
+(defn popup-ui [{:keys [ui/view] :as state}]
+  [:div
+   ;; Header with logos and settings button
+   [:div.header
+    [:div.header-left
+     [icons/jack-in]
+     [:h1 "Scittle Tamper"]]
+    [:div.header-right
+     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
+                         :target "_blank"}
+      "Scittle nREPL"]
+     [:div.header-logos
+      [:img {:src "images/sci.png" :alt "SCI"}]
+      [:img {:src "images/clojure.png" :alt "Clojure"}]]
+     [:button.settings-btn {:on-click #(dispatch! [[:popup/ax.show-settings]])
+                            :title "Settings"}
+      [icons/cog {:size 18}]]]]
+
+   ;; Conditional view rendering
+   (if (= view :settings)
+     [settings-view state]
+     [main-view state])])
 
 (defn render! []
   (r/render (js/document.getElementById "app")

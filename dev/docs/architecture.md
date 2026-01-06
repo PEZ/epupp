@@ -169,9 +169,13 @@ Each component maintains its own state atom with namespaced keys.
    :ui/copy-feedback nil
    :ui/has-connected false
    :ui/editing-hint-script-id nil
+   :ui/view :main               ; :main or :settings
    :browser/brave? false
    :scripts/list []
-   :scripts/current-url nil}
+   :scripts/current-url nil
+   :settings/user-origins []    ; User-added allowed script origins
+   :settings/new-origin ""      ; Input field for new origin
+   :settings/default-origins []} ; Config origins (read-only)
 ```
 
 ### Panel (`panel.cljs`)
@@ -196,7 +200,8 @@ Each component maintains its own state atom with namespaced keys.
 ```clojure
 !db  ; atom, synced with chrome.storage.local
   {:storage/scripts []
-   :storage/granted-origins []}  ; reserved for future use
+   :storage/granted-origins []        ; reserved for future use
+   :storage/user-allowed-origins []}  ; user-added allowed script origins
 ```
 
 ## Uniflow Event System
@@ -220,6 +225,12 @@ The popup and panel use a Re-frame-inspired unidirectional data flow pattern cal
 | `:popup/ax.approve-script` | `[script-id pattern]` | Add pattern to approved list, execute script |
 | `:popup/ax.deny-script` | `[script-id]` | Disable script (deny approval) |
 | `:popup/ax.edit-script` | `[script-id]` | Send script to DevTools panel for editing |
+| `:popup/ax.show-settings` | - | Switch to settings view |
+| `:popup/ax.show-main` | - | Switch to main view |
+| `:popup/ax.load-user-origins` | - | Load user origins from storage |
+| `:popup/ax.set-new-origin` | `[value]` | Update new origin input field |
+| `:popup/ax.add-origin` | - | Validate and add origin to user list |
+| `:popup/ax.remove-origin` | `[origin]` | Remove origin from user list |
 
 ### Panel Actions (`:editor/ax.*`)
 

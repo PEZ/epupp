@@ -72,11 +72,11 @@
              (fn [response]
                ;; Send response back to page
                (.postMessage js/window
-                            #js {:source "scittle-tamper-bridge"
-                                 :type "install-response"
-                                 :success (.-success response)
-                                 :error (.-error response)}
-                            "*"))))
+                             #js {:source "scittle-tamper-bridge"
+                                  :type "install-response"
+                                  :success (.-success response)
+                                  :error (.-error response)}
+                             "*"))))
 
           nil)))))
 

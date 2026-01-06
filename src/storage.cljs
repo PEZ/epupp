@@ -15,7 +15,8 @@
   "In-memory mirror of chrome.storage.local for fast access.
    Synced via persist! and onChanged listener."
   (atom {:storage/scripts []
-         :storage/granted-origins []}))
+         :storage/granted-origins []
+         :storage/user-allowed-origins []}))
 
 ;; ============================================================
 ;; Persistence helpers
@@ -24,22 +25,27 @@
 (defn- persist!
   "Write current !db state to chrome.storage.local"
   []
-  (let [{:storage/keys [scripts granted-origins]} @!db]
+  (let [{:storage/keys [scripts granted-origins user-allowed-origins]} @!db]
     (js/chrome.storage.local.set
      #js {:scripts (clj->js (mapv script-utils/script->js scripts))
-          :granted-origins (clj->js granted-origins)})))
+          :granted-origins (clj->js granted-origins)
+          :userAllowedOrigins (clj->js user-allowed-origins)})))
 
 (defn ^:async load!
   "Load scripts from chrome.storage.local into !db atom.
    Returns a promise that resolves when loaded."
   []
-  (let [result (js-await (js/chrome.storage.local.get #js ["scripts" "granted-origins"]))
+  (let [result (js-await (js/chrome.storage.local.get #js ["scripts" "granted-origins" "userAllowedOrigins"]))
         scripts (script-utils/parse-scripts (.-scripts result))
         granted-origins (if (.-granted-origins result)
                           (vec (.-granted-origins result))
-                          [])]
+                          [])
+        user-allowed-origins (if (.-userAllowedOrigins result)
+                               (vec (.-userAllowedOrigins result))
+                               [])]
     (reset! !db {:storage/scripts scripts
-                 :storage/granted-origins granted-origins})
+                 :storage/granted-origins granted-origins
+                 :storage/user-allowed-origins user-allowed-origins})
     (js/console.log "[Storage] Loaded" (count scripts) "scripts")
     @!db))
 
@@ -60,6 +66,11 @@
                              (vec (.-newValue origins-change))
                              [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
+       (when-let [user-origins-change (.-userAllowedOrigins changes)]
+         (let [new-user-origins (if (.-newValue user-origins-change)
+                                  (vec (.-newValue user-origins-change))
+                                  [])]
+           (swap! !db assoc :storage/user-allowed-origins new-user-origins)))
        (js/console.log "[Storage] Updated from external change"))))
   ;; Return promise from load! so caller can await initialization
   (load!))
@@ -177,6 +188,35 @@
   (persist!))
 
 ;; ============================================================
+;; User Allowed Origins CRUD
+;; ============================================================
+
+(defn get-user-allowed-origins
+  "Get user-added allowed script origins"
+  []
+  (:storage/user-allowed-origins @!db))
+
+(defn user-origin-exists?
+  "Check if an origin is already in user allowed origins list"
+  [origin]
+  (some #(= % origin) (get-user-allowed-origins)))
+
+(defn add-user-allowed-origin!
+  "Add an origin to user allowed origins list (if not already present)"
+  [origin]
+  (when-not (user-origin-exists? origin)
+    (swap! !db update :storage/user-allowed-origins conj origin)
+    (persist!)))
+
+(defn remove-user-allowed-origin!
+  "Remove an origin from user allowed origins list"
+  [origin]
+  (swap! !db update :storage/user-allowed-origins
+         (fn [origins]
+           (filterv #(not= % origin) origins)))
+  (persist!))
+
+;; ============================================================
 ;; Built-in userscripts
 ;; ============================================================
 
@@ -193,11 +233,11 @@
         (when (or (not existing)
                   (not= (:script/code existing) code))
           (save-script! {:script/id installer-id
-                        :script/name "GitHub Gist Installer (Built-in)"
-                        :script/match ["https://gist.github.com/*"]
-                        :script/code code
-                        :script/enabled true
-                        :script/approved-patterns ["https://gist.github.com/*"]})
+                         :script/name "GitHub Gist Installer (Built-in)"
+                         :script/match ["https://gist.github.com/*"]
+                         :script/code code
+                         :script/enabled true
+                         :script/approved-patterns ["https://gist.github.com/*"]})
           (js/console.log "[Storage] Installed/updated built-in gist installer")))
       (catch :default err
         (js/console.error "[Storage] Failed to load gist installer:" err)))))
@@ -217,4 +257,7 @@
            :pattern_approved_QMARK_ pattern-approved?
            :get_granted_origins get-granted-origins
            :add_granted_origin_BANG_ add-granted-origin!
-           :remove_granted_origin_BANG_ remove-granted-origin!})
+           :remove_granted_origin_BANG_ remove-granted-origin!
+           :get_user_allowed_origins get-user-allowed-origins
+           :add_user_allowed_origin_BANG_ add-user-allowed-origin!
+           :remove_user_allowed_origin_BANG_ remove-user-allowed-origin!})
