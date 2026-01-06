@@ -4,10 +4,7 @@
    Tests are structured as user journeys - one browser context, multiple
    sequential operations that build on each other, like a real user session."
   (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [with-extension]]))
-
-(defn ^:async sleep [ms]
-  (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
+            [fixtures :refer [with-extension sleep]]))
 
 ;; =============================================================================
 ;; Popup User Journey: Initial State and Port Configuration
