@@ -129,6 +129,16 @@
   (builtin-script-id? (:script/id script)))
 
 ;; ============================================================
+;; Script ID generation
+;; ============================================================
+
+(defn generate-script-id
+  "Generate a stable, unique script ID based on timestamp.
+   The ID is immutable once created - it does not change when the script is renamed."
+  []
+  (str "script-" (.now js/Date)))
+
+;; ============================================================
 ;; Script name normalization
 ;; ============================================================
 
@@ -165,6 +175,7 @@
            :get_required_origins get-required-origins
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
+           :generate_script_id generate-script-id
            :normalize_script_name normalize-script-name})
 
 

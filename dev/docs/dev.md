@@ -187,3 +187,10 @@ GitHub Actions will build all three browser versions and create a draft release.
 - **Chrome:** Upload `scittle-tamper-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
 - **Firefox:** Upload `scittle-tamper-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
 - **Safari:** Submit via Xcode to App Store Connect
+
+## Related Documentation
+
+- [testing.md](testing.md) - Test strategy and utilities
+- [architecture.md](architecture.md) - Message protocol, state management, injection flows
+- [userscripts-architecture.md](userscripts-architecture.md) - Userscript design decisions
+- [ui.md](ui.md) - Script editor UX and ID behavior

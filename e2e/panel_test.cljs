@@ -71,12 +71,12 @@
                 (js-await (-> (expect (.includes match-value "test.example.com"))
                               (.toBeTruthy))))
 
-              ;; 7. Save and verify
+              ;; 7. Save and verify (first save = Created since it's a new script)
               (js-await (-> (expect save-btn) (.toBeEnabled)))
               (js-await (.click save-btn))
               (js-await (sleep 300))
               (js-await (-> (expect (.locator panel ".save-status"))
-                            (.toContainText "Saved")))
+                            (.toContainText "Created")))
 
               ;; 8. Form fields kept after save (normalized name shown)
               (js-await (-> (expect name-input) (.toHaveValue "test_userscript.cljs"))))

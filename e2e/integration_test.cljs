@@ -31,8 +31,9 @@
               (js-await (.fill (.locator panel "#script-match") "*://lifecycle.test/*"))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (sleep 300))
+              ;; First save of new script shows "Created"
               (js-await (-> (expect (.locator panel ".save-status"))
-                            (.toContainText "Saved")))
+                            (.toContainText "Created")))
               (js-await (.close panel)))
 
             ;; === PHASE 2: Verify in popup, toggle, check edit hint ===

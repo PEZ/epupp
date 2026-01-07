@@ -212,7 +212,7 @@
                       (-> (expect (:script/id script))
                           (.toBe "existing-id")))))
 
-            (test ":editor/ax.save-script creates new script when name changed"
+            (test ":editor/ax.save-script creates new script when name changed (fork/copy)"
                   (fn []
                     (let [state (-> initial-state
                                     (assoc :panel/code "(println \"hi\")")
@@ -223,14 +223,19 @@
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           [_fx-name script] (first (:uf/fxs result))
                           new-state (:uf/db result)]
-                      ;; Should create new ID from normalized name, not use existing
+                      ;; Should create new ID (fork/copy behavior) - not preserve existing
                       (-> (expect (:script/id script))
+                          (.toMatch (js/RegExp. "^script-\\d+$")))
+                      (-> (expect (:script/id script))
+                          (.not.toBe "existing-id"))
+                      ;; Name should be normalized
+                      (-> (expect (:script/name script))
                           (.toBe "new_name.cljs"))
                       ;; Status should say "Created"
                       (-> (expect (:text (:panel/save-status new-state)))
                           (.toContain "Created")))))
 
-            (test ":editor/ax.save-script normalizes name and derives ID for new scripts"
+            (test ":editor/ax.save-script generates timestamp-based ID for new scripts"
                   (fn []
                     (let [state (-> initial-state
                                     (assoc :panel/code "(println \"hi\")")
@@ -238,9 +243,9 @@
                                     (assoc :panel/script-match "*://example.com/*"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           [_fx-name script] (first (:uf/fxs result))]
-                      ;; ID derived from normalized name for new scripts
+                      ;; ID should be timestamp-based for new scripts (starts with "script-")
                       (-> (expect (:script/id script))
-                          (.toBe "my_cool_script.cljs"))
+                          (.toMatch (js/RegExp. "^script-\\d+$")))
                       ;; Name is normalized for display consistency
                       (-> (expect (:script/name script))
                           (.toBe "my_cool_script.cljs")))))

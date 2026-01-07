@@ -72,20 +72,24 @@
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
-              ;; Check if name changed from original (means create new, not update)
+              ;; Check if name changed from original (means create new/copy, not update)
               name-changed? (and original-name (not= normalized-name original-name))
-              ;; ID: use existing only if editing AND name hasn't changed
-              ;; Otherwise derive new ID from normalized name
+              ;; ID logic:
+              ;; - No script-id (new script): generate new ID
+              ;; - Name changed (fork/copy): generate new ID
+              ;; - Name unchanged (update): preserve existing ID
               id (if (and script-id (not name-changed?))
                    script-id
-                   normalized-name)
+                   (script-utils/generate-script-id))
               script (cond-> {:script/id id
                               :script/name normalized-name
                               :script/match [script-match]
                               :script/code code
                               :script/enabled true}
                        (seq script-description) (assoc :script/description script-description))
-              action-text (if name-changed? "Created" "Saved")]
+              ;; "Created" for new scripts OR when forking (name changed)
+              ;; "Saved" only when updating existing script with same name
+              action-text (if (or (not script-id) name-changed?) "Created" "Saved")]
           {:uf/fxs [[:editor/fx.save-script script]
                     [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
                     [:editor/fx.clear-persisted-state]]

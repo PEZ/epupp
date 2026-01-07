@@ -146,15 +146,14 @@
   (persist!))
 
 (defn rename-script!
-  "Rename a script (update both ID and display name)"
+  "Rename a script (update display name only, ID remains stable)"
   [script-id new-name]
   (let [now (.toISOString (js/Date.))]
     (swap! !db update :storage/scripts
            (fn [scripts]
              (mapv #(if (= (:script/id %) script-id)
-                      (assoc % 
-                             :script/id new-name  ; Update ID to match new name
-                             :script/name new-name 
+                      (assoc %
+                             :script/name new-name
                              :script/modified now)
                       %)
                    scripts)))

@@ -50,6 +50,7 @@ Mandatory reads:
 * [Testing](../dev/docs/testing.md) - Strategy, setup, and utilities
 * [Architecture reference](../dev/docs/architecture.md) - Message protocol, state management, injection flows
 * [Userscript architecture](../dev/docs/userscripts-architecture.md)
+* [UI guide](../dev/docs/ui.md) - Script editor UX and ID behavior
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
 * [Reagami](reagami.instructions.md) - Lightweight Reagent-like UI patterns
 * [State and event management](uniflow.instructions.md) - Uniflow patterns
