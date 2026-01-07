@@ -74,6 +74,10 @@
   test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist)"
                :task (babashka.process/shell "npx playwright test")}
 
+  test:e2e:ai {:doc "Run Playwright E2E tests in Docker (no browser popup on host)"
+               :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t scittle-tamper-e2e .")
+                         (babashka.process/shell "docker run --rm scittle-tamper-e2e"))}
+
   test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner"
                :depends [build:test test:e2e:compile]
                :task (babashka.process/shell "npx playwright test --ui")}

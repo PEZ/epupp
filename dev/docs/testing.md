@@ -17,6 +17,7 @@ A core goal is to extract pure functions and keep most business logic unit-testa
 - Unit tests once: `bb test`
 - Unit test watcher: `bb test:watch`
 - UI E2E tests: `bb test:e2e` (or `bb test:e2e:ui`)
+- UI E2E tests (Docker, no browser popup): `bb test:e2e:ai`
 - REPL integration tests: `bb test:repl-e2e` (or `bb test:repl-e2e:ui`)
 
 CI variants (assume build artifacts exist):
@@ -50,8 +51,17 @@ UI E2E tests validate workflows that cannot be unit tested: extension load, DOM 
 - Compiled output: `build/e2e/*.mjs`
 
 **Run**
-- `bb test:e2e` (headless)
+- `bb test:e2e` (headed - browsers visible on host)
 - `bb test:e2e:ui` (Playwright UI)
+- `bb test:e2e:ai` (Docker - no browser popup on host)
+
+**Docker variant** (`bb test:e2e:ai`):
+- Runs tests in a Docker container with virtual display (Xvfb)
+- No browser windows appear on the host machine
+- Requires Docker to be running
+- Builds ARM64 image on Apple Silicon for faster execution
+- First run builds the image (~30s), subsequent runs are faster
+- Tests run and container exits cleanly when complete
 
 ### Design philosophy: consolidated user journeys
 

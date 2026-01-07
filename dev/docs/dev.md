@@ -54,8 +54,9 @@ Unit tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint c
 
 Run Playwright E2E tests for popup UI:
 ```bash
-bb test:e2e          # Run tests (builds extension first)
+bb test:e2e          # Run tests (builds extension first, browsers visible)
 bb test:e2e:ui       # Interactive Playwright UI
+bb test:e2e:ai       # Run in Docker (no browser popup on host)
 ```
 
 Run REPL integration tests (full pipeline with browser-nrepl):

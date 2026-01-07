@@ -1,0 +1,51 @@
+# Dockerfile for running E2E tests without popping up a browser on the host
+# Usage: docker build -f Dockerfile.e2e -t scittle-tamper-e2e . && docker run --rm scittle-tamper-e2e
+
+# Use ARM64 variant for Apple Silicon, falls back to amd64 on Intel
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/playwright:v1.57.0-noble
+
+# Install Java (needed by Babashka for deps resolution)
+RUN apt-get update && apt-get install -y openjdk-21-jre-headless && rm -rf /var/lib/apt/lists/*
+
+# Install Babashka
+RUN curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install \
+    && chmod +x install \
+    && ./install \
+    && rm install
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY package.json package-lock.json ./
+
+# Install npm dependencies
+RUN npm ci
+
+# Copy babashka config for dependency caching
+COPY bb.edn deps.edn ./
+
+# Prime bb dependencies
+RUN bb --version
+
+# Copy the rest of the project
+COPY . .
+
+# Build extension and compile tests
+RUN bb build:test \
+    && npx squint compile --paths src test --output-dir build/test \
+    && npx squint compile --paths src e2e --output-dir build/e2e
+
+# Create entrypoint script that manages Xvfb lifecycle properly
+# (xvfb-run hangs on some systems, so we start/stop Xvfb explicitly)
+RUN echo '#!/bin/bash\n\
+Xvfb :99 -screen 0 1280x720x24 &\n\
+sleep 1\n\
+export DISPLAY=:99\n\
+npx playwright test --reporter=line "$@"\n\
+EXIT_CODE=$?\n\
+pkill Xvfb\n\
+exit $EXIT_CODE' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Run tests with virtual display (required for headed Chrome with extensions)
+ENTRYPOINT ["/entrypoint.sh"]

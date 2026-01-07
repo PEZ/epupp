@@ -98,6 +98,7 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | `bb browser-nrepl` | Start relay server |
 | `bb test` | Run unit tests once |
 | `bb test:e2e` | Run Playwright E2E tests |
+| `bb test:e2e:ai` | Run E2E tests in Docker (no browser popup) |
 | `bb test:repl-e2e` | Run full REPL integration tests |
 
 **Important:** After building, wait for the user to test before committing changes.
@@ -145,6 +146,8 @@ bb test:repl-e2e:ci  # REPL integration tests (use xvfb-run)
 xvfb-run --auto-servernum bb test:e2e:ci
 xvfb-run --auto-servernum bb test:repl-e2e:ci
 ```
+
+**Note:** Docker is not available in GitHub Actions environment. Use `bb test:e2e:ai` only for local development.
 
 **Building after code changes:**
 ```bash
