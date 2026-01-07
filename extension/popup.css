@@ -92,6 +92,8 @@ body {
 #app {
   width: 100%;
   box-sizing: border-box;
+  /* Space for fixed header (logo ~28px + padding 16px top/bottom + border) */
+  padding-top: 70px;
 }
 
 /* Header with logos */
@@ -100,9 +102,19 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-light);
+  /* Fixed header - always at top */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-body);
+  padding-top: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  z-index: 10;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.1);
 }
 
 .header-left {
