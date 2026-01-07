@@ -250,3 +250,172 @@
 
         (finally
           (js-await (.close context)))))))
+
+;; =============================================================================
+;; Panel User Journey: Rename with Multiple Scripts
+;; =============================================================================
+
+(test "Panel: rename does not affect other scripts or trigger approvals"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; === PHASE 1: Create first script ===
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (sleep 300))
+              (js-await (.fill (.locator panel "#code-area") "(println \"script 1\")"))
+              (js-await (.fill (.locator panel "#script-name") "First Script"))
+              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 2: Create second script ===
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (sleep 300))
+              (js-await (.fill (.locator panel "#code-area") "(println \"script 2\")"))
+              (js-await (.fill (.locator panel "#script-name") "Second Script"))
+              (js-await (.fill (.locator panel "#script-match") "*://github.com/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 3: Verify both scripts exist and are enabled ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; 3 scripts: built-in + script1 + script2
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3)))
+              ;; No approval buttons visible (all scripts already approved by saving)
+              (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
+              (js-await (.close popup)))
+
+            ;; === PHASE 4: Edit and rename first script ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; Edit first script
+              (let [script-item (.locator popup ".script-item:has-text(\"first_script.cljs\")")
+                    edit-btn (.locator script-item "button.script-edit")]
+                (js-await (.click edit-btn))
+                (js-await (sleep 200)))
+              (js-await (.close popup)))
+
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (sleep 500))
+              ;; Rename it
+              (js-await (.fill (.locator panel "#script-name") "Renamed First Script"))
+              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 5: Verify rename worked and other scripts unaffected ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; Still 3 scripts total (no duplicates)
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3)))
+              ;; Renamed script visible (use exact text match on .script-name)
+              (js-await (-> (expect (.locator popup ".script-name" #js {:hasText "renamed_first_script.cljs"}))
+                            (.toBeVisible)))
+              ;; Second script still there
+              (js-await (-> (expect (.locator popup ".script-name" #js {:hasText "second_script.cljs"}))
+                            (.toBeVisible)))
+              ;; Old name gone - verify exact name doesn't exist
+              ;; Note: :has-text is substring match, so we check .script-name text content directly
+              (let [script-names (js-await (.allTextContents (.locator popup ".script-item .script-name")))]
+                (js-await (-> (expect (some #(= % "first_script.cljs") script-names)) (.toBeFalsy))))
+              ;; CRITICAL: No approval buttons should appear (other scripts should be unaffected)
+              (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
+              (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
+              (js-await (.close popup)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Panel: multiple renames do not create duplicates"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; === PHASE 1: Create initial script ===
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (sleep 300))
+              (js-await (.fill (.locator panel "#code-area") "(println \"original\")"))
+              (js-await (.fill (.locator panel "#script-name") "Original Script"))
+              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 2: First rename ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              (let [script-item (.locator popup ".script-item:has-text(\"original_script.cljs\")")
+                    edit-btn (.locator script-item "button.script-edit")]
+                (js-await (.click edit-btn))
+                (js-await (sleep 200)))
+              (js-await (.close popup)))
+
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (sleep 500))
+              (js-await (.fill (.locator panel "#script-name") "First Rename"))
+              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 3: Verify only 2 scripts (built-in + renamed) ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"first_rename.cljs\")"))
+                            (.toBeVisible)))
+              (js-await (.close popup)))
+
+            ;; === PHASE 4: Second rename ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              (let [script-item (.locator popup ".script-item:has-text(\"first_rename.cljs\")")
+                    edit-btn (.locator script-item "button.script-edit")]
+                (js-await (.click edit-btn))
+                (js-await (sleep 200)))
+              (js-await (.close popup)))
+
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (sleep 500))
+              (js-await (.fill (.locator panel "#script-name") "Second Rename"))
+              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (sleep 300))
+              (js-await (.close panel)))
+
+            ;; === PHASE 5: Verify still only 2 scripts ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; CRITICAL: Still only 2 scripts (no duplicates from multiple renames)
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"second_rename.cljs\")"))
+                            (.toBeVisible)))
+              ;; Old names should not exist
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"first_rename.cljs\")"))
+                            (.not.toBeVisible)))
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"original_script.cljs\")"))
+                            (.not.toBeVisible)))
+              (js-await (.close popup)))
+
+            (finally
+              (js-await (.close context)))))))
