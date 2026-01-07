@@ -24,6 +24,7 @@
               (js-await (.close temp-page)))
 
             ;; === PHASE 1: Save script from panel ===
+            ;; Input: "Lifecycle Test" -> Normalized: "lifecycle_test.cljs"
             (let [panel (js-await (create-panel-page context ext-id))]
               (js-await (.fill (.locator panel "#code-area") "(println \"Original code\")"))
               (js-await (.fill (.locator panel "#script-name") "Lifecycle Test"))
@@ -35,15 +36,16 @@
               (js-await (.close panel)))
 
             ;; === PHASE 2: Verify in popup, toggle, check edit hint ===
+            ;; Script name is normalized to "lifecycle_test.cljs"
             (let [popup (js-await (create-popup-page context ext-id))
-                  ;; Use specific locator to find our test script (not the built-in Gist Installer)
-                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
+                  ;; Use specific locator for normalized name
+                  script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
                   checkbox (.locator script-item "input[type='checkbox']")
                   edit-btn (.locator script-item "button.script-edit")
                   hint (.locator popup ".script-edit-hint")]
 
-              ;; Script appears with pattern
-              (js-await (-> (expect script-item) (.toContainText "Lifecycle Test")))
+              ;; Script appears with normalized name and pattern
+              (js-await (-> (expect script-item) (.toContainText "lifecycle_test.cljs")))
               (js-await (-> (expect script-item) (.toContainText "*://lifecycle.test/*")))
 
               ;; Toggle enable/disable
@@ -66,19 +68,19 @@
             ;; === PHASE 3: Edit script - panel receives it ===
             (let [panel (js-await (create-panel-page context ext-id))
                   popup (js-await (create-popup-page context ext-id))
-                  ;; Use specific locator for our test script
-                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
+                  ;; Use normalized name
+                  script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
                   edit-btn (.locator script-item "button.script-edit")]
 
               ;; Click edit in popup
               (js-await (.click edit-btn))
               (js-await (sleep 300))
 
-              ;; Panel should receive the script
+              ;; Panel should receive the script (name field shows normalized name)
               (js-await (-> (expect (.locator panel "#code-area"))
                             (.toHaveValue "(println \"Original code\")")))
               (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "Lifecycle Test")))
+                            (.toHaveValue "lifecycle_test.cljs")))
 
               ;; Modify and save
               (js-await (.fill (.locator panel "#code-area") "(println \"Updated code\")"))
@@ -90,8 +92,8 @@
 
             ;; === PHASE 4: Delete script ===
             (let [popup (js-await (create-popup-page context ext-id))
-                  ;; Use specific locator for our test script
-                  script-item (.locator popup ".script-item:has-text(\"Lifecycle Test\")")
+                  ;; Use normalized name
+                  script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
                   delete-btn (.locator script-item "button.script-delete")]
 
               (.on popup "dialog" (fn [dialog] (.accept dialog)))

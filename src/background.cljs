@@ -3,7 +3,8 @@
    Runs in extension context, immune to page CSP.
    Relays WebSocket messages to/from content scripts."
   (:require [storage :as storage]
-            [url-matching :as url-matching]))
+            [url-matching :as url-matching]
+            [script-utils :as script-utils]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
@@ -528,8 +529,9 @@
   (some #(.startsWith url %) (allowed-script-origins)))
 
 (defn ^:async install-userscript!
-  "Install a userscript from a URL. Validates that the URL is from an allowed origin."
-  [script-name site-match script-url]
+  "Install a userscript from a URL. Validates that the URL is from an allowed origin.
+   Name is normalized for uniqueness and valid filename format."
+  [{:keys [script-name site-match script-url description]}]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
   (when (nil? script-url)
@@ -538,13 +540,14 @@
     (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
   (js-await (ensure-initialized!))
   (let [code (js-await (fetch-text! script-url))
-        id (str "script-" (js/Date.now))
-        script {:script/id id
-                :script/name script-name
-                :script/match [site-match]
-                :script/code code
-                :script/enabled true
-                :script/approved-patterns []}]
+        normalized-name (script-utils/normalize-script-id script-name)
+        script (cond-> {:script/id normalized-name
+                        :script/name normalized-name
+                        :script/match [site-match]
+                        :script/code code
+                        :script/enabled true
+                        :script/approved-patterns []}
+                 (seq description) (assoc :script/description description))]
     (storage/save-script! script)))
 
 (.addListener js/chrome.runtime.onMessage
@@ -629,9 +632,11 @@
                           script-url (.-scriptUrl message)]
                       ((^:async fn []
                          (try
-                           (let [script-name (:script-name manifest)
-                                 site-match (:site-match manifest)
-                                 saved (js-await (install-userscript! script-name site-match script-url))]
+                           (let [saved (js-await (install-userscript!
+                                                  {:script-name (:script-name manifest)
+                                                   :site-match (:site-match manifest)
+                                                   :script-url script-url
+                                                   :description (:description manifest)}))]
                              (send-response #js {:success true
                                                  :scriptId (:script/id saved)
                                                  :scriptName (:script/name saved)}))

@@ -42,7 +42,8 @@
   (let [overlay (js/document.createElement "div")
         modal (js/document.createElement "div")
         script-name (get manifest :script-name)
-        site-match (get manifest :site-match)]
+        site-match (get manifest :site-match)
+        description (get manifest :description)]
     ;; Overlay styles
     (set! (.. overlay -style -cssText)
           "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9998; display: flex; align-items: center; justify-content: center;")
@@ -55,6 +56,8 @@
     (set! (.-innerHTML modal)
           (str "<h2 style='margin-top: 0;'>Install Userscript</h2>"
                "<p><strong>Name:</strong> " (or script-name "Unknown") "</p>"
+               (when description
+                 (str "<p><strong>Description:</strong> " description "</p>"))
                "<p><strong>Site Pattern:</strong> " (or site-match "None") "</p>"
                "<p><strong>Source:</strong><br><code>" gist-url "</code></p>"
                "<p style='color: #666; font-size: 14px;'>This will download and install the script from the gist file above.</p>"

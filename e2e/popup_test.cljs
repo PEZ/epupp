@@ -78,25 +78,26 @@
               (js-await (.close panel)))
 
             ;; === PHASE 3: Verify scripts, test enable/disable ===
+            ;; Names are normalized: "Script One" -> "script_one.cljs"
             (let [popup (js-await (create-popup-page context ext-id))]
               ;; 3 scripts: built-in Gist Installer + 2 user scripts
               (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3 #js {:timeout 3000})))
 
-              ;; Toggle disable
-              (let [item (.locator popup ".script-item:has-text(\"Script One\")")
+              ;; Toggle disable (using normalized name)
+              (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")
                     checkbox (.locator item "input[type='checkbox']")]
                 (js-await (-> (expect checkbox) (.toBeChecked)))
                 (js-await (.click checkbox))
                 (js-await (sleep 200))
                 (js-await (-> (expect checkbox) (.not.toBeChecked))))
 
-              ;; Delete
+              ;; Delete (using normalized name)
               (.on popup "dialog" (fn [dialog] (.accept dialog)))
-              (let [item (.locator popup ".script-item:has-text(\"Script Two\")")
+              (let [item (.locator popup ".script-item:has-text(\"script_two.cljs\")")
                     delete-btn (.locator item "button.script-delete")]
                 (js-await (.click delete-btn))
                 (js-await (sleep 300))
-                ;; 2 remaining: built-in Gist Installer + Script One
+                ;; 2 remaining: built-in Gist Installer + script_one.cljs
                 (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2))))
 
               (js-await (.close popup)))
@@ -118,7 +119,7 @@
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (sleep 500))
 
-              (let [item (.locator popup ".script-item:has-text(\"Approval Test\")")]
+              (let [item (.locator popup ".script-item:has-text(\"approval_test.cljs\")")]
                 ;; Shows approval state (amber border)
                 (js-await (-> (expect item) (.toHaveClass (js/RegExp. "script-item-approval"))))
 
@@ -152,7 +153,8 @@
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (sleep 500))
 
-              (let [item (.locator popup ".script-item:has-text(\"Deny Test\")")
+              ;; "Deny Test" normalized to "deny_test.cljs"
+              (let [item (.locator popup ".script-item:has-text(\"deny_test.cljs\")")
                     deny-btn (.locator item "button.approval-deny")
                     checkbox (.locator item "input[type='checkbox']")]
                 (js-await (.click deny-btn))

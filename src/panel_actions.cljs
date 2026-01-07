@@ -70,10 +70,11 @@
     (let [{:panel/keys [code script-name script-match script-description script-id]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
-        (let [;; Use existing id if editing, otherwise normalize name for new script
-              id (or script-id (script-utils/normalize-script-id script-name))
+        (let [;; Normalize name for uniqueness; use existing id if editing, otherwise derive from normalized name
+              normalized-name (script-utils/normalize-script-id script-name)
+              id (or script-id normalized-name)
               script (cond-> {:script/id id
-                              :script/name script-name
+                              :script/name normalized-name
                               :script/match [script-match]
                               :script/code code
                               :script/enabled true}
@@ -82,7 +83,7 @@
                     [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
                     [:editor/fx.clear-persisted-state]]
            :uf/db (assoc state
-                         :panel/save-status {:type :success :text (str "Saved \"" script-name "\"")}
+                         :panel/save-status {:type :success :text (str "Saved \"" normalized-name "\"")}
                          :panel/script-name ""
                          :panel/script-match ""
                          :panel/script-description ""

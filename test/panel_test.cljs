@@ -220,6 +220,9 @@
                           [_fx-name script] (first (:uf/fxs result))]
                       ;; Should normalize name: lowercase, spaces to underscores, add .cljs
                       (-> (expect (:script/id script))
+                          (.toBe "my_cool_script.cljs"))
+                      ;; Name should also be normalized
+                      (-> (expect (:script/name script))
                           (.toBe "my_cool_script.cljs")))))
 
             (test ":editor/ax.save-script includes description when provided"
