@@ -414,6 +414,22 @@
 
 (defn main-view [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
   [:div
+   ;; Header with logos and settings button
+   [:div.header
+    [:div.header-left
+     [icons/jack-in]
+     [:h1 "Scittle Tamper"]]
+    [:div.header-right
+     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
+                         :target "_blank"}
+      "Scittle nREPL"]
+     [:div.header-logos
+      [:img {:src "images/sci.png" :alt "SCI"}]
+      [:img {:src "images/clojure.png" :alt "Clojure"}]]
+     [:button.settings-btn {:on-click #(dispatch! [[:popup/ax.show-settings]])
+                            :title "Settings"}
+      [icons/cog {:size 18}]]]]
+
    [:div.step
     [:div.step-header "1. Start the browser-nrepl server"]
     [:div.port-row
@@ -445,27 +461,9 @@
    [scripts-section state]])
 
 (defn popup-ui [{:keys [ui/view] :as state}]
-  [:div
-   ;; Header with logos and settings button
-   [:div.header
-    [:div.header-left
-     [icons/jack-in]
-     [:h1 "Scittle Tamper"]]
-    [:div.header-right
-     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
-                         :target "_blank"}
-      "Scittle nREPL"]
-     [:div.header-logos
-      [:img {:src "images/sci.png" :alt "SCI"}]
-      [:img {:src "images/clojure.png" :alt "Clojure"}]]
-     [:button.settings-btn {:on-click #(dispatch! [[:popup/ax.show-settings]])
-                            :title "Settings"}
-      [icons/cog {:size 18}]]]]
-
-   ;; Conditional view rendering
-   (if (= view :settings)
-     [settings-view state]
-     [main-view state])])
+  (if (= view :settings)
+    [settings-view state]
+    [main-view state]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")
