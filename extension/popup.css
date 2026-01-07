@@ -544,6 +544,20 @@ button#connect:active {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
+/* Firefox-only fix: scrollbar-gutter doesn't work reliably in Firefox popups.
+   Force scrollbar to always be present to reserve consistent space. */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-gutter: stable; /* Some bug prevents this from working when placed on body */
+  }
+
+  body {
+    overflow-y: scroll;
+    /* scrollbar-gutter: stable; */
+    scrollbar-width: auto; /* This, together with html stable gutter, is the only compo that seems to work (for some definition of works, but at least it is stable */
+  }
+}
+
 /* ============================================================
    Collapsible Sections
    ============================================================ */
