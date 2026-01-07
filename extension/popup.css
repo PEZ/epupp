@@ -1,5 +1,6 @@
 :root {
   --clojure-blue: #5881d8;
+  --clojure-blue-light: #99B5F9;
   --clojure-green: #91dc47;
   --radius: 6px;
 }
@@ -11,6 +12,8 @@
   --text-muted: #999;
   --bg-body: #ffffff;
   --bg-subtle: #f8f9fa;
+  --bg-accent: #707070;
+  --fg-accent: #fafafa;
   --border-light: #e5e7eb;
   --code-bg: #f8f9fa;
   --btn-bg: #ffffff;
@@ -37,6 +40,8 @@
     --text-muted: #707070;
     --bg-body: #1e1e1e;
     --bg-subtle: #252526;
+    --bg-accent: #8f8f8f;
+    --fg-accent: #ffffff;
     --border-light: #3c3c3c;
     --code-bg: #2d2d2d;
     --btn-bg: #2d2d2d;
@@ -508,14 +513,16 @@ button#connect:active {
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 0.5rem;
-  background: var(--bg-subtle);
+  padding: 0.25rem;
+  background: var(--bg-accent);
+  color: var(--fg-accent);
   border-radius: 4px;
   border: 1px solid var(--border-light);
 }
 
 .section-header:hover {
-  background: var(--btn-hover-bg);
+  background: color-mix(in oklab, var(--bg-accent), black 30%);
+  color: color-mix(in oklab, var(--fg-accent), white 30%);
 }
 
 .section-title {
