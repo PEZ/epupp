@@ -56,14 +56,23 @@
   }
 }
 
+html {
+  max-width: 380px;
+}
+
 body {
-  width: 380px;
   padding: 20px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text-primary);
   background: var(--bg-body);
   line-height: 1.5;
   margin: 0;
+  scrollbar-gutter: stable both-edges;
+  overflow-y: auto;
+  width: calc(100vw - 40px);
+}
+
+#app {
 }
 
 /* Header with logos */
