@@ -14,6 +14,7 @@
    :panel/scittle-status :unknown
    :panel/script-name ""
    :panel/script-match ""
+   :panel/script-description ""
    :panel/script-id nil
    :panel/save-status nil})
 
@@ -38,6 +39,12 @@
                     (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-script-match "*://github.com/*"])]
                       (-> (expect (:panel/script-match (:uf/db result)))
                           (.toBe "*://github.com/*")))))
+
+            (test ":editor/ax.set-script-description updates description"
+                  (fn []
+                    (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-script-description "A helpful description"])]
+                      (-> (expect (:panel/script-description (:uf/db result)))
+                          (.toBe "A helpful description")))))
 
             (test ":editor/ax.update-scittle-status updates status"
                   (fn []
@@ -88,7 +95,8 @@
                                                                "script-123"
                                                                "Test Script"
                                                                "*://example.com/*"
-                                                               "(println \"hello\")"])
+                                                               "(println \"hello\")"
+                                                               "A description"])
                           new-state (:uf/db result)]
                       (-> (expect (:panel/script-id new-state))
                           (.toBe "script-123"))
@@ -97,7 +105,22 @@
                       (-> (expect (:panel/script-match new-state))
                           (.toBe "*://example.com/*"))
                       (-> (expect (:panel/code new-state))
-                          (.toBe "(println \"hello\")")))))))
+                          (.toBe "(println \"hello\")"))
+                      (-> (expect (:panel/script-description new-state))
+                          (.toBe "A description")))))
+
+            (test ":editor/ax.load-script-for-editing handles missing description"
+                  (fn []
+                    (let [result (panel-actions/handle-action initial-state uf-data
+                                                              [:editor/ax.load-script-for-editing
+                                                               "script-123"
+                                                               "Test Script"
+                                                               "*://example.com/*"
+                                                               "(println \"hello\")"])
+                          new-state (:uf/db result)]
+                      ;; Missing description should default to empty string
+                      (-> (expect (:panel/script-description new-state))
+                          (.toBe "")))))))
 
 (describe "panel eval action"
           (fn []
@@ -162,15 +185,15 @@
                                     (assoc :panel/script-match "*://example.com/*"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           new-state (:uf/db result)]
-              ;; Should show success status
+                      ;; Should show success status
                       (-> (expect (:type (:panel/save-status new-state)))
                           (.toBe :success))
-              ;; Should clear fields after save
+                      ;; Should clear fields after save
                       (-> (expect (:panel/script-name new-state))
                           (.toBe ""))
                       (-> (expect (:panel/script-match new-state))
                           (.toBe ""))
-              ;; Should trigger save effect
+                      ;; Should trigger save effect
                       (-> (expect (first (first (:uf/fxs result))))
                           (.toBe :editor/fx.save-script)))))
 
@@ -183,6 +206,55 @@
                                     (assoc :panel/script-id "existing-id"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           [_fx-name script] (first (:uf/fxs result))]
-              ;; Should use existing id, not generate new one
+                      ;; Should use existing id, not generate new one
                       (-> (expect (:script/id script))
-                          (.toBe "existing-id")))))))
+                          (.toBe "existing-id")))))
+
+            (test ":editor/ax.save-script normalizes name to script-id for new scripts"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Cool Script")
+                                    (assoc :panel/script-match "*://example.com/*"))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      ;; Should normalize name: lowercase, spaces to underscores, add .cljs
+                      (-> (expect (:script/id script))
+                          (.toBe "my_cool_script.cljs")))))
+
+            (test ":editor/ax.save-script includes description when provided"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match "*://example.com/*")
+                                    (assoc :panel/script-description "A helpful description"))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      (-> (expect (:script/description script))
+                          (.toBe "A helpful description")))))
+
+            (test ":editor/ax.save-script omits description when empty"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match "*://example.com/*")
+                                    (assoc :panel/script-description ""))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      ;; Empty description should not be included in script
+                      (-> (expect (:script/description script))
+                          (.toBeUndefined)))))
+
+            (test ":editor/ax.save-script clears description after save"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match "*://example.com/*")
+                                    (assoc :panel/script-description "A description"))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          new-state (:uf/db result)]
+                      (-> (expect (:panel/script-description new-state))
+                          (.toBe "")))))))

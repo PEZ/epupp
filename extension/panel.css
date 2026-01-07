@@ -329,7 +329,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .save-field {
@@ -338,6 +338,11 @@ body {
   gap: 4px;
   flex: 1;
   min-width: 150px;
+}
+
+.save-field.description-field {
+  flex-basis: 100%;
+  min-width: 100%;
 }
 
 .save-field label {
@@ -360,6 +365,27 @@ body {
 }
 
 .save-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.save-field textarea {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 40px;
+}
+
+.save-field textarea:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+}
+
+.save-field textarea::placeholder {
   color: var(--text-muted);
 }
 

@@ -21,7 +21,7 @@
               ext-id (js-await (get-extension-id context))]
           (try
             (let [panel (js-await (create-panel-page context ext-id))
-                  textarea (.locator panel "textarea")
+                  textarea (.locator panel "#code-area")
                   eval-btn (.locator panel "button.btn-eval")
                   clear-btn (.locator panel "button.btn-clear")
                   results (.locator panel ".results-area")

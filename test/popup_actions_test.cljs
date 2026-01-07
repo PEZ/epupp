@@ -14,7 +14,10 @@
    :ui/copy-feedback nil
    :ui/has-connected false
    :ui/editing-hint-script-id nil
-   :ui/view :main
+   :ui/sections-collapsed {:repl-connect false
+                           :scripts false
+                           :builtin-scripts false
+                           :settings true}
    :browser/brave? false
    :scripts/list []
    :scripts/current-url nil
@@ -242,21 +245,6 @@
 
 (describe "popup settings view actions"
           (fn []
-            (test ":popup/ax.show-settings switches to settings view and loads origins"
-                  (fn []
-                    (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.show-settings])]
-                      (-> (expect (:ui/view (:uf/db result)))
-                          (.toBe :settings))
-                      (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :popup/fx.load-user-origins)))))
-
-            (test ":popup/ax.show-main switches back to main view"
-                  (fn []
-                    (let [state (assoc initial-state :ui/view :settings)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.show-main])]
-                      (-> (expect (:ui/view (:uf/db result)))
-                          (.toBe :main)))))
-
             (test ":popup/ax.load-user-origins triggers effect"
                   (fn []
                     (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.load-user-origins])]
@@ -362,3 +350,26 @@
                             (.toBe :popup/fx.remove-user-origin))
                         (-> (expect origin)
                             (.toBe "https://a.com/"))))))))
+
+(describe "popup section toggle actions"
+          (fn []
+            (test ":popup/ax.toggle-section toggles collapsed state from false to true"
+                  (fn []
+                    (let [state {:ui/sections-collapsed {:repl-connect false}}
+                          result (popup-actions/handle-action state uf-data [:popup/ax.toggle-section :repl-connect])]
+                      (-> (expect (get-in (:uf/db result) [:ui/sections-collapsed :repl-connect]))
+                          (.toBe true)))))
+
+            (test ":popup/ax.toggle-section toggles collapsed state from true to false"
+                  (fn []
+                    (let [state {:ui/sections-collapsed {:settings true}}
+                          result (popup-actions/handle-action state uf-data [:popup/ax.toggle-section :settings])]
+                      (-> (expect (get-in (:uf/db result) [:ui/sections-collapsed :settings]))
+                          (.toBe false)))))
+
+            (test ":popup/ax.toggle-section handles nil state (falsy becomes truthy)"
+                  (fn []
+                    (let [state {:ui/sections-collapsed {}}
+                          result (popup-actions/handle-action state uf-data [:popup/ax.toggle-section :scripts])]
+                      (-> (expect (get-in (:uf/db result) [:ui/sections-collapsed :scripts]))
+                          (.toBe true)))))))

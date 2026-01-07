@@ -73,3 +73,29 @@
      {:fill "#ffdc73"
       :transform "translate(50, 50) scale(0.5) translate(-211, -280)"
       :d "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0 1 2.65 5.53l-2.54 52.23z"}]]))
+
+(defn chevron-right
+  "Chevron pointing right - for collapsed section indicator"
+  ([] (chevron-right {}))
+  ([{:keys [size class] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size :height size
+          :viewBox "0 0 20 20"
+          :fill "currentColor"
+          :class class}
+    [:path {:fill-rule "evenodd"
+            :d "M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+            :clip-rule "evenodd"}]]))
+
+(defn chevron-down
+  "Chevron pointing down - for expanded section indicator"
+  ([] (chevron-down {}))
+  ([{:keys [size class] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size :height size
+          :viewBox "0 0 20 20"
+          :fill "currentColor"
+          :class class}
+    [:path {:fill-rule "evenodd"
+            :d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            :clip-rule "evenodd"}]]))

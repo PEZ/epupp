@@ -25,7 +25,7 @@
 
             ;; === PHASE 1: Save script from panel ===
             (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "textarea") "(println \"Original code\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"Original code\")"))
               (js-await (.fill (.locator panel "#script-name") "Lifecycle Test"))
               (js-await (.fill (.locator panel "#script-match") "*://lifecycle.test/*"))
               (js-await (.click (.locator panel "button.btn-save")))
@@ -75,13 +75,13 @@
               (js-await (sleep 300))
 
               ;; Panel should receive the script
-              (js-await (-> (expect (.locator panel "textarea"))
+              (js-await (-> (expect (.locator panel "#code-area"))
                             (.toHaveValue "(println \"Original code\")")))
               (js-await (-> (expect (.locator panel "#script-name"))
                             (.toHaveValue "Lifecycle Test")))
 
               ;; Modify and save
-              (js-await (.fill (.locator panel "textarea") "(println \"Updated code\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"Updated code\")"))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (sleep 300))
 

@@ -182,6 +182,30 @@
                       (-> (expect (first (:script/approved-patterns script)))
                           (.toBe "*://github.com/*")))))
 
+            (test "parses description field"
+                  (fn []
+                    (let [js-script #js {:id "test-desc"
+                                         :name "Described Script"
+                                         :description "A helpful description of what this does"
+                                         :match #js ["*://example.com/*"]
+                                         :code "(println \"hi\")"}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/description script))
+                          (.toBe "A helpful description of what this does")))))
+
+            (test "handles missing description"
+                  (fn []
+                    (let [js-script #js {:id "no-desc"
+                                         :name "No Description"
+                                         :match #js ["*://example.com/*"]
+                                         :code "(println \"hi\")"}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      ;; Missing description becomes undefined in Squint
+                      (-> (expect (:script/description script))
+                          (.toBeUndefined)))))
+
             (test "handles nil/undefined input"
                   (fn []
                     (-> (expect (script-utils/parse-scripts nil))
@@ -251,6 +275,131 @@
                       (-> (expect (.-id result))
                           (.toBe "test"))
                       (-> (expect (.-name result))
+                          (.toBeNull)))))
+
+            (test "includes description field"
+                  (fn []
+                    (let [script {:script/id "test-desc"
+                                  :script/name "Described Script"
+                                  :script/description "A helpful description"
+                                  :script/match ["*://example.com/*"]
+                                  :script/code "(println \"hi\")"}
+                          result (script-utils/script->js script)]
+                      (-> (expect (.-description result))
+                          (.toBe "A helpful description")))))
+
+            (test "handles nil description"
+                  (fn []
+                    (let [script {:script/id "test"
+                                  :script/name "No Desc"
+                                  :script/description nil
+                                  :script/match ["*://example.com/*"]
+                                  :script/code "(println \"hi\")"}
+                          result (script-utils/script->js script)]
+                      (-> (expect (.-description result))
                           (.toBeNull)))))))
 
 
+
+;; ============================================================
+;; Built-in Script Detection Tests
+;; ============================================================
+
+(describe "builtin-script-id?"
+          (fn []
+            (test "returns truthy for builtin prefix"
+                  (fn []
+                    (-> (expect (script-utils/builtin-script-id? "scittle-tamper-builtin-gist-installer"))
+                        (.toBeTruthy))))
+
+            (test "returns falsy for user script ids"
+                  (fn []
+                    (-> (expect (script-utils/builtin-script-id? "my-custom-script"))
+                        (.toBeFalsy))
+                    (-> (expect (script-utils/builtin-script-id? "user-script-123"))
+                        (.toBeFalsy))))
+
+            (test "returns falsy for nil"
+                  (fn []
+                    (-> (expect (script-utils/builtin-script-id? nil))
+                        (.toBeFalsy))))
+
+            (test "returns falsy for empty string"
+                  (fn []
+                    (-> (expect (script-utils/builtin-script-id? ""))
+                        (.toBeFalsy))))))
+
+(describe "builtin-script?"
+          (fn []
+            (test "returns truthy for script with builtin prefix"
+                  (fn []
+                    (let [script {:script/id "scittle-tamper-builtin-gist-installer"
+                                  :script/name "Gist Installer"}]
+                      (-> (expect (script-utils/builtin-script? script))
+                          (.toBeTruthy)))))
+
+            (test "returns falsy for user scripts"
+                  (fn []
+                    (let [script {:script/id "my-user-script"
+                                  :script/name "My Script"}]
+                      (-> (expect (script-utils/builtin-script? script))
+                          (.toBeFalsy)))))
+
+            (test "returns falsy for script with nil id"
+                  (fn []
+                    (let [script {:script/id nil
+                                  :script/name "No ID Script"}]
+                      (-> (expect (script-utils/builtin-script? script))
+                          (.toBeFalsy)))))
+
+            (test "returns falsy for script without id key"
+                  (fn []
+                    (let [script {:script/name "No ID Key"}]
+                      (-> (expect (script-utils/builtin-script? script))
+                          (.toBeFalsy)))))))
+
+;; ============================================================
+;; Script ID Normalization Tests
+;; ============================================================
+
+(describe "normalize-script-id"
+          (fn []
+            (test "lowercases name"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "MyScript"))
+                        (.toBe "myscript.cljs"))))
+
+            (test "replaces spaces with underscores"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "my script"))
+                        (.toBe "my_script.cljs"))))
+
+            (test "replaces dashes with underscores"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "my-script"))
+                        (.toBe "my_script.cljs"))))
+
+            (test "preserves slashes for namespace paths"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "my-project/utils"))
+                        (.toBe "my_project/utils.cljs"))))
+
+            (test "appends .cljs if missing"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "script"))
+                        (.toBe "script.cljs"))))
+
+            (test "preserves .cljs if present"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "script.cljs"))
+                        (.toBe "script.cljs"))))
+
+            (test "removes invalid characters"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id "my@script!"))
+                        (.toBe "myscript.cljs"))))
+
+            (test "handles empty string"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-id ""))
+                        (.toBe ".cljs"))))))

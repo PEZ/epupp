@@ -1,6 +1,7 @@
 (ns panel-actions
   "Pure action handlers for the DevTools panel.
-   No browser dependencies - testable without Chrome APIs.")
+   No browser dependencies - testable without Chrome APIs."
+  (:require [script-utils :as script-utils]))
 
 (defn handle-action
   "Pure action handler for panel state transitions.
@@ -18,6 +19,10 @@
     :editor/ax.set-script-match
     (let [[match] args]
       {:uf/db (assoc state :panel/script-match match)})
+
+    :editor/ax.set-script-description
+    (let [[desc] args]
+      {:uf/db (assoc state :panel/script-description desc)})
 
     :editor/ax.update-scittle-status
     (let [[status] args]
@@ -62,16 +67,17 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match script-id]} state]
+    (let [{:panel/keys [code script-name script-match script-description script-id]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
-        (let [;; Use existing id if editing, otherwise generate new
-              id (or script-id (str "script-" (:system/now uf-data)))
-              script {:script/id id
-                      :script/name script-name
-                      :script/match [script-match]
-                      :script/code code
-                      :script/enabled true}]
+        (let [;; Use existing id if editing, otherwise normalize name for new script
+              id (or script-id (script-utils/normalize-script-id script-name))
+              script (cond-> {:script/id id
+                              :script/name script-name
+                              :script/match [script-match]
+                              :script/code code
+                              :script/enabled true}
+                       (seq script-description) (assoc :script/description script-description))]
           {:uf/fxs [[:editor/fx.save-script script]
                     [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
                     [:editor/fx.clear-persisted-state]]
@@ -79,15 +85,17 @@
                          :panel/save-status {:type :success :text (str "Saved \"" script-name "\"")}
                          :panel/script-name ""
                          :panel/script-match ""
+                         :panel/script-description ""
                          :panel/script-id nil)})))
 
     :editor/ax.load-script-for-editing
-    (let [[id name match code] args]
+    (let [[id name match code description] args]
       {:uf/db (assoc state
                      :panel/script-id id
                      :panel/script-name name
                      :panel/script-match match
-                     :panel/code code)})
+                     :panel/code code
+                     :panel/script-description (or description ""))})
 
     :editor/ax.clear-results
     {:uf/db (assoc state :panel/results [])}

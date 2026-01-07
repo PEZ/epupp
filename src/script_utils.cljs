@@ -21,6 +21,7 @@
        (mapv (fn [s]
                {:script/id (.-id s)
                 :script/name (.-name s)
+                :script/description (.-description s)
                 :script/match (js-arr->vec (.-match s))
                 :script/code (.-code s)
                 :script/enabled (.-enabled s)
@@ -33,6 +34,7 @@
   [script]
   #js {:id (:script/id script)
        :name (:script/name script)
+       :description (:script/description script)
        :match (clj->js (:script/match script))
        :code (:script/code script)
        :enabled (:script/enabled script)
@@ -111,6 +113,40 @@
        vec))
 
 ;; ============================================================
+;; Built-in script detection
+;; ============================================================
+
+(def builtin-id-prefix "scittle-tamper-builtin-")
+
+(defn builtin-script-id?
+  "Check if a script ID is a built-in script ID."
+  [script-id]
+  (and script-id (.startsWith script-id builtin-id-prefix)))
+
+(defn builtin-script?
+  "Check if a script is a built-in script by ID prefix."
+  [script]
+  (builtin-script-id? (:script/id script)))
+
+;; ============================================================
+;; Script ID normalization
+;; ============================================================
+
+(defn normalize-script-id
+  "Convert script name to valid ClojureScript filename.
+   - Lowercase
+   - Replace spaces and dashes with underscores
+   - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
+   - Append .cljs if not present
+   - Remove invalid characters"
+  [name]
+  (-> name
+      (.toLowerCase)
+      (.replace (js/RegExp. "[\\s-]+" "g") "_")
+      (.replace (js/RegExp. "[^a-z0-9_./]" "g") "")
+      (as-> s (if (.endsWith s ".cljs") s (str s ".cljs")))))
+
+;; ============================================================
 ;; Debug: Expose for console testing
 ;; ============================================================
 
@@ -122,4 +158,9 @@
            :url_matches_any_pattern_QMARK_ url-matches-any-pattern?
            :get_matching_pattern get-matching-pattern
            :pattern_approved_QMARK_ pattern-approved?
-           :get_required_origins get-required-origins})
+           :get_required_origins get-required-origins
+           :builtin_script_id_QMARK_ builtin-script-id?
+           :builtin_script_QMARK_ builtin-script?
+           :normalize_script_id normalize-script-id})
+
+

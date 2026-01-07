@@ -324,6 +324,23 @@ button#connect:active {
   text-overflow: ellipsis;
 }
 
+.script-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+.script-badge {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .script-match {
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, monospace;
@@ -480,6 +497,57 @@ button#connect:active {
 }
 
 /* ============================================================
+   Collapsible Sections
+   ============================================================ */
+
+.collapsible-section {
+  margin-bottom: 0.5rem;
+}
+
+.section-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+}
+
+.section-header:hover {
+  background: var(--btn-hover-bg);
+}
+
+.section-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.section-badge {
+  background: var(--clojure-blue);
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.section-content {
+  padding: 0.5rem 0;
+}
+
+.chevron {
+  transition: transform 0.2s;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.chevron.expanded {
+  transform: rotate(90deg);
+}
+
+/* ============================================================
    Settings View
    ============================================================ */
 
@@ -545,7 +613,7 @@ button#connect:active {
   gap: 12px;
 }
 
-.section-title {
+.settings-section-title {
   font-size: 13px;
   font-weight: 600;
   margin: 0;

@@ -118,11 +118,20 @@
     updated-script))
 
 (defn delete-script!
-  "Remove a script by id"
+  "Remove a script by id. Built-in scripts cannot be deleted."
   [script-id]
+  (when-not (script-utils/builtin-script-id? script-id)
+    (swap! !db update :storage/scripts
+           (fn [scripts]
+             (filterv #(not= (:script/id %) script-id) scripts)))
+    (persist!)))
+
+(defn clear-user-scripts!
+  "Remove all user scripts, preserving built-in scripts."
+  []
   (swap! !db update :storage/scripts
          (fn [scripts]
-           (filterv #(not= (:script/id %) script-id) scripts)))
+           (filterv script-utils/builtin-script? scripts)))
   (persist!))
 
 (defn toggle-script!
@@ -252,6 +261,7 @@
            :get_script get-script
            :save_script_BANG_ save-script!
            :delete_script_BANG_ delete-script!
+           :clear_user_scripts_BANG_ clear-user-scripts!
            :toggle_script_BANG_ toggle-script!
            :approve_pattern_BANG_ approve-pattern!
            :pattern_approved_QMARK_ pattern-approved?

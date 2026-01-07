@@ -13,6 +13,7 @@
          :panel/scittle-status :unknown  ; :unknown, :checking, :loading, :loaded
          :panel/script-name ""
          :panel/script-match ""
+         :panel/script-description ""
          :panel/script-id nil  ; non-nil when editing existing script
          :panel/save-status nil
          :panel/init-version nil
@@ -40,11 +41,12 @@
   "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
   []
   (when-let [hostname (:panel/current-hostname @!state)]
-    (let [{:panel/keys [code script-name script-match script-id]} @!state
+    (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
           key (panel-state-key hostname)
           state-to-save #js {:code code
                              :scriptName script-name
                              :scriptMatch script-match
+                             :scriptDescription script-description
                              :scriptId script-id}]
       (js/chrome.storage.local.set (js-obj key state-to-save)))))
 
@@ -65,6 +67,7 @@
                    {:panel/code (if saved (or (.-code saved) "") "")
                     :panel/script-name (if saved (or (.-scriptName saved) "") "")
                     :panel/script-match (if saved (or (.-scriptMatch saved) "") "")
+                    :panel/script-description (if saved (or (.-scriptDescription saved) "") "")
                     :panel/script-id (when saved (.-scriptId saved))}))
           (when callback (callback))))))))
 
@@ -181,7 +184,8 @@
                      (.-id script)
                      (.-name script)
                      (.-match script)
-                     (.-code script)]])
+                     (.-code script)
+                     (.-description script)]])
          ;; Clear the flag so we don't reload on next panel open
          (js/chrome.storage.local.remove "editingScript"))))
 
@@ -239,7 +243,7 @@
                       (= :loaded scittle-status) "Eval"
                       :else "Eval")]
     [:div.code-input-area
-     [:textarea {:value code
+     [:textarea#code-area {:value code
                  :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter to evaluate"
                  :disabled (or evaluating? loading?)
                  :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
@@ -256,7 +260,7 @@
        "Clear Results"]
       [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
 
-(defn save-script-section [{:keys [panel/script-name panel/script-match panel/code panel/save-status panel/script-id]}]
+(defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description panel/code panel/save-status panel/script-id]}]
   [:div.save-script-section
    [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
    [:div.save-script-form
@@ -278,6 +282,13 @@
       [:button.btn-use-url {:on-click #(dispatch! [[:editor/ax.use-current-url]])
                             :title "Use current page URL"}
        "↵"]]]
+    [:div.save-field.description-field
+     [:label {:for "script-description"} "Description (optional)"]
+     [:textarea {:id "script-description"
+                 :value script-description
+                 :placeholder "What does this script do?"
+                 :rows 2
+                 :on-input (fn [e] (dispatch! [[:editor/ax.set-script-description (.. e -target -value)]]))}]]
     [:div.save-actions
      [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
                         :disabled (or (empty? code) (empty? script-name) (empty? script-match))}
@@ -366,6 +377,7 @@
                      (when (or (not= (:panel/code old-state) (:panel/code new-state))
                                (not= (:panel/script-name old-state) (:panel/script-name new-state))
                                (not= (:panel/script-match old-state) (:panel/script-match new-state))
+                               (not= (:panel/script-description old-state) (:panel/script-description new-state))
                                (not= (:panel/script-id old-state) (:panel/script-id new-state)))
                        (save-panel-state!))))
         (render!)

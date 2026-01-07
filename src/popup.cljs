@@ -19,7 +19,10 @@
          :ui/copy-feedback nil
          :ui/has-connected false  ; Track if we've connected at least once
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
-         :ui/view :main           ; :main or :settings
+         :ui/sections-collapsed {:repl-connect false    ; expanded by default
+                                 :scripts false         ; expanded by default
+                                 :builtin-scripts false ; expanded by default
+                                 :settings true}        ; collapsed by default
          :browser/brave? false
          :scripts/list []         ; All userscripts
          :scripts/current-url nil ; Current tab URL for matching
@@ -220,7 +223,8 @@
        #js {:editingScript #js {:id (:script/id script)
                                 :name (:script/name script)
                                 :match (first (:script/match script))
-                                :code (:script/code script)}}))
+                                :code (:script/code script)
+                                :description (:script/description script)}}))
 
     :popup/fx.load-current-url
     (let [tab (js-await (get-active-tab))]
@@ -288,7 +292,17 @@
    [:button.copy-btn {:on-click #(dispatch! [[:popup/ax.copy-command]])}
     (or copy-feedback "Copy")]])
 
-(defn script-item [{:keys [script/name script/match script/enabled]
+(defn collapsible-section [{:keys [id title expanded? badge-count]} & children]
+  [:div.collapsible-section {:class (when-not expanded? "collapsed")}
+   [:div.section-header {:on-click #(dispatch! [[:popup/ax.toggle-section id]])}
+    [icons/chevron-right {:class (str "chevron " (when expanded? "expanded"))}]
+    [:span.section-title title]
+    (when (and badge-count (pos? badge-count))
+      [:span.section-badge badge-count])]
+   (when expanded?
+     (into [:div.section-content] children))])
+
+(defn script-item [{:keys [script/name script/match script/enabled script/description]
                     script-id :script/id
                     :as script}
                    current-url
@@ -299,12 +313,21 @@
                             enabled
                             (not (script-utils/pattern-approved? script matching-pattern)))
         pattern-display (or matching-pattern (first match))
-        show-edit-hint (= script-id editing-hint-script-id)]
+        show-edit-hint (= script-id editing-hint-script-id)
+        truncated-desc (when (seq description)
+                         (if (> (count description) 60)
+                           (str (subs description 0 57) "...")
+                           description))
+        builtin? (script-utils/builtin-script? script)]
     [:div
      [:div.script-item {:class (str (when matches-current "script-item-active ")
                                     (when needs-approval "script-item-approval"))}
       [:div.script-info
        [:span.script-name name]
+       (when builtin?
+         [:span.script-badge "(Built-in)"])
+       (when truncated-desc
+         [:span.script-description truncated-desc])
        [:span.script-match pattern-display]]
       [:div.script-actions
        ;; Show approval buttons when script matches current URL but pattern not approved
@@ -318,39 +341,42 @@
        [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
                              :title "Send to editor"}
         [icons/pencil]]
-       ;; Always show checkbox and delete
+       ;; Always show checkbox for enable/disable
        [:input {:type "checkbox"
                 :checked enabled
                 :title (if enabled "Enabled" "Disabled")
                 :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
-       [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
-                                            (dispatch! [[:popup/ax.delete-script script-id]]))
-                               :title "Delete script"}
-        [icons/x]]]]
+       ;; Delete button hidden for built-in scripts
+       (when-not builtin?
+         [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
+                                              (dispatch! [[:popup/ax.delete-script script-id]]))
+                                 :title "Delete script"}
+          [icons/x]])]]
      (when show-edit-hint
        [:div.script-edit-hint
         "Open the Scittle Tamper panel in Developer Tools"])]))
 
 (defn scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
-  [:div.step.scripts-section
-   [:div.step-header "Userscripts"]
-   (if (seq list)
-     [:div.script-list
-      (for [script list]
-        ^{:key (:script/id script)}
-        [script-item script current-url editing-hint-script-id])]
-     [:div.no-scripts "No scripts yet. Create scripts via DevTools console."])])
+  (let [user-scripts (filterv #(not (script-utils/builtin-script? %)) list)]
+    [:div.script-list
+     (if (seq user-scripts)
+       (for [script user-scripts]
+         ^{:key (:script/id script)}
+         [script-item script current-url editing-hint-script-id])
+       [:div.no-scripts "No scripts yet. Create scripts via DevTools console."])]))
+
+(defn builtin-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
+  (let [builtin-scripts (filterv script-utils/builtin-script? list)]
+    [:div.script-list
+     (if (seq builtin-scripts)
+       (for [script builtin-scripts]
+         ^{:key (:script/id script)}
+         [script-item script current-url editing-hint-script-id])
+       [:div.no-scripts "No built-in scripts installed."])]))
 
 ;; ============================================================
-;; Settings View Components
+;; Settings Components
 ;; ============================================================
-
-(defn settings-header []
-  [:div.settings-header
-   [:button.back-btn {:on-click #(dispatch! [[:popup/ax.show-main]])
-                      :title "Back to main view"}
-    [icons/arrow-left]]
-   [:h2 "Scittle Tamper Settings"]])
 
 (defn origin-item [{:keys [origin editable on-delete]}]
   [:div.origin-item {:class (when-not editable "origin-item-default")}
@@ -361,12 +387,13 @@
       [icons/x]])])
 
 (defn default-origins-list [origins]
-  [:div.origins-section
-   [:div.origins-label "Default origins (from extension)"]
-   [:div.origin-list
-    (for [origin origins]
-      ^{:key origin}
-      [origin-item {:origin origin :editable false}])]])
+  (when (seq origins)
+    [:div.origins-section
+     [:div.origins-label "Default origins (from extension)"]
+     [:div.origin-list
+      (for [origin origins]
+        ^{:key origin}
+        [origin-item {:origin origin :editable false}])]]))
 
 (defn user-origins-list [origins]
   [:div.origins-section
@@ -395,41 +422,23 @@
    (when error
      [:div.add-origin-error error])])
 
-(defn settings-view [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error]}]
-  [:div.settings-view
-   [settings-header]
-   [:div.settings-content
-    [:div.settings-section
-     [:h3.section-title "Allowed Userscript-install Base URLs"]
-     [:p.section-description
-      "Scripts can only be installed from URLs that start with one of these prefixes. "
-      "Format: Must start with http:// or https:// and end with / or :"]
-     [default-origins-list default-origins]
-     [user-origins-list user-origins]
-     [add-origin-form {:value new-origin :error error}]]]])
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error]}]
+  [:div.settings-content
+   [:div.settings-section
+    [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
+    [:p.section-description
+     "Scripts can only be installed from URLs that start with one of these prefixes. "
+     "Format: Must start with http:// or https:// and end with / or :"]
+    [default-origins-list default-origins]
+    [user-origins-list user-origins]
+    [add-origin-form {:value new-origin :error error}]]])
 
 ;; ============================================================
 ;; Main View
 ;; ============================================================
 
-(defn main-view [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
+(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
   [:div
-   ;; Header with logos and settings button
-   [:div.header
-    [:div.header-left
-     [icons/jack-in]
-     [:h1 "Scittle Tamper"]]
-    [:div.header-right
-     [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
-                         :target "_blank"}
-      "Scittle nREPL"]
-     [:div.header-logos
-      [:img {:src "images/sci.png" :alt "SCI"}]
-      [:img {:src "images/clojure.png" :alt "Clojure"}]]
-     [:button.settings-btn {:on-click #(dispatch! [[:popup/ax.show-settings]])
-                            :title "Settings"}
-      [icons/cog {:size 18}]]]]
-
    [:div.step
     [:div.step-header "1. Start the browser-nrepl server"]
     [:div.port-row
@@ -455,15 +464,50 @@
    [:div.step
     [:div.step-header "3. Connect editor to browser (via server)"]
     [:div.connect-row
-     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]
+     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
 
-   ;; Userscripts section
-   [scripts-section state]])
+(defn popup-ui [{:keys [ui/sections-collapsed scripts/list] :as state}]
+  (let [user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
+        builtin-scripts (filterv script-utils/builtin-script? list)]
+    [:div
+     ;; Header with logos
+     [:div.header
+      [:div.header-left
+       [icons/jack-in]
+       [:h1 "Scittle Tamper"]]
+      [:div.header-right
+       [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
+                           :target "_blank"}
+        "Scittle nREPL"]
+       [:div.header-logos
+        [:img {:src "images/sci.png" :alt "SCI"}]
+        [:img {:src "images/clojure.png" :alt "Clojure"}]]]]
 
-(defn popup-ui [{:keys [ui/view] :as state}]
-  (if (= view :settings)
-    [settings-view state]
-    [main-view state]))
+     ;; REPL Connect section
+     [collapsible-section {:id :repl-connect
+                           :title "REPL Connect"
+                           :expanded? (not (:repl-connect sections-collapsed))}
+      [repl-connect-content state]]
+
+     ;; Scripts section (user scripts only)
+     [collapsible-section {:id :scripts
+                           :title "Scripts"
+                           :expanded? (not (:scripts sections-collapsed))
+                           :badge-count (count user-scripts)}
+      [scripts-section state]]
+
+     ;; Built-in Scripts section
+     [collapsible-section {:id :builtin-scripts
+                           :title "Built-in Scripts"
+                           :expanded? (not (:builtin-scripts sections-collapsed))
+                           :badge-count (count builtin-scripts)}
+      [builtin-scripts-section state]]
+
+     ;; Settings section (collapsed by default)
+     [collapsible-section {:id :settings
+                           :title "Settings"
+                           :expanded? (not (:settings sections-collapsed))}
+      [settings-content state]]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")
@@ -482,7 +526,8 @@
   (dispatch! [[:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
-              [:popup/ax.load-current-url]]))
+              [:popup/ax.load-current-url]
+              [:popup/ax.load-user-origins]]))
 
 ;; Start the app when DOM is ready
 (js/console.log "Popup script loaded, readyState:" js/document.readyState)

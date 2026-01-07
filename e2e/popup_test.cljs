@@ -62,7 +62,7 @@
 
             ;; === PHASE 2: Create scripts via panel ===
             (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "textarea") "(println \"script one\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"script one\")"))
               (js-await (.fill (.locator panel "#script-name") "Script One"))
               (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
               (js-await (.click (.locator panel "button.btn-save")))
@@ -70,7 +70,7 @@
               (js-await (.close panel)))
 
             (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "textarea") "(println \"script two\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"script two\")"))
               (js-await (.fill (.locator panel "#script-name") "Script Two"))
               (js-await (.fill (.locator panel "#script-match") "*://example.org/*"))
               (js-await (.click (.locator panel "button.btn-save")))
@@ -104,7 +104,7 @@
             ;; === PHASE 4: Approval workflow (Allow) ===
             ;; Re-enable and create script for approval test
             (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "textarea") "(println \"needs approval\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"needs approval\")"))
               (js-await (.fill (.locator panel "#script-name") "Approval Test"))
               (js-await (.fill (.locator panel "#script-match") "*://approval.test/*"))
               (js-await (.click (.locator panel "button.btn-save")))
@@ -139,7 +139,7 @@
 
             ;; === PHASE 5: Approval workflow (Deny) ===
             (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "textarea") "(println \"deny me\")"))
+              (js-await (.fill (.locator panel "#code-area") "(println \"deny me\")"))
               (js-await (.fill (.locator panel "#script-name") "Deny Test"))
               (js-await (.fill (.locator panel "#script-match") "*://deny.test/*"))
               (js-await (.click (.locator panel "button.btn-save")))
@@ -174,28 +174,24 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Open settings view ===
+            ;; === PHASE 1: Open settings section (now collapsible, not separate view) ===
             (let [popup (js-await (create-popup-page context ext-id))]
               (js-await (clear-storage popup))
               (js-await (.reload popup))
               (js-await (sleep 300))
 
-              ;; Cog button visible in header
-              (let [settings-btn (.locator popup "button.settings-btn")]
-                (js-await (-> (expect settings-btn) (.toBeVisible)))
+              ;; Settings section header visible (collapsed by default)
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (-> (expect settings-header) (.toBeVisible)))
 
-                ;; Click cog to open settings
-                (js-await (.click settings-btn))
+                ;; Click to expand settings
+                (js-await (.click settings-header))
                 (js-await (sleep 200)))
 
-              ;; Settings view renders with title
-              (js-await (-> (expect (.locator popup ".settings-view"))
+              ;; Settings content renders with section title
+              (js-await (-> (expect (.locator popup ".settings-content"))
                             (.toBeVisible)))
-              (js-await (-> (expect (.locator popup ".settings-header h2"))
-                            (.toContainText "Settings")))
-
-              ;; Section title visible
-              (js-await (-> (expect (.locator popup ".section-title"))
+              (js-await (-> (expect (.locator popup ".settings-section-title"))
                             (.toContainText "Allowed Userscript-install Base URLs")))
 
               ;; Default origins list shows config origins
@@ -210,8 +206,8 @@
 
             ;; === PHASE 2: Add custom origin ===
             (let [popup (js-await (create-popup-page context ext-id))]
-              ;; Navigate to settings
-              (js-await (.click (.locator popup "button.settings-btn")))
+              ;; Expand settings section
+              (js-await (.click (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")))
               (js-await (sleep 200))
 
               ;; Fill in valid origin and click Add
@@ -234,7 +230,7 @@
 
             ;; === PHASE 3: Invalid origin shows error ===
             (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.click (.locator popup "button.settings-btn")))
+              (js-await (.click (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")))
               (js-await (sleep 200))
 
               ;; Try adding invalid origin (no trailing slash)
@@ -254,7 +250,7 @@
 
             ;; === PHASE 4: Remove custom origin ===
             (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.click (.locator popup "button.settings-btn")))
+              (js-await (.click (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")))
               (js-await (sleep 200))
 
               ;; Verify origin still exists from phase 2
@@ -273,20 +269,26 @@
 
               (js-await (.close popup)))
 
-            ;; === PHASE 5: Back button returns to main view ===
+            ;; === PHASE 5: Collapse/expand toggle works ===
             (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.click (.locator popup "button.settings-btn")))
-              (js-await (sleep 200))
-
-              ;; Click back button
-              (js-await (.click (.locator popup "button.back-btn")))
-              (js-await (sleep 200))
-
-              ;; Settings view hidden, main view visible
-              (js-await (-> (expect (.locator popup ".settings-view"))
+              ;; Settings starts collapsed
+              (js-await (-> (expect (.locator popup ".settings-content"))
                             (.not.toBeVisible)))
-              ;; Main view has Connect button
-              (js-await (-> (expect (.locator popup "button#connect"))
+
+              ;; Expand
+              (js-await (.click (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")))
+              (js-await (sleep 200))
+              (js-await (-> (expect (.locator popup ".settings-content"))
+                            (.toBeVisible)))
+
+              ;; Collapse again
+              (js-await (.click (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")))
+              (js-await (sleep 200))
+              (js-await (-> (expect (.locator popup ".settings-content"))
+                            (.not.toBeVisible)))
+
+              ;; REPL Connect section is expanded by default
+              (js-await (-> (expect (.locator popup "#nrepl-port"))
                             (.toBeVisible)))
 
               (js-await (.close popup)))

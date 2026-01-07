@@ -79,14 +79,6 @@
          :uf/fxs [[:popup/fx.edit-script script]
                   [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
 
-    ;; Settings view actions
-    :popup/ax.show-settings
-    {:uf/db (assoc state :ui/view :settings)
-     :uf/fxs [[:popup/fx.load-user-origins]]}
-
-    :popup/ax.show-main
-    {:uf/db (assoc state :ui/view :main)}
-
     :popup/ax.load-user-origins
     {:uf/fxs [[:popup/fx.load-user-origins]]}
 
@@ -119,5 +111,9 @@
       {:uf/db (update state :settings/user-origins
                       (fn [origins] (filterv #(not= % origin) origins)))
        :uf/fxs [[:popup/fx.remove-user-origin origin]]})
+
+    :popup/ax.toggle-section
+    (let [[section-id] args]
+      {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})
 
     :uf/unhandled-ax))
