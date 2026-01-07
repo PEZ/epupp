@@ -5,6 +5,11 @@
   --radius: 6px;
 }
 
+/* Universal box-sizing for consistent width calculations */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 /* Light theme (default for popup) */
 :root {
   --text-primary: #1a1a1a;
@@ -62,22 +67,31 @@
 }
 
 html {
+  width: 380px;
   max-width: 380px;
+  overflow-x: hidden;
 }
 
 body {
+  width: 100%;
+  max-width: 380px;
+  max-height: 600px;
   padding: 20px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text-primary);
   background: var(--bg-body);
   line-height: 1.5;
   margin: 0;
-  scrollbar-gutter: stable both-edges;
+  overflow-x: hidden;
   overflow-y: auto;
-  width: calc(100vw - 40px);
+  /* Reserve space for scrollbar to prevent layout shift */
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
 }
 
 #app {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Header with logos */
@@ -193,10 +207,13 @@ body {
   display: flex;
   gap: 8px;
   align-items: stretch;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 code {
   flex: 1;
+  min-width: 0; /* Allow flex item to shrink below content size */
   background: var(--code-bg);
   padding: 10px 12px;
   border-radius: var(--radius);
