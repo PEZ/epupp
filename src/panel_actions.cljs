@@ -67,25 +67,31 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match script-description script-id]} state]
+    (let [{:panel/keys [code script-name script-match script-description script-id original-name]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
-              ;; ID is stable: keep existing ID when editing, derive from name for new scripts
-              id (or script-id normalized-name)
+              ;; Check if name changed from original (means create new, not update)
+              name-changed? (and original-name (not= normalized-name original-name))
+              ;; ID: use existing only if editing AND name hasn't changed
+              ;; Otherwise derive new ID from normalized name
+              id (if (and script-id (not name-changed?))
+                   script-id
+                   normalized-name)
               script (cond-> {:script/id id
                               :script/name normalized-name
                               :script/match [script-match]
                               :script/code code
                               :script/enabled true}
-                       (seq script-description) (assoc :script/description script-description))]
+                       (seq script-description) (assoc :script/description script-description))
+              action-text (if name-changed? "Created" "Saved")]
           {:uf/fxs [[:editor/fx.save-script script]
                     [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
                     [:editor/fx.clear-persisted-state]]
-           ;; Keep fields populated, update original-name to match saved name, set script-id
+           ;; After save/create, update state to reflect the new/saved script
            :uf/db (assoc state
-                         :panel/save-status {:type :success :text (str "Saved \"" normalized-name "\"")}
+                         :panel/save-status {:type :success :text (str action-text " \"" normalized-name "\"")}
                          :panel/script-name normalized-name
                          :panel/original-name normalized-name
                          :panel/script-id id)})))

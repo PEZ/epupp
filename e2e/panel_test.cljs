@@ -84,22 +84,25 @@
               (js-await (.close context)))))))
 
 ;; =============================================================================
-;; Panel User Journey: Script Name Normalization and Overwrite
+;; Panel User Journey: Create vs Save Behavior
 ;; =============================================================================
 
-(test "Panel: script name normalization and overwrite behavior"
+(test "Panel: create new script when name changed, save when unchanged"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Create script with spaces and special chars ===
+            ;; === PHASE 1: Create initial script ===
             (let [panel (js-await (create-panel-page context ext-id))]
               (js-await (clear-storage panel))
               (js-await (.reload panel))
               (js-await (sleep 300))
               (js-await (.fill (.locator panel "#code-area") "(println \"version 1\")"))
-              (js-await (.fill (.locator panel "#script-name") "My Cool Script!"))
+              (js-await (.fill (.locator panel "#script-name") "My Cool Script"))
               (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+              ;; Button should say "Save Script" for new script
+              (js-await (-> (expect (.locator panel "button.btn-save"))
+                            (.toContainText "Save Script")))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (sleep 300))
               ;; Verify save status shows normalized name
@@ -107,64 +110,143 @@
                             (.toContainText "my_cool_script.cljs")))
               (js-await (.close panel)))
 
-            ;; === PHASE 2: Verify in popup - name is normalized ===
+            ;; === PHASE 2: Edit script from popup ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (sleep 500))
-              ;; Script appears with normalized name
-              (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")]
-                (js-await (-> (expect script-item) (.toBeVisible))))
-              ;; Should have only 2 scripts: built-in Gist Installer + our script
-              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
-              (js-await (.close popup)))
-
-            ;; === PHASE 3: Save with same name again (should overwrite) ===
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"version 2 - UPDATED\")"))
-              ;; Use slightly different input that normalizes to same name
-              (js-await (.fill (.locator panel "#script-name") "my-cool-script"))
-              (js-await (.fill (.locator panel "#script-match") "*://updated.com/*"))
-              (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (sleep 300))
-              (js-await (.close panel)))
-
-            ;; === PHASE 4: Verify overwrite - still only 1 user script ===
-            (let [popup (js-await (.newPage context))
-                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
-              (js-await (sleep 500))
-              ;; Still 2 scripts total (not 3) - overwrite worked
-              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
-              ;; Script shows normalized name
-              (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
-                            (.toBeVisible)))
-              (js-await (.close popup)))
-
-            ;; === PHASE 5: Edit script in panel and verify code was updated ===
-            (let [popup (js-await (.newPage context))
-                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
-              (js-await (sleep 300))
-              ;; Click edit to send to panel
+              ;; Script appears with normalized name - click edit
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
                     edit-btn (.locator script-item "button.script-edit")]
                 (js-await (.click edit-btn))
                 (js-await (sleep 200)))
               (js-await (.close popup)))
 
-            ;; Open panel and verify edited script has updated code
+            ;; === PHASE 3: Update code WITHOUT changing name - should save over existing ===
             (let [panel (js-await (create-panel-page context ext-id))]
               (js-await (sleep 500))
-              ;; Code area should have the updated code from version 2
-              (let [code-value (js-await (.inputValue (.locator panel "#code-area")))]
-                (js-await (-> (expect (.includes code-value "version 2 - UPDATED"))
-                              (.toBeTruthy))))
-              ;; Match pattern should be updated too
-              (let [match-value (js-await (.inputValue (.locator panel "#script-match")))]
-                (js-await (-> (expect (.includes match-value "updated.com"))
-                              (.toBeTruthy))))
+              ;; Script loaded for editing - button says "Save Script"
+              (js-await (-> (expect (.locator panel "button.btn-save"))
+                            (.toContainText "Save Script")))
+              ;; Update just the code
+              (js-await (.fill (.locator panel "#code-area") "(println \"version 2 - UPDATED\")"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 300))
+              ;; Status shows "Saved" (not "Created")
+              (js-await (-> (expect (.locator panel ".save-status"))
+                            (.toContainText "Saved")))
               (js-await (.close panel)))
+
+            ;; === PHASE 4: Verify still only 1 user script (overwrite worked) ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; Still 2 scripts total (built-in + our script)
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
+              ;; Edit again for next phase
+              (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
+                    edit-btn (.locator script-item "button.script-edit")]
+                (js-await (.click edit-btn))
+                (js-await (sleep 200)))
+              (js-await (.close popup)))
+
+            ;; === PHASE 5: Change name while editing - should show "Create Script" ===
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (sleep 500))
+              ;; Initially "Save Script" since name matches
+              (js-await (-> (expect (.locator panel "button.btn-save"))
+                            (.toContainText "Save Script")))
+              ;; Change the name
+              (js-await (.fill (.locator panel "#script-name") "New Script Name"))
+              ;; Button should change to "Create Script"
+              (js-await (-> (expect (.locator panel "button.btn-save"))
+                            (.toContainText "Create Script")))
+              ;; Rename button should appear
+              (js-await (-> (expect (.locator panel "button.btn-rename"))
+                            (.toBeVisible)))
+              ;; Click Create to make a new script
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (sleep 300))
+              ;; Status shows "Created" (not "Saved")
+              (js-await (-> (expect (.locator panel ".save-status"))
+                            (.toContainText "Created")))
+              (js-await (.close panel)))
+
+            ;; === PHASE 6: Verify both scripts exist (original + new) ===
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (sleep 500))
+              ;; Now 3 scripts: built-in + original + new
+              (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3)))
+              ;; Both user scripts visible
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
+                            (.toBeVisible)))
+              (js-await (-> (expect (.locator popup ".script-item:has-text(\"new_script_name.cljs\")"))
+                            (.toBeVisible)))
+              (js-await (.close popup)))
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Panel User Journey: Rename Behavior
+;; =============================================================================
+
+(test "Panel: rename script does not create duplicate"
+  (^:async fn []
+    (let [context (js-await (launch-browser))
+          ext-id (js-await (get-extension-id context))]
+      (try
+        ;; === PHASE 1: Create initial script ===
+        (let [panel (js-await (create-panel-page context ext-id))]
+          (js-await (clear-storage panel))
+          (js-await (.reload panel))
+          (js-await (sleep 300))
+          (js-await (.fill (.locator panel "#code-area") "(println \"version 1\")"))
+          (js-await (.fill (.locator panel "#script-name") "My Cool Script"))
+          (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+          (js-await (.click (.locator panel "button.btn-save")))
+          (js-await (sleep 300))
+          (js-await (.close panel)))
+
+        ;; === PHASE 2: Edit script from popup ===
+        (let [popup (js-await (.newPage context))
+              popup-url (str "chrome-extension://" ext-id "/popup.html")]
+          (js-await (.goto popup popup-url #js {:timeout 10000}))
+          (js-await (sleep 500))
+          ;; Script appears with normalized name - click edit
+          (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
+                edit-btn (.locator script-item "button.script-edit")]
+            (js-await (.click edit-btn))
+            (js-await (sleep 200)))
+          (js-await (.close popup)))
+
+        ;; === PHASE 3: Rename script in panel ===
+        (let [panel (js-await (create-panel-page context ext-id))]
+          (js-await (sleep 500))
+          ;; Change the name
+          (js-await (.fill (.locator panel "#script-name") "Renamed Script"))
+          ;; Click Rename
+          (js-await (.click (.locator panel "button.btn-rename")))
+          (js-await (sleep 300))
+          (js-await (.close panel)))
+
+        ;; === PHASE 4: Verify still only 2 scripts (built-in + renamed) ===
+        (let [popup (js-await (.newPage context))
+              popup-url (str "chrome-extension://" ext-id "/popup.html")]
+          (js-await (.goto popup popup-url #js {:timeout 10000}))
+          (js-await (sleep 500))
+          ;; Only 2 scripts: built-in + renamed
+          (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 2)))
+          ;; Renamed script visible
+          (js-await (-> (expect (.locator popup ".script-item:has-text(\"renamed_script.cljs\")"))
+                        (.toBeVisible)))
+          ;; Old name should NOT be present
+          (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
+                        (.not.toBeVisible)))
+          (js-await (.close popup)))
+
+        (finally
+          (js-await (.close context)))))))

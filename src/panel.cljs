@@ -273,11 +273,27 @@
   (let [;; Normalize current name for comparison
         normalized-name (when (seq script-name)
                           (script-utils/normalize-script-name script-name))
-        ;; Show rename when editing and name differs from original
+        ;; Check if we're editing a built-in script
+        editing-builtin? (and script-id (script-utils/builtin-script-id? script-id))
+        ;; Name changed from original?
+        name-changed? (and original-name
+                           normalized-name
+                           (not= normalized-name original-name))
+        ;; Show rename when editing user script and name differs from original
         show-rename? (and script-id
-                          original-name
-                          normalized-name
-                          (not= normalized-name original-name))]
+                          (not editing-builtin?)
+                          name-changed?)
+        ;; Save button disabled rules:
+        ;; - Missing required fields
+        ;; - Editing built-in with unchanged name (can't overwrite built-in)
+        save-disabled? (or (empty? code)
+                           (empty? script-name)
+                           (empty? script-match)
+                           (and editing-builtin? (not name-changed?)))
+        ;; Button text: "Create Script" when name changed, otherwise "Save Script"
+        save-button-text (if name-changed? "Create Script" "Save Script")
+        ;; Rename disabled for built-in scripts
+        rename-disabled? editing-builtin?]
     [:div.save-script-section
      [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
      [:div.save-script-form
@@ -308,12 +324,17 @@
                    :on-input (fn [e] (dispatch! [[:editor/ax.set-script-description (.. e -target -value)]]))}]]
       [:div.save-actions
        [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
-                          :disabled (or (empty? code) (empty? script-name) (empty? script-match))}
-        "Save Script"]
+                          :disabled save-disabled?
+                          :title (when (and editing-builtin? (not name-changed?))
+                                   "Cannot overwrite built-in script - change the name to create a copy")}
+        save-button-text]
        ;; Rename button - appears after Save to keep layout stable
        (when show-rename?
          [:button.btn-rename {:on-click #(dispatch! [[:editor/ax.rename-script]])
-                              :title (str "Rename from \"" original-name "\" to \"" normalized-name "\"")}
+                              :disabled rename-disabled?
+                              :title (if rename-disabled?
+                                       "Cannot rename built-in scripts"
+                                       (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
           "Rename"])
        ;; In Squint, keywords are already strings, so no need for `name`
        (when save-status

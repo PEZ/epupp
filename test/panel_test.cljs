@@ -198,18 +198,37 @@
                       (-> (expect (first (first (:uf/fxs result))))
                           (.toBe :editor/fx.save-script)))))
 
-            (test ":editor/ax.save-script uses existing script-id when editing"
+            (test ":editor/ax.save-script uses existing script-id when editing with unchanged name"
                   (fn []
                     (let [state (-> initial-state
                                     (assoc :panel/code "(println \"hi\")")
-                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-name "my_script.cljs")
                                     (assoc :panel/script-match "*://example.com/*")
-                                    (assoc :panel/script-id "existing-id"))
+                                    (assoc :panel/script-id "existing-id")
+                                    (assoc :panel/original-name "my_script.cljs"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           [_fx-name script] (first (:uf/fxs result))]
-                      ;; Should use existing id, not generate new one
+                      ;; Should use existing id when name hasn't changed
                       (-> (expect (:script/id script))
                           (.toBe "existing-id")))))
+
+            (test ":editor/ax.save-script creates new script when name changed"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "New Name")
+                                    (assoc :panel/script-match "*://example.com/*")
+                                    (assoc :panel/script-id "existing-id")
+                                    (assoc :panel/original-name "old_name.cljs"))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))
+                          new-state (:uf/db result)]
+                      ;; Should create new ID from normalized name, not use existing
+                      (-> (expect (:script/id script))
+                          (.toBe "new_name.cljs"))
+                      ;; Status should say "Created"
+                      (-> (expect (:text (:panel/save-status new-state)))
+                          (.toContain "Created")))))
 
             (test ":editor/ax.save-script normalizes name and derives ID for new scripts"
                   (fn []

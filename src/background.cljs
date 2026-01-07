@@ -530,7 +530,8 @@
 
 (defn ^:async install-userscript!
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
-   Name is normalized for uniqueness and valid filename format."
+   Name is normalized for uniqueness and valid filename format.
+   Cannot overwrite built-in scripts."
   [{:keys [script-name site-match script-url description]}]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
@@ -541,14 +542,18 @@
   (js-await (ensure-initialized!))
   (let [code (js-await (fetch-text! script-url))
         normalized-name (script-utils/normalize-script-name script-name)
-        script (cond-> {:script/id normalized-name
-                        :script/name normalized-name
-                        :script/match [site-match]
-                        :script/code code
-                        :script/enabled true
-                        :script/approved-patterns []}
-                 (seq description) (assoc :script/description description))]
-    (storage/save-script! script)))
+        ;; Check if a script with this ID already exists and is built-in
+        existing-script (storage/get-script normalized-name)]
+    (when (and existing-script (script-utils/builtin-script? existing-script))
+      (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
+    (let [script (cond-> {:script/id normalized-name
+                          :script/name normalized-name
+                          :script/match [site-match]
+                          :script/code code
+                          :script/enabled true
+                          :script/approved-patterns []}
+                   (seq description) (assoc :script/description description))]
+      (storage/save-script! script))))
 
 (.addListener js/chrome.runtime.onMessage
               (fn [message sender send-response]
