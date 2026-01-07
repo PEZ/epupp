@@ -540,7 +540,7 @@
     (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
   (js-await (ensure-initialized!))
   (let [code (js-await (fetch-text! script-url))
-        normalized-name (script-utils/normalize-script-id script-name)
+        normalized-name (script-utils/normalize-script-name script-name)
         script (cond-> {:script/id normalized-name
                         :script/name normalized-name
                         :script/match [site-match]

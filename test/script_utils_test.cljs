@@ -359,47 +359,47 @@
                           (.toBeFalsy)))))))
 
 ;; ============================================================
-;; Script ID Normalization Tests
+;; Script Name Normalization Tests
 ;; ============================================================
 
-(describe "normalize-script-id"
+(describe "normalize-script-name"
           (fn []
             (test "lowercases name"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "MyScript"))
+                    (-> (expect (script-utils/normalize-script-name "MyScript"))
                         (.toBe "myscript.cljs"))))
 
             (test "replaces spaces with underscores"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "my script"))
+                    (-> (expect (script-utils/normalize-script-name "my script"))
                         (.toBe "my_script.cljs"))))
 
             (test "replaces dashes with underscores"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "my-script"))
+                    (-> (expect (script-utils/normalize-script-name "my-script"))
                         (.toBe "my_script.cljs"))))
 
             (test "preserves slashes for namespace paths"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "my-project/utils"))
+                    (-> (expect (script-utils/normalize-script-name "my-project/utils"))
                         (.toBe "my_project/utils.cljs"))))
 
             (test "appends .cljs if missing"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "script"))
+                    (-> (expect (script-utils/normalize-script-name "script"))
                         (.toBe "script.cljs"))))
 
             (test "preserves .cljs if present"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "script.cljs"))
+                    (-> (expect (script-utils/normalize-script-name "script.cljs"))
                         (.toBe "script.cljs"))))
 
             (test "removes invalid characters"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id "my@script!"))
+                    (-> (expect (script-utils/normalize-script-name "my@script!"))
                         (.toBe "myscript.cljs"))))
 
             (test "handles empty string"
                   (fn []
-                    (-> (expect (script-utils/normalize-script-id ""))
+                    (-> (expect (script-utils/normalize-script-name ""))
                         (.toBe ".cljs"))))))

@@ -70,8 +70,9 @@
     (let [{:panel/keys [code script-name script-match script-description script-id]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
-        (let [;; Normalize name for uniqueness; use existing id if editing, otherwise derive from normalized name
-              normalized-name (script-utils/normalize-script-id script-name)
+        (let [;; Normalize the display name for consistency
+              normalized-name (script-utils/normalize-script-name script-name)
+              ;; ID is stable: keep existing ID when editing, derive from name for new scripts
               id (or script-id normalized-name)
               script (cond-> {:script/id id
                               :script/name normalized-name

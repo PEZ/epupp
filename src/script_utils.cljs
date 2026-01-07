@@ -129,18 +129,21 @@
   (builtin-script-id? (:script/id script)))
 
 ;; ============================================================
-;; Script ID normalization
+;; Script name normalization
 ;; ============================================================
 
-(defn normalize-script-id
-  "Convert script name to valid ClojureScript filename.
+(defn normalize-script-name
+  "Normalize a script name to a consistent format for uniqueness.
    - Lowercase
    - Replace spaces and dashes with underscores
    - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
    - Append .cljs if not present
-   - Remove invalid characters"
-  [name]
-  (-> name
+   - Remove invalid characters
+
+   Note: This normalizes the display name, not the ID. The ID should
+   be stable and independent (derived from name at creation time)."
+  [input-name]
+  (-> input-name
       (.toLowerCase)
       (.replace (js/RegExp. "[\\s-]+" "g") "_")
       (.replace (js/RegExp. "[^a-z0-9_./]" "g") "")
@@ -161,6 +164,6 @@
            :get_required_origins get-required-origins
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
-           :normalize_script_id normalize-script-id})
+           :normalize_script_name normalize-script-name})
 
 

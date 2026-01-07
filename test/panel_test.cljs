@@ -210,7 +210,7 @@
                       (-> (expect (:script/id script))
                           (.toBe "existing-id")))))
 
-            (test ":editor/ax.save-script normalizes name to script-id for new scripts"
+            (test ":editor/ax.save-script normalizes name and derives ID for new scripts"
                   (fn []
                     (let [state (-> initial-state
                                     (assoc :panel/code "(println \"hi\")")
@@ -218,10 +218,10 @@
                                     (assoc :panel/script-match "*://example.com/*"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           [_fx-name script] (first (:uf/fxs result))]
-                      ;; Should normalize name: lowercase, spaces to underscores, add .cljs
+                      ;; ID derived from normalized name for new scripts
                       (-> (expect (:script/id script))
                           (.toBe "my_cool_script.cljs"))
-                      ;; Name should also be normalized
+                      ;; Name is normalized for display consistency
                       (-> (expect (:script/name script))
                           (.toBe "my_cool_script.cljs")))))
 
