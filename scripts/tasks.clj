@@ -104,7 +104,7 @@
   (case browser
     "firefox" (-> manifest
                   (assoc :browser_specific_settings
-                         {:gecko {:id "scittle-tamper@example.com"
+                         {:gecko {:id "epupp@example.com"
                                   :strict_min_version "142.0"
                                   :data_collection_permissions
                                   {:required ["none"]}}})
@@ -228,7 +228,7 @@
           (spit manifest-path (json/write-str adjusted :indent true :escape-slash false)))
 
         ;; Create zip
-        (let [zip-path (str dist-dir "/scittle-tamper-" browser ".zip")]
+        (let [zip-path (str dist-dir "/epupp-" browser ".zip")]
           (fs/delete-if-exists zip-path)
           (fs/zip zip-path browser-dir {:root browser-dir})
           (println (str "  Created: " zip-path)))))

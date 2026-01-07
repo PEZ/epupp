@@ -40,8 +40,8 @@
 (defn- handle-page-message [event]
   (when (same-window? event)
     (let [msg (.-data event)]
-      ;; Handle messages from WebSocket bridge (scittle-tamper-page)
-      (when (and msg (= "scittle-tamper-page" (.-source msg)))
+      ;; Handle messages from WebSocket bridge (epupp-page)
+      (when (and msg (= "epupp-page" (.-source msg)))
         (case (.-type msg)
           "ws-connect"
           (do
@@ -59,8 +59,8 @@
 
           nil))
 
-      ;; Handle messages from userscripts (scittle-tamper-userscript)
-      (when (and msg (= "scittle-tamper-userscript" (.-source msg)))
+      ;; Handle messages from userscripts (epupp-userscript)
+      (when (and msg (= "epupp-userscript" (.-source msg)))
         (case (.-type msg)
           "install-userscript"
           (do
@@ -72,7 +72,7 @@
              (fn [response]
                ;; Send response back to page
                (.postMessage js/window
-                             #js {:source "scittle-tamper-bridge"
+                             #js {:source "epupp-bridge"
                                   :type "install-response"
                                   :success (.-success response)
                                   :error (.-error response)}
@@ -143,7 +143,7 @@
         (js/console.log "[Bridge] WebSocket connected")
         (start-keepalive!)
         (.postMessage js/window
-                      #js {:source "scittle-tamper-bridge"
+                      #js {:source "epupp-bridge"
                            :type "ws-open"}
                       "*")
         false)
@@ -151,7 +151,7 @@
       "ws-message"
       (do
         (.postMessage js/window
-                      #js {:source "scittle-tamper-bridge"
+                      #js {:source "epupp-bridge"
                            :type "ws-message"
                            :data (.-data message)}
                       "*")
@@ -163,7 +163,7 @@
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
-                      #js {:source "scittle-tamper-bridge"
+                      #js {:source "epupp-bridge"
                            :type "ws-error"
                            :error (.-error message)}
                       "*")
@@ -175,7 +175,7 @@
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
-                      #js {:source "scittle-tamper-bridge"
+                      #js {:source "epupp-bridge"
                            :type "ws-close"}
                       "*")
         false)
@@ -190,6 +190,6 @@
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
   (.postMessage js/window
-                #js {:source "scittle-tamper-bridge"
+                #js {:source "epupp-bridge"
                      :type "bridge-ready"}
                 "*"))

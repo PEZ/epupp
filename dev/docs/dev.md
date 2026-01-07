@@ -145,7 +145,7 @@ Dev versions use 4-part format (`0.0.7.0`, `0.0.7.1`). The 4th number is the bui
 
 **Chrome:**
 
-0. Unpack `scittle-tamper-chrome.zip` (will unpack a `chrome` folder)
+0. Unpack `epupp-chrome.zip` (will unpack a `chrome` folder)
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
@@ -155,12 +155,12 @@ Dev versions use 4-part format (`0.0.7.0`, `0.0.7.1`). The 4th number is the bui
 
 1. Go to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
-3. Select any file in `scittle-tamper-firefox.zip` file
+3. Select any file in `epupp-firefox.zip` file
 
 **Safari:**
 
 1. Safari → Settings → Developer → Click "Add Temporary Extension"
-2. Select the `scittle-tamper-safari.zip` file
+2. Select the `epupp-safari.zip` file
 3. Ensure the extension is enabled in Safari → Settings → Extensions
 
 ## Distribution
@@ -185,8 +185,8 @@ GitHub Actions will build all three browser versions and create a draft release.
 
 ### Store Submission
 
-- **Chrome:** Upload `scittle-tamper-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- **Firefox:** Upload `scittle-tamper-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
+- **Chrome:** Upload `epupp-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+- **Firefox:** Upload `epupp-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
 - **Safari:** Submit via Xcode to App Store Connect
 
 ## Related Documentation

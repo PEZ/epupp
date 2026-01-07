@@ -1,5 +1,5 @@
 # Dockerfile for running E2E tests without popping up a browser on the host
-# Usage: docker build -f Dockerfile.e2e -t scittle-tamper-e2e . && docker run --rm scittle-tamper-e2e
+# Usage: docker build -f Dockerfile.e2e -t epupp-e2e . && docker run --rm epupp-e2e
 
 # Use ARM64 variant for Apple Silicon, falls back to amd64 on Intel
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/playwright:v1.57.0-noble
@@ -38,8 +38,9 @@ RUN bb build:test \
 
 # Create entrypoint script that manages Xvfb lifecycle properly
 # (xvfb-run hangs on some systems, so we start/stop Xvfb explicitly)
+# Suppress XKEYBOARD warnings by redirecting Xvfb stderr to /dev/null
 RUN echo '#!/bin/bash\n\
-Xvfb :99 -screen 0 1280x720x24 &\n\
+Xvfb :99 -screen 0 1280x720x24 2>/dev/null &\n\
 sleep 1\n\
 export DISPLAY=:99\n\
 npx playwright test --reporter=line "$@"\n\

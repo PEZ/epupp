@@ -29,7 +29,7 @@ This document outlines the implementation plan for script management enhancement
 
 ### Built-in Script Identification
 
-Currently identified by ID prefix convention: `"scittle-tamper-builtin-*"` (see [storage.cljs](../../src/storage.cljs#L227)).
+Currently identified by ID prefix convention: `"epupp-builtin-*"` (see [storage.cljs](../../src/storage.cljs#L227)).
 
 ### Popup UI Structure ([popup.cljs](../../src/popup.cljs))
 
@@ -153,7 +153,7 @@ Current sections (not collapsible):
 **File:** [script_utils.cljs](../../src/script_utils.cljs)
 
 ```clojure
-(def builtin-id-prefix "scittle-tamper-builtin-")
+(def builtin-id-prefix "epupp-builtin-")
 
 (defn builtin-script?
   "Check if a script is a built-in script by ID prefix."

@@ -247,7 +247,7 @@
   "Ensure the gist installer built-in userscript exists in storage.
    Loads it from userscripts/gist_installer.cljs and updates if code changed."
   []
-  (let [installer-id "scittle-tamper-builtin-gist-installer"]
+  (let [installer-id "epupp-builtin-gist-installer"]
     (try
       (let [response (js-await (js/fetch (js/chrome.runtime.getURL "userscripts/gist_installer.cljs")))
             code (js-await (.text response))

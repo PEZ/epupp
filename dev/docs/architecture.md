@@ -71,13 +71,13 @@ All messages are JavaScript objects with a `type` field. Source identifiers dist
 
 Via `window.postMessage` with source identifiers.
 
-**Page → Content Bridge** (`source: "scittle-tamper-page"`):
+**Page → Content Bridge** (`source: "epupp-page"`):
 | Type | Payload | Purpose |
 |------|---------|---------|
 | `ws-connect` | `{port}` | Request WebSocket connection |
 | `ws-send` | `{data}` | Send data through WebSocket |
 
-**Content Bridge → Page** (`source: "scittle-tamper-bridge"`):
+**Content Bridge → Page** (`source: "epupp-bridge"`):
 | Type | Payload | Purpose |
 |------|---------|---------|
 | `bridge-ready` | - | Bridge loaded and ready |

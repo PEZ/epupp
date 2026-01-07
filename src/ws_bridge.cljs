@@ -10,7 +10,7 @@
   (when (= (.-source event) js/window)
     (let [msg (.-data event)]
       (when (and msg
-                 (= "scittle-tamper-bridge" (.-source msg))
+                 (= "epupp-bridge" (.-source msg))
                  (= "bridge-ready" (.-type msg)))
         (js/console.log "[WS Bridge] Bridge is ready")
         (swap! !state assoc :bridge/ready? true)))))
@@ -48,7 +48,7 @@
           (fn [event]
             (when (= (.-source event) js/window)
               (let [msg (.-data event)]
-                (when (and msg (= "scittle-tamper-bridge" (.-source msg)))
+                (when (and msg (= "epupp-bridge" (.-source msg)))
                   (js/console.log "[WS Bridge] Received message type:" (.-type msg))
                   (case (.-type msg)
                     "ws-open"
@@ -88,7 +88,7 @@
             (fn [data]
               (when (= 1 (.-readyState ws-obj)) ; OPEN
                 (.postMessage js/window
-                              #js {:source "scittle-tamper-page"
+                              #js {:source "epupp-page"
                                    :type "ws-send"
                                    :data data}
                               "*"))))
@@ -110,7 +110,7 @@
 
       ;; Request connection through bridge
       (.postMessage js/window
-                    #js {:source "scittle-tamper-page"
+                    #js {:source "epupp-page"
                          :type "ws-connect"
                          :port port}
                     "*"))

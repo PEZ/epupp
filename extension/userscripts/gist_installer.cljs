@@ -32,7 +32,7 @@
 (defn create-install-button []
   (let [btn (js/document.createElement "button")]
     (set! (.-textContent btn) "Install to Epupp")
-    (set! (.-className btn) "scittle-tamper-install-btn")
+    (set! (.-className btn) "epupp-install-btn")
     (set! (.. btn -style -cssText)
           "margin: 8px 0; padding: 6px 12px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;")
     btn))
@@ -62,16 +62,16 @@
                "<p><strong>Source:</strong><br><code>" gist-url "</code></p>"
                "<p style='color: #666; font-size: 14px;'>This will download and install the script from the gist file above.</p>"
                "<div style='display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;'>"
-               "<button id='scittle-tamper-cancel' style='padding: 6px 16px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer;'>Cancel</button>"
-               "<button id='scittle-tamper-confirm' style='padding: 6px 16px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; cursor: pointer;'>Install</button>"
+               "<button id='epupp-cancel' style='padding: 6px 16px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer;'>Cancel</button>"
+               "<button id='epupp-confirm' style='padding: 6px 16px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; cursor: pointer;'>Install</button>"
                "</div>"))
 
     (.appendChild overlay modal)
     (.appendChild js/document.body overlay)
 
     ;; Event handlers
-    (let [confirm-btn (.querySelector modal "#scittle-tamper-confirm")
-          cancel-btn (.querySelector modal "#scittle-tamper-cancel")
+    (let [confirm-btn (.querySelector modal "#epupp-confirm")
+          cancel-btn (.querySelector modal "#epupp-cancel")
           close-modal (fn []
                         (.removeChild js/document.body overlay))]
       (.addEventListener confirm-btn "click"
@@ -101,7 +101,7 @@
   ;; Listen for response from content bridge
   (let [listener (fn listener[event]
                    (let [data (.-data event)]
-                     (when (and (= (.-source data) "scittle-tamper-bridge")
+                     (when (and (= (.-source data) "epupp-bridge")
                                (= (.-type data) "install-response"))
                        (.removeEventListener js/window "message" listener)
                        (callback #js {:success (.-success data)
@@ -110,7 +110,7 @@
     ;; Send install request to content bridge
     ;; Must use clj->js on manifest so postMessage serializes the actual keys
     (.postMessage js/window
-                  #js {:source "scittle-tamper-userscript"
+                  #js {:source "epupp-userscript"
                        :type "install-userscript"
                        :manifest (clj->js manifest)
                        :scriptUrl script-url}

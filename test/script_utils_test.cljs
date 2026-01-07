@@ -309,7 +309,7 @@
           (fn []
             (test "returns truthy for builtin prefix"
                   (fn []
-                    (-> (expect (script-utils/builtin-script-id? "scittle-tamper-builtin-gist-installer"))
+                    (-> (expect (script-utils/builtin-script-id? "epupp-builtin-gist-installer"))
                         (.toBeTruthy))))
 
             (test "returns falsy for user script ids"
@@ -333,7 +333,7 @@
           (fn []
             (test "returns truthy for script with builtin prefix"
                   (fn []
-                    (let [script {:script/id "scittle-tamper-builtin-gist-installer"
+                    (let [script {:script/id "epupp-builtin-gist-installer"
                                   :script/name "Gist Installer"}]
                       (-> (expect (script-utils/builtin-script? script))
                           (.toBeTruthy)))))

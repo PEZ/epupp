@@ -49,7 +49,7 @@ I'm still pondering if I should submit to Safari App Store or not. Apple doesn't
 
 1. Go to `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
-3. Select any file in `scittle-tamper-firefox.zip` file
+3. Select any file in `epupp-firefox.zip` file
 
 **Safari:**
 
@@ -58,7 +58,7 @@ I'm still pondering if I should submit to Safari App Store or not. Apple doesn't
 
 **Chrome:**
 
-0. Unpack `scittle-tamper-chrome.zip` (will unpack a `chrome` folder)
+0. Unpack `epupp-chrome.zip` (will unpack a `chrome` folder)
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
 3. Click "Load unpacked"

@@ -116,7 +116,7 @@
 ;; Built-in script detection
 ;; ============================================================
 
-(def builtin-id-prefix "scittle-tamper-builtin-")
+(def builtin-id-prefix "epupp-builtin-")
 
 (defn builtin-script-id?
   "Check if a script ID is a built-in script ID."
