@@ -322,6 +322,10 @@
     [:div
      [:div.script-item {:class (str (when matches-current "script-item-active ")
                                     (when needs-approval "script-item-approval"))}
+      [:input {:type "checkbox"
+               :checked enabled
+               :title (if enabled "Enabled" "Disabled")
+               :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
       [:div.script-info
        [:span.script-name name]
        (when builtin?
@@ -337,16 +341,9 @@
        (when needs-approval
          [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
           "Deny"])
-       ;; Edit button to load script in DevTools panel
        [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
                              :title "Send to editor"}
         [icons/pencil]]
-       ;; Always show checkbox for enable/disable
-       [:input {:type "checkbox"
-                :checked enabled
-                :title (if enabled "Enabled" "Disabled")
-                :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
-       ;; Delete button hidden for built-in scripts
        (when-not builtin?
          [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
                                               (dispatch! [[:popup/ax.delete-script script-id]]))
