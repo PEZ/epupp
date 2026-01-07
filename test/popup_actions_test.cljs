@@ -243,6 +243,32 @@
                       (-> (expect result)
                           (.toBeUndefined)))))))
 
+(describe "popup evaluate action"
+          (fn []
+            (test ":popup/ax.evaluate-script triggers evaluate effect"
+                  (fn []
+                    (let [scripts [{:script/id "test-1"
+                                    :script/name "Test"
+                                    :script/match ["*://example.com/*"]
+                                    :script/code "(println \"hi\")"}]
+                          state (assoc initial-state :scripts/list scripts)
+                          result (popup-actions/handle-action state uf-data [:popup/ax.evaluate-script "test-1"])
+                          [fx-name script] (first (:uf/fxs result))]
+                      (-> (expect fx-name)
+                          (.toBe :popup/fx.evaluate-script))
+                      (-> (expect (:script/id script))
+                          (.toBe "test-1"))
+                      (-> (expect (:script/code script))
+                          (.toBe "(println \"hi\")")))))
+
+            (test ":popup/ax.evaluate-script returns nil for non-existent script"
+                  (fn []
+                    (let [scripts [{:script/id "other"}]
+                          state (assoc initial-state :scripts/list scripts)
+                          result (popup-actions/handle-action state uf-data [:popup/ax.evaluate-script "missing"])]
+                      (-> (expect result)
+                          (.toBeUndefined)))))))
+
 (describe "popup settings view actions"
           (fn []
             (test ":popup/ax.load-user-origins triggers effect"

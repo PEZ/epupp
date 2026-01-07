@@ -79,6 +79,12 @@
          :uf/fxs [[:popup/fx.edit-script script]
                   [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
 
+    :popup/ax.evaluate-script
+    (let [[script-id] args
+          script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
+      (when script
+        {:uf/fxs [[:popup/fx.evaluate-script script]]}))
+
     :popup/ax.load-user-origins
     {:uf/fxs [[:popup/fx.load-user-origins]]}
 

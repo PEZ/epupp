@@ -394,6 +394,28 @@ button#connect:active {
   color: var(--clojure-blue);
 }
 
+.script-run {
+  font-size: 14px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.script-run:hover {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .script-run:hover {
+    background: #14532d;
+    color: #4ade80;
+  }
+}
+
 .script-edit-hint {
   padding: 8px 12px;
   margin-top: 6px;

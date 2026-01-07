@@ -230,6 +230,15 @@
     (let [tab (js-await (get-active-tab))]
       (dispatch [[:db/ax.assoc :scripts/current-url (.-url tab)]]))
 
+    :popup/fx.evaluate-script
+    (let [[script] args
+          tab (js-await (get-active-tab))]
+      (js/chrome.runtime.sendMessage
+       #js {:type "evaluate-script"
+            :tabId (.-id tab)
+            :scriptId (:script/id script)
+            :code (:script/code script)}))
+
     :popup/fx.load-user-origins
     (js/chrome.storage.local.get
      #js ["userAllowedOrigins"]
@@ -344,6 +353,9 @@
        [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
                              :title "Send to editor"}
         [icons/pencil]]
+       [:button.script-run {:on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])
+                            :title "Run script"}
+        [icons/play]]
        (when-not builtin?
          [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
                                               (dispatch! [[:popup/ax.delete-script script-id]]))

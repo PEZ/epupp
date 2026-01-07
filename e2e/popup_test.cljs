@@ -83,6 +83,12 @@
               ;; 3 scripts: built-in Gist Installer + 2 user scripts
               (js-await (-> (expect (.locator popup ".script-item")) (.toHaveCount 3 #js {:timeout 3000})))
 
+              ;; Verify script action buttons exist (edit, run, delete)
+              (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")]
+                (js-await (-> (expect (.locator item "button.script-edit")) (.toBeVisible)))
+                (js-await (-> (expect (.locator item "button.script-run")) (.toBeVisible)))
+                (js-await (-> (expect (.locator item "button.script-delete")) (.toBeVisible))))
+
               ;; Toggle disable (using normalized name)
               (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")
                     checkbox (.locator item "input[type='checkbox']")]

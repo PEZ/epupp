@@ -656,6 +656,21 @@
                              (send-response #js {:success false :error (.-message err)})))))
                       true)  ; Return true to indicate async response
 
+                    ;; Popup/Panel - evaluate a userscript in current tab
+                    "evaluate-script"
+                    (let [target-tab-id (.-tabId message)
+                          code (.-code message)]
+                      ((^:async fn []
+                         (try
+                           (js-await (ensure-scittle! target-tab-id))
+                           (js-await (execute-scripts! target-tab-id [{:script/id (.-scriptId message)
+                                                                       :script/name "popup-eval"
+                                                                       :script/code code}]))
+                           (send-response #js {:success true})
+                           (catch :default err
+                             (send-response #js {:success false :error (.-message err)})))))
+                      true)  ; Return true to indicate async response
+
                     ;; Unknown
                     (do (js/console.log "[Background] Unknown message type:" msg-type)
                         false)))))

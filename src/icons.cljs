@@ -99,3 +99,14 @@
     [:path {:fill-rule "evenodd"
             :d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
             :clip-rule "evenodd"}]]))
+
+(defn play
+  "Play/run icon - Heroicons mini play"
+  ([] (play {}))
+  ([{:keys [size] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size
+          :height size
+          :viewBox "0 0 20 20"
+          :fill "currentColor"}
+    [:path {:d "M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"}]]))
