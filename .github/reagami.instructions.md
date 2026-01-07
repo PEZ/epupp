@@ -143,7 +143,7 @@ Call components as vector first elements:
      [child-component item])])  ; Note: [component props] not (component props)
 ```
 
-## Common Patterns from Scittle Tamper
+## Common Patterns from Epupp
 
 ### Port Input Component
 

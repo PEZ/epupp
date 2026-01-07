@@ -1,4 +1,4 @@
-# Scittle Tamper - AI Coding Agent Instructions
+# Epupp - AI Coding Agent Instructions
 
 <principles>
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
@@ -42,7 +42,7 @@ Only read `.mjs` or `build/*.js` files when debugging compilation issues. Never 
 
 ## Project Overview
 
-**Scittle Tamper** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
+**Epupp** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
 
 Mandatory reads:
 * [README.md](../README.md) - Usage and high-level architecture

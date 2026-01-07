@@ -8,7 +8,7 @@
 
 (def ^:private config js/EXTENSION_CONFIG)
 
-(js/console.log "[Scittle Tamper Background] Service worker started")
+(js/console.log "[Epupp Background] Service worker started")
 
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
@@ -248,7 +248,7 @@
       } catch(e) {
         // Policy creation may be blocked by CSP - fall back to direct assignment
         // This may fail on very strict TT sites, but extension URLs are typically allowed
-        console.warn('[Scittle Tamper] TrustedTypes policy creation failed, using direct assignment:', e.message);
+        console.warn('[Epupp] TrustedTypes policy creation failed, using direct assignment:', e.message);
         script.src = url;
       }
     } else {
@@ -768,4 +768,4 @@
 ;; Start initialization immediately for service worker wake scenarios
 (ensure-initialized!)
 
-(js/console.log "[Scittle Tamper Background] Listeners registered")
+(js/console.log "[Epupp Background] Listeners registered")

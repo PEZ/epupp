@@ -1,6 +1,6 @@
 # Testing
 
-This document describes Scittle Tamper's testing strategy, the local setup, and the test utilities used by the suite.
+This document describes Epupp's testing strategy, the local setup, and the test utilities used by the suite.
 
 ## Overview
 

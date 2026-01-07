@@ -26,7 +26,7 @@
       (.appendChild js/document.head style)))
 
   ;; Change the page title
-  (set! (.-title js/document) "🎉 Scittle Tamper works! 🎉")
+  (set! (.-title js/document) "🎉 Epupp works! 🎉")
 
   ;; Add festive gradient to the header
   (when-let [header (js/document.querySelector "header")]
@@ -38,7 +38,7 @@
   :rcf)
 
 (comment
-  ;; GitHub Party Mode - Scittle Tamper Userscript
+  ;; GitHub Party Mode - Epupp Userscript
   ;; Pattern: https://github.com/*
 
   ;; Add all the keyframe animations

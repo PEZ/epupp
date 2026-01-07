@@ -186,7 +186,7 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInBridge
   (set! js/window.__browserJackInBridge true)
-  (js/console.log "[Scittle Tamper Bridge] Content script loaded")
+  (js/console.log "[Epupp Bridge] Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
   (.postMessage js/window

@@ -354,7 +354,7 @@
    [:div.panel-header
     [:div.panel-title
      [:img {:src "icons/icon-32.png" :alt ""}]
-     "Scittle Tamper"]
+     "Epupp"]
     [:div.panel-status "Ready"]]])
 
 (defn panel-ui [state]

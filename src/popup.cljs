@@ -1,5 +1,5 @@
 (ns popup
-  "Scittle Tamper extension popup - built with Squint + Reagami
+  "Epupp extension popup - built with Squint + Reagami
    Inspired by Replicant tic-tac-toe state management pattern"
   (:require [reagami :as r]
             [event-handler :as event-handler]
@@ -363,7 +363,7 @@
           [icons/x]])]]
      (when show-edit-hint
        [:div.script-edit-hint
-        "Open the Scittle Tamper panel in Developer Tools"])]))
+        "Open the Epupp panel in Developer Tools"])]))
 
 (defn scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
   (let [user-scripts (filterv #(not (script-utils/builtin-script? %)) list)]
@@ -483,7 +483,7 @@
      [:div.header
       [:div.header-left
        [icons/jack-in]
-       [:h1 "Scittle Tamper"]]
+       [:h1 "Epupp"]]
       [:div.header-right
        [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
                            :target "_blank"}
@@ -523,7 +523,7 @@
             [popup-ui @!state]))
 
 (defn init! []
-  (js/console.log "Scittle Tamper popup init!")
+  (js/console.log "Epupp popup init!")
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
 
   ;; Detect browser features

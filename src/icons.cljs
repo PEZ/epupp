@@ -56,7 +56,7 @@
             :clip-rule "evenodd"}]]))
 
 (defn jack-in
-  "Scittle Tamper logo - lightning bolt in circle"
+  "Epupp logo - lightning bolt in circle"
   ([] (jack-in {}))
   ([{:keys [size] :or {size 36}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"

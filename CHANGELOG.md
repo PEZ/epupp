@@ -1,6 +1,6 @@
 # Changelog
 
-Changes to Scittle Tamper
+Changes to Epupp
 
 ## [Unreleased]
 

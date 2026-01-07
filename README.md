@@ -1,13 +1,13 @@
-# Scittle Tamper
+# Epupp: Live Tamper your Web
 
-A web browser extension that lets you write userscripts using Clojure. It works by injecting [Scittle](https://github.com/babashka/scittle) into the page. You can also use the Scittle REPL server to interactively edit your userscripts, or just hack the current page, using your favorite Clojure editor. Or let your AI agent loose on the page.
+A web browser extension that lets you tamper with web pages, live and/or with userscripts. Epupp is power by [Scittle](https://github.com/babashka/scittle), which get injected into the page and lets you inspect and modify it while you are using the page. You can also use the Scittle REPL server to use your favorite editor or AI tools to interactively tamper with the page.
 
 ## Userscripts Usage
 
 > [!NOTE]
 > Currently super **experimental**. I am fumbling quite a bit over the UI/Ux and APIs.
 
-There is a script “editor” (a textarea) in the Development Tools tab named **Scittle Tamper**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script. For this you need to also fill in:
+There is a script “editor” (a textarea) in the Development Tools tab named **Epupp**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script. For this you need to also fill in:
 
 * Script name: (Whatever for now, this is one of the things I am undecided about)
 * Site pattern: a TamperMonkey compatible pattern targeting the sites where this script should be auto-injected and run.
@@ -23,10 +23,10 @@ I do not plan to build the code editor out much. Mostly because the preferred wa
 1. [Babashka](https://babashka.org)
 2. A REPL client (such as a Clojure editor, like [Calva](https://calva.io))
 
-On the web page where you want to jack-in your REPL client: open the **Scittle Tamper** extension
+On the web page where you want to jack-in your REPL client: open the **Epupp** extension
 and follow the 1-2-3 step instructions.
 
-![Scittle Tamper Popup UI](browser-jack-in-screenshot.png)
+![Epupp Popup UI](browser-jack-in-screenshot.png)
 
 Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
@@ -72,10 +72,14 @@ The extension does not collect any data whatsoever, and never will.
 
 [MIT](LICENSE)
 
+(Free to use and open source. 🍻🗽)
+
 ## Development
 
 To build and hack on the extension, see the [development docs](dev/docs/dev.md).
 
 ## Enjoy! ♥️
 
-Please consider [sponsoring my open source work](https://github.com/sponsors/PEZ).
+Epupp is created and maintained by Peter Strömberg a.k.a PEZ, and provided as open source and is free to use. A lot of my time is spent on bringing Epupp and related software to you, and keeping it supported, working and relevant.
+
+* Please consider [sponsoring my open source work](https://github.com/sponsors/PEZ).

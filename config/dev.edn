@@ -1,4 +1,4 @@
-;; Development configuration for Scittle Tamper
+;; Development configuration for Epupp
 ;;
 ;; This file is read at build time and injected via esbuild --define.
 ;; Changes here require a rebuild to take effect.

@@ -3,7 +3,7 @@
 **Created:** January 7, 2026
 **Status:** Planning
 
-This document outlines the implementation plan for script management enhancements in Scittle Tamper.
+This document outlines the implementation plan for script management enhancements in Epupp.
 
 ## Feature Summary
 

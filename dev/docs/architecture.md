@@ -1,10 +1,10 @@
-# Scittle Tamper Architecture
+# Epupp Architecture
 
-This document describes the technical architecture of the Scittle Tamper browser extension, serving as the authoritative reference derived from the source code.
+This document describes the technical architecture of the Epupp browser extension, serving as the authoritative reference derived from the source code.
 
 ## Overview
 
-Scittle Tamper bridges your Clojure editor to the browser's page execution environment through a multi-layer message relay system. The architecture handles three main use cases:
+Epupp bridges your Clojure editor to the browser's page execution environment through a multi-layer message relay system. The architecture handles three main use cases:
 
 1. **REPL Connection** - Live code evaluation from editor via nREPL
 2. **Userscript Auto-Injection** - Saved scripts execute on matching URLs

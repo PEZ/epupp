@@ -1,5 +1,5 @@
 {
-  "description": "Live tamper your web. Use existing userscripts or develop your own. Jack your  editor into any web page to tamper with it in real-time. Or let your AI agent hack the page while you are browsing.",
+  "description": "Make web pages you visit behave like you want them to with userscripts. Jack your editor into any web page to tamper with it live. Save your tampers as userscripts. Let your AI agent hack the page while you are browsing.",
   "host_permissions": [
     "<all_urls>"
   ],
@@ -9,7 +9,7 @@
     "storage",
     "webNavigation"
   ],
-  "name": "Scittle Tamper",
+  "name": "Epupp: Live Tamper your Web",
   "background": {
     "service_worker": "background.js"
   },
@@ -30,7 +30,7 @@
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.148",
+  "version": "0.0.7.149",
   "web_accessible_resources": [
     {
       "resources": [

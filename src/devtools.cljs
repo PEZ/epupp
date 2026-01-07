@@ -1,8 +1,8 @@
 (ns devtools
-  "DevTools entry point - registers the Scittle Tamper panel")
+  "DevTools entry point - registers the Epupp panel")
 
 (js/chrome.devtools.panels.create
- "Scittle Tamper"
+ "Epupp"
  "icons/icon-32.png"
  "panel.html"
  (fn [_panel]

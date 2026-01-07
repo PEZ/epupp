@@ -1,4 +1,4 @@
-;; Scittle Tamper Gist Installer - Runs in Scittle on GitHub gist pages
+;; Epupp Gist Installer - Runs in Scittle on GitHub gist pages
 ;;
 ;; This userscript scans gist code blocks for install manifests,
 ;; adds Install buttons, and sends parsed data to the extension.
@@ -8,7 +8,7 @@
             [clojure.string :as str]))
 
 (def ^:private manifest-marker
-  ";; Scittle Tamper UserScript")
+  ";; Epupp UserScript")
 
 (defn has-manifest? [code-text]
   (and code-text (str/includes? code-text manifest-marker)))
@@ -31,7 +31,7 @@
 
 (defn create-install-button []
   (let [btn (js/document.createElement "button")]
-    (set! (.-textContent btn) "Install to Scittle Tamper")
+    (set! (.-textContent btn) "Install to Epupp")
     (set! (.-className btn) "scittle-tamper-install-btn")
     (set! (.. btn -style -cssText)
           "margin: 8px 0; padding: 6px 12px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;")

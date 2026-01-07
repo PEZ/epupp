@@ -120,7 +120,7 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInWSBridge
   (set! js/window.__browserJackInWSBridge true)
-  (js/console.log "[Scittle Tamper] Installing WebSocket bridge")
+  (js/console.log "[Epupp] Installing WebSocket bridge")
 
   ;; Wait for bridge ready signal
   (.addEventListener js/window "message" handle-bridge-ready)
