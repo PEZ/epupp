@@ -135,19 +135,20 @@
 (defn normalize-script-name
   "Normalize a script name to a consistent format for uniqueness.
    - Lowercase
-   - Replace spaces and dashes with underscores
+   - Replace spaces, dashes, and dots with underscores
    - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
-   - Append .cljs if not present
-   - Remove invalid characters
-
-   Note: This normalizes the display name, not the ID. The ID should
-   be stable and independent (derived from name at creation time)."
+   - Append .cljs extension
+   - Remove invalid characters"
   [input-name]
-  (-> input-name
-      (.toLowerCase)
-      (.replace (js/RegExp. "[\\s-]+" "g") "_")
-      (.replace (js/RegExp. "[^a-z0-9_./]" "g") "")
-      (as-> s (if (.endsWith s ".cljs") s (str s ".cljs")))))
+  (let [;; Strip .cljs extension if present (we'll add it back)
+        base-name (if (.endsWith input-name ".cljs")
+                    (.slice input-name 0 -5)
+                    input-name)]
+    (-> base-name
+        (.toLowerCase)
+        (.replace (js/RegExp. "[\\s.-]+" "g") "_")
+        (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
+        (str ".cljs"))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing

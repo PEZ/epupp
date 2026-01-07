@@ -379,6 +379,15 @@
                     (-> (expect (script-utils/normalize-script-name "my-script"))
                         (.toBe "my_script.cljs"))))
 
+            (test "replaces dots with underscores except .cljs extension"
+                  (fn []
+                    (-> (expect (script-utils/normalize-script-name "my.script.name"))
+                        (.toBe "my_script_name.cljs"))
+                    (-> (expect (script-utils/normalize-script-name "v1.0.0"))
+                        (.toBe "v1_0_0.cljs"))
+                    (-> (expect (script-utils/normalize-script-name "my.script.cljs"))
+                        (.toBe "my_script.cljs"))))
+
             (test "preserves slashes for namespace paths"
                   (fn []
                     (-> (expect (script-utils/normalize-script-name "my-project/utils"))
