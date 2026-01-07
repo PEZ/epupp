@@ -145,6 +145,18 @@
                  scripts)))
   (persist!))
 
+(defn rename-script!
+  "Rename a script (update its display name, not its ID)"
+  [script-id new-name]
+  (let [now (.toISOString (js/Date.))]
+    (swap! !db update :storage/scripts
+           (fn [scripts]
+             (mapv #(if (= (:script/id %) script-id)
+                      (assoc % :script/name new-name :script/modified now)
+                      %)
+                   scripts)))
+    (persist!)))
+
 ;; ============================================================
 ;; Granted Origins CRUD
 ;; ============================================================

@@ -188,11 +188,12 @@
                       ;; Should show success status
                       (-> (expect (:type (:panel/save-status new-state)))
                           (.toBe :success))
-                      ;; Should clear fields after save
+                      ;; Should keep normalized name after save (not clear it)
                       (-> (expect (:panel/script-name new-state))
-                          (.toBe ""))
-                      (-> (expect (:panel/script-match new-state))
-                          (.toBe ""))
+                          (.toBe "my_script.cljs"))
+                      ;; Should set original-name to match
+                      (-> (expect (:panel/original-name new-state))
+                          (.toBe "my_script.cljs"))
                       ;; Should trigger save effect
                       (-> (expect (first (first (:uf/fxs result))))
                           (.toBe :editor/fx.save-script)))))
@@ -250,7 +251,7 @@
                       (-> (expect (:script/description script))
                           (.toBeUndefined)))))
 
-            (test ":editor/ax.save-script clears description after save"
+            (test ":editor/ax.save-script keeps description after save"
                   (fn []
                     (let [state (-> initial-state
                                     (assoc :panel/code "(println \"hi\")")
@@ -259,5 +260,6 @@
                                     (assoc :panel/script-description "A description"))
                           result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
                           new-state (:uf/db result)]
+                      ;; Description should be preserved after save
                       (-> (expect (:panel/script-description new-state))
-                          (.toBe "")))))))
+                          (.toBe "A description")))))))

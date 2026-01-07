@@ -83,18 +83,33 @@
           {:uf/fxs [[:editor/fx.save-script script]
                     [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
                     [:editor/fx.clear-persisted-state]]
+           ;; Keep fields populated, update original-name to match saved name, set script-id
            :uf/db (assoc state
                          :panel/save-status {:type :success :text (str "Saved \"" normalized-name "\"")}
-                         :panel/script-name ""
-                         :panel/script-match ""
-                         :panel/script-description ""
-                         :panel/script-id nil)})))
+                         :panel/script-name normalized-name
+                         :panel/original-name normalized-name
+                         :panel/script-id id)})))
+
+    :editor/ax.rename-script
+    (let [{:panel/keys [script-name script-id original-name]} state]
+      (if (or (empty? script-name) (not script-id))
+        {:uf/db (assoc state :panel/save-status {:type :error :text "Cannot rename: no script loaded"})}
+        (let [normalized-name (script-utils/normalize-script-name script-name)]
+          (if (= normalized-name original-name)
+            {:uf/db (assoc state :panel/save-status {:type :error :text "Name unchanged"})}
+            {:uf/fxs [[:editor/fx.rename-script script-id normalized-name]
+                      [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]
+             :uf/db (assoc state
+                           :panel/save-status {:type :success :text (str "Renamed to \"" normalized-name "\"")}
+                           :panel/script-name normalized-name
+                           :panel/original-name normalized-name)}))))
 
     :editor/ax.load-script-for-editing
     (let [[id name match code description] args]
       {:uf/db (assoc state
                      :panel/script-id id
                      :panel/script-name name
+                     :panel/original-name name  ;; Track for rename detection
                      :panel/script-match match
                      :panel/code code
                      :panel/script-description (or description ""))})

@@ -4,6 +4,7 @@
   (:require [reagami :as r]
             [event-handler :as event-handler]
             [panel-actions :as panel-actions]
+            [script-utils :as script-utils]
             [storage :as storage]))
 
 (defonce !state
@@ -12,6 +13,7 @@
          :panel/evaluating? false
          :panel/scittle-status :unknown  ; :unknown, :checking, :loading, :loaded
          :panel/script-name ""
+         :panel/original-name nil  ;; Track for rename detection
          :panel/script-match ""
          :panel/script-description ""
          :panel/script-id nil  ; non-nil when editing existing script
@@ -159,6 +161,12 @@
       ;; Notify background to update badge
       (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
 
+    :editor/fx.rename-script
+    (let [[script-id new-name] args]
+      (storage/rename-script! script-id new-name)
+      ;; Notify background to update badge
+      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
+
     :editor/fx.clear-persisted-state
     (when-let [hostname (:panel/current-hostname @!state)]
       (js/chrome.storage.local.remove (panel-state-key hostname)))
@@ -260,43 +268,57 @@
        "Clear Results"]
       [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
 
-(defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description panel/code panel/save-status panel/script-id]}]
-  [:div.save-script-section
-   [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
-   [:div.save-script-form
-    [:div.save-field
-     [:label {:for "script-name"} "Name"]
-     [:input {:type "text"
-              :id "script-name"
-              :value script-name
-              :placeholder "My Script"
-              :on-input (fn [e] (dispatch! [[:editor/ax.set-script-name (.. e -target -value)]]))}]]
-    [:div.save-field
-     [:label {:for "script-match"} "URL Pattern"]
-     [:div.match-input-group
-      [:input {:type "text"
-               :id "script-match"
-               :value script-match
-               :placeholder "https://example.com/*"
-               :on-input (fn [e] (dispatch! [[:editor/ax.set-script-match (.. e -target -value)]]))}]
-      [:button.btn-use-url {:on-click #(dispatch! [[:editor/ax.use-current-url]])
-                            :title "Use current page URL"}
-       "↵"]]]
-    [:div.save-field.description-field
-     [:label {:for "script-description"} "Description (optional)"]
-     [:textarea {:id "script-description"
-                 :value script-description
-                 :placeholder "What does this script do?"
-                 :rows 2
-                 :on-input (fn [e] (dispatch! [[:editor/ax.set-script-description (.. e -target -value)]]))}]]
-    [:div.save-actions
-     [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
-                        :disabled (or (empty? code) (empty? script-name) (empty? script-match))}
-      "Save Script"]
-     ;; In Squint, keywords are already strings, so no need for `name`
-     (when save-status
-       [:span {:class (str "save-status save-status-" (:type save-status))}
-        (:text save-status)])]]])
+(defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
+                                   panel/code panel/save-status panel/script-id panel/original-name]}]
+  (let [;; Normalize current name for comparison
+        normalized-name (when (seq script-name)
+                          (script-utils/normalize-script-name script-name))
+        ;; Show rename when editing and name differs from original
+        show-rename? (and script-id
+                          original-name
+                          normalized-name
+                          (not= normalized-name original-name))]
+    [:div.save-script-section
+     [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
+     [:div.save-script-form
+      [:div.save-field
+       [:label {:for "script-name"} "Name"]
+       [:input {:type "text"
+                :id "script-name"
+                :value script-name
+                :placeholder "My Script"
+                :on-input (fn [e] (dispatch! [[:editor/ax.set-script-name (.. e -target -value)]]))}]]
+      [:div.save-field
+       [:label {:for "script-match"} "URL Pattern"]
+       [:div.match-input-group
+        [:input {:type "text"
+                 :id "script-match"
+                 :value script-match
+                 :placeholder "https://example.com/*"
+                 :on-input (fn [e] (dispatch! [[:editor/ax.set-script-match (.. e -target -value)]]))}]
+        [:button.btn-use-url {:on-click #(dispatch! [[:editor/ax.use-current-url]])
+                              :title "Use current page URL"}
+         "↵"]]]
+      [:div.save-field.description-field
+       [:label {:for "script-description"} "Description (optional)"]
+       [:textarea {:id "script-description"
+                   :value script-description
+                   :placeholder "What does this script do?"
+                   :rows 2
+                   :on-input (fn [e] (dispatch! [[:editor/ax.set-script-description (.. e -target -value)]]))}]]
+      [:div.save-actions
+       [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
+                          :disabled (or (empty? code) (empty? script-name) (empty? script-match))}
+        "Save Script"]
+       ;; Rename button - appears after Save to keep layout stable
+       (when show-rename?
+         [:button.btn-rename {:on-click #(dispatch! [[:editor/ax.rename-script]])
+                              :title (str "Rename from \"" original-name "\" to \"" normalized-name "\"")}
+          "Rename"])
+       ;; In Squint, keywords are already strings, so no need for `name`
+       (when save-status
+         [:span {:class (str "save-status save-status-" (:type save-status))}
+          (:text save-status)])]]]))
 
 (defn refresh-banner []
   [:div.refresh-banner

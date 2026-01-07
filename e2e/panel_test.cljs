@@ -78,9 +78,8 @@
               (js-await (-> (expect (.locator panel ".save-status"))
                             (.toContainText "Saved")))
 
-              ;; 8. Form fields cleared after save
-              (js-await (-> (expect name-input) (.toHaveValue "")))
-              (js-await (-> (expect match-input) (.toHaveValue ""))))
+              ;; 8. Form fields kept after save (normalized name shown)
+              (js-await (-> (expect name-input) (.toHaveValue "test_userscript.cljs"))))
             (finally
               (js-await (.close context)))))))
 

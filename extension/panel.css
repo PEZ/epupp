@@ -441,6 +441,22 @@ body {
   cursor: not-allowed;
 }
 
+.btn-rename {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--clojure-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-rename:hover {
+  background: #5c9fd4;
+}
+
 .save-status {
   font-size: 11px;
   animation: fadeIn 0.2s ease;
