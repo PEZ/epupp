@@ -331,33 +331,34 @@ Hiccup-style components with Reagami:
 
 All icons are inline SVGs centralized in `icons.cljs`. This avoids external dependencies and font icon complexity.
 
-**Icon sources (MIT/ISC licensed):**
-- [Heroicons](https://heroicons.com/) — Primary source for UI icons
-- [Lucide](https://lucide.dev/) — Alternative/backup source
+**Icon source:**
+- [VS Code Codicons](https://github.com/microsoft/vscode-codicons) (CC BY 4.0) - Primary source for visual consistency with VS Code
 
 **Pattern:**
 ```clojure
 ;; In icons.cljs
-(defn pencil
-  ([] (pencil {}))
-  ([{:keys [size] :or {size 16}}]
+(defn edit
+  ([] (edit {}))
+  ([{:keys [size class] :or {size 16}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size :height size
-          :viewBox "0 0 20 20"
-          :fill "currentColor"}
+          :viewBox "0 0 16 16"
+          :fill "currentColor"
+          :class class}
     [:path {:d "..."}]]))
 
 ;; Usage in components
 (:require [icons :as icons])
-[:button.edit [icons/pencil]]
-[:button.edit [icons/pencil {:size 18}]]  ; custom size
+[:button.edit [icons/edit]]
+[:button.edit [icons/edit {:size 18}]]  ; custom size
 ```
 
 **Guidelines:**
 - Use `fill "currentColor"` for icons that should inherit text color
-- Provide sensible default size, allow override via `:size` prop
-- Keep icons small and optimized (remove unnecessary attributes from raw SVG)
+- Provide sensible default size, allow override via `:size` and `:class` props
+- All icons use 16x16 viewBox (Codicons standard)
 - Add new icons to `icons.cljs` rather than inline in components
+- Browse available icons: https://microsoft.github.io/vscode-codicons/dist/codicon.html
 
 ## Common Pitfalls
 
