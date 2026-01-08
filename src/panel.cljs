@@ -275,7 +275,7 @@
   [run-at]
   (case run-at
     "document-start" [:span.run-at-badge {:title "Runs at document-start (before page loads)"}
-                      [icons/bolt]]
+                      [icons/rocket]]
     "document-end" [:span.run-at-badge {:title "Runs at document-end (when DOM is ready)"}
                     [icons/flag]]
     ;; document-idle (default) - no badge
