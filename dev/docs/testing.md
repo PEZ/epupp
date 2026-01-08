@@ -17,12 +17,21 @@ A core goal is to extract pure functions and keep most business logic unit-testa
 - Unit tests once: `bb test`
 - Unit test watcher: `bb test:watch`
 - UI E2E tests: `bb test:e2e` (or `bb test:e2e:ui`)
-- UI E2E tests (Docker, no browser popup): `bb test:e2e:ai`
+- UI E2E tests (Docker, for AI agents): `bb test:e2e:ai`
 - REPL integration tests: `bb test:repl-e2e` (or `bb test:repl-e2e:ui`)
+- REPL integration tests (Docker, for AI agents): `bb test:repl-e2e:ai`
 
 CI variants (assume build artifacts exist):
 - `bb test:e2e:ci`
 - `bb test:repl-e2e:ci`
+
+**Playwright options:** All Playwright-based tasks accept extra args:
+```bash
+bb test:e2e --grep "pattern"      # Run tests matching pattern
+bb test:e2e:ci --grep "popup"     # Filter without rebuilding
+bb test:e2e:ai --grep "panel"     # Filter in Docker
+bb test:e2e --headed --debug      # Debug mode with inspector
+```
 
 ## Unit tests (Vitest)
 
@@ -53,15 +62,16 @@ UI E2E tests validate workflows that cannot be unit tested: extension load, DOM 
 **Run**
 - `bb test:e2e` (headed - browsers visible on host)
 - `bb test:e2e:ui` (Playwright UI)
-- `bb test:e2e:ai` (Docker - no browser popup on host)
+- `bb test:e2e:ai` (Docker - for AI agents, no browser popup on host)
 
 **Docker variant** (`bb test:e2e:ai`):
+- Designed for AI agents that cannot interact with browser windows
 - Runs tests in a Docker container with virtual display (Xvfb)
 - No browser windows appear on the host machine
 - Requires Docker to be running
 - Builds ARM64 image on Apple Silicon for faster execution
 - First run builds the image (~30s), subsequent runs are faster
-- Tests run and container exits cleanly when complete
+- Pass Playwright options: `bb test:e2e:ai --grep "pattern"`
 
 ### Design philosophy: consolidated user journeys
 
@@ -123,6 +133,12 @@ These tests validate the full REPL pipeline:
 **Run**
 - `bb test:repl-e2e` (headless)
 - `bb test:repl-e2e:ui` (Playwright UI)
+- `bb test:repl-e2e:ai` (Docker - for AI agents, no browser popup on host)
+
+**Docker variant** (`bb test:repl-e2e:ai`):
+- Designed for AI agents that cannot interact with browser windows
+- Starts browser-nrepl and HTTP server inside Docker
+- Runs the full REPL integration test suite
 
 **Ports and build mode**
 - The relay uses ports 12345 (nREPL) and 12346 (WebSocket).

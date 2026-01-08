@@ -63,24 +63,29 @@
                   (babashka.process/shell "npx vitest run"))}
 
   ;; E2E test tasks
+  ;; All e2e tasks pass *command-line-args* to Playwright, e.g.:
+  ;;   bb test:e2e --grep "some test"
+  ;;   bb test:e2e --headed --debug
+  ;;   bb test:e2e:ci --grep "popup" --retries 2
+
   test:e2e:compile {:doc "Compile e2e test files"
                     :task (do (babashka.fs/delete-tree "build/e2e")
                               (babashka.process/shell "npx squint compile --paths src e2e --output-dir build/e2e"))}
 
-  test:e2e {:doc "Run Playwright E2E tests (builds extension first, opens browser - extensions require headed mode)"
+  test:e2e {:doc "Run Playwright E2E tests (builds first). Pass extra args to Playwright: bb test:e2e --grep 'pattern'"
             :depends [build:test test:e2e:compile]
-            :task (babashka.process/shell "npx playwright test")}
+            :task (apply babashka.process/shell "npx playwright test" *command-line-args*)}
 
-  test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist)"
-               :task (babashka.process/shell "npx playwright test")}
+  test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist). Pass extra args to Playwright."
+               :task (apply babashka.process/shell "npx playwright test" *command-line-args*)}
 
-  test:e2e:ai {:doc "Run Playwright E2E tests in Docker (no browser popup on host)"
+  test:e2e:ai {:doc "Run Playwright E2E tests in Docker (for AI agents: no browser popup on host). Pass extra args to Playwright."
                :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-                         (babashka.process/shell "docker run --rm epupp-e2e"))}
+                         (apply babashka.process/shell "docker run --rm epupp-e2e" *command-line-args*))}
 
-  test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner"
+  test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner. Pass extra args to Playwright."
                :depends [build:test test:e2e:compile]
-               :task (babashka.process/shell "npx playwright test --ui")}
+               :task (apply babashka.process/shell "npx playwright test --ui" *command-line-args*)}
 
   test:repl-e2e {:doc "Run REPL integration tests (full pipeline: editor -> browser-nrepl -> extension -> page)"
                  :depends [build:test test:e2e:compile]
@@ -89,11 +94,15 @@
   test:repl-e2e:ci {:doc "Run REPL integration tests (CI: assumes build artifacts exist)"
                     :task repl-test/run-integration-tests}
 
-  test:repl-e2e:ui {:doc "Run REPL integration tests with Playwright interactive UI"
+  test:repl-e2e:ai {:doc "Run REPL integration tests in Docker (for AI agents: no browser popup on host)"
+                    :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
+                              (babashka.process/shell "docker run --rm epupp-e2e --repl-e2e"))}
+
+  test:repl-e2e:ui {:doc "Run REPL integration tests with Playwright interactive UI. Pass extra args to Playwright."
                     :depends [build:test test:e2e:compile]
                     :task (let [{:keys [cleanup-fn]} ((resolve 'repl-test/start-servers!))]
                             (try
-                              (babashka.process/shell "npx playwright test --ui --config e2e/playwright.repl.config.js")
+                              (apply babashka.process/shell "npx playwright test --ui --config e2e/playwright.repl.config.js" *command-line-args*)
                               (finally
                                 (cleanup-fn))))}
 

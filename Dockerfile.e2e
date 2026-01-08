@@ -39,12 +39,32 @@ RUN bb build:test \
 # Create entrypoint script that manages Xvfb lifecycle properly
 # (xvfb-run hangs on some systems, so we start/stop Xvfb explicitly)
 # Suppress XKEYBOARD warnings by redirecting Xvfb stderr to /dev/null
+# Supports --repl-e2e flag to run REPL integration tests with browser-nrepl
 RUN echo '#!/bin/bash\n\
 Xvfb :99 -screen 0 1280x720x24 2>/dev/null &\n\
 sleep 1\n\
 export DISPLAY=:99\n\
-npx playwright test --reporter=line "$@"\n\
-EXIT_CODE=$?\n\
+\n\
+# Check if running REPL integration tests\n\
+if [[ "$1" == "--repl-e2e" ]]; then\n\
+  shift  # Remove --repl-e2e from args\n\
+  # Start browser-nrepl in background\n\
+  bb browser-nrepl --nrepl-port 12345 --websocket-port 12346 &\n\
+  NREPL_PID=$!\n\
+  # Create test page and start HTTP server using Babashka\n\
+  mkdir -p build/e2e/test-pages\n\
+  echo "<!DOCTYPE html><html><head><title>Test Page</title></head><body><h1>Test Page</h1></body></html>" > build/e2e/test-pages/index.html\n\
+  bb -e "(require '"'"'[babashka.http-server :as http]) (http/serve {:port 8765 :dir \"build/e2e/test-pages\"}) @(promise)" &\n\
+  HTTP_PID=$!\n\
+  sleep 2  # Wait for servers to start\n\
+  npx playwright test --config e2e/playwright.repl.config.js --reporter=line "$@"\n\
+  EXIT_CODE=$?\n\
+  kill $NREPL_PID $HTTP_PID 2>/dev/null\n\
+else\n\
+  npx playwright test --reporter=line "$@"\n\
+  EXIT_CODE=$?\n\
+fi\n\
+\n\
 pkill Xvfb\n\
 exit $EXIT_CODE' > /entrypoint.sh && chmod +x /entrypoint.sh
 

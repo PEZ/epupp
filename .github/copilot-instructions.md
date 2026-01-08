@@ -98,8 +98,17 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | `bb browser-nrepl` | Start relay server |
 | `bb test` | Run unit tests once |
 | `bb test:e2e` | Run Playwright E2E tests |
-| `bb test:e2e:ai` | Run E2E tests in Docker (no browser popup) |
+| `bb test:e2e:ai` | E2E tests in Docker (for AI agents) |
 | `bb test:repl-e2e` | Run full REPL integration tests |
+| `bb test:repl-e2e:ai` | REPL tests in Docker (for AI agents) |
+
+**Playwright options:** All e2e tasks accept extra Playwright options:
+```bash
+bb test:e2e --grep "pattern"      # Run tests matching pattern
+bb test:e2e:ci --grep "popup"     # Filter without rebuilding
+bb test:e2e:ai --grep "panel"     # Filter in Docker
+bb test:e2e --headed --debug      # Debug mode with inspector
+```
 
 **Important:** After building, wait for the user to test before committing changes.
 
@@ -120,6 +129,14 @@ If the environment is not ready, ask the user to start it (default build task + 
 1. **Check watcher output** - verify compilation succeeded and tests pass
 2. **Check problem report** - fix any new lint errors
 3. Address any issues before proceeding
+
+### AI Agent E2E Testing (Docker)
+
+**For AI agents that cannot interact with browser windows**, use the `:ai` task variants:
+- `bb test:e2e:ai` - E2E popup/panel tests
+- `bb test:repl-e2e:ai` - REPL integration tests
+
+These run tests in Docker with a virtual display (Xvfb), so no browser windows pop up on the host. Requires Docker to be running.
 
 ### Remote Agent Workflow (GitHub Copilot Coding Agent)
 
