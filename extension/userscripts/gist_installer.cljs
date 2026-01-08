@@ -2,32 +2,62 @@
 ;;
 ;; This userscript scans gist code blocks for install manifests,
 ;; adds Install buttons, and sends parsed data to the extension.
+;;
+;; MANIFEST FORMAT:
+;; For a gist to be installable, the first form must have Epupp metadata.
+;; Typically this is the ns form:
+;;
+;;   ^{:epupp/script-name "my_cool_script.cljs"
+;;     :epupp/site-match "https://example.com/*"
+;;     :epupp/description "Optional description of what the script does"}
+;;   (ns my-cool-script)
+;;
+;;   (println "Script code starts here...")
+;;
+;; Manifest metadata keys (all namespaced under epupp/):
+;;   :epupp/script-name  - Required. Display name for the script
+;;   :epupp/site-match   - Required. URL pattern (glob format) where script runs
+;;   :epupp/description  - Optional. Brief description shown in popup
+;;
+;; The metadata is extracted and converted to the internal script format:
+;;   {:script/name "..."
+;;    :script/match ["..."]     ; site-match becomes a vector
+;;    :script/description "..." ; optional
+;;    :script/code "..."}       ; full gist content
+;;
+;; Note: :script/id, :script/enabled, :script/created, :script/modified,
+;; and :script/approved-patterns are generated/managed by the extension.
 
 (ns gist-installer
   (:require [clojure.edn :as edn]
             [clojure.string :as str]))
 
-(def ^:private manifest-marker
-  ";; Epupp UserScript")
+(defn- get-first-form-meta
+  "Read the first form from code text and return its metadata"
+  [code-text]
+  (try
+    (let [form (edn/read-string code-text)]
+      (meta form))
+    (catch js/Error e
+      (js/console.error "[Gist Installer] Parse error:" e)
+      nil)))
 
-(defn has-manifest? [code-text]
-  (and code-text (str/includes? code-text manifest-marker)))
+(defn has-manifest?
+  "Check if the first form has :epupp/script-name metadata"
+  [code-text]
+  (when code-text
+    (let [m (get-first-form-meta code-text)]
+      (get m :epupp/script-name))))
 
 (defn extract-manifest
-  "Extract and parse the #_{...} EDN manifest from code text"
+  "Extract manifest from the first form's metadata.
+   Returns map with :script-name, :site-match, :description (if present)"
   [code-text]
-  (when-let [marker-idx (str/index-of code-text manifest-marker)]
-    (let [after-marker (subs code-text (+ marker-idx (count manifest-marker)))
-          discard-idx (str/index-of after-marker "#_")]
-      (when discard-idx
-        (try
-          (let [after-discard (subs after-marker (+ discard-idx 2))
-                manifest (edn/read-string after-discard)]
-            (when (map? manifest)
-              manifest))
-          (catch js/Error e
-            (js/console.error "[Gist Installer] Parse error:" e)
-            nil))))))
+  (when-let [m (get-first-form-meta code-text)]
+    (when (get m :epupp/script-name)
+      {:script-name (get m :epupp/script-name)
+       :site-match (get m :epupp/site-match)
+       :description (get m :epupp/description)})))
 
 (defn create-install-button []
   (let [btn (js/document.createElement "button")]
