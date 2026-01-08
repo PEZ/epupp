@@ -1,5 +1,5 @@
 {
-  "description": "Make web pages you visit behave like you want them to with userscripts. Jack your editor into any web page to tamper with it live. Save your tampers as userscripts. Let your AI agent hack the page while you are browsing.",
+  "description": "Make web pages you visit behave like you want them to with live tampering, or with userscripts, TamperMonkey style.",
   "host_permissions": [
     "<all_urls>"
   ],

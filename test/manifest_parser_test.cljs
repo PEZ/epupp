@@ -45,4 +45,18 @@
                     (-> (expect (mp/has-manifest? "^{:epupp/script-name \"x.cljs\"} (ns x)"))
                         (.toBe true))
                     (-> (expect (mp/has-manifest? "(ns x)"))
-                        (.toBe false))))))
+                        (.toBe false))))
+
+            (test "allows whitespace before manifest"
+                  (fn []
+                    (let [code "   \n\n^{:epupp/script-name \"test.cljs\"}\n(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:script-name manifest))
+                          (.toBe "test.cljs")))))
+
+            (test "allows line comments before manifest"
+                  (fn []
+                    (let [code ";; My awesome script\n;; Does cool things\n\n^{:epupp/script-name \"test.cljs\"}\n(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:script-name manifest))
+                          (.toBe "test.cljs")))))))

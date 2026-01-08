@@ -1,6 +1,6 @@
 # Epupp: Live Tamper your Web
 
-A web browser extension that lets you tamper with web pages, live and/or with userscripts. Epupp is power by [Scittle](https://github.com/babashka/scittle), which get injected into the page and lets you inspect and modify it while you are using the page. You can also use the Scittle REPL server to use your favorite editor or AI tools to interactively tamper with the page.
+A web browser extension that lets you tamper with web pages, live and/or with userscripts. Powered by by [Scittle](https://github.com/babashka/scittle), Epupp lets you inspect and modify the pages you visit while you are there. Youu can save your tampers as userscripts, TamperMonkey style. For live tampers and interactive development of userscripts, you can jack in your favorite editor or AI tools to interactively tamper with the page.
 
 ## Userscripts Usage
 
