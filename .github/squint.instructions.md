@@ -148,6 +148,19 @@ Always use vector form with `:as` alias:
 (:require [event-handler :as event-handler]) ; ✅ Works
 ```
 
+### 6. Sets Are Not Callable
+
+In ClojureScript, sets can be used as functions for membership testing. In Squint, sets are JavaScript `Set` objects and cannot be called as functions:
+
+```clojure
+(def valid-values #{"a" "b" "c"})
+
+(valid-values "a")           ; ❌ Runtime error: valid_values is not a function
+(contains? valid-values "a") ; ✅ Works - returns true
+```
+
+Always use `contains?` for set membership checks.
+
 ## Debugging Squint Issues
 
 1. **Check compiled `.mjs` output** - Look at the generated JavaScript to understand what's happening
