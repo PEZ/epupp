@@ -104,7 +104,14 @@
       // Script tags without async/defer execute in order, so Scittle will be
       // fully loaded before the trigger script runs
       const scittleUrl = chrome.runtime.getURL('vendor/scittle.js');
-      injectScript(scittleUrl);
+      const scittleStartTime = performance.now();
+      const scittleScript = injectScript(scittleUrl);
+
+      // Listen for Scittle load completion to measure timing
+      scittleScript.onload = () => {
+        const loadTime = (performance.now() - scittleStartTime).toFixed(1);
+        console.log('[Epupp Loader] Scittle loaded in', loadTime, 'ms (document:', document.readyState + ')');
+      };
 
       // Inject each userscript as <script type="application/x-scittle">
       // These don't execute immediately - they wait for Scittle's eval_script_tags()

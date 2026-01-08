@@ -30,6 +30,9 @@ Available timing values:
 - `document-end`: Runs at DOMContentLoaded
 - `document-idle`: Runs after page load (default)
 
+> [!NOTE]
+> **Safari limitation:** Script timing (`document-start`/`document-end`) is not supported in Safari due to API limitations. Scripts will run at `document-idle` regardless of the timing annotation. Chrome and Firefox support all timing values.
+
 I do not plan to build the code editor out much. Mostly because the preferred way to work with scripts is from your editor connected to the [REPL](#repl-usage) (or via your AI agent connected to the REPL). A thing I will probably add is to evaluate sub expressions (in addition to the whole script).
 
 ## REPL Usage
