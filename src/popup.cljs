@@ -328,7 +328,7 @@
                            description))
         builtin? (script-utils/builtin-script? script)]
     [:div
-     [:div.script-item {:class (str (when matches-current "script-item-active ")
+     [:div.script-item {:class (str (when builtin? "script-item-builtin ")
                                     (when needs-approval "script-item-approval"))}
       [:input {:type "checkbox"
                :checked enabled

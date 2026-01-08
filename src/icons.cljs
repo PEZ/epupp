@@ -114,7 +114,7 @@
 (defn cube
   "Built-in/package icon - Heroicons mini cube"
   ([] (cube {}))
-  ([{:keys [size class] :or {size 12}}]
+  ([{:keys [size class] :or {size 14}}]
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :width size
           :height size

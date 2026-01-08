@@ -12,7 +12,7 @@ Scripts are organized into two sections based on whether they match the current 
 
 Within each section, scripts are sorted:
 1. User scripts alphabetically
-2. Built-in scripts alphabetically (shown last)
+2. Built-in scripts alphabetically (shown last, with grey left border)
 
 ### Built-in Script Indicator
 Built-in scripts are marked with a cube icon (📦) before the name. Hover over the icon to see the "Built-in script" tooltip.

@@ -135,7 +135,7 @@ For the detailed step-by-step implementation of injection flows, see [architectu
 ### Popup (Lightweight Management)
 
 - List all scripts with enable/disable checkboxes and delete buttons
-- Scripts matching current tab URL highlighted with green border (`.script-item-active`)
+- Built-in scripts have a grey left border (`.script-item-builtin`) and cube icon
 - Scripts needing approval highlighted with amber border (`.script-item-approval`)
 - **Allow/Deny buttons** for scripts matching current URL but not yet approved
 - Connection status and REPL connect workflow (unchanged from before)

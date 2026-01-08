@@ -338,8 +338,8 @@ button#connect:active {
   border: 1px solid var(--border-light);
 }
 
-.script-item-active {
-  border-left: 3px solid var(--clojure-green);
+.script-item-builtin {
+  border-left: 3px solid var(--text-muted);
 }
 
 .script-info {
