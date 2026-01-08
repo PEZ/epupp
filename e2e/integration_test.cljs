@@ -1,12 +1,13 @@
 (ns integration-test
-  "E2E integration tests for cross-component flows.
-
-   Verifies real chrome.storage interactions between:
-   - Panel (DevTools): saving scripts
-   - Popup: viewing, enabling/disabling, editing, deleting scripts"
   (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [launch-browser get-extension-id create-panel-page
-                              create-popup-page clear-storage sleep]]))
+            [fixtures :refer [launch-browser
+                              get-extension-id
+                              create-panel-page
+                              create-popup-page
+                              clear-storage
+                              wait-for-save-status
+                              wait-for-checkbox-state
+                              wait-for-edit-hint]]))
 
 ;; =============================================================================
 ;; Integration: Script Lifecycle (panel -> popup -> panel -> popup)
@@ -30,10 +31,8 @@
               (js-await (.fill (.locator panel "#script-name") "Lifecycle Test"))
               (js-await (.fill (.locator panel "#script-match") "*://lifecycle.test/*"))
               (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (sleep 300))
               ;; First save of new script shows "Created"
-              (js-await (-> (expect (.locator panel ".save-status"))
-                            (.toContainText "Created")))
+              (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
 
             ;; === PHASE 2: Verify in popup, toggle, check edit hint ===
@@ -52,16 +51,14 @@
               ;; Toggle enable/disable
               (js-await (-> (expect checkbox) (.toBeChecked)))
               (js-await (.click checkbox))
-              (js-await (sleep 200))
-              (js-await (-> (expect checkbox) (.not.toBeChecked)))
+              (js-await (wait-for-checkbox-state checkbox false))
               (js-await (.click checkbox))
-              (js-await (sleep 200))
-              (js-await (-> (expect checkbox) (.toBeChecked)))
+              (js-await (wait-for-checkbox-state checkbox true))
 
               ;; Edit hint appears on click
               (js-await (-> (expect hint) (.toHaveCount 0)))
               (js-await (.click edit-btn))
-              (js-await (-> (expect hint) (.toBeVisible #js {:timeout 2000})))
+              (js-await (wait-for-edit-hint popup))
               (js-await (-> (expect hint) (.toContainText "Developer Tools")))
 
               (js-await (.close popup)))
@@ -75,7 +72,7 @@
 
               ;; Click edit in popup
               (js-await (.click edit-btn))
-              (js-await (sleep 300))
+              (js-await (wait-for-edit-hint popup))
 
               ;; Panel should receive the script (name field shows normalized name)
               (js-await (-> (expect (.locator panel "#code-area"))
@@ -86,7 +83,7 @@
               ;; Modify and save
               (js-await (.fill (.locator panel "#code-area") "(println \"Updated code\")"))
               (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (sleep 300))
+              (js-await (wait-for-save-status panel "Saved"))
 
               (js-await (.close popup))
               (js-await (.close panel)))
@@ -99,8 +96,7 @@
 
               (.on popup "dialog" (fn [dialog] (.accept dialog)))
               (js-await (.click delete-btn))
-              (js-await (sleep 300))
-              ;; Only our test script should be gone, built-in Gist Installer remains
+              ;; Wait for script to disappear (Playwright auto-waits for count to match)
               (js-await (-> (expect script-item) (.toHaveCount 0)))
 
               (js-await (.close popup)))

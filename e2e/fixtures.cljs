@@ -2,7 +2,7 @@
   "Playwright fixtures for testing Chrome extension.
    Provides helpers for launching Chrome with the extension loaded,
    creating panel/popup pages, and managing test state."
-  (:require ["@playwright/test" :refer [test chromium]]
+  (:require ["@playwright/test" :refer [test chromium expect]]
             ["path" :as path]
             ["url" :as url]))
 
@@ -18,7 +18,11 @@
 ;; =============================================================================
 
 (defn ^:async sleep
-  "Promise-based sleep for waiting between operations."
+  "Promise-based sleep for waiting between operations.
+   DEPRECATED: Prefer using Playwright's built-in waiting mechanisms:
+   - expect(locator).toBeVisible() / toContainText() / etc.
+   - locator.waitFor()
+   - Assertions with timeout options"
   [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
@@ -102,13 +106,16 @@
 ")
 
 (defn ^:async create-panel-page
-  "Create a page with mocked chrome.devtools and navigate to panel.html"
+  "Create a page with mocked chrome.devtools and navigate to panel.html.
+   Waits for panel to be ready by checking for the code textarea."
   [context ext-id]
   (let [panel-page (js-await (.newPage context))
         panel-url (str "chrome-extension://" ext-id "/panel.html")]
     (js-await (.addInitScript panel-page mock-devtools-script))
     (js-await (.goto panel-page panel-url #js {:timeout 10000}))
-    (js-await (sleep 1500))
+    ;; Wait for panel to be fully initialized - code-area indicates JS has loaded
+    (js-await (-> (expect (.locator panel-page "#code-area"))
+                  (.toBeVisible #js {:timeout 5000})))
     panel-page))
 
 ;; =============================================================================
@@ -116,12 +123,15 @@
 ;; =============================================================================
 
 (defn ^:async create-popup-page
-  "Create a popup page"
+  "Create a popup page.
+   Waits for popup to be ready by checking for the nREPL port input."
   [context ext-id]
   (let [popup-page (js-await (.newPage context))
         popup-url (str "chrome-extension://" ext-id "/popup.html")]
     (js-await (.goto popup-page popup-url #js {:timeout 10000}))
-    (js-await (sleep 1000))
+    ;; Wait for popup to be fully initialized - nrepl-port input indicates JS has loaded
+    (js-await (-> (expect (.locator popup-page "#nrepl-port"))
+                  (.toBeVisible #js {:timeout 5000})))
     popup-page))
 
 ;; =============================================================================
@@ -169,3 +179,52 @@
    Call before creating popup page (use addInitScript for reliability)."
   [page url]
   (js-await (.evaluate page (str "window.__scittle_tamper_test_url = '" url "';"))))
+
+;; =============================================================================
+;; Wait Helpers - Use these instead of sleep for reliable tests
+;; =============================================================================
+
+(defn ^:async wait-for-script-count
+  "Wait for the script list to have exactly n items.
+   Use after save/delete operations instead of sleep."
+  [page n]
+  (js-await (-> (expect (.locator page ".script-item"))
+                (.toHaveCount n #js {:timeout 5000}))))
+
+(defn ^:async wait-for-save-status
+  "Wait for save status to appear with expected text (e.g., 'Created', 'Saved').
+   Use after clicking save button instead of sleep."
+  [page text]
+  (js-await (-> (expect (.locator page ".save-status"))
+                (.toContainText text #js {:timeout 5000}))))
+
+(defn ^:async wait-for-checkbox-state
+  "Wait for checkbox to reach expected checked state.
+   Use after toggling checkboxes instead of sleep."
+  [checkbox checked?]
+  (if checked?
+    (js-await (-> (expect checkbox) (.toBeChecked #js {:timeout 2000})))
+    (js-await (-> (expect checkbox) (.not.toBeChecked #js {:timeout 2000})))))
+
+(defn ^:async wait-for-panel-ready
+  "Wait for panel to be ready after reload/navigation.
+   Useful after .reload() calls instead of sleep."
+  [panel]
+  (js-await (-> (expect (.locator panel "#code-area"))
+                (.toBeVisible #js {:timeout 5000}))))
+
+(defn ^:async wait-for-popup-ready
+  "Wait for popup to be ready after reload/navigation.
+   Useful after .reload() calls instead of sleep."
+  [popup]
+  (js-await (-> (expect (.locator popup "#nrepl-port"))
+                (.toBeVisible #js {:timeout 5000}))))
+
+(defn ^:async wait-for-edit-hint
+  "Wait for the edit hint message to appear in popup.
+   Use after clicking edit button instead of sleep.
+   The hint message is generic ('Open the Epupp panel in Developer Tools'),
+   so this just waits for visibility."
+  [popup]
+  (js-await (-> (expect (.locator popup ".script-edit-hint"))
+                (.toBeVisible #js {:timeout 3000}))))
