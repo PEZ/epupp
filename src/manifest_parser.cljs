@@ -17,23 +17,24 @@
 (defn extract-manifest
   "Extracts Epupp manifest data from code string containing ^{:epupp/...} metadata.
    Returns a map with extracted fields (script-name, site-match, description, run-at)
-   or nil if no valid manifest found."
+   or nil if no valid manifest found.
+   Throws if run-at value is present but invalid."
   [code]
-  (try
-    (let [parsed (edn-data/parseEDNString code #js {:mapAs "object" :keywordAs "string"})]
-      (when (has-epupp-keys? parsed)
-        (let [script-name (aget parsed "epupp/script-name")
-              site-match (aget parsed "epupp/site-match")
-              description (aget parsed "epupp/description")
-              raw-run-at (aget parsed "epupp/run-at")
-              run-at (if (contains? valid-run-at-values raw-run-at)
-                       raw-run-at
-                       default-run-at)]
-          {"script-name" script-name
-           "site-match" site-match
-           "description" description
-           "run-at" run-at})))
-    (catch :default _e nil)))
+  (let [parsed (edn-data/parseEDNString code #js {:mapAs "object" :keywordAs "string"})]
+    (when (has-epupp-keys? parsed)
+      (let [script-name (aget parsed "epupp/script-name")
+            site-match (aget parsed "epupp/site-match")
+            description (aget parsed "epupp/description")
+            raw-run-at (aget parsed "epupp/run-at")
+            run-at (cond
+                     (nil? raw-run-at) default-run-at
+                     (contains? valid-run-at-values raw-run-at) raw-run-at
+                     :else (throw (js/Error. (str "Invalid run-at value: " raw-run-at
+                                                  ". Must be one of: document-start, document-end, document-idle"))))]
+        {"script-name" script-name
+         "site-match" site-match
+         "description" description
+         "run-at" run-at}))))
 
 (defn has-manifest?
   "Returns true if the code contains Epupp manifest metadata."

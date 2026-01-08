@@ -26,12 +26,11 @@
                       (-> (expect (mp/get-run-at code))
                           (.toBe "document-idle")))))
 
-            (test "validates run-at values"
+            (test "throws on invalid run-at values"
                   (fn []
-                    (let [code "^{:epupp/script-name \"test.cljs\"\n  :epupp/run-at \"nope\"}\n(ns test)"
-                          manifest (mp/extract-manifest code)]
-                      (-> (expect (:run-at manifest))
-                          (.toBe "document-idle")))))
+                    (let [code "^{:epupp/script-name \"test.cljs\"\n  :epupp/run-at \"nope\"}\n(ns test)"]
+                      (-> (expect (fn [] (mp/extract-manifest code)))
+                          (.toThrow "Invalid run-at value: nope")))))
 
             (test "returns nil for code without manifest"
                   (fn []
