@@ -412,3 +412,112 @@
                   (fn []
                     (-> (expect (script-utils/normalize-script-name ""))
                         (.toBe ".cljs"))))))
+
+;; ============================================================
+;; Run-at Timing Tests
+;; ============================================================
+
+(describe "normalize-run-at"
+          (fn []
+            (test "returns valid run-at values unchanged"
+                  (fn []
+                    (-> (expect (script-utils/normalize-run-at "document-start"))
+                        (.toBe "document-start"))
+                    (-> (expect (script-utils/normalize-run-at "document-end"))
+                        (.toBe "document-end"))
+                    (-> (expect (script-utils/normalize-run-at "document-idle"))
+                        (.toBe "document-idle"))))
+
+            (test "returns default for nil"
+                  (fn []
+                    (-> (expect (script-utils/normalize-run-at nil))
+                        (.toBe "document-idle"))))
+
+            (test "returns default for undefined"
+                  (fn []
+                    (-> (expect (script-utils/normalize-run-at js/undefined))
+                        (.toBe "document-idle"))))
+
+            (test "returns default for invalid values"
+                  (fn []
+                    (-> (expect (script-utils/normalize-run-at "invalid"))
+                        (.toBe "document-idle"))
+                    (-> (expect (script-utils/normalize-run-at ""))
+                        (.toBe "document-idle"))
+                    (-> (expect (script-utils/normalize-run-at "DOCUMENT-START"))
+                        (.toBe "document-idle"))))))
+
+(describe "parse-scripts with run-at"
+          (fn []
+            (test "parses runAt field"
+                  (fn []
+                    (let [js-script #js {:id "test-run-at"
+                                         :name "Test"
+                                         :match #js []
+                                         :code ""
+                                         :runAt "document-start"}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/run-at script))
+                          (.toBe "document-start")))))
+
+            (test "defaults to document-idle when runAt missing"
+                  (fn []
+                    (let [js-script #js {:id "test-no-run-at"
+                                         :name "Test"
+                                         :match #js []
+                                         :code ""}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/run-at script))
+                          (.toBe "document-idle")))))
+
+            (test "defaults to document-idle for invalid runAt"
+                  (fn []
+                    (let [js-script #js {:id "test-invalid-run-at"
+                                         :name "Test"
+                                         :match #js []
+                                         :code ""
+                                         :runAt "invalid-value"}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/run-at script))
+                          (.toBe "document-idle")))))))
+
+(describe "script->js with run-at"
+          (fn []
+            (test "serializes run-at as runAt"
+                  (fn []
+                    (let [script {:script/id "test"
+                                  :script/name "Test"
+                                  :script/match []
+                                  :script/code ""
+                                  :script/run-at "document-start"}
+                          result (script-utils/script->js script)]
+                      (-> (expect (.-runAt result))
+                          (.toBe "document-start")))))
+
+            (test "handles nil run-at"
+                  (fn []
+                    (let [script {:script/id "test"
+                                  :script/name "Test"
+                                  :script/match []
+                                  :script/code ""
+                                  :script/run-at nil}
+                          result (script-utils/script->js script)]
+                      (-> (expect (.-runAt result))
+                          (.toBeNull)))))
+
+            (test "round-trips run-at through parse-scripts and script->js"
+                  (fn []
+                    (let [original {:script/id "round-trip"
+                                    :script/name "Round Trip"
+                                    :script/match ["*://example.com/*"]
+                                    :script/code "(println \"hi\")"
+                                    :script/enabled true
+                                    :script/run-at "document-end"
+                                    :script/approved-patterns []}
+                          js-obj (script-utils/script->js original)
+                          parsed (first (script-utils/parse-scripts #js [js-obj]))]
+                      (-> (expect (:script/run-at parsed))
+                          (.toBe "document-end")))))))

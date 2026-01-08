@@ -20,7 +20,8 @@
          :panel/save-status nil
          :panel/init-version nil
          :panel/needs-refresh? false
-         :panel/current-hostname nil}))
+         :panel/current-hostname nil
+         :panel/detected-manifest nil}))  ; Parsed manifest from current code
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -268,8 +269,32 @@
        "Clear Results"]
       [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
 
+;; TODO: Use proper icons
+(defn- run-at-badge
+  "Returns a badge component for non-default run-at timings (panel version)."
+  [run-at]
+  (case run-at
+    "document-start" [:span.run-at-badge {:title "Runs at document-start (before page loads)"}
+                      "⚡"]
+    "document-end" [:span.run-at-badge {:title "Runs at document-end (when DOM is ready)"}
+                    "📄"]
+    ;; document-idle (default) - no badge
+    nil))
+
+(defn manifest-info
+  "Display detected manifest info from code."
+  [{:keys [panel/detected-manifest]}]
+  (when detected-manifest
+    (let [script-name (get detected-manifest "script-name")
+          run-at (get detected-manifest "run-at")]
+      [:div.manifest-info
+       [:span.manifest-label "Detected manifest: "]
+       [:span.manifest-name script-name]
+       (run-at-badge run-at)])))
+
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
-                                   panel/code panel/save-status panel/script-id panel/original-name]}]
+                                   panel/code panel/save-status panel/script-id panel/original-name]
+                            :as state}]
   (let [;; Normalize current name for comparison
         normalized-name (when (seq script-name)
                           (script-utils/normalize-script-name script-name))
@@ -296,6 +321,7 @@
         rename-disabled? editing-builtin?]
     [:div.save-script-section
      [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
+     [manifest-info state]
      [:div.save-script-form
       [:div.save-field
        [:label {:for "script-name"} "Name"]

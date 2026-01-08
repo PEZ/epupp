@@ -503,3 +503,30 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
+
+/* Manifest info display */
+.manifest-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.manifest-label {
+  color: var(--text-muted);
+}
+
+.manifest-name {
+  color: var(--clojure-blue);
+  font-weight: 500;
+}
+
+/* Run-at timing badge (reused from popup) */
+.run-at-badge {
+  font-size: 0.8em;
+  margin-left: 4px;
+  opacity: 0.8;
+}

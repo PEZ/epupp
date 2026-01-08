@@ -1,7 +1,8 @@
 (ns panel-actions
   "Pure action handlers for the DevTools panel.
    No browser dependencies - testable without Chrome APIs."
-  (:require [script-utils :as script-utils]))
+  (:require [script-utils :as script-utils]
+            [manifest-parser :as mp]))
 
 (defn handle-action
   "Pure action handler for panel state transitions.
@@ -9,8 +10,24 @@
   [state uf-data [action & args]]
   (case action
     :editor/ax.set-code
-    (let [[code] args]
-      {:uf/db (assoc state :panel/code code)})
+    (let [[code] args
+          ;; Try to extract manifest from code - safely catch any parse errors
+          manifest (try (mp/extract-manifest code) (catch :default _ nil))
+          ;; Only auto-fill if manifest detected and fields are currently empty
+          {:panel/keys [script-name script-match script-description]} state
+          new-state (cond-> (assoc state
+                                   :panel/code code
+                                   :panel/detected-manifest manifest)
+                      ;; Auto-fill name if manifest has one and current is empty
+                      (and manifest (get manifest "script-name") (empty? script-name))
+                      (assoc :panel/script-name (get manifest "script-name"))
+                      ;; Auto-fill match if manifest has one and current is empty
+                      (and manifest (get manifest "site-match") (empty? script-match))
+                      (assoc :panel/script-match (get manifest "site-match"))
+                      ;; Auto-fill description if manifest has one and current is empty
+                      (and manifest (get manifest "description") (empty? script-description))
+                      (assoc :panel/script-description (get manifest "description")))]
+      {:uf/db new-state})
 
     :editor/ax.set-script-name
     (let [[new-name] args]

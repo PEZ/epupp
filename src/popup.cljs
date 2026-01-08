@@ -314,7 +314,19 @@
    (when expanded?
      (into [:div.section-content] children))])
 
-(defn script-item [{:keys [script/name script/match script/enabled script/description]
+;; TODO: Use proper icons
+(defn- run-at-badge
+  "Returns a badge component for non-default run-at timings."
+  [run-at]
+  (case run-at
+    "document-start" [:span.run-at-badge {:title "Runs at document-start (before page loads)"}
+                      "⚡"]
+    "document-end" [:span.run-at-badge {:title "Runs at document-end (when DOM is ready)"}
+                    "📄"]
+    ;; document-idle (default) - no badge
+    nil))
+
+(defn script-item [{:keys [script/name script/match script/enabled script/description script/run-at]
                     script-id :script/id
                     :as script}
                    current-url
@@ -346,7 +358,7 @@
         name]
        (when truncated-desc
          [:span.script-description truncated-desc])
-       [:span.script-match pattern-display]]
+       [:span.script-match (run-at-badge run-at) pattern-display]]
       [:div.script-actions
        ;; Show approval buttons when script matches current URL but pattern not approved
        (when needs-approval
@@ -356,7 +368,7 @@
          [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
           "Deny"])
        [:button.script-inspect {:on-click #(dispatch! [[:popup/ax.inspect-script script-id]])
-                             :title "Inspect script"}
+                                :title "Inspect script"}
         [icons/eye]]
        [:button.script-run {:on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])
                             :title "Run script"}

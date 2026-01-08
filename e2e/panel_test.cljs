@@ -113,10 +113,10 @@
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (wait-for-popup-ready popup))
-              ;; Script appears with normalized name - click edit
+              ;; Script appears with normalized name - click inspect
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
@@ -141,10 +141,10 @@
               (js-await (wait-for-popup-ready popup))
               ;; Still 2 scripts total (built-in + our script)
               (js-await (wait-for-script-count popup 2))
-              ;; Edit again for next phase
+              ;; Inspect again for next phase
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
@@ -212,10 +212,10 @@
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (wait-for-popup-ready popup))
-              ;; Script appears with normalized name - click edit
+              ;; Script appears with normalized name - click inspect
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
@@ -296,10 +296,10 @@
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (wait-for-popup-ready popup))
-              ;; Edit first script
+              ;; Inspect first script
               (let [script-item (.locator popup ".script-item:has-text(\"first_script.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
@@ -361,8 +361,8 @@
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (wait-for-popup-ready popup))
               (let [script-item (.locator popup ".script-item:has-text(\"original_script.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
@@ -391,8 +391,8 @@
               (js-await (.goto popup popup-url #js {:timeout 10000}))
               (js-await (wait-for-popup-ready popup))
               (let [script-item (.locator popup ".script-item:has-text(\"first_rename.cljs\")")
-                    edit-btn (.locator script-item "button.script-edit")]
-                (js-await (.click edit-btn))
+                    inspect-btn (.locator script-item "button.script-inspect")]
+                (js-await (.click inspect-btn))
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 

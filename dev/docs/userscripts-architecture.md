@@ -57,8 +57,27 @@ See [architecture.md](architecture.md) for complete state schemas. Script fields
  :script/enabled true                     ; active flag
  :script/created "2026-01-02T..."         ; ISO timestamp
  :script/modified "2026-01-02T..."        ; ISO timestamp
- :script/approved-patterns ["https://github.com/*"]}  ; patterns user has approved
+ :script/approved-patterns ["https://github.com/*"]  ; patterns user has approved
+ :script/run-at "document-idle"}          ; injection timing (see below)
 ```
+
+**`:script/run-at` values:**
+- `"document-start"` - Runs before page scripts (via `registerContentScripts` + loader)
+- `"document-end"` - Runs at DOMContentLoaded (via `registerContentScripts` + loader)
+- `"document-idle"` - Runs after page load (default, via `webNavigation.onCompleted`)
+
+Scripts specify timing via the `:epupp/run-at` annotation in the code's metadata map:
+
+```clojure
+{:epupp/run-at "document-start"}
+
+(ns my-userscript)
+
+;; This code runs before page scripts execute
+(js/console.log "Intercepting page initialization!")
+```
+
+The annotation is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at`. See [architecture.md](architecture.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
 Per-pattern approval is handled via `:script/approved-patterns` on each script.
@@ -105,28 +124,99 @@ The original plan was to rely on Chrome's "Site access" setting. In practice:
 
 The `granted-origins` storage key is retained for potential future use but currently unused.
 
+## Injection Timing
+
+Scripts can run at different points in the page lifecycle. The timing is specified via `:epupp/run-at` in the script's code metadata.
+
+### When to Use Each Timing
+
+| Timing | Use Case | Examples |
+|--------|----------|----------|
+| `document-start` | Intercept page initialization, block scripts, modify globals | Ad blockers, analytics blockers, polyfills |
+| `document-end` | Access DOM before images/iframes load | DOM manipulation that must run before page renders |
+| `document-idle` | Most scripts (default) | UI enhancements, data extraction, page tweaks |
+
+### document-start: Early Injection
+
+Use `document-start` when your script needs to:
+- **Intercept page scripts** before they run
+- **Modify global objects** that page scripts depend on
+- **Block or redirect requests** by overriding fetch/XHR
+- **Polyfill APIs** the page will use
+
+```clojure
+{:epupp/run-at "document-start"}
+
+(ns analytics-blocker)
+
+;; Intercept before page scripts run
+(set! js/window._gaq #js [])
+(set! js/window.gtag (fn [& _]))
+```
+
+**Trade-off:** Early scripts use Chrome's `registerContentScripts` API, which means Scittle loads on *all* pages matching *any* early script's approved patterns. This adds ~100ms to page load for those URLs, even if you later disable the script (until the registration is cleaned up).
+
+### document-idle: Default Timing
+
+Most scripts should use the default `document-idle` (or omit `:epupp/run-at`):
+- Runs after page load completes
+- DOM is fully available
+- Page scripts have finished initialization
+- No overhead on non-matching pages
+
+```clojure
+;; No :epupp/run-at needed - document-idle is default
+(ns github-tweaks)
+
+;; Enhance the UI after page loads
+(when-let [btn (js/document.querySelector ".merge-button")]
+  (.addEventListener btn "click" #(js/console.log "Merge clicked!")))
+```
+
+### How Early vs Idle Injection Differs
+
+| Aspect | Early (`document-start/end`) | Idle (`document-idle`) |
+|--------|------------------------------|------------------------|
+| Trigger | Chrome content script registration | `webNavigation.onCompleted` event |
+| Scittle loading | Synchronous, blocks page | On-demand per tab |
+| Registration | Persists across browser restarts | None (event-driven) |
+| Overhead | Scittle loads on all matching URLs | Only when scripts actually run |
+
 ## Auto-Injection Flow
+
+Scripts take different injection paths based on their `:script/run-at` timing:
 
 ```mermaid
 flowchart TD
-    PL[Page Load] --> WN["webNavigation.onCompleted\n(background worker)"]
-    WN --> F1{"frameId !== 0?"}
-    F1 -->|Yes| IGN[Ignore - only main frame]
-    F1 -->|No| GU[Get URL from details.url]
-    GU --> LS[Load enabled scripts from storage]
-    LS --> FI["Filter: url-matches-pattern?"]
-    FI --> F3{"No matches?"}
-    F3 -->|Yes| DONE1[Done]
-    F3 -->|No| CHECK["For each script:\ncheck if matching pattern is approved"]
-    CHECK --> APPROVED{"Pattern approved?"}
-    APPROVED -->|Yes| EXEC["Add to execution list"]
-    APPROVED -->|No| PEND["Add to pending approvals\n(update badge count)"]
-    EXEC --> INJ["Inject content-bridge + Scittle\nInject userscript as <script type='application/x-scittle'>\nTrigger Scittle evaluation"]
-    PEND --> POPUP["User sees pending in popup\nwith Allow/Deny buttons"]
-    POPUP --> ALLOW{"User clicks Allow?"}
-    ALLOW -->|Yes| SAVE["Add pattern to script's\napproved-patterns, execute"]
-    ALLOW -->|No/Deny| DIS["Disable script"]
+    subgraph Early["Early Injection (document-start/end)"]
+        REG["Chrome triggers\nregistered content script"] --> LOADER["userscript-loader.js\n(ISOLATED world)"]
+        LOADER --> READ["Read scripts from storage"]
+        READ --> FILTER_E["Filter: early timing +\nmatching URL + approved"]
+        FILTER_E --> INJECT_E["Inject Scittle (sync)\nInject matching scripts\nTrigger evaluation"]
+    end
+
+    subgraph Idle["Idle Injection (document-idle)"]
+        PL[Page Load] --> WN["webNavigation.onCompleted\n(background worker)"]
+        WN --> F1{"Main frame?"}
+        F1 -->|No| IGN[Ignore]
+        F1 -->|Yes| LS["Load enabled scripts\n(idle timing only)"]
+        LS --> FI["Filter: url-matches-pattern?"]
+        FI --> F3{"No matches?"}
+        F3 -->|Yes| DONE1[Done]
+        F3 -->|No| CHECK["Check pattern approval"]
+        CHECK --> APPROVED{"Approved?"}
+        APPROVED -->|Yes| EXEC["Execute script"]
+        APPROVED -->|No| PEND["Add to pending\n(update badge)"]
+        EXEC --> INJ["Inject content-bridge\nInject Scittle\nInject userscript\nTrigger evaluation"]
+    end
+
+    PEND --> POPUP["User sees pending\nin popup"]
+    POPUP --> ALLOW{"Allow?"}
+    ALLOW -->|Yes| SAVE["Add to approved-patterns\nExecute script"]
+    ALLOW -->|No| DIS["Disable script"]
 ```
+
+**Key difference:** Early scripts bypass the background worker's orchestration entirely. The loader handles everything synchronously at `document-start`, before page scripts run.
 
 For the detailed step-by-step implementation of injection flows, see [architecture.md](architecture.md#injection-flows).
 

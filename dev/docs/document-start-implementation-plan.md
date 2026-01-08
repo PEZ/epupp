@@ -16,7 +16,9 @@ This approach:
 - Makes scripts **self-documenting and portable**
 - Aligns with the existing gist installer manifest format
 - Enables sharing scripts as standalone `.cljs` files
-- Uses **edamame** (npm package) for reliable Clojure parsing
+- Uses **edn-data** (npm package) for reliable EDN parsing
+
+**Status**: Manifest parser already implemented in `src/manifest_parser.cljs` using `edn-data`.
 
 ### Script Manifest Format
 
@@ -63,111 +65,14 @@ On page navigation: Chrome injects automatically
 
 ## Implementation Phases
 
-### Phase 0: Manifest Parser with Edamame (S - 1-2 days)
+### Phase 0: Manifest Parser ✅ COMPLETE
 
-**Goal**: Create a manifest parser using edamame to extract metadata from script code.
+**Status**: Already implemented using `edn-data` npm package.
 
-#### 0.1 Add edamame dependency
-
-```bash
-npm install edamame
-```
-
-#### 0.2 Create manifest-parser.cljs
-
-Create `src/manifest_parser.cljs`:
-
-```clojure
-(ns manifest-parser
-  "Parse Epupp manifest metadata from script code using edamame.
-   Extracts :epupp/* keys from the first form's metadata."
-  (:require ["edamame" :as edamame]))
-
-(def manifest-keys
-  "Supported manifest metadata keys"
-  #{:epupp/script-name
-    :epupp/site-match
-    :epupp/description
-    :epupp/run-at})
-
-(def valid-run-at-values
-  #{"document-start" "document-end" "document-idle"})
-
-(def default-run-at "document-idle")
-
-(defn parse-first-form
-  "Parse the first form from code text using edamame.
-   Returns the parsed form with metadata, or nil on parse error."
-  [code-text]
-  (try
-    (let [;; Configure edamame to preserve metadata
-          opts #js {:all true}  ; Parse all forms, take first
-          forms (edamame/parseString code-text opts)]
-      (first forms))
-    (catch :default e
-      (js/console.warn "[ManifestParser] Parse error:" (.-message e))
-      nil)))
-
-(defn extract-manifest
-  "Extract Epupp manifest from script code.
-   Returns map with :script-name, :site-match, :description, :run-at
-   or nil if no valid manifest found."
-  [code-text]
-  (when-let [form (parse-first-form code-text)]
-    (when-let [m (meta form)]
-      (let [script-name (get m :epupp/script-name)
-            site-match (get m :epupp/site-match)
-            run-at (get m :epupp/run-at default-run-at)]
-        (when script-name  ; script-name is required
-          {:script-name script-name
-           :site-match site-match
-           :description (get m :epupp/description)
-           :run-at (if (valid-run-at-values run-at)
-                     run-at
-                     default-run-at)})))))
-
-(defn has-manifest?
-  "Check if code has a valid Epupp manifest (has :epupp/script-name)."
-  [code-text]
-  (boolean (:script-name (extract-manifest code-text))))
-
-(defn get-run-at
-  "Extract just the run-at value from code, with default fallback."
-  [code-text]
-  (or (:run-at (extract-manifest code-text)) default-run-at))
-```
-
-#### 0.3 Tests
-
-```clojure
-;; test/manifest_parser_test.cljs
-(describe "Manifest Parser"
-  (it "extracts manifest from ns form metadata"
-    (let [code "^{:epupp/script-name \"test.cljs\"
-                  :epupp/site-match \"https://example.com/*\"
-                  :epupp/run-at \"document-start\"}
-                (ns test)"
-          manifest (mp/extract-manifest code)]
-      (expect (:script-name manifest)) (toBe "test.cljs")
-      (expect (:run-at manifest)) (toBe "document-start")))
-
-  (it "returns default run-at when not specified"
-    (let [code "^{:epupp/script-name \"test.cljs\"}
-                (ns test)"
-          manifest (mp/extract-manifest code)]
-      (expect (:run-at manifest)) (toBe "document-idle")))
-
-  (it "validates run-at values"
-    (let [code "^{:epupp/script-name \"test.cljs\"
-                  :epupp/run-at \"invalid\"}
-                (ns test)"
-          manifest (mp/extract-manifest code)]
-      (expect (:run-at manifest)) (toBe "document-idle")))
-
-  (it "returns nil for code without manifest"
-    (let [code "(defn foo [] 42)"]
-      (expect (mp/extract-manifest code)) (toBeNil))))
-```
+- Parser: `src/manifest_parser.cljs`
+- Tests: `test/manifest_parser_test.cljs`
+- Extracts `:epupp/script-name`, `:epupp/site-match`, `:epupp/description`, `:epupp/run-at`
+- Validates run-at values, defaults to "document-idle"
 
 ---
 
@@ -692,7 +597,7 @@ Handle run-at from parsed manifest:
 
 Recommended order to minimize risk and enable incremental testing:
 
-1. **Phase 0: Manifest Parser** - Foundation for all other phases
+1. ~~**Phase 0: Manifest Parser**~~ ✅ COMPLETE (uses edn-data)
 2. **Phase 1: Schema** - Data model changes, uses parser
 3. **Phase 2: UI** - User-visible changes, displays manifest info
 4. **Phase 3: Registration** - Core feature, complex
@@ -701,9 +606,7 @@ Recommended order to minimize risk and enable incremental testing:
 7. **Phase 6: Docs** - After implementation complete
 8. **Phase 7: Installer** - Migrate to shared parser
 
-**Minimum Viable Feature**: Phases 0-4 deliver working document-start support.
-
-**Key Dependency**: Phase 0 (manifest parser) must be completed first as all other phases depend on it.
+**Minimum Viable Feature**: Phases 1-4 deliver working document-start support.
 
 ---
 
@@ -765,53 +668,4 @@ Recommended order to minimize risk and enable incremental testing:
 - [Chrome RunAt enum](https://developer.chrome.com/docs/extensions/reference/api/extensionTypes#type-RunAt)
 - [TamperMonkey @run-at documentation](https://www.tampermonkey.net/documentation.php#meta:run_at)
 - [Current Epupp Architecture](architecture.md)
-- [edamame npm package](https://www.npmjs.com/package/edamame) - Clojure parser for JavaScript
-
----
-
-## Appendix: Why Edamame?
-
-### Current Approach (gist_installer.cljs)
-
-The gist installer currently uses Scittle's `clojure.edn/read-string` to parse the first form:
-
-```clojure
-(defn- get-first-form-meta [code-text]
-  (try
-    (let [form (edn/read-string code-text)]
-      (meta form))
-    (catch js/Error e nil)))
-```
-
-**Limitations:**
-- Only works in Scittle context (page scripts)
-- Cannot be used in extension context (popup, panel, background)
-- EDN parser may not handle all Clojure syntax
-
-### Edamame Solution
-
-[Edamame](https://github.com/borkdude/edamame) is a Clojure/EDN parser by Michiel Borkent (author of Babashka, Scittle, SCI). Available on npm.
-
-**Advantages:**
-- Works in any JavaScript context (extension pages, background worker, page scripts)
-- Full Clojure syntax support (not just EDN)
-- Preserves metadata (critical for our manifest approach)
-- Lightweight (~50KB)
-- Well-maintained, same author as Scittle
-
-**Usage:**
-
-```javascript
-import { parseString } from 'edamame';
-
-const code = `^{:epupp/run-at "document-start"} (ns foo)`;
-const forms = parseString(code, { all: true });
-const firstForm = forms[0];
-const meta = firstForm.meta;  // { 'epupp/run-at': 'document-start' }
-```
-
-**Note on Squint interop**: Edamame returns plain JavaScript objects. Keywords become strings (e.g., `:epupp/run-at` → `"epupp/run-at"`). This aligns with Squint's keyword handling.
-
-### Alternative Considered: Keep EDN in Page Context
-
-We could keep the current EDN approach for the gist installer (runs in Scittle) and add edamame only for extension contexts. However, having a **single manifest parser** used everywhere is cleaner and ensures consistent behavior.
+- [edn-data npm package](https://www.npmjs.com/package/edn-data) - EDN parser for JavaScript (used for manifest parsing)

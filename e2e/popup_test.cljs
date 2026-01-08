@@ -85,9 +85,9 @@
               ;; 3 scripts: built-in Gist Installer + 2 user scripts
               (js-await (wait-for-script-count popup 3))
 
-              ;; Verify script action buttons exist (edit, run, delete)
+              ;; Verify script action buttons exist (inspect, run, delete)
               (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")]
-                (js-await (-> (expect (.locator item "button.script-edit")) (.toBeVisible)))
+                (js-await (-> (expect (.locator item "button.script-inspect")) (.toBeVisible)))
                 (js-await (-> (expect (.locator item "button.script-run")) (.toBeVisible)))
                 (js-await (-> (expect (.locator item "button.script-delete")) (.toBeVisible))))
 

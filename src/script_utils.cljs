@@ -9,6 +9,22 @@
 ;; Script data transformation
 ;; ============================================================
 
+(def valid-run-at-values
+  "Set of valid run-at timing values for userscripts."
+  #{"document-start" "document-end" "document-idle"})
+
+(def default-run-at
+  "Default run-at timing if not specified."
+  "document-idle")
+
+(defn normalize-run-at
+  "Validate and normalize a run-at value.
+   Returns the value if valid, otherwise returns default-run-at."
+  [run-at]
+  (if (contains? valid-run-at-values run-at)
+    run-at
+    default-run-at))
+
 (defn- js-arr->vec
   "Convert JS array to Clojure vector (handles nil)"
   [arr]
@@ -27,7 +43,8 @@
                 :script/enabled (.-enabled s)
                 :script/created (.-created s)
                 :script/modified (.-modified s)
-                :script/approved-patterns (js-arr->vec (.-approvedPatterns s))}))))
+                :script/approved-patterns (js-arr->vec (.-approvedPatterns s))
+                :script/run-at (normalize-run-at (.-runAt s))}))))
 
 (defn script->js
   "Convert script map to JS object with simple keys for storage"
@@ -40,7 +57,8 @@
        :enabled (:script/enabled script)
        :created (:script/created script)
        :modified (:script/modified script)
-       :approvedPatterns (clj->js (:script/approved-patterns script))})
+       :approvedPatterns (clj->js (:script/approved-patterns script))
+       :runAt (:script/run-at script)})
 
 ;; ============================================================
 ;; URL pattern matching
@@ -176,6 +194,9 @@
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
            :generate_script_id generate-script-id
-           :normalize_script_name normalize-script-name})
+           :normalize_script_name normalize-script-name
+           :normalize_run_at normalize-run-at
+           :valid_run_at_values valid-run-at-values
+           :default_run_at default-run-at})
 
 

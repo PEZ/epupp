@@ -4,7 +4,9 @@
    Relays WebSocket messages to/from content scripts."
   (:require [storage :as storage]
             [url-matching :as url-matching]
-            [script-utils :as script-utils]))
+            [script-utils :as script-utils]
+            [registration :as registration]
+            [manifest-parser :as manifest-parser]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
@@ -28,6 +30,8 @@
               (js-await (storage/init!))
               ;; Ensure built-in userscripts are installed
               (js-await (storage/ensure-gist-installer!))
+              ;; Sync content script registrations for early-timing scripts
+              (js-await (registration/sync-registrations!))
               (js/console.log "[Background] Initialization complete")
               true
               (catch :default err
@@ -531,7 +535,8 @@
 (defn ^:async install-userscript!
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
    Name is normalized for uniqueness and valid filename format.
-   Cannot overwrite built-in scripts."
+   Cannot overwrite built-in scripts.
+   Extracts run-at timing from code manifest if present."
   [{:keys [script-name site-match script-url description]}]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
@@ -542,6 +547,12 @@
   (js-await (ensure-initialized!))
   (let [code (js-await (fetch-text! script-url))
         normalized-name (script-utils/normalize-script-name script-name)
+        ;; Extract run-at from code manifest (more reliable than passed manifest)
+        code-manifest (try
+                        (manifest-parser/extract-manifest code)
+                        (catch :default _e nil))
+        run-at (or (get code-manifest "run-at")
+                   script-utils/default-run-at)
         ;; Check if a script with this ID already exists and is built-in
         existing-script (storage/get-script normalized-name)]
     (when (and existing-script (script-utils/builtin-script? existing-script))
@@ -550,6 +561,7 @@
                           :script/name normalized-name
                           :script/match [site-match]
                           :script/code code
+                          :script/run-at run-at
                           :script/enabled true
                           :script/approved-patterns []}
                    (seq description) (assoc :script/description description))]
@@ -700,17 +712,25 @@
 
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
-   Find matching scripts, check approvals, execute or prompt."
+   Find matching scripts, check approvals, execute or prompt.
+   Only processes document-idle scripts - early-timing scripts are handled
+   by registered content scripts (see registration.cljs)."
   [tab-id url]
-  (let [scripts (url-matching/get-matching-scripts url)]
-    (when (seq scripts)
-      (js/console.log "[Auto-inject] Found" (count scripts) "scripts for" url)
+  (let [all-scripts (url-matching/get-matching-scripts url)
+        ;; Filter to only document-idle scripts (default for scripts without run-at)
+        ;; Early-timing scripts (document-start, document-end) are handled by
+        ;; registerContentScripts and should not be injected again here.
+        idle-scripts (filter #(= "document-idle"
+                                 (or (:script/run-at %) "document-idle"))
+                             all-scripts)]
+    (when (seq idle-scripts)
+      (js/console.log "[Auto-inject] Found" (count idle-scripts) "document-idle scripts for" url)
       (let [script-contexts (map (fn [script]
                                    (let [pattern (url-matching/get-matching-pattern url script)]
                                      {:script script
                                       :pattern pattern
                                       :approved? (storage/pattern-approved? script pattern)}))
-                                 scripts)
+                                 idle-scripts)
             approved (filter :approved? script-contexts)
             unapproved (remove :approved? script-contexts)]
         (when (seq approved)
@@ -754,6 +774,15 @@
 ;; These ensure initialization happens on browser/extension lifecycle events.
 ;; The ensure-initialized! pattern guarantees we only init once even if
 ;; multiple events fire.
+
+;; Sync registrations when scripts change
+(.addListener js/chrome.storage.onChanged
+              (fn [changes area]
+                (when (and (= area "local") (.-scripts changes))
+                  (js/console.log "[Background] Scripts changed, syncing registrations")
+                  ((^:async fn []
+                     (js-await (ensure-initialized!))
+                     (js-await (registration/sync-registrations!)))))))
 
 (.addListener js/chrome.runtime.onInstalled
               (fn [details]

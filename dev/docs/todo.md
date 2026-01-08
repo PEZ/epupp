@@ -16,3 +16,6 @@
 * [ ] Add setting for re-establishing the repl/websocket connection after reload
   * [ ] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab
+* [ ] Badge counter not reliable enough
+* [ ] Editing array matches doesn't work/is unclear
+* [ ] Consider moving all metadata to the manifest

@@ -52,7 +52,9 @@ flowchart TB
 | File | Context | Purpose |
 |------|---------|---------|
 | `background.cljs` | Service Worker | WebSocket management, script injection orchestration, approval handling |
+| `registration.cljs` | Service Worker | Content script registration for early-timing scripts |
 | `content_bridge.cljs` | Content Script (ISOLATED) | Message relay, DOM injection, keepalive |
+| `userscript-loader.js` | Content Script (ISOLATED) | Early script injection at document-start |
 | `ws_bridge.cljs` | Page Script (MAIN) | Virtual WebSocket for Scittle REPL |
 | `popup.cljs` | Extension Popup | REPL connection UI, script management |
 | `panel.cljs` | DevTools Panel | Code evaluation, script editing |
@@ -60,6 +62,7 @@ flowchart TB
 | `storage.cljs` | Shared | Script CRUD, chrome.storage.local |
 | `url_matching.cljs` | Shared | URL pattern matching with storage |
 | `script_utils.cljs` | Shared | Pure utilities for script data and URL pattern matching |
+| `manifest_parser.cljs` | Shared | Parse `:epupp/run-at` and other annotations from code |
 | `event_handler.cljs` | Shared | Uniflow event system |
 | `icons.cljs` | Shared | SVG icon components |
 
@@ -309,6 +312,78 @@ The popup and panel use a Re-frame-inspired unidirectional data flow pattern cal
 4. `eval-in-page!` uses `chrome.devtools.inspectedWindow.eval`
 5. Wrapper calls `scittle.core.eval_string(code)`
 6. Result returned via `:editor/ax.handle-eval-result`
+
+## Content Script Registration
+
+Scripts with early timing (`document-start` or `document-end`) use a different injection path than the default `document-idle` scripts. This enables userscripts to run before page scripts execute.
+
+### Injection Timing Options
+
+| Value | Description | Injection Path |
+|-------|-------------|----------------|
+| `document-start` | Before page scripts run | `registerContentScripts` + loader |
+| `document-end` | At DOMContentLoaded | `registerContentScripts` + loader |
+| `document-idle` | After page load (default) | `webNavigation.onCompleted` |
+
+Scripts specify timing via the `:epupp/run-at` annotation in code, parsed by `manifest_parser.cljs`.
+
+### Registration Architecture
+
+Early scripts use `chrome.scripting.registerContentScripts` API:
+
+```mermaid
+flowchart TD
+    ST["Storage change or<br/>approval granted"] --> SYNC["sync-registrations!"]
+    SYNC --> EARLY{"Has early<br/>scripts?"}
+    EARLY -->|No| UNREG["Unregister if exists"]
+    EARLY -->|Yes| PATTERNS["Collect approved-patterns<br/>from all early scripts"]
+    PATTERNS --> BUILD["Build registration:<br/>id: epupp-early-injection<br/>matches: [patterns...]<br/>js: [userscript-loader.js]<br/>runAt: document_start"]
+    BUILD --> REG["Register/update with Chrome"]
+```
+
+**Key design decisions:**
+- Single registration ID (`epupp-early-injection`) covers all early scripts
+- Registration fires the loader for union of all approved patterns
+- Loader filters to scripts matching current URL at runtime
+- `persistAcrossSessions: true` survives browser restarts
+
+### Userscript Loader Flow
+
+The loader ([userscript-loader.js](../../extension/userscript-loader.js)) runs in ISOLATED world at document-start:
+
+1. Guard against multiple injections (`window.__epuppLoaderInjected`)
+2. Read all scripts from `chrome.storage.local`
+3. Filter to enabled scripts with early timing and approved pattern matching current URL
+4. Inject `vendor/scittle.js` synchronously (blocks until loaded)
+5. Inject each matching script as `<script type="application/x-scittle">`
+6. Inject `trigger-scittle.js` to evaluate all Scittle scripts
+
+```mermaid
+sequenceDiagram
+    participant Chrome
+    participant Loader as userscript-loader.js<br/>(ISOLATED)
+    participant Page as Page (MAIN)
+
+    Chrome->>Loader: document-start
+    Loader->>Loader: Read storage
+    Loader->>Loader: Filter matching scripts
+    Loader->>Page: Inject scittle.js (sync)
+    loop Each matching script
+        Loader->>Page: Inject <script type="x-scittle">
+    end
+    Loader->>Page: Inject trigger-scittle.js
+    Note over Page: Scittle evaluates scripts
+```
+
+### Dual Injection Path Summary
+
+| Timing | Trigger | Registration | Loader | Notes |
+|--------|---------|--------------|--------|-------|
+| `document-idle` | `webNavigation.onCompleted` | No | No | Background orchestrates via content bridge |
+| `document-start` | Chrome content script | Yes | Yes | Runs before page scripts |
+| `document-end` | Chrome content script | Yes | Yes | Runs at DOMContentLoaded |
+
+Early scripts bypass the background worker's injection orchestration entirely - the loader handles everything.
 
 ## Module Dependencies
 

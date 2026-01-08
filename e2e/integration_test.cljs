@@ -41,7 +41,7 @@
                   ;; Use specific locator for normalized name
                   script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
                   checkbox (.locator script-item "input[type='checkbox']")
-                  edit-btn (.locator script-item "button.script-edit")
+                  inspect-btn (.locator script-item "button.script-inspect")
                   hint (.locator popup ".script-edit-hint")]
 
               ;; Script appears with normalized name and pattern
@@ -57,7 +57,7 @@
 
               ;; Edit hint appears on click
               (js-await (-> (expect hint) (.toHaveCount 0)))
-              (js-await (.click edit-btn))
+              (js-await (.click inspect-btn))
               (js-await (wait-for-edit-hint popup))
               (js-await (-> (expect hint) (.toContainText "Developer Tools")))
 
@@ -68,10 +68,10 @@
                   popup (js-await (create-popup-page context ext-id))
                   ;; Use normalized name
                   script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
-                  edit-btn (.locator script-item "button.script-edit")]
+                  inspect-btn (.locator script-item "button.script-inspect")]
 
-              ;; Click edit in popup
-              (js-await (.click edit-btn))
+              ;; Click inspect in popup
+              (js-await (.click inspect-btn))
               (js-await (wait-for-edit-hint popup))
 
               ;; Panel should receive the script (name field shows normalized name)

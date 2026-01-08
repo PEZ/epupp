@@ -841,3 +841,10 @@ button#connect:active {
 .add-btn:active {
   transform: translateY(0);
 }
+
+/* Run-at timing badge */
+.run-at-badge {
+  font-size: 0.8em;
+  margin-left: 4px;
+  opacity: 0.8;
+}

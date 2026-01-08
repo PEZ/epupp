@@ -14,6 +14,22 @@ There is a script “editor” (a textarea) in the Development Tools tab named *
 
 Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
 
+### Advanced: Script Timing
+
+By default, scripts run after the page has loaded (`document-idle`). For scripts that need to intercept page initialization or modify globals before page scripts run, you can specify early timing via metadata in your code:
+
+```clojure
+{:epupp/run-at "document-start"}
+(do
+  ;; This runs BEFORE page scripts
+  (set! js/window.myGlobal "intercepted"))
+```
+
+Available timing values:
+- `document-start`: Runs before any page scripts (useful for blocking/intercepting)
+- `document-end`: Runs at DOMContentLoaded
+- `document-idle`: Runs after page load (default)
+
 I do not plan to build the code editor out much. Mostly because the preferred way to work with scripts is from your editor connected to the [REPL](#repl-usage) (or via your AI agent connected to the REPL). A thing I will probably add is to evaluate sub expressions (in addition to the whole script).
 
 ## REPL Usage

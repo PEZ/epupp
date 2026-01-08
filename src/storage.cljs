@@ -5,7 +5,8 @@
 
    Note: In Squint, keywords become strings and maps are JS objects.
    We use namespaced string keys like \"script/id\" for consistency."
-  (:require [script-utils :as script-utils]))
+  (:require [manifest-parser :as mp]
+            [script-utils :as script-utils]))
 
 ;; ============================================================
 ;; State
@@ -97,15 +98,24 @@
        first))
 
 (defn save-script!
-  "Create or update a script. Merges with existing if id matches."
+  "Create or update a script. Merges with existing if id matches.
+   Extracts run-at timing from code manifest if present."
   [script]
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
         existing (get-script script-id)
+        ;; Extract run-at from code manifest (or use default)
+        code (:script/code script)
+        manifest (when code
+                   (try (mp/extract-manifest code)
+                        (catch :default _ nil)))
+        run-at (script-utils/normalize-run-at (get manifest "run-at"))
+        ;; Merge script with extracted run-at
+        script-with-run-at (assoc script :script/run-at run-at)
         updated-script (if existing
-                         (-> (merge existing script)
+                         (-> (merge existing script-with-run-at)
                              (assoc :script/modified now))
-                         (-> script
+                         (-> script-with-run-at
                              (assoc :script/created now)
                              (assoc :script/modified now)
                              (update :script/enabled #(if (some? %) % true))))]
