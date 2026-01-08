@@ -314,15 +314,14 @@
    (when expanded?
      (into [:div.section-content] children))])
 
-;; TODO: Use proper icons
 (defn- run-at-badge
   "Returns a badge component for non-default run-at timings."
   [run-at]
   (case run-at
     "document-start" [:span.run-at-badge {:title "Runs at document-start (before page loads)"}
-                      "⚡"]
+                      [icons/bolt]]
     "document-end" [:span.run-at-badge {:title "Runs at document-end (when DOM is ready)"}
-                    "📄"]
+                    [icons/flag]]
     ;; document-idle (default) - no badge
     nil))
 
