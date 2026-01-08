@@ -49,6 +49,32 @@ bb test:e2e:ai --grep "popup"      # Run only popup tests
 bb test:e2e:ai --grep "rename"     # Run only rename-related tests
 ```
 
+## Writing Reliable E2E Tests: No Sleep Patterns
+
+**Critical: Never use `sleep()` or arbitrary timeouts in E2E tests.**
+
+Use Playwright's auto-waiting and custom wait helpers from [fixtures.cljs](../../e2e/fixtures.cljs):
+
+```clojure
+;; ✅ Good - Playwright waits for button to be actionable
+(js-await (.click (.locator page "button.save")))
+
+;; ✅ Good - Playwright waits for condition to be true
+(js-await (-> (expect (.locator page ".status"))
+              (.toContainText "Ready")))
+
+;; ✅ Good - Custom helpers for domain-specific waiting
+(js-await (wait-for-save-status panel "Created"))
+(js-await (wait-for-script-count popup 2))
+(js-await (wait-for-checkbox-state checkbox false))
+(js-await (wait-for-panel-ready panel))
+
+;; ❌ Bad - Never do this
+(js-await (.sleep 1000))
+```
+
+This approach eliminates flakiness and makes test failures meaningful.
+
 ## Unit tests (Vitest)
 
 **What to test**
