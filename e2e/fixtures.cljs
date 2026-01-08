@@ -2,7 +2,7 @@
   "Playwright fixtures for testing Chrome extension.
    Provides helpers for launching Chrome with the extension loaded,
    creating panel/popup pages, and managing test state."
-  (:require ["@playwright/test" :refer [test chromium expect]]
+  (:require ["@playwright/test" :refer [chromium expect]]
             ["path" :as path]
             ["url" :as url]))
 
@@ -16,15 +16,6 @@
 ;; =============================================================================
 ;; Browser Helpers
 ;; =============================================================================
-
-(defn ^:async sleep
-  "Promise-based sleep for waiting between operations.
-   DEPRECATED: Prefer using Playwright's built-in waiting mechanisms:
-   - expect(locator).toBeVisible() / toContainText() / etc.
-   - locator.waitFor()
-   - Assertions with timeout options"
-  [ms]
-  (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
 (defn ^:async create-extension-context
   "Launch Chrome with the extension loaded.
@@ -54,17 +45,6 @@
       (let [sw (js-await (.waitForEvent context "serviceworker"))
             sw-url (.url sw)]
         (-> sw-url (.split "/") (aget 2))))))
-
-(defn ^:async with-extension
-  "Helper that sets up extension context, runs test fn, then cleans up.
-   Test fn receives [context extension-id]."
-  [test-fn]
-  (let [context (js-await (create-extension-context))
-        ext-id (js-await (get-extension-id context))]
-    (try
-      (js-await (test-fn context ext-id))
-      (finally
-        (js-await (.close context))))))
 
 ;; =============================================================================
 ;; DevTools Panel Helpers
@@ -142,43 +122,6 @@
   "Clear extension storage to ensure clean test state"
   [page]
   (js-await (.evaluate page "() => chrome.storage.local.clear()")))
-
-(defn ^:async seed-scripts
-  "Seed scripts directly into chrome.storage for testing.
-   Scripts should be JS objects with script/id, script/name, script/match, etc."
-  [page scripts]
-  ;; Playwright evaluates arrow functions directly. Just ensure we return the Promise.
-  (js-await (.evaluate page
-                       "async (data) => {
-                          console.log('[seed] data received:', data?.length);
-                          await chrome.storage.local.set({ scripts: data });
-                          return 'done';
-                        }"
-                       scripts)))
-
-(defn ^:async get-popup-state
-  "Get current popup state via the exported get-state function."
-  [page]
-  (js-await (.evaluate page "() => window.popup.get_state()")))
-
-(defn ^:async get-stored-scripts
-  "Get scripts directly from chrome.storage."
-  [page]
-  (js-await (.evaluate page "(async () => { const r = await chrome.storage.local.get('scripts'); return r.scripts || []; })()")))
-
-;; Re-export test for convenience
-(def base-test test)
-
-;; =============================================================================
-;; Test URL Override (for approval workflow testing)
-;; =============================================================================
-
-(defn ^:async set-test-url
-  "Set a test URL override that popup.cljs will use instead of querying chrome.tabs.
-   This allows testing URL-dependent features like approval workflow in Playwright.
-   Call before creating popup page (use addInitScript for reliability)."
-  [page url]
-  (js-await (.evaluate page (str "window.__scittle_tamper_test_url = '" url "';"))))
 
 ;; =============================================================================
 ;; Wait Helpers - Use these instead of sleep for reliable tests
