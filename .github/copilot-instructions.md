@@ -1,5 +1,19 @@
 # Epupp - AI Coding Agent Instructions
 
+## Quick Start for AI Agents
+
+**Essential facts:**
+- **Language:** Squint (ClojureScript-like, compiles to JS) - source in `src/*.cljs`
+- **Never edit:** `extension/*.mjs` or `build/*.js` (compiled artifacts)
+- **Testing:** ALWAYS use `bb test:e2e:ai` and `bb test:repl-e2e:ai` (not non-`:ai` variants)
+- **Commands:** Use `bb <task>`, not direct `npx`/`npm`
+- **Watchers:** Usually already running - check task output before building
+
+**Start work setup:**
+1. Read [testing.md](../dev/docs/testing.md) for test strategy
+2. Read [architecture.md](../dev/docs/architecture.md) for system design
+3. Check `clojure_list_sessions` to verify Squint REPL availability
+
 <principles>
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
@@ -88,29 +102,35 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 
 ### Quick Command Reference
 
+**For AI Agents (Prefer These):**
+
 | Command | Purpose |
 |---------|--------|
-| `bb watch` | Watch mode (auto-recompile) |
-| `bb test:watch` | Unit test watcher |
-| `bb squint-nrepl` | Squint nREPL for testing code |
-| `bb build:dev` | Dev build (bumps version) |
-| `bb build` | Release build |
-| `bb browser-nrepl` | Start relay server |
-| `bb test` | Run unit tests once |
-| `bb test:e2e` | Run Playwright E2E tests |
-| `bb test:e2e:ai` | E2E tests in Docker (for AI agents) |
-| `bb test:repl-e2e` | Run full REPL integration tests |
-| `bb test:repl-e2e:ai` | REPL tests in Docker (for AI agents) |
+| `bb test` | Unit tests (fast, always run after changes) |
+| `bb test:e2e:ai` | E2E UI tests (Docker, no browser popups) |
+| `bb test:repl-e2e:ai` | REPL integration tests (Docker, no browser popups) |
+| `bb build:test` | Build for testing (dev config, no version bump) |
+| `bb build:dev` | Dev build, when handing off to human for manual testing |
 
-**Playwright options:** All e2e tasks accept extra Playwright options:
+**Other Commands, for the human (listed here for the AI's awareness only):**
+
+| Command | Purpose | Notes |
+|---------|---------|-------|
+| `bb watch` | Auto-recompile | Usually already running |
+| `bb test:watch` | Unit test watcher | Usually already running |
+| `bb squint-nrepl` | Squint REPL | For testing pure functions |
+| `bb test:e2e` | E2E tests (headed) | **Avoid** - interrupts human |
+| `bb test:repl-e2e` | REPL tests (headed) | **Avoid** - interrupts human |
+| `bb test:e2e:ci` | E2E tests (CI mode) | For GitHub Actions only |
+
+**Filtering tests:** Pass `--grep "pattern"` to any test command:
 ```bash
-bb test:e2e --grep "pattern"      # Run tests matching pattern
-bb test:e2e:ci --grep "popup"     # Filter without rebuilding
-bb test:e2e:ai --grep "panel"     # Filter in Docker
-bb test:e2e --headed --debug      # Debug mode with inspector
+bb test:e2e:ai --grep "popup"   # Run only popup tests
 ```
 
-**Important:** After building, wait for the user to test before committing changes.
+The `:e2e:ai` tasks accept all Playwright options, so you should not need to resort to using Playwright directly.
+
+**Critical:** After building or code changes, wait for user confirmation before committing.
 
 ### AI Development Workflow (Local - VS Code with Human)
 
@@ -130,13 +150,13 @@ If the environment is not ready, ask the user to start it (default build task + 
 2. **Check problem report** - fix any new lint errors
 3. Address any issues before proceeding
 
-### AI Agent E2E Testing (Docker)
+### E2E Testing for AI Agents
 
-**For AI agents that cannot interact with browser windows**, use the `:ai` task variants:
-- `bb test:e2e:ai` - E2E popup/panel tests
-- `bb test:repl-e2e:ai` - REPL integration tests
+**ALWAYS use `:ai` variants to avoid interrupting the human:**
+- `bb test:e2e:ai` - E2E popup/panel tests (Docker, no browser windows)
+- `bb test:repl-e2e:ai` - REPL integration tests (Docker, no browser windows)
 
-These run tests in Docker with a virtual display (Xvfb), so no browser windows pop up on the host. Requires Docker to be running.
+These run headless in Docker with Xvfb. Never use `bb test:e2e` or `bb test:repl-e2e` without `:ai` suffix - those open visible browser windows on the human's machine.
 
 ### Remote Agent Workflow (GitHub Copilot Coding Agent)
 
@@ -347,25 +367,17 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 ## Testing Strategy
 
-### Test Hierarchy
+**Test hierarchy** (fastest to slowest):
+1. **Unit tests** (`bb test`) - Pure functions, action handlers
+2. **E2E UI** (`bb test:e2e:ai`) - Extension loading, popup/panel UI
+3. **E2E REPL** (`bb test:repl-e2e:ai`) - Full nREPL pipeline
 
-| Layer | Command | What it tests |
-|-------|---------|---------------|
-| Unit tests | `bb test` | Pure functions, action handlers |
-| E2E popup | `bb test:e2e` | Extension loading, popup UI |
-| E2E REPL | `bb test:repl-e2e` | Full pipeline: editor -> browser |
+**When to run tests:**
+- **After ANY code change:** `bb test` (fast unit tests)
+- **Changed UI/extension code:** `bb test:e2e:ai` (use `:ai` suffix!)
+- **Changed messaging/REPL:** `bb test:repl-e2e:ai` (use `:ai` suffix!)
 
-### When to Run Tests
-
-**After code changes:** Always run the appropriate tests:
-
-1. **Changed pure functions** (action handlers, utilities): `bb test`
-2. **Changed UI code** (popup, panel): `bb test` then `bb test:e2e`
-3. **Changed extension messaging** (background, bridges): `bb test:e2e` and `bb test:repl-e2e`
-
-**Before committing:** Run `bb test:e2e` to verify the build works end-to-end.
-
-For the detailed testing strategy, setup, utilities, and common gotchas, see [testing.md](../dev/docs/testing.md).
+**See [testing.md](../dev/docs/testing.md) for:** detailed strategy, test utilities, fixtures, and troubleshooting.
 
 ### Manual Testing
 

@@ -52,41 +52,27 @@ Unit tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint c
 
 #### E2E Tests
 
-Run Playwright E2E tests for popup UI:
+**For AI agents** (use these to avoid interrupting the human):
 ```bash
-bb test:e2e          # Run tests (builds extension first, browsers visible)
+bb test:e2e:ai       # UI tests in Docker (no browser popup)
+bb test:repl-e2e:ai  # REPL tests in Docker (no browser popup)
+```
+
+**For humans** (headed tests with visible browser):
+```bash
+bb test:e2e          # Run tests (builds extension first)
 bb test:e2e:ui       # Interactive Playwright UI
-bb test:e2e:ai       # Run in Docker (for AI agents, no browser popup)
+bb test:repl-e2e     # REPL integration tests
+bb test:repl-e2e:ui  # REPL tests with Playwright UI
 ```
 
-**Pass Playwright options** to any e2e task:
+**Filter tests:** Pass Playwright options to any e2e task:
 ```bash
-bb test:e2e --grep "pattern"      # Run tests matching pattern
-bb test:e2e:ci --grep "popup"     # Filter without rebuilding
-bb test:e2e:ai --grep "panel"     # Filter in Docker
+bb test:e2e:ai --grep "popup"     # Run only popup tests
 bb test:e2e --headed --debug      # Debug mode with inspector
-bb test:e2e:ci --list             # List matching tests
 ```
 
-Run REPL integration tests (full pipeline with browser-nrepl):
-```bash
-bb test:repl-e2e     # Run tests (builds extension first)
-bb test:repl-e2e:ui  # Interactive Playwright UI
-bb test:repl-e2e:ai  # Run in Docker (for AI agents, no browser popup)
-```
-
-E2E tests live in `e2e/*.cljs` and are compiled to `build/e2e/*.mjs`. See [testing.md](testing.md) for strategy, setup, and test utilities.
-
-**Docker `:ai` variants** - for AI agents that cannot interact with browser windows:
-- Run tests inside Docker with virtual display (Xvfb)
-- No browser windows appear on the host machine
-- Require Docker to be running
-
-**CI variants** (skip build step, assume artifacts exist):
-```bash
-bb test:e2e:ci       # Used by GitHub Actions
-bb test:repl-e2e:ci  # Used by GitHub Actions
-```
+**See [testing.md](testing.md) for:** complete testing strategy, fixtures, utilities, and troubleshooting.
 
 ### CI/CD Pipeline
 

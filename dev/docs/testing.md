@@ -2,6 +2,19 @@
 
 This document describes Epupp's testing strategy, the local setup, and the test utilities used by the suite.
 
+## For AI Agents: Critical Test Variant Selection
+
+**ALWAYS use `:ai` variants for E2E tests to avoid interrupting the human:**
+
+| Use This | NOT This | Why |
+|----------|----------|-----|
+| `bb test:e2e:ai` | `bb test:e2e` | Headed tests open browser windows |
+| `bb test:repl-e2e:ai` | `bb test:repl-e2e` | Headed tests open browser windows |
+
+The `:ai` variants run in Docker with virtual display (Xvfb), so no visible windows appear on the host machine.
+
+**Exception:** Only use non-`:ai` variants if explicitly asked by the human for debugging with visible browser.
+
 ## Overview
 
 Testing is organized into three layers:
@@ -12,25 +25,28 @@ Testing is organized into three layers:
 
 A core goal is to extract pure functions and keep most business logic unit-testable.
 
-## Quick commands
+## Quick Commands
 
-- Unit tests once: `bb test`
-- Unit test watcher: `bb test:watch`
-- UI E2E tests: `bb test:e2e` (or `bb test:e2e:ui`)
-- UI E2E tests (Docker, for AI agents): `bb test:e2e:ai`
-- REPL integration tests: `bb test:repl-e2e` (or `bb test:repl-e2e:ui`)
-- REPL integration tests (Docker, for AI agents): `bb test:repl-e2e:ai`
+**AI Agents - Use These:**
+- `bb test` - Unit tests (fast, always run after changes)
+- `bb test:e2e:ai` - UI E2E tests (Docker, no browser popup)
+- `bb test:repl-e2e:ai` - REPL integration tests (Docker, no browser popup)
 
-CI variants (assume build artifacts exist):
-- `bb test:e2e:ci`
-- `bb test:repl-e2e:ci`
+**Human Developers:**
+- `bb test:watch` - Unit test watcher
+- `bb test:e2e` - UI E2E tests (headed, browsers visible)
+- `bb test:e2e:ui` - Playwright UI (interactive debugging)
+- `bb test:repl-e2e` - REPL tests (headed)
+- `bb test:repl-e2e:ui` - REPL tests with Playwright UI
 
-**Playwright options:** All Playwright-based tasks accept extra args:
+**CI/CD Only:**
+- `bb test:e2e:ci` - E2E without rebuild (GitHub Actions)
+- `bb test:repl-e2e:ci` - REPL tests without rebuild (GitHub Actions)
+
+**Filter tests:** Pass `--grep "pattern"` to any Playwright test:
 ```bash
-bb test:e2e --grep "pattern"      # Run tests matching pattern
-bb test:e2e:ci --grep "popup"     # Filter without rebuilding
-bb test:e2e:ai --grep "panel"     # Filter in Docker
-bb test:e2e --headed --debug      # Debug mode with inspector
+bb test:e2e:ai --grep "popup"      # Run only popup tests
+bb test:e2e:ai --grep "rename"     # Run only rename-related tests
 ```
 
 ## Unit tests (Vitest)
