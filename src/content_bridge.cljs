@@ -1,3 +1,19 @@
+;; ============================================================
+;; Security: Message Forwarding Whitelist
+;; ============================================================
+;; The content bridge is the ONLY path from page scripts (MAIN world) to the
+;; background worker. Page scripts cannot call chrome.runtime.sendMessage directly.
+;;
+;; IMPORTANT: Only explicitly handled message types below are forwarded.
+;; Adding new forwarded messages effectively grants page scripts that capability.
+;; Before adding: consider if the background handler could be abused if called
+;; by arbitrary page code (e.g., pattern-approved, evaluate-script would be dangerous).
+;;
+;; Current whitelist:
+;; - epupp-page source: ws-connect, ws-send (WebSocket relay for REPL)
+;; - epupp-userscript source: install-userscript (with origin validation in background)
+;; ============================================================
+
 (ns content-bridge
   "Content script bridge for WebSocket connections.
    Runs in ISOLATED world, relays messages between page (MAIN) and background service worker.")
