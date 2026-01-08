@@ -283,3 +283,72 @@
                                  ["https://github.com/"]
                                  []))
                         (.toBe true))))))
+
+;; ============================================================
+;; sort-scripts-for-display tests
+;; ============================================================
+
+(describe "sort-scripts-for-display"
+          (fn []
+            (let [builtin? #(and (:script/id %) (.startsWith (:script/id %) "epupp-builtin-"))]
+              (test "sorts user scripts alphabetically by name"
+                    (fn []
+                      (let [scripts [{:script/id "s1" :script/name "zebra.cljs"}
+                                     {:script/id "s2" :script/name "alpha.cljs"}
+                                     {:script/id "s3" :script/name "mike.cljs"}]
+                            result (vec (popup-utils/sort-scripts-for-display scripts builtin?))]
+                        (-> (expect (:script/name (first result)))
+                            (.toBe "alpha.cljs"))
+                        (-> (expect (:script/name (second result)))
+                            (.toBe "mike.cljs"))
+                        (-> (expect (:script/name (nth result 2)))
+                            (.toBe "zebra.cljs")))))
+
+              (test "places built-in scripts after user scripts"
+                    (fn []
+                      (let [scripts [{:script/id "epupp-builtin-gist" :script/name "Gist Installer"}
+                                     {:script/id "s1" :script/name "my_script.cljs"}]
+                            result (vec (popup-utils/sort-scripts-for-display scripts builtin?))]
+                        (-> (expect (:script/name (first result)))
+                            (.toBe "my_script.cljs"))
+                        (-> (expect (:script/name (second result)))
+                            (.toBe "Gist Installer")))))
+
+              (test "sorts built-in scripts alphabetically among themselves"
+                    (fn []
+                      (let [scripts [{:script/id "epupp-builtin-zzz" :script/name "Zzz Builtin"}
+                                     {:script/id "epupp-builtin-aaa" :script/name "Aaa Builtin"}
+                                     {:script/id "s1" :script/name "user.cljs"}]
+                            result (vec (popup-utils/sort-scripts-for-display scripts builtin?))]
+                        (-> (expect (:script/name (first result)))
+                            (.toBe "user.cljs"))
+                        (-> (expect (:script/name (second result)))
+                            (.toBe "Aaa Builtin"))
+                        (-> (expect (:script/name (nth result 2)))
+                            (.toBe "Zzz Builtin")))))
+
+              (test "sorts case-insensitively"
+                    (fn []
+                      (let [scripts [{:script/id "s1" :script/name "Zebra.cljs"}
+                                     {:script/id "s2" :script/name "alpha.cljs"}]
+                            result (vec (popup-utils/sort-scripts-for-display scripts builtin?))]
+                        (-> (expect (:script/name (first result)))
+                            (.toBe "alpha.cljs"))
+                        (-> (expect (:script/name (second result)))
+                            (.toBe "Zebra.cljs")))))
+
+              (test "handles empty list"
+                    (fn []
+                      (let [result (vec (popup-utils/sort-scripts-for-display [] builtin?))]
+                        (-> (expect (count result))
+                            (.toBe 0)))))
+
+              (test "handles list with only built-ins"
+                    (fn []
+                      (let [scripts [{:script/id "epupp-builtin-b" :script/name "Beta"}
+                                     {:script/id "epupp-builtin-a" :script/name "Alpha"}]
+                            result (vec (popup-utils/sort-scripts-for-display scripts builtin?))]
+                        (-> (expect (count result))
+                            (.toBe 2))
+                        (-> (expect (:script/name (first result)))
+                            (.toBe "Alpha"))))))))

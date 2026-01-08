@@ -19,18 +19,17 @@
          :ui/copy-feedback nil
          :ui/has-connected false  ; Track if we've connected at least once
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
-         :ui/sections-collapsed {:repl-connect false    ; expanded by default
-                                 :scripts false         ; expanded by default
-                                 :builtin-scripts false ; expanded by default
-                                 :settings true}        ; collapsed by default
+         :ui/sections-collapsed {:repl-connect false      ; expanded by default
+                                 :matching-scripts false  ; expanded by default
+                                 :other-scripts false     ; expanded by default
+                                 :settings true}          ; collapsed by default
          :browser/brave? false
          :scripts/list []         ; All userscripts
          :scripts/current-url nil ; Current tab URL for matching
          :settings/user-origins []    ; User-added allowed origins
          :settings/new-origin ""      ; Input field for new origin
          :settings/default-origins [] ; Config origins (read-only)
-         :settings/error nil          ; Validation error message
-         }))
+         :settings/error nil}))          ; Validation error message
 
 
 
@@ -336,9 +335,11 @@
                :title (if enabled "Enabled" "Disabled")
                :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
       [:div.script-info
-       [:span.script-name name]
-       (when builtin?
-         [:span.script-badge "(Built-in)"])
+       [:span.script-name
+        (when builtin?
+          [:span.builtin-indicator {:title "Built-in script"}
+           [icons/cube]])
+        name]
        (when truncated-desc
          [:span.script-description truncated-desc])
        [:span.script-match pattern-display]]
@@ -365,27 +366,36 @@
        [:div.script-edit-hint
         "Open the Epupp panel in Developer Tools"])]))
 
-(defn scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
-  (let [user-scripts (filterv #(not (script-utils/builtin-script? %)) list)]
-    [:div.script-list
-     (if (seq user-scripts)
-       (for [script user-scripts]
-         ^{:key (:script/id script)}
-         [script-item script current-url editing-hint-script-id])
-       [:div.no-scripts "No scripts yet. Create scripts via DevTools console."])]))
+(defn- sort-scripts
+  "Sort scripts: user scripts alphabetically first, then built-ins alphabetically."
+  [scripts]
+  (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn builtin-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
-  (let [builtin-scripts (filterv script-utils/builtin-script? list)]
+(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
+  (let [matching-scripts (->> list
+                              (filterv #(script-utils/get-matching-pattern current-url %))
+                              sort-scripts)]
     [:div.script-list
-     (if (seq builtin-scripts)
-       (for [script builtin-scripts]
+     (if (seq matching-scripts)
+       (for [script matching-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url editing-hint-script-id])
-       [:div.no-scripts "No built-in scripts installed."])]))
+       [:div.no-scripts "No scripts match this page."])]))
 
 ;; ============================================================
 ;; Settings Components
 ;; ============================================================
+
+(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
+  (let [other-scripts (->> list
+                           (filterv #(not (script-utils/get-matching-pattern current-url %)))
+                           sort-scripts)]
+    [:div.script-list
+     (if (seq other-scripts)
+       (for [script other-scripts]
+         ^{:key (:script/id script)}
+         [script-item script current-url editing-hint-script-id])
+       [:div.no-scripts "No other scripts."])]))
 
 (defn origin-item [{:keys [origin editable on-delete]}]
   [:div.origin-item {:class (when-not editable "origin-item-default")}
@@ -475,9 +485,11 @@
     [:div.connect-row
      [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
 
-(defn popup-ui [{:keys [ui/sections-collapsed scripts/list] :as state}]
-  (let [user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
-        builtin-scripts (filterv script-utils/builtin-script? list)]
+(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
+  (let [matching-scripts (->> list
+                              (filterv #(script-utils/get-matching-pattern current-url %)))
+        other-scripts (->> list
+                           (filterv #(not (script-utils/get-matching-pattern current-url %))))]
     [:div
      ;; Header with logos
      [:div.header
@@ -498,19 +510,19 @@
                            :expanded? (not (:repl-connect sections-collapsed))}
       [repl-connect-content state]]
 
-     ;; Scripts section (user scripts only)
-     [collapsible-section {:id :scripts
-                           :title "Scripts"
-                           :expanded? (not (:scripts sections-collapsed))
-                           :badge-count (count user-scripts)}
-      [scripts-section state]]
+     ;; Matching Scripts section
+     [collapsible-section {:id :matching-scripts
+                           :title "Matching Scripts"
+                           :expanded? (not (:matching-scripts sections-collapsed))
+                           :badge-count (count matching-scripts)}
+      [matching-scripts-section state]]
 
-     ;; Built-in Scripts section
-     [collapsible-section {:id :builtin-scripts
-                           :title "Built-in Scripts"
-                           :expanded? (not (:builtin-scripts sections-collapsed))
-                           :badge-count (count builtin-scripts)}
-      [builtin-scripts-section state]]
+     ;; Other Scripts section
+     [collapsible-section {:id :other-scripts
+                           :title "Other Scripts"
+                           :expanded? (not (:other-scripts sections-collapsed))
+                           :badge-count (count other-scripts)}
+      [other-scripts-section state]]
 
      ;; Settings section (collapsed by default)
      [collapsible-section {:id :settings

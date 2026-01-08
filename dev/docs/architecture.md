@@ -169,7 +169,10 @@ Each component maintains its own state atom with namespaced keys.
    :ui/copy-feedback nil
    :ui/has-connected false
    :ui/editing-hint-script-id nil
-   :ui/view :main               ; :main or :settings
+   :ui/sections-collapsed {:repl-connect false      ; expanded by default
+                           :matching-scripts false  ; expanded by default
+                           :other-scripts false     ; expanded by default
+                           :settings true}          ; collapsed by default
    :browser/brave? false
    :scripts/list []
    :scripts/current-url nil

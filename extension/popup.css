@@ -357,6 +357,20 @@ button#connect:active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.builtin-indicator {
+  display: inline-flex;
+  color: var(--text-muted);
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.builtin-indicator:hover {
+  color: var(--clojure-blue);
 }
 
 .script-description {
@@ -366,14 +380,6 @@ button#connect:active {
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;
-}
-
-.script-badge {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .script-match {

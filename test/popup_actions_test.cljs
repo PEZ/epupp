@@ -15,8 +15,8 @@
    :ui/has-connected false
    :ui/editing-hint-script-id nil
    :ui/sections-collapsed {:repl-connect false
-                           :scripts false
-                           :builtin-scripts false
+                           :matching-scripts false
+                           :other-scripts false
                            :settings true}
    :browser/brave? false
    :scripts/list []

@@ -2,6 +2,35 @@
 
 How things work for the end user.
 
+## Popup Script Management
+
+### Script Sections
+Scripts are organized into two sections based on whether they match the current page URL:
+
+- **Matching Scripts** - Scripts with URL patterns that match the current tab
+- **Other Scripts** - All other saved scripts
+
+Within each section, scripts are sorted:
+1. User scripts alphabetically
+2. Built-in scripts alphabetically (shown last)
+
+### Built-in Script Indicator
+Built-in scripts are marked with a cube icon (📦) before the name. Hover over the icon to see the "Built-in script" tooltip.
+
+### Script Actions
+Each script has action buttons:
+- **Checkbox** - Enable/disable the script
+- **Pencil icon** - Send to DevTools panel for editing
+- **Play icon** - Run the script on the current page
+- **X icon** - Delete script (not shown for built-in scripts)
+
+### Approval Workflow
+When visiting a page that matches an enabled script's URL pattern for the first time:
+1. The script appears in "Matching Scripts" with an amber border
+2. **Allow** and **Deny** buttons appear
+3. Click **Allow** to approve the pattern and run the script
+4. Click **Deny** to disable the script
+
 ## Script Editor (DevTools Panel)
 
 ### Creating a New Script

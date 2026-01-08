@@ -93,3 +93,18 @@
   (let [trimmed (.trim origin)]
     (or (some #(= % trimmed) default-origins)
         (some #(= % trimmed) user-origins))))
+
+;; ============================================================
+;; Script sorting for display
+;; ============================================================
+
+(defn sort-scripts-for-display
+  "Sort scripts for UI display: user scripts alphabetically first,
+   then built-in scripts alphabetically.
+   Uses script name for alphabetic ordering (case-insensitive)."
+  [scripts builtin-script?-fn]
+  (let [user-scripts (filterv (comp not builtin-script?-fn) scripts)
+        builtin-scripts (filterv builtin-script?-fn scripts)
+        sort-by-name #(vec (sort-by (fn [s] (.toLowerCase (:script/name s))) %))]
+    (concat (sort-by-name user-scripts)
+            (sort-by-name builtin-scripts))))

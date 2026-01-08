@@ -110,3 +110,15 @@
           :viewBox "0 0 20 20"
           :fill "currentColor"}
     [:path {:d "M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"}]]))
+
+(defn cube
+  "Built-in/package icon - Heroicons mini cube"
+  ([] (cube {}))
+  ([{:keys [size class] :or {size 12}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size
+          :height size
+          :viewBox "0 0 20 20"
+          :fill "currentColor"
+          :class class}
+    [:path {:d "M10.362 1.093a.75.75 0 00-.724 0L2.523 5.018 10 9.143l7.477-4.125-7.115-3.925zM18 6.443l-7.25 4v8.25l6.862-3.786A.75.75 0 0018 14.25V6.443zM9.25 18.693v-8.25l-7.25-4v7.807a.75.75 0 00.388.657l6.862 3.786z"}]]))

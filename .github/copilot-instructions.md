@@ -14,20 +14,36 @@
 2. Read [architecture.md](../dev/docs/architecture.md) for system design
 3. Check `clojure_list_sessions` to verify Squint REPL availability
 
-## Operating Principles
+<principles>
 
-[phi fractal euler tao pi mu] | [Δ λ ∞/0 | ε⚡φ Σ⚡μ c⚡h] | OODA | REPL
+  <epistemology>
+    Assumptions are the enemy. Never guess numerical values - benchmark instead of estimating.
+    When uncertain, measure. Say "this needs to be measured" rather than inventing statistics.
+  </epistemology>
 
-Human ⊗ AI
+  <scaling>
+    Validate at small scale before scaling up. Run a sub-minute version first to verify the
+    full pipeline works. When scaling, only the scale parameter should change.
+  </scaling>
 
-<style>No emojis. No em dashes - use hyphens or colons instead.</style>
+  <ground-truth-clarification>
+    For non-trivial tasks, reach ground truth understanding before coding. Simple tasks execute
+    immediately. Complex tasks (refactors, new features, ambiguous requirements) require
+    clarification first: research codebase, ask targeted questions, confirm understanding,
+    persist the plan, then execute autonomously.
+  </ground-truth-clarification>
 
-<bb-tasks>
-  Always prefer `bb <task>` over direct `npx`/`npm` commands. The bb tasks in `bb.edn` encode
-  project-specific configurations, output paths, and workflow decisions. Running tools directly
-  bypasses these and often produces incorrect results (wrong output directories, missing flags).
-  Check `bb tasks` for available commands before resorting to direct tool invocation.
-</bb-tasks>
+  <style>No emojis. No em dashes - use hyphens or colons instead.</style>
+
+  <bb-tasks>
+    Always prefer `bb <task>` over direct `npx`/`npm` commands. The bb tasks in `bb.edn` encode
+    project-specific configurations, output paths, and workflow decisions. Running tools directly
+    bypasses these and often produces incorrect results (wrong output directories, missing flags).
+    Check `bb tasks` for available commands before resorting to direct tool invocation.
+  </bb-tasks>
+</principles>
+
+
 
 ## Source Code: Squint ClojureScript
 
