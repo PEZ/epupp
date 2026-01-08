@@ -191,55 +191,55 @@
                       (-> (expect fx-id)
                           (.toBe "test-1")))))))
 
-(describe "popup edit action"
+(describe "popup inspect action"
           (fn []
-            (test ":popup/ax.edit-script sets hint and triggers edit effect"
+            (test ":popup/ax.inspect-script sets hint and triggers inspect effect"
                   (fn []
                     (let [scripts [{:script/id "test-1"
                                     :script/name "Test"
                                     :script/match ["*://example.com/*"]
                                     :script/code "(println \"hi\")"}]
                           state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.edit-script "test-1"])]
+                          result (popup-actions/handle-action state uf-data [:popup/ax.inspect-script "test-1"])]
               ;; Should set editing hint
                       (-> (expect (:ui/editing-hint-script-id (:uf/db result)))
                           (.toBe "test-1"))
-              ;; Should trigger edit effect
+              ;; Should trigger inspect effect
                       (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :popup/fx.edit-script)))))
+                          (.toBe :popup/fx.inspect-script)))))
 
-            (test ":popup/ax.edit-script passes script to effect"
+            (test ":popup/ax.inspect-script passes script to effect"
                   (fn []
                     (let [scripts [{:script/id "test-1"
                                     :script/name "Test Script"
                                     :script/match ["*://example.com/*"]
                                     :script/code "(println \"hello\")"}]
                           state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.edit-script "test-1"])
+                          result (popup-actions/handle-action state uf-data [:popup/ax.inspect-script "test-1"])
                           [_fx-name script] (first (:uf/fxs result))]
                       (-> (expect (:script/id script))
                           (.toBe "test-1"))
                       (-> (expect (:script/name script))
                           (.toBe "Test Script")))))
 
-            (test ":popup/ax.edit-script schedules hint clear"
+            (test ":popup/ax.inspect-script schedules hint clear"
                   (fn []
                     (let [scripts [{:script/id "test-1"
                                     :script/name "Test"
                                     :script/match ["*://example.com/*"]
                                     :script/code ""}]
                           state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.edit-script "test-1"])
+                          result (popup-actions/handle-action state uf-data [:popup/ax.inspect-script "test-1"])
                   ;; Second effect should be defer-dispatch
                           [fx-name] (second (:uf/fxs result))]
                       (-> (expect fx-name)
                           (.toBe :uf/fx.defer-dispatch)))))
 
-            (test ":popup/ax.edit-script returns nil for non-existent script"
+            (test ":popup/ax.inspect-script returns nil for non-existent script"
                   (fn []
                     (let [scripts [{:script/id "other"}]
                           state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.edit-script "missing"])]
+                          result (popup-actions/handle-action state uf-data [:popup/ax.inspect-script "missing"])]
                       (-> (expect result)
                           (.toBeUndefined)))))))
 

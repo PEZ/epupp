@@ -227,7 +227,7 @@ The popup and panel use a Re-frame-inspired unidirectional data flow pattern cal
 | `:popup/ax.delete-script` | `[script-id]` | Remove script from storage |
 | `:popup/ax.approve-script` | `[script-id pattern]` | Add pattern to approved list, execute script |
 | `:popup/ax.deny-script` | `[script-id]` | Disable script (deny approval) |
-| `:popup/ax.edit-script` | `[script-id]` | Send script to DevTools panel for editing |
+| `:popup/ax.inspect-script` | `[script-id]` | Send script to DevTools panel for viewing/editing |
 | `:popup/ax.show-settings` | - | Switch to settings view |
 | `:popup/ax.show-main` | - | Switch to main view |
 | `:popup/ax.load-user-origins` | - | Load user origins from storage |

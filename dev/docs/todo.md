@@ -11,7 +11,7 @@
   * [ ] Code files ("src"-ish)
   * [ ] Urls?
 * [ ] Popup UI footer with info and sponsor link and sucj
-* [ ] Installing scripts from script installer should add them as disabled
+* [x] Installing scripts from script installer should add them as not approved
 * [ ] Script installer not adding button with Firefox and Safari
 * [ ] Add setting for re-establishing the repl/websocket connection after reload
   * [ ] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc

@@ -20,7 +20,7 @@ Built-in scripts are marked with a cube icon (📦) before the name. Hover over 
 ### Script Actions
 Each script has action buttons:
 - **Checkbox** - Enable/disable the script
-- **Pencil icon** - Send to DevTools panel for editing
+- **Eye icon** - Inspect script (send to DevTools panel for viewing/editing)
 - **Play icon** - Run the script on the current page
 - **X icon** - Delete script (not shown for built-in scripts)
 

@@ -71,12 +71,12 @@
           scripts (:scripts/list state)]
       {:uf/fxs [[:popup/fx.deny-script scripts script-id]]})
 
-    :popup/ax.edit-script
+    :popup/ax.inspect-script
     (let [[script-id] args
           script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
       (when script
         {:uf/db (assoc state :ui/editing-hint-script-id script-id)
-         :uf/fxs [[:popup/fx.edit-script script]
+         :uf/fxs [[:popup/fx.inspect-script script]
                   [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
 
     :popup/ax.evaluate-script

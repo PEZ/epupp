@@ -215,7 +215,7 @@
       (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
-    :popup/fx.edit-script
+    :popup/fx.inspect-script
     (let [[script] args]
       ;; Store script for panel to pick up
       (js/chrome.storage.local.set
@@ -224,6 +224,10 @@
                                 :match (first (:script/match script))
                                 :code (:script/code script)
                                 :description (:script/description script)}}))
+
+    :uf/fx.defer-dispatch
+    (let [[actions timeout] args]
+      (js/setTimeout #(dispatch actions) timeout))
 
     :popup/fx.load-current-url
     (let [tab (js-await (get-active-tab))]
@@ -351,9 +355,9 @@
        (when needs-approval
          [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
           "Deny"])
-       [:button.script-edit {:on-click #(dispatch! [[:popup/ax.edit-script script-id]])
-                             :title "Send to editor"}
-        [icons/pencil]]
+       [:button.script-inspect {:on-click #(dispatch! [[:popup/ax.inspect-script script-id]])
+                             :title "Inspect script"}
+        [icons/eye]]
        [:button.script-run {:on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])
                             :title "Run script"}
         [icons/play]]
