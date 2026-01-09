@@ -1,0 +1,17 @@
+;; Test configuration for Epupp
+;;
+;; This file is read at build time and injected via esbuild --define.
+;; Used for E2E tests that need structured event logging.
+
+{:dev true
+ :test true  ; <-- Enables structured test logging to chrome.storage.local
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"
+ ;; Allowed URL prefixes for userscript installation
+ ;; Each entry is a prefix that script URLs must start with
+ :allowedScriptOrigins ["https://github.com/"
+                        "https://gist.github.com/"
+                        "https://raw.githubusercontent.com/"
+                        "https://gitlab.com/"
+                        "https://codeberg.org/"
+                        "http://localhost:"
+                        "http://127.0.0.1:"]}
