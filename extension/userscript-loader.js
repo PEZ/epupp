@@ -26,6 +26,23 @@
   const currentUrl = window.location.href;
   console.log('[Epupp Loader] Running at', document.readyState, 'for', currentUrl);
 
+  // Test event logging (only active when EXTENSION_CONFIG.test is true)
+  // Logs to chrome.storage.local for E2E test assertions
+  function logTestEvent(event, data) {
+    // EXTENSION_CONFIG is injected at build time; undefined in production
+    if (typeof EXTENSION_CONFIG === 'undefined' || !EXTENSION_CONFIG.test) return;
+    chrome.storage.local.get(['test-events'], (result) => {
+      const events = result['test-events'] || [];
+      events.push({
+        event: event,
+        ts: Date.now(),
+        perf: performance.now(),
+        data: data
+      });
+      chrome.storage.local.set({ 'test-events': events });
+    });
+  }
+
   // URL pattern matching (mirrors script_utils.cljs logic)
   function patternToRegex(pattern) {
     if (pattern === '<all_urls>') {
@@ -86,6 +103,12 @@
   // Main loader logic
   async function loadScripts() {
     try {
+      // Log that loader is running (for timing tests)
+      logTestEvent('LOADER_RUN', {
+        url: currentUrl,
+        readyState: document.readyState
+      });
+
       // Read scripts from storage
       const result = await chrome.storage.local.get(['scripts']);
       const scripts = result.scripts || [];

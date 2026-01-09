@@ -16,7 +16,8 @@
 
 (ns content-bridge
   "Content script bridge for WebSocket connections.
-   Runs in ISOLATED world, relays messages between page (MAIN) and background service worker.")
+   Runs in ISOLATED world, relays messages between page (MAIN) and background service worker."
+  (:require [test-logger :as test-logger]))
 
 (def !state (atom {:bridge/connected? false
                    :bridge/keepalive-interval nil}))
@@ -208,4 +209,6 @@
   (.postMessage js/window
                 #js {:source "epupp-bridge"
                      :type "bridge-ready"}
-                "*"))
+                "*")
+  ;; Log test event for E2E tests
+  (test-logger/log-event! "BRIDGE_READY" {:url js/window.location.href}))

@@ -6,11 +6,15 @@
             [url-matching :as url-matching]
             [script-utils :as script-utils]
             [registration :as registration]
-            [manifest-parser :as manifest-parser]))
+            [manifest-parser :as manifest-parser]
+            [test-logger :as test-logger]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
 (js/console.log "[Epupp Background] Service worker started")
+
+;; DEBUG: Write directly to storage at module load to confirm service worker is running
+(.set js/chrome.storage.local #js {:bg-started true :ts (.now js/Date)})
 
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
@@ -33,6 +37,9 @@
               ;; Sync content script registrations for early-timing scripts
               (js-await (registration/sync-registrations!))
               (js/console.log "[Background] Initialization complete")
+              ;; Log test event for E2E tests
+              (js-await (test-logger/log-event! "EXTENSION_STARTED"
+                                                {:version (.-version (.getManifest js/chrome.runtime))}))
               true
               (catch :default err
                 (js/console.error "[Background] Initialization failed:" err)
@@ -318,7 +325,9 @@
         (js-await (poll-until
                    (fn [] (execute-in-page tab-id check-scittle-fn))
                    (fn [r] (and r (.-hasScittle r)))
-                   5000))))
+                   5000))
+        ;; Log test event for E2E tests
+        (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))))
     true))
 
 (defn wait-for-bridge-ready
@@ -386,7 +395,13 @@
                                                 :id (str "userscript-" (:script/id script))
                                                 :code (:script/code script)})
                       (.then (fn [_]
-                               (js/console.log "[Userscript]" (:script/name script) "tag injected")))))
+                               (js/console.log "[Userscript]" (:script/name script) "tag injected")
+                               ;; Log test event for E2E tests
+                               (test-logger/log-event! "SCRIPT_INJECTED"
+                                                       {:script-id (:script/id script)
+                                                        :script-name (:script/name script)
+                                                        :timing (or (:script/run-at script) "document-idle")
+                                                        :tab-id tab-id})))))
                 scripts))))
         ;; Trigger Scittle to evaluate them
         (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url}))
