@@ -743,39 +743,45 @@
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs)."
   [tab-id url]
-  (js/console.log "[process-navigation!] Starting for" url)
   (let [all-scripts (url-matching/get-matching-scripts url)
-        _ (js/console.log "[process-navigation!] all-scripts count:" (count all-scripts))
         ;; Filter to only document-idle scripts (default for scripts without run-at)
         ;; Early-timing scripts (document-start, document-end) are handled by
         ;; registerContentScripts and should not be injected again here.
         idle-scripts (filter #(= "document-idle"
                                  (or (:script/run-at %) "document-idle"))
                              all-scripts)]
-    (js/console.log "[process-navigation!] idle-scripts count:" (count idle-scripts))
+    ;; Log for E2E debugging
+    (js-await (test-logger/log-event! "NAVIGATION_PROCESSED"
+                                      {:url url
+                                       :all-scripts-count (count all-scripts)
+                                       :idle-scripts-count (count idle-scripts)}))
     (when (seq idle-scripts)
       (js/console.log "[Auto-inject] Found" (count idle-scripts) "document-idle scripts for" url)
       (let [script-contexts (map (fn [script]
-                                   (let [pattern (url-matching/get-matching-pattern url script)
-                                         approved-patterns (:script/approved-patterns script)]
-                                     (js/console.log "[process-navigation!] Script:" (:script/name script)
-                                                     "pattern:" pattern
-                                                     "approved-patterns:" (clj->js approved-patterns))
+                                   (let [pattern (url-matching/get-matching-pattern url script)]
                                      {:script script
                                       :pattern pattern
                                       :approved? (storage/pattern-approved? script pattern)}))
                                  idle-scripts)
             approved (filter :approved? script-contexts)
             unapproved (remove :approved? script-contexts)]
-        (js/console.log "[process-navigation!] approved count:" (count approved)
-                        "unapproved count:" (count unapproved))
+        ;; Log approval status for E2E debugging
+        (js-await (test-logger/log-event! "SCRIPTS_APPROVAL_STATUS"
+                                          {:approved-count (count approved)
+                                           :unapproved-count (count unapproved)
+                                           :scripts (mapv #(-> %
+                                                               :script
+                                                               (select-keys [:script/name :script/approved-patterns]))
+                                                          script-contexts)}))
         (when (seq approved)
           (js/console.log "[Auto-inject] Executing" (count approved) "approved scripts")
+          (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count approved)}))
           (try
             (js-await (ensure-scittle! tab-id))
             (js-await (execute-scripts! tab-id (map :script approved)))
             (catch :default err
-              (js/console.error "[Auto-inject] Failed:" (.-message err)))))
+              (js/console.error "[Auto-inject] Failed:" (.-message err))
+              (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))
         (doseq [{:keys [script pattern]} unapproved]
           (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
           (request-approval! script pattern tab-id url))))))
@@ -785,6 +791,8 @@
    Never drops navigation events - always waits for readiness."
   [tab-id url]
   (try
+    ;; Log test event for E2E debugging
+    (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
     (js-await (ensure-initialized!))
     (js-await (process-navigation! tab-id url))
     (catch :default err
