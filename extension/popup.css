@@ -848,3 +848,29 @@ button#connect:active {
   margin-left: 4px;
   opacity: 0.8;
 }
+
+/* Dev log button - only visible in dev/test mode */
+.dev-log-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--separator-color);
+  display: flex;
+  justify-content: center;
+}
+
+.dev-log-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--separator-color);
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.dev-log-btn:hover {
+  background: var(--btn-hover-bg);
+  color: var(--text-primary);
+  border-color: var(--clojure-blue);
+}

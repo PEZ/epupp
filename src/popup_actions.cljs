@@ -122,4 +122,7 @@
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})
 
+    :popup/ax.dump-dev-log
+    {:uf/fxs [[:popup/fx.dump-dev-log]]}
+
     :uf/unhandled-ax))

@@ -278,6 +278,17 @@
            (js/chrome.storage.local.set
             #js {:userAllowedOrigins (clj->js updated)})))))
 
+    :popup/fx.dump-dev-log
+    ;; Fetch test events from storage and console.log with a marker
+    ;; Playwright can capture this via page.on('console')
+    (js/chrome.storage.local.get
+     #js ["test-events"]
+     (fn [result]
+       ;; Use aget for hyphenated key access (.-test-events becomes .test_events in Squint)
+       (let [events (or (aget result "test-events") #js [])]
+         ;; Use a unique marker that Playwright can identify
+         (js/console.log "__EPUPP_DEV_LOG__" (js/JSON.stringify events)))))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -543,7 +554,10 @@
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))}
-      [settings-content state]]]))
+      [settings-content state]]
+
+     ;; Dev log button (only in dev/test mode)
+     [dev-log-button]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")
@@ -570,6 +584,20 @@
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
   (init!))
+
+;; =============================================================================
+;; Dev Log Button (only shown in dev/test mode)
+;; =============================================================================
+
+(defn dev-log-button
+  "Button to dump all test events to console. Only shown in dev/test mode.
+   Playwright can capture console output via page.on('console')."
+  []
+  (when (or (.-dev config) (.-test config))
+    [:div.dev-log-section
+     [:button.dev-log-btn
+      {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
+      "Dump Dev Log"]]))
 
 ;; =============================================================================
 ;; Test Helpers (exported for E2E tests)
