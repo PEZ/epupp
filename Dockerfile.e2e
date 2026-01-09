@@ -31,7 +31,11 @@ RUN bb prepare
 # Copy the rest of the project
 COPY . .
 
+# Build extension and compile e2e tests
+RUN bb build:test && bb test:e2e:compile
+
 # Create entrypoint script that sets up Xvfb and delegates to bb tasks
+# The e2e tasks handle HTTP server lifecycle internally
 # Supports --repl-e2e flag to run REPL integration tests
 RUN echo '#!/bin/bash\n\
 Xvfb :99 -screen 0 1280x720x24 2>/dev/null &\n\
@@ -40,9 +44,9 @@ export DISPLAY=:99\n\
 \n\
 if [[ "$1" == "--repl-e2e" ]]; then\n\
   shift\n\
-  bb test:repl-e2e "$@"\n\
+  bb test:repl-e2e:ci "$@"\n\
 else\n\
-  bb test:e2e "$@"\n\
+  bb test:e2e:ci "$@"\n\
 fi\n\
 EXIT_CODE=$?\n\
 pkill Xvfb\n\
