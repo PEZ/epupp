@@ -161,6 +161,24 @@ In ClojureScript, sets can be used as functions for membership testing. In Squin
 
 Always use `contains?` for set membership checks.
 
+### 7. Hyphenated Property Access
+
+When accessing JavaScript object properties with hyphenated names, `(.-hyphenated-key obj)` gets converted to `obj.hyphenated_key` (underscore). This breaks when the actual key has a hyphen, like when reading from `chrome.storage.local` where keys are strings like `"test-events"`.
+
+**Solution:** Use `aget` for bracket notation access that preserves the exact key string.
+
+```clojure
+;; ❌ Broken - Squint converts hyphen to underscore
+(.get js/chrome.storage.local #js ["test-events"]
+      (fn [result]
+        (.-test-events result)))  ; Becomes result.test_events - wrong!
+
+;; ✅ Works - bracket notation preserves exact key
+(.get js/chrome.storage.local #js ["test-events"]
+      (fn [result]
+        (aget result "test-events")))  ; Becomes result["test-events"] - correct!
+```
+
 ## Debugging Squint Issues
 
 1. **Check compiled `.mjs` output** - Look at the generated JavaScript to understand what's happening
