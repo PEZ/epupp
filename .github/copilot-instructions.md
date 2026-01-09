@@ -41,6 +41,19 @@
     bypasses these and often produces incorrect results (wrong output directories, missing flags).
     Check `bb tasks` for available commands before resorting to direct tool invocation.
   </bb-tasks>
+
+  <babashka-utilities>
+    Prefer Babashka built-in utilities over Python, shell scripts, or other external tools when
+    functionality overlaps. The project uses Babashka extensively and has dependencies loaded.
+
+    Common replacements:
+    - HTTP server: Use `bb test:server` or `babashka.http-server` instead of `python -m http.server`
+    - File operations: Use `babashka.fs` instead of shell commands (cp, mv, rm, find, etc.)
+    - Process execution: Use `babashka.process` instead of raw shell scripts
+    - HTTP requests: Use `babashka.http-client` instead of curl or wget
+
+    Check bb.edn dependencies and existing tasks before reaching for external tools.
+  </babashka-utilities>
 </principles>
 
 ## Source Code: Squint ClojureScript
