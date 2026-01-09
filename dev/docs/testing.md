@@ -7,7 +7,9 @@ This document describes Epupp's testing strategy, the local setup, and the test 
 Testing is organized into three layers:
 
 1. **Unit tests (Vitest)** - fast, pure logic: reducers/action handlers, URL matching, script utilities.
-2. **Playwright UI E2E (Squint)** - browser extension UI workflows (popup and DevTools panel).
+2. **Playwright E2E (Squint)** - browser extension workflows including:
+   - UI tests (popup and DevTools panel)
+   - Log-powered tests for internal extension behavior (injection, timing)
 3. **REPL integration E2E (Babashka + Playwright)** - full pipeline: editor nREPL client -> browser-nrepl relay -> extension -> page Scittle REPL.
 
 A core goal is to extract pure functions and keep most business logic unit-testable.
@@ -80,9 +82,9 @@ This approach eliminates flakiness and makes test failures meaningful.
 **Gotchas (Squint/JS interop)**
 - Clojure `nil` becomes JS `undefined` in Squint tests. Prefer `.toBeUndefined()` instead of `.toBeNull()`.
 
-## UI E2E tests (Playwright, written in Squint)
+## Playwright E2E tests (Squint)
 
-UI E2E tests validate workflows that cannot be unit tested: extension load, DOM rendering, UI interactions, and cross-component storage flows.
+Playwright E2E tests validate workflows that cannot be unit tested: extension load, DOM rendering, UI interactions, cross-component storage flows, and internal extension behavior.
 
 **Where**
 - Source tests: `e2e/*.cljs`
@@ -109,19 +111,74 @@ Prefer fewer, comprehensive workflow tests over many small isolated tests.
 - This reduces browser launches (expensive), tests realistic flows, and catches integration issues.
 - Avoid testing timing-based UI feedback in E2E. Prefer unit tests for those.
 
-Current UI E2E suite:
-- `e2e/panel_test.cljs` - Panel: evaluation and save workflow
-- `e2e/popup_test.cljs` - Popup workflows (2 tests)
-- `e2e/integration_test.cljs` - Cross-component script lifecycle
+### Test files
+
+| File | Purpose |
+|------|---------|
+| `e2e/panel_test.cljs` | Panel: evaluation and save workflow |
+| `e2e/popup_test.cljs` | Popup UI workflows (REPL setup, script management, settings) |
+| `e2e/integration_test.cljs` | Cross-component script lifecycle (panel -> popup -> panel) |
+| `e2e/log_powered_test.cljs` | Internal behavior via event logging (injection, timing) |
+
+### UI Tests vs Log-Powered Tests
+
+**UI tests** (popup, panel, integration) assert on visible DOM elements using Playwright's built-in waiting. They test what a user sees and clicks.
+
+**Log-powered tests** observe internal extension behavior that's invisible to standard Playwright assertions. Since `page.evaluate()` returns `undefined` on `chrome-extension://` pages, these tests use a different approach:
+
+1. Extension code emits structured events to `chrome.storage.local` via `test-logger.cljs`
+2. Tests trigger actions (navigate, approve scripts, etc.)
+3. Tests click a dev log button in popup that dumps events to console
+4. Playwright captures console output and parses the event data
+5. Assertions run on the captured events
+
+**When to use log-powered tests:**
+- Verifying userscript injection occurred (no visible UI feedback)
+- Testing timing (document-start vs page scripts)
+- Validating internal state transitions
+- Performance measurement (events include `performance.now` timestamps)
+
+### Log-powered test infrastructure
+
+**Event logging** (`src/test_logger.cljs`):
+```clojure
+(log-event! "SCRIPT_INJECTED" {:script-id "..." :tab-id 123})
+```
+
+Events are only logged when built with test config (`bb build:test`). Each event includes:
+- `:event` - `SCREAMING_SNAKE_CASE` name
+- `:ts` - Wall clock timestamp (`Date.now`)
+- `:perf` - High-resolution timing (`performance.now`)
+- `:data` - Event-specific payload
+
+**Instrumented events:**
+| Event | Location | Purpose |
+|-------|----------|---------|
+| `EXTENSION_STARTED` | background.cljs | Baseline timing |
+| `SCITTLE_LOADED` | background.cljs | Load performance |
+| `SCRIPT_INJECTED` | background.cljs | Injection tracking |
+| `BRIDGE_READY_CONFIRMED` | background.cljs | Bridge setup overhead |
+| `WS_CONNECTED` | background.cljs | REPL connection tracking |
+| `NAVIGATION_STARTED` | background.cljs | Auto-injection pipeline |
+| `NAVIGATION_PROCESSED` | background.cljs | Script matching diagnostics |
+
+**Test helpers** (`e2e/fixtures.cljs`):
+```clojure
+(get-test-events popup)           ; Read events via dev log button
+(wait-for-event popup "SCRIPT_INJECTED" 10000)  ; Poll until event appears
+(generate-timing-report events)   ; Extract performance metrics
+(print-timing-report report)      ; Formatted console output
+```
 
 ### Fixtures and helpers
 
-Most UI tests use helpers in `e2e/fixtures.cljs`, including:
+Most tests use helpers in `e2e/fixtures.cljs`:
 - `launch-browser` - launch Chromium with the extension loaded
-- `get-extension-id` - resolve the installed extension id
+- `get-extension-id` - resolve the installed extension ID
 - `create-popup-page` - open `popup.html`
-- `create-panel-page` - open `panel.html` with a mocked `chrome.devtools` environment
+- `create-panel-page` - open `panel.html` with mocked `chrome.devtools` environment
 - `clear-storage` - ensure a clean test baseline
+- `wait-for-*` helpers - domain-specific waiting (save status, script count, etc.)
 
 ### Known limitations and required patterns
 
@@ -129,7 +186,9 @@ Most UI tests use helpers in `e2e/fixtures.cljs`, including:
 
 In Playwright, `page.evaluate()` returns `undefined` for `chrome-extension://` pages. This means tests cannot reliably seed storage by evaluating JS in the extension page.
 
-Working pattern: create scripts through the Panel UI (like a real user) and then verify them in the Popup UI.
+Working patterns:
+- Create scripts through the Panel UI (like a real user)
+- Use log-powered assertions for internal behavior
 
 **2. Test URL override for popup approval workflow**
 
@@ -146,6 +205,12 @@ For tests that depend on the "current URL" (for approval UI), set the override b
 ```
 
 The override is implemented in `get-active-tab` in `src/popup.cljs`.
+
+**3. Async userscript injection timing**
+
+Userscript injection happens asynchronously after `webNavigation.onCompleted`. When testing injection:
+- Keep the target page open while waiting for the `SCRIPT_INJECTED` event
+- Use `wait-for-event` to poll for the event before closing pages
 
 ## REPL integration E2E tests
 
