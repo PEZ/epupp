@@ -6,7 +6,7 @@
 - **Language:** Squint (ClojureScript-like, compiles to JS) - source in `src/*.cljs`
 - **Never edit:** `extension/*.mjs` or `build/*.js` (compiled artifacts)
 - **Testing:** ALWAYS use `bb test:e2e:ai` and `bb test:repl-e2e:ai` (not non-`:ai` variants)
-- **Commands:** Use `bb <task>`, not direct `npx`/`npm`
+- **Commands:** PREFER `bb <task>` - over direct `npx`/`npm` commands
 - **Watchers:** Usually already running - check task output before building
 
 **Start work setup:**
@@ -42,8 +42,6 @@
     Check `bb tasks` for available commands before resorting to direct tool invocation.
   </bb-tasks>
 </principles>
-
-
 
 ## Source Code: Squint ClojureScript
 
