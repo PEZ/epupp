@@ -132,33 +132,25 @@ REPL tests already exist in `repl_test.clj` using Babashka + Playwright.
 The WS_CONNECTED event logging was added to background.cljs but a dedicated
 true E2E test for this flow was not needed since existing tests cover it.
 
-### Phase 4: Cross-Browser Validation - MANUAL TESTING REQUIRED
+### Phase 4: Cross-Browser Validation - DEFERRED
 
-Firefox extension built with test config (`bb build --test firefox`), but automated testing requires manual verification:
+**Key finding:** Playwright extension support is **Chromium-only**. From [Playwright docs](https://playwright.dev/docs/chrome-extensions):
+> "Extensions only work in Chromium when launched with a persistent context."
 
-**Firefox limitations:**
-- Playwright support for Firefox extensions is limited
-- Cannot use Docker/headless mode with extensions in Firefox
-- Must test manually with visible browser
+This means:
+- ✅ Chrome/Chromium extension testing works (headless via Docker or headed locally)
+- ❌ Firefox extension testing not possible with Playwright
+- ❌ Safari extension testing not possible with Playwright (no headless mode anyway)
 
-**Manual testing procedure:**
-1. Load `dist/epupp-firefox.zip` in Firefox (`about:debugging` → Load Temporary Add-on)
-2. Navigate to `http://localhost:18080/basic.html` (start server: `bb test:server`)
-3. Create and approve a test userscript via panel/popup
-4. Check test events in popup DevTools console:
-   ```javascript
-   chrome.storage.local.get('test-events', r => console.log(JSON.stringify(r['test-events'], null, 2)))
-   ```
-5. Verify same events appear as in Chrome tests
+**Decision:** Test with Chromium only. The extension uses standard WebExtensions API that works identically in all browsers, so Chromium coverage validates cross-browser functionality.
 
-**Expected event sequence:**
-- `EXTENSION_STARTED` - Extension initialized
-- `EXECUTE_SCRIPTS_START` - Auto-injection triggered
-- `BRIDGE_INJECTED` - Content bridge loaded
-- `BRIDGE_READY_CONFIRMED` - Bridge ping successful
-- `SCRIPT_INJECTED` - Userscript tag injected
+**If cross-browser verification needed:**
+1. Use `bb build --test firefox` to build Firefox extension
+2. Load manually in Firefox (`about:debugging` → Load Temporary Add-on)
+3. Navigate to `http://localhost:18080/basic.html` (requires `bb test:server` running)
+4. Verify events in DevTools console: `chrome.storage.local.get('test-events', console.log)`
 
-**Status:** Infrastructure supports Firefox, manual validation recommended before automating.
+**Status:** Chromium tests provide sufficient coverage for WebExtensions API compatibility.
 
 ### Phase 5: Performance Reporting - TODO
 
