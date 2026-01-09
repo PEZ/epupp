@@ -162,8 +162,8 @@ build:test   ; Build extension with test config (no version bump)
 ### Running Tests
 
 ```bash
-bb test:e2e:ai          # All E2E tests in Docker (for AI agents)
-bb test:e2e:ai --grep "True E2E"  # Only true E2E tests
+bb test:e2e          # All E2E tests in Docker (headless)
+bb test:e2e --grep "True E2E"  # Only true E2E tests
 ```
 ```
 

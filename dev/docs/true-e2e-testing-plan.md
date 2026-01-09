@@ -399,7 +399,7 @@ COPY test-data/pages /app/test-data/pages
 EXPOSE 8080
 ```
 
-Update `bb test:e2e:ai` to:
+Update `bb test:e2e` to:
 1. Build with test config
 2. Start http-server inside Docker
 3. Run storage-based tests (no CDP needed)

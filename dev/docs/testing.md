@@ -2,19 +2,6 @@
 
 This document describes Epupp's testing strategy, the local setup, and the test utilities used by the suite.
 
-## For AI Agents: Critical Test Variant Selection
-
-**ALWAYS use `:ai` variants for E2E tests to avoid interrupting the human:**
-
-| Use This | NOT This | Why |
-|----------|----------|-----|
-| `bb test:e2e:ai` | `bb test:e2e` | Headed tests open browser windows |
-| `bb test:repl-e2e:ai` | `bb test:repl-e2e` | Headed tests open browser windows |
-
-The `:ai` variants run in Docker with virtual display (Xvfb), so no visible windows appear on the host machine.
-
-**Exception:** Only use non-`:ai` variants if explicitly asked by the human for debugging with visible browser.
-
 ## Overview
 
 Testing is organized into three layers:
@@ -27,17 +14,17 @@ A core goal is to extract pure functions and keep most business logic unit-testa
 
 ## Quick Commands
 
-**AI Agents - Use These:**
+**Default (AI Agents and Automated Testing):**
 - `bb test` - Unit tests (fast, always run after changes)
-- `bb test:e2e:ai` - UI E2E tests (Docker, no browser popup)
-- `bb test:repl-e2e:ai` - REPL integration tests (Docker, no browser popup)
+- `bb test:e2e` - UI E2E tests (headless in Docker)
+- `bb test:repl-e2e` - REPL integration tests (headless in Docker)
 
-**Human Developers:**
+**Human Developers (Visible Browser):**
 - `bb test:watch` - Unit test watcher
-- `bb test:e2e` - UI E2E tests (headed, browsers visible)
-- `bb test:e2e:ui` - Playwright UI (interactive debugging)
-- `bb test:repl-e2e` - REPL tests (headed)
-- `bb test:repl-e2e:ui` - REPL tests with Playwright UI
+- `bb test:e2e:headed` - UI E2E tests (browsers visible)
+- `bb test:e2e:ui:headed` - Playwright UI (interactive debugging)
+- `bb test:repl-e2e:headed` - REPL tests (browsers visible)
+- `bb test:repl-e2e:ui:headed` - REPL tests with Playwright UI
 
 **CI/CD Only:**
 - `bb test:e2e:ci` - E2E without rebuild (GitHub Actions)
@@ -45,8 +32,8 @@ A core goal is to extract pure functions and keep most business logic unit-testa
 
 **Filter tests:** Pass `--grep "pattern"` to any Playwright test:
 ```bash
-bb test:e2e:ai --grep "popup"      # Run only popup tests
-bb test:e2e:ai --grep "rename"     # Run only rename-related tests
+bb test:e2e --grep "popup"      # Run only popup tests
+bb test:e2e --grep "rename"     # Run only rename-related tests
 ```
 
 ## Writing Reliable E2E Tests: No Sleep Patterns
@@ -102,18 +89,17 @@ UI E2E tests validate workflows that cannot be unit tested: extension load, DOM 
 - Compiled output: `build/e2e/*.mjs`
 
 **Run**
-- `bb test:e2e` (headed - browsers visible on host)
-- `bb test:e2e:ui` (Playwright UI)
-- `bb test:e2e:ai` (Docker - for AI agents, no browser popup on host)
+- `bb test:e2e` (headless in Docker - default)
+- `bb test:e2e:headed` (visible browser on host)
+- `bb test:e2e:ui:headed` (Playwright UI for debugging)
 
-**Docker variant** (`bb test:e2e:ai`):
-- Designed for AI agents that cannot interact with browser windows
+**Default headless mode** (`bb test:e2e`):
 - Runs tests in a Docker container with virtual display (Xvfb)
 - No browser windows appear on the host machine
 - Requires Docker to be running
 - Builds ARM64 image on Apple Silicon for faster execution
 - First run builds the image (~30s), subsequent runs are faster
-- Pass Playwright options: `bb test:e2e:ai --grep "pattern"`
+- Pass Playwright options: `bb test:e2e --grep "pattern"`
 
 ### Design philosophy: consolidated user journeys
 
@@ -173,12 +159,12 @@ These tests validate the full REPL pipeline:
 - Squint specs: `e2e/repl_ui_spec.cljs`
 
 **Run**
-- `bb test:repl-e2e` (headless)
-- `bb test:repl-e2e:ui` (Playwright UI)
-- `bb test:repl-e2e:ai` (Docker - for AI agents, no browser popup on host)
+- `bb test:repl-e2e` (headless in Docker - default)
+- `bb test:repl-e2e:headed` (visible browser on host)
+- `bb test:repl-e2e:ui:headed` (Playwright UI for debugging)
 
-**Docker variant** (`bb test:repl-e2e:ai`):
-- Designed for AI agents that cannot interact with browser windows
+**Default headless mode** (`bb test:repl-e2e`):
+- Runs tests in Docker container with virtual display
 - Starts browser-nrepl and HTTP server inside Docker
 - Runs the full REPL integration test suite
 

@@ -5,7 +5,7 @@
 **Essential facts:**
 - **Language:** Squint (ClojureScript-like, compiles to JS) - source in `src/*.cljs`
 - **Never edit:** `extension/*.mjs` or `build/*.js` (compiled artifacts)
-- **Testing:** ALWAYS use `bb test:e2e:ai` and `bb test:repl-e2e:ai` (not non-`:ai` variants)
+- **Testing:** Run `bb test:e2e` and `bb test:repl-e2e` (headless by default)
 - **Commands:** PREFER `bb <task>` - over direct `npx`/`npm` commands
 - **Watchers:** Usually already running - check task output before building
 
@@ -121,8 +121,8 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | Command | Purpose |
 |---------|--------|
 | `bb test` | Unit tests (fast, always run after changes) |
-| `bb test:e2e:ai` | E2E UI tests (Docker, no browser popups) |
-| `bb test:repl-e2e:ai` | REPL integration tests (Docker, no browser popups) |
+| `bb test:e2e` | E2E UI tests (headless in Docker) |
+| `bb test:repl-e2e` | REPL integration tests (headless in Docker) |
 | `bb build:test` | Build for testing (dev config, no version bump) |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 
@@ -133,16 +133,16 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | `bb watch` | Auto-recompile | Usually already running |
 | `bb test:watch` | Unit test watcher | Usually already running |
 | `bb squint-nrepl` | Squint REPL | For testing pure functions |
-| `bb test:e2e` | E2E tests (headed) | **Avoid** - interrupts human |
-| `bb test:repl-e2e` | REPL tests (headed) | **Avoid** - interrupts human |
+| `bb test:e2e:headed` | E2E tests (visible browser) | **Avoid** - interrupts human |
+| `bb test:repl-e2e:headed` | REPL tests (visible browser) | **Avoid** - interrupts human |
 | `bb test:e2e:ci` | E2E tests (CI mode) | For GitHub Actions only |
 
 **Filtering tests:** Pass `--grep "pattern"` to any test command:
 ```bash
-bb test:e2e:ai --grep "popup"   # Run only popup tests
+bb test:e2e --grep "popup"   # Run only popup tests
 ```
 
-The `:e2e:ai` tasks accept all Playwright options, so you should not need to resort to using Playwright directly.
+E2E tasks accept all Playwright options, so you should not need to resort to using Playwright directly.
 
 **Critical:** After building or code changes, wait for user confirmation before committing.
 
@@ -163,14 +163,6 @@ If the environment is not ready, ask the user to start it (default build task + 
 1. **Check watcher output** - verify compilation succeeded and tests pass
 2. **Check problem report** - fix any new lint errors
 3. Address any issues before proceeding
-
-### E2E Testing for AI Agents
-
-**ALWAYS use `:ai` variants to avoid interrupting the human:**
-- `bb test:e2e:ai` - E2E popup/panel tests (Docker, no browser windows)
-- `bb test:repl-e2e:ai` - REPL integration tests (Docker, no browser windows)
-
-These run headless in Docker with Xvfb. Never use `bb test:e2e` or `bb test:repl-e2e` without `:ai` suffix - those open visible browser windows on the human's machine.
 
 ### Remote Agent Workflow (GitHub Copilot Coding Agent)
 
@@ -197,8 +189,6 @@ bb test:repl-e2e:ci  # REPL integration tests (use xvfb-run)
 xvfb-run --auto-servernum bb test:e2e:ci
 xvfb-run --auto-servernum bb test:repl-e2e:ci
 ```
-
-**Note:** Docker is not available in GitHub Actions environment. Use `bb test:e2e:ai` only for local development.
 
 **Building after code changes:**
 ```bash
@@ -384,13 +374,13 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 **Test hierarchy** (fastest to slowest):
 1. **Unit tests** (`bb test`) - Pure functions, action handlers
-2. **E2E UI** (`bb test:e2e:ai`) - Extension loading, popup/panel UI
-3. **E2E REPL** (`bb test:repl-e2e:ai`) - Full nREPL pipeline
+2. **E2E UI** (`bb test:e2e`) - Extension loading, popup/panel UI
+3. **E2E REPL** (`bb test:repl-e2e`) - Full nREPL pipeline
 
 **When to run tests:**
 - **After ANY code change:** `bb test` (fast unit tests)
-- **Changed UI/extension code:** `bb test:e2e:ai` (use `:ai` suffix!)
-- **Changed messaging/REPL:** `bb test:repl-e2e:ai` (use `:ai` suffix!)
+- **Changed UI/extension code:** `bb test:e2e`
+- **Changed messaging/REPL:** `bb test:repl-e2e`
 
 **See [testing.md](../dev/docs/testing.md) for:** detailed strategy, test utilities, fixtures, and troubleshooting.
 
