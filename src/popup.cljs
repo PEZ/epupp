@@ -408,6 +408,20 @@
          [script-item script current-url editing-hint-script-id])
        [:div.no-scripts "No scripts match this page."])]))
 
+;; =============================================================================
+;; Dev Log Button (only shown in dev/test mode)
+;; =============================================================================
+
+(defn dev-log-button
+  "Button to dump all test events to console. Only shown in dev/test mode.
+   Playwright can capture console output via page.on('console')."
+  []
+  (when (or (.-dev config) (.-test config))
+    [:div.dev-log-section
+     [:button.dev-log-btn
+      {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
+      "Dump Dev Log"]]))
+
 ;; ============================================================
 ;; Settings Components
 ;; ============================================================
@@ -584,26 +598,3 @@
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
   (init!))
-
-;; =============================================================================
-;; Dev Log Button (only shown in dev/test mode)
-;; =============================================================================
-
-(defn dev-log-button
-  "Button to dump all test events to console. Only shown in dev/test mode.
-   Playwright can capture console output via page.on('console')."
-  []
-  (when (or (.-dev config) (.-test config))
-    [:div.dev-log-section
-     [:button.dev-log-btn
-      {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
-      "Dump Dev Log"]]))
-
-;; =============================================================================
-;; Test Helpers (exported for E2E tests)
-;; =============================================================================
-
-(defn get-state
-  "Returns current popup state as JS object. For E2E test inspection."
-  []
-  (clj->js @!state))
