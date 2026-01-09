@@ -62,6 +62,12 @@
         :task (do (babashka.process/shell "npx squint compile --paths src test --output-dir build/test")
                   (babashka.process/shell "npx vitest run"))}
 
+  ;; Test server for true E2E tests
+  test:server {:doc "Start HTTP server for test pages (localhost:8080)"
+               :requires ([babashka.http-server :as server])
+               :task (do (server/serve {:port 8080 :dir "test-data/pages"})
+                         (deref (promise)))}
+
   ;; E2E test tasks
   ;; All e2e tasks pass *command-line-args* to Playwright, e.g.:
   ;;   bb test:e2e --grep "some test"

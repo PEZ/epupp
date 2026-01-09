@@ -155,14 +155,14 @@
   "Build extension for specified browser(s).
    Supports browser names (chrome/firefox/safari) and mode flags:
    - --dev: Uses dev config AND bumps the build number
-   - --test: Uses dev config WITHOUT bumping version (for e2e tests)
+   - --test: Uses test config WITHOUT bumping version (for e2e tests with event logging)
    - --prod: Uses prod config (default)
    Default mode is prod."
   [& args]
   (let [bump-version? (some #(= "--dev" %) args)
         config-mode (cond
                       (some #(= "--dev" %) args) "dev"
-                      (some #(= "--test" %) args) "dev"  ; test uses dev config
+                      (some #(= "--test" %) args) "test"
                       (some #(= "--prod" %) args) "prod"
                       :else "prod")
         browsers (->> args
