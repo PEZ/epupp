@@ -62,8 +62,8 @@
         :task (do (babashka.process/shell "npx squint compile --paths src test --output-dir build/test")
                   (babashka.process/shell "npx vitest run"))}
 
-  ;; Test server for true E2E tests
-  test:server {:doc "Start HTTP server for test pages (localhost:8080)"
+  ;; Test server for true E2E tests (manual/interactive use)
+  test:server {:doc "Start HTTP server for test pages (localhost:8080, blocking)"
                :requires ([babashka.http-server :as server])
                :task (do (server/serve {:port 8080 :dir "test-data/pages"})
                          (deref (promise)))}
@@ -80,10 +80,10 @@
 
   test:e2e {:doc "Run Playwright E2E tests (builds first). Pass extra args to Playwright: bb test:e2e --grep 'pattern'"
             :depends [build:test test:e2e:compile]
-            :task (apply babashka.process/shell "npx playwright test" *command-line-args*)}
+            :task (tasks/run-e2e-tests! *command-line-args*)}
 
   test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist). Pass extra args to Playwright."
-               :task (apply babashka.process/shell "npx playwright test" *command-line-args*)}
+               :task (tasks/run-e2e-tests! *command-line-args*)}
 
   test:e2e:ai {:doc "Run Playwright E2E tests in Docker (for AI agents: no browser popup on host). Pass extra args to Playwright."
                :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
@@ -91,14 +91,14 @@
 
   test:e2e:ui {:doc "Run Playwright E2E tests with interactive UI runner. Pass extra args to Playwright."
                :depends [build:test test:e2e:compile]
-               :task (apply babashka.process/shell "npx playwright test --ui" *command-line-args*)}
+               :task (tasks/run-e2e-tests! (cons "--ui" *command-line-args*))}
 
   test:repl-e2e {:doc "Run REPL integration tests (full pipeline: editor -> browser-nrepl -> extension -> page)"
                  :depends [build:test test:e2e:compile]
-                 :task repl-test/run-integration-tests}
+                 :task (tasks/with-test-server repl-test/run-integration-tests)}
 
   test:repl-e2e:ci {:doc "Run REPL integration tests (CI: assumes build artifacts exist)"
-                    :task repl-test/run-integration-tests}
+                    :task (tasks/with-test-server repl-test/run-integration-tests)}
 
   test:repl-e2e:ai {:doc "Run REPL integration tests in Docker (for AI agents: no browser popup on host)"
                     :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")

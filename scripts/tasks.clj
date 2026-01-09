@@ -1,6 +1,7 @@
 (ns tasks
   (:require [babashka.fs :as fs]
             [babashka.http-client :as http]
+            [babashka.http-server :as server]
             [babashka.process :as p]
             [clojure.data.json :as json]
             [clojure.edn :as edn]
@@ -388,3 +389,28 @@
         (println (str "✅ Released v" new-version "!"))
         (println (str "   Now on dev version " dev-version))
         (println "   GitHub Actions will now build and create the release.")))))
+
+;; ============================================================
+;; Test Server Management
+;; ============================================================
+
+(def ^:private test-server-port 18080)
+
+(defn with-test-server
+  "Execute f with an HTTP test server running on port 18080.
+   Server is started before f and stopped after (even on exception)."
+  [f]
+  (let [stop-fn (server/serve {:port test-server-port :dir "test-data/pages"})]
+    (try
+      (println (format "Test server available at http://localhost:%d" test-server-port))
+      (Thread/sleep 300) ; Give server time to fully start
+      (f)
+      (finally
+        (stop-fn)
+        (println "Test server stopped")))))
+
+(defn run-e2e-tests!
+  "Run Playwright E2E tests with test server. Pass command-line args to Playwright."
+  [args]
+  (with-test-server
+    #(apply p/shell "npx playwright test" args)))
