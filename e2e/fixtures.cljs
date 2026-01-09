@@ -236,3 +236,59 @@
             (do
               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
               (recur))))))))
+
+;; =============================================================================
+;; Performance Reporting
+;; =============================================================================
+
+(defn generate-timing-report
+  "Extract performance metrics from test events.
+
+   Returns a map with timing measurements in milliseconds:
+   - :scittle-load-ms - Time from extension start to Scittle loaded
+   - :injection-overhead-ms - Time from Scittle ready to script injected
+   - :bridge-setup-ms - Time from navigation to bridge ready
+   - :document-start-delta-ms - Time between loader run and first page script
+                                (negative = loader ran first, as expected)
+
+   Returns nil for metrics where required events are missing."
+  [events]
+  (let [by-event (group-by #(.-event %) events)
+        get-perf (fn [event-name]
+                   (when-let [evt (first (get by-event event-name))]
+                     (.-perf evt)))
+        extension-start (get-perf "EXTENSION_STARTED")
+        scittle-loaded (get-perf "SCITTLE_LOADED")
+        script-injected (get-perf "SCRIPT_INJECTED")
+        bridge-ready (get-perf "BRIDGE_READY_CONFIRMED")
+        loader-run (get-perf "LOADER_RUN")]
+    {:scittle-load-ms (when (and extension-start scittle-loaded)
+                        (- scittle-loaded extension-start))
+     :injection-overhead-ms (when (and scittle-loaded script-injected)
+                              (- script-injected scittle-loaded))
+     :bridge-setup-ms (when (and extension-start bridge-ready)
+                        (- bridge-ready extension-start))
+     :document-start-delta-ms loader-run  ; Raw value - negative means ran before page
+     :all-events (map #(.-event %) events)}))
+
+(defn print-timing-report
+  "Print formatted timing report to console.
+   Highlights metrics that exceed target thresholds."
+  [report]
+  (println "\n=== Performance Report ===")
+  (when-let [ms (:scittle-load-ms report)]
+    (println (str "Scittle load time: " (.toFixed ms 2) "ms"
+                  (when (> ms 200) " ⚠️  (target: <200ms)"))))
+  (when-let [ms (:injection-overhead-ms report)]
+    (println (str "Injection overhead: " (.toFixed ms 2) "ms"
+                  (when (> ms 50) " ⚠️  (target: <50ms)"))))
+  (when-let [ms (:bridge-setup-ms report)]
+    (println (str "Bridge setup: " (.toFixed ms 2) "ms"
+                  (when (> ms 100) " ⚠️  (target: <100ms)"))))
+  (when-let [ms (:document-start-delta-ms report)]
+    (println (str "Document-start timing: " (.toFixed ms 2) "ms"
+                  (if (>= ms 0)
+                    " ⚠️  (loader should run before page scripts)"
+                    " ✓ (ran before page scripts)"))))
+  (println "\nAll events captured:" (clj->js (:all-events report)))
+  (println "==========================\n"))

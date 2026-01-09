@@ -4,7 +4,8 @@
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
                               create-panel-page clear-test-events! wait-for-event
-                              get-test-events wait-for-save-status wait-for-popup-ready]]))
+                              get-test-events wait-for-save-status wait-for-popup-ready
+                              generate-timing-report print-timing-report]]))
 
 (test "True E2E: extension starts and emits startup event"
       (^:async fn []
@@ -199,6 +200,69 @@
                                 (.toBeLessThan (aget timings "pagePerf"))))))
 
               (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Performance Reporting Test
+;; =============================================================================
+
+(test "True E2E: generate performance report from events"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Setup: Create a simple script to trigger full injection pipeline
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (js-await (.fill (.locator panel "#code-area") "(js/console.log \"Perf test\")"))
+              (js-await (.fill (.locator panel "#script-name") "Performance Report Test"))
+              (js-await (.fill (.locator panel "#script-match") "http://localhost:18080/*"))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (wait-for-save-status panel "Created"))
+              (js-await (.close panel)))
+
+            ;; Approve the script
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              (let [script-item (.locator popup ".script-item:has-text(\"performance_report_test.cljs\")")]
+                (js-await (-> (expect script-item) (.toBeVisible)))
+                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+                  (when (pos? (js-await (.count allow-btn)))
+                    (js-await (.click allow-btn))
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500)))))))
+
+              ;; Clear events before test run
+              (js-await (clear-test-events! popup))
+              (js-await (.close popup)))
+
+            ;; Navigate to trigger injection and collect events
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              ;; Wait for injection to complete
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 2000))))
+              (js-await (.close page)))
+
+            ;; Generate and print performance report
+            (let [popup (js-await (create-popup-page context ext-id))
+                  events (js-await (get-test-events popup))
+                  report (generate-timing-report events)]
+              ;; Print the report
+              (print-timing-report report)
+
+              ;; Verify we got some events
+              (js-await (-> (expect (.-length events))
+                            (.toBeGreaterThan 0)))
+
+              ;; Verify report has expected structure
+              (js-await (-> (expect (:all-events report))
+                            (.toBeDefined)))
+              (js-await (.close popup)))
 
             (finally
               (js-await (.close context)))))))

@@ -2,7 +2,7 @@
 
 **Created:** January 9, 2026
 **Updated:** January 10, 2026
-**Status:** Phases 1-3 Complete, HTTP Server Consolidated
+**Status:** ✅ **COMPLETE** - All phases implemented
 **Prerequisite:** [e2e-log-powered-testing.md](e2e-log-powered-testing.md) - describes the implemented infrastructure
 
 This plan tracks the remaining work to complete the log-powered E2E testing system.
@@ -152,25 +152,39 @@ This means:
 
 **Status:** Chromium tests provide sufficient coverage for WebExtensions API compatibility.
 
-### Phase 5: Performance Reporting - TODO
+### Phase 5: Performance Reporting - DONE
 
-Extract timing metrics from events for performance analysis:
+Performance metrics extraction implemented in [e2e/fixtures.cljs](../../e2e/fixtures.cljs).
 
+**Implementation:**
+- `generate-timing-report` - Extracts metrics from test events
+- `print-timing-report` - Formatted console output with threshold warnings
+- Test added to `true_e2e_test.cljs` demonstrating usage
+
+**Metrics tracked:**
+| Metric | Description | Target | Status |
+|--------|-------------|--------|--------|
+| `scittle-load-ms` | Time from extension start to Scittle loaded | < 200ms | ✅ Implemented |
+| `injection-overhead-ms` | Time from Scittle ready to script injected | < 50ms | ✅ Implemented |
+| `bridge-setup-ms` | Time from navigation to bridge ready | < 100ms | ✅ Implemented |
+| `document-start-delta-ms` | Loader run timing (negative = before page scripts) | < 0 | ✅ Implemented |
+
+**Usage example:**
 ```clojure
-(defn timing-report [events]
-  (let [by-event (group-by :event events)
-        extension-start (-> (get by-event "EXTENSION_STARTED") first :perf)
-        scittle-loaded (-> (get by-event "SCITTLE_LOADED") first :perf)]
-    {:scittle-load-ms (- scittle-loaded extension-start)
-     ;; Additional metrics...
-     }))
+(let [events (js-await (get-test-events popup))
+      report (generate-timing-report events)]
+  (print-timing-report report))
 ```
 
-**Target metrics documented in e2e-log-powered-testing.md**let [by-event (group-by :event events)]
-    {:scittle-load-ms (- (:perf (first (get by-event "SCITTLE_LOADED")))
-                         (:perf (first (get by-event "EXTENSION_STARTED"))))
-     ;; ...
-     }))
+**Sample output:**
+```
+=== Performance Report ===
+Scittle load time: 145.20ms
+Injection overhead: 23.50ms
+Bridge setup: 87.30ms ✓
+Document-start timing: -12.40ms ✓ (ran before page scripts)
+All events captured: ["EXTENSION_STARTED" "SCITTLE_LOADED" ...]
+==========================
 ```
 
 ---
