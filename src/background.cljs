@@ -31,6 +31,8 @@
   (if-let [p @!init-promise]
     (js-await p)
     (let [p (try
+              ;; Set test-mode flag in storage for non-bundled scripts (userscript-loader.js)
+              (js-await (test-logger/init-test-mode!))
               (js-await (storage/init!))
               ;; Ensure built-in userscripts are installed
               (js-await (storage/ensure-gist-installer!))
@@ -97,6 +99,7 @@
         (set! (.-onopen ws)
               (fn []
                 (js/console.log "[Background] WebSocket connected for tab:" tab-id)
+                (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
                 (send-to-tab tab-id {:type "ws-open"})))
 
         (set! (.-onmessage ws)
@@ -233,13 +236,19 @@
   [tab-id file]
   (js/Promise.
    (fn [resolve reject]
+     (js/console.log "[inject-content-script] Injecting" file "into tab" tab-id)
      (js/chrome.scripting.executeScript
       #js {:target #js {:tabId tab-id}
            :files #js [file]}
-      (fn [_results]
+      (fn [results]
+        (js/console.log "[inject-content-script] executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
         (if js/chrome.runtime.lastError
-          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-          (resolve true)))))))
+          (do
+            (js/console.error "[inject-content-script] Error:" (.-message js/chrome.runtime.lastError))
+            (reject (js/Error. (.-message js/chrome.runtime.lastError))))
+          (do
+            (js/console.log "[inject-content-script] Success, results:" (js/JSON.stringify results))
+            (resolve true))))))))
 
 ;; Page-context functions (pure JS, no Squint runtime)
 (def inject-script-fn
@@ -377,13 +386,17 @@
   "Execute a list of scripts in the page via Scittle using script tag injection.
    Injects content bridge, waits for readiness signal, then injects userscripts."
   [tab-id scripts]
+  ;; Log test event at start for E2E tests
+  (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_START" {:tab-id tab-id :count (count scripts)}))
   (when (seq scripts)
     (try
       (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
         ;; First ensure content bridge is loaded
         (js-await (inject-content-script tab-id "content-bridge.js"))
+        (js-await (test-logger/log-event! "BRIDGE_INJECTED" {:tab-id tab-id}))
         ;; Wait for bridge to signal readiness via ping response
         (js-await (wait-for-bridge-ready tab-id))
+        (js-await (test-logger/log-event! "BRIDGE_READY_CONFIRMED" {:tab-id tab-id}))
         ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
         (js-await (send-tab-message tab-id {:type "clear-userscripts"}))
         ;; Inject all userscript tags
@@ -395,8 +408,7 @@
                                                 :id (str "userscript-" (:script/id script))
                                                 :code (:script/code script)})
                       (.then (fn [_]
-                               (js/console.log "[Userscript]" (:script/name script) "tag injected")
-                               ;; Log test event for E2E tests
+                               ;; Log test event for E2E tests - return it so Promise.all waits
                                (test-logger/log-event! "SCRIPT_INJECTED"
                                                        {:script-id (:script/id script)
                                                         :script-name (:script/name script)
@@ -404,10 +416,10 @@
                                                         :tab-id tab-id})))))
                 scripts))))
         ;; Trigger Scittle to evaluate them
-        (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url}))
-        (js/console.log "[Userscript] Triggered Scittle evaluation"))
+        (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url})))
       (catch :default err
-        (js/console.error "[Userscript] Injection error:" err)))))
+        (js/console.error "[Userscript] Injection error:" err)
+        (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_ERROR" {:error (.-message err)}))))))
 
 (defn ws-fail-message []
   "WebSocket connection failed. Is the server running?")
@@ -731,23 +743,32 @@
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs)."
   [tab-id url]
+  (js/console.log "[process-navigation!] Starting for" url)
   (let [all-scripts (url-matching/get-matching-scripts url)
+        _ (js/console.log "[process-navigation!] all-scripts count:" (count all-scripts))
         ;; Filter to only document-idle scripts (default for scripts without run-at)
         ;; Early-timing scripts (document-start, document-end) are handled by
         ;; registerContentScripts and should not be injected again here.
         idle-scripts (filter #(= "document-idle"
                                  (or (:script/run-at %) "document-idle"))
                              all-scripts)]
+    (js/console.log "[process-navigation!] idle-scripts count:" (count idle-scripts))
     (when (seq idle-scripts)
       (js/console.log "[Auto-inject] Found" (count idle-scripts) "document-idle scripts for" url)
       (let [script-contexts (map (fn [script]
-                                   (let [pattern (url-matching/get-matching-pattern url script)]
+                                   (let [pattern (url-matching/get-matching-pattern url script)
+                                         approved-patterns (:script/approved-patterns script)]
+                                     (js/console.log "[process-navigation!] Script:" (:script/name script)
+                                                     "pattern:" pattern
+                                                     "approved-patterns:" (clj->js approved-patterns))
                                      {:script script
                                       :pattern pattern
                                       :approved? (storage/pattern-approved? script pattern)}))
                                  idle-scripts)
             approved (filter :approved? script-contexts)
             unapproved (remove :approved? script-contexts)]
+        (js/console.log "[process-navigation!] approved count:" (count approved)
+                        "unapproved count:" (count unapproved))
         (when (seq approved)
           (js/console.log "[Auto-inject] Executing" (count approved) "approved scripts")
           (try
