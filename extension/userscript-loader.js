@@ -26,11 +26,12 @@
   const currentUrl = window.location.href;
   console.log('[Epupp Loader] Running at', document.readyState, 'for', currentUrl);
 
-  // Test event logging (only active when EXTENSION_CONFIG.test is true)
+  // Test event logging (only active when test mode is enabled)
   // Logs to chrome.storage.local for E2E test assertions
-  function logTestEvent(event, data) {
-    // EXTENSION_CONFIG is injected at build time; undefined in production
-    if (typeof EXTENSION_CONFIG === 'undefined' || !EXTENSION_CONFIG.test) return;
+  // Note: Since this file isn't bundled through esbuild, we can't use EXTENSION_CONFIG.
+  // Instead, we check a storage flag that the background worker sets at startup.
+  function logTestEvent(event, data, testModeEnabled) {
+    if (!testModeEnabled) return;
     chrome.storage.local.get(['test-events'], (result) => {
       const events = result['test-events'] || [];
       events.push({
@@ -103,15 +104,17 @@
   // Main loader logic
   async function loadScripts() {
     try {
+      // Read scripts and test-mode flag from storage
+      // test-mode is set by background worker when EXTENSION_CONFIG.test is true
+      const result = await chrome.storage.local.get(['scripts', 'test-mode']);
+      const scripts = result.scripts || [];
+      const testModeEnabled = result['test-mode'] === true;
+
       // Log that loader is running (for timing tests)
       logTestEvent('LOADER_RUN', {
         url: currentUrl,
         readyState: document.readyState
-      });
-
-      // Read scripts from storage
-      const result = await chrome.storage.local.get(['scripts']);
-      const scripts = result.scripts || [];
+      }, testModeEnabled);
 
       // Filter to matching scripts
       const matchingScripts = scripts.filter(s => scriptMatchesUrl(s, currentUrl));
