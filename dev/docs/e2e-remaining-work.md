@@ -2,9 +2,10 @@
 
 **Created:** January 9, 2026
 **Updated:** January 10, 2026
+**Status:** Phases 1-3 Complete, HTTP Server Consolidated
 **Prerequisite:** [e2e-log-powered-testing.md](e2e-log-powered-testing.md) - describes the implemented infrastructure
 
-This plan covers the work remaining to complete the log-powered E2E testing system.
+This plan tracks the remaining work to complete the log-powered E2E testing system.
 
 ## Assumptions and Verification Results
 
@@ -78,20 +79,25 @@ Added in `handle-ws-connect` in background.cljs:
 #### 2.1 Test page fixtures - DONE
 
 - `test-data/pages/basic.html` - Simple page with test marker
-- `test-data/pages/timing-test.html` - Records `performance.now()` at various stages
+- `test-data/pages/manual-test.html` - Step-by-step manual verification guide
 
 #### 2.2 bb test:server task - DONE
 
+All e2e tasks now include HTTP server automatically via `with-test-server` wrapper:
+
 ```clojure
-test:server {:doc "Start HTTP server for test pages (localhost:8080)"
-             :requires ([babashka.http-server :as server])
-             :task (do (server/serve {:port 8080 :dir "test-data/pages"})
-                       (deref (promise)))}
+;; Server lifecycle managed by tasks.clj
+(defn with-test-server [f]
+  (let [stop-fn (server/serve {:port 18080 :dir "test-data/pages"})]
+    (try (f) (finally (stop-fn)))))
+
+;; All e2e tasks use run-e2e-tests! which wraps with-test-server
+test:e2e       -> (tasks/run-e2e-tests! *command-line-args*)
+test:e2e:ci    -> (tasks/run-e2e-tests! *command-line-args*)
+test:repl-e2e  -> (tasks/with-test-server repl-test/run-integration-tests)
 ```
 
-#### 2.3 Docker test page serving - DEFERRED
-
-Not needed for current tests. The existing E2E tests use chrome-extension:// URLs.
+Replaced Python HTTP server with idiomatic Babashka pattern using stop function.
 If future tests need localhost pages inside Docker, add HTTP server to entrypoint.
 
 ### Phase 3: Write Tests - DONE
@@ -126,17 +132,49 @@ REPL tests already exist in `repl_test.clj` using Babashka + Playwright.
 The WS_CONNECTED event logging was added to background.cljs but a dedicated
 true E2E test for this flow was not needed since existing tests cover it.
 
-### Phase 4: Cross-Browser Validation - TODO
+### Phase 4: Cross-Browser Validation - MANUAL TESTING REQUIRED
 
-1. Modify build tasks to support test config for Firefox
-2. Run true E2E tests against Firefox
-3. Document any differences
+Firefox extension built with test config (`bb build --test firefox`), but automated testing requires manual verification:
+
+**Firefox limitations:**
+- Playwright support for Firefox extensions is limited
+- Cannot use Docker/headless mode with extensions in Firefox
+- Must test manually with visible browser
+
+**Manual testing procedure:**
+1. Load `dist/epupp-firefox.zip` in Firefox (`about:debugging` → Load Temporary Add-on)
+2. Navigate to `http://localhost:18080/basic.html` (start server: `bb test:server`)
+3. Create and approve a test userscript via panel/popup
+4. Check test events in popup DevTools console:
+   ```javascript
+   chrome.storage.local.get('test-events', r => console.log(JSON.stringify(r['test-events'], null, 2)))
+   ```
+5. Verify same events appear as in Chrome tests
+
+**Expected event sequence:**
+- `EXTENSION_STARTED` - Extension initialized
+- `EXECUTE_SCRIPTS_START` - Auto-injection triggered
+- `BRIDGE_INJECTED` - Content bridge loaded
+- `BRIDGE_READY_CONFIRMED` - Bridge ping successful
+- `SCRIPT_INJECTED` - Userscript tag injected
+
+**Status:** Infrastructure supports Firefox, manual validation recommended before automating.
 
 ### Phase 5: Performance Reporting - TODO
 
+Extract timing metrics from events for performance analysis:
+
 ```clojure
 (defn timing-report [events]
-  (let [by-event (group-by :event events)]
+  (let [by-event (group-by :event events)
+        extension-start (-> (get by-event "EXTENSION_STARTED") first :perf)
+        scittle-loaded (-> (get by-event "SCITTLE_LOADED") first :perf)]
+    {:scittle-load-ms (- scittle-loaded extension-start)
+     ;; Additional metrics...
+     }))
+```
+
+**Target metrics documented in e2e-log-powered-testing.md**let [by-event (group-by :event events)]
     {:scittle-load-ms (- (:perf (first (get by-event "SCITTLE_LOADED")))
                          (:perf (first (get by-event "EXTENSION_STARTED"))))
      ;; ...
