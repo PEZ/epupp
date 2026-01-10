@@ -351,3 +351,66 @@
 
             (finally
               (js-await (.close context)))))))
+
+(test "Log-powered: toolbar icon reflects REPL connection state"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Check initial icon state - should be "disconnected" (white bolt)
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (wait-for-popup-ready popup))
+                    events-initial (js-await (get-test-events popup))
+                    icon-events (.filter events-initial (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
+                (js/console.log "Initial icon events:" (js/JSON.stringify icon-events))
+                ;; Initial state should be "disconnected"
+                (when (pos? (.-length icon-events))
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))]
+                    (js-await (-> (expect (.. last-event -data -state))
+                                  (.toBe "disconnected")))))
+                (js-await (.close popup)))
+
+              ;; Enable auto-connect via popup
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                  (js-await (.click settings-header)))
+                (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                  (js-await (.click auto-connect-checkbox))
+                  (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+                (js-await (.close popup)))
+
+              ;; Navigate to trigger auto-connect (Scittle injection)
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for Scittle to be loaded
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))]
+
+                ;; Check icon state after Scittle injection - should be "injected" (yellow) or "connected" (green)
+                (let [events (js-await (get-test-events popup))
+                      icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
+                  (js/console.log "Icon events after Scittle load:" (js/JSON.stringify icon-events))
+                  ;; Should have icon state events
+                  (js-await (-> (expect (.-length icon-events))
+                                (.toBeGreaterThan 0)))
+                  ;; Last event should be "injected" or "connected"
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))
+                        state (.. last-event -data -state)]
+                    (js/console.log "Final icon state:" state)
+                    (js-await (-> (expect (or (= state "injected") (= state "connected")))
+                                  (.toBeTruthy)))))
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))

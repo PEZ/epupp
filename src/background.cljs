@@ -58,7 +58,8 @@
 ;; Note: Use def (not defonce) for state that should reset on script wake.
 ;; WebSocket connections don't survive script termination anyway.
 (def !state (atom {:ws/connections {}
-                   :pending/approvals {}}))
+                   :pending/approvals {}
+                   :icon/states {}}))  ; tab-id -> :disconnected | :injected | :connected
 
 (defn get-ws
   "Get WebSocket for a tab"
@@ -100,6 +101,7 @@
               (fn []
                 (js/console.log "[Background] WebSocket connected for tab:" tab-id)
                 (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
+                (update-icon-for-tab! tab-id :connected)
                 (send-to-tab tab-id {:type "ws-open"})))
 
         (set! (.-onmessage ws)
@@ -119,7 +121,9 @@
                 (send-to-tab tab-id {:type "ws-close"
                                      :code (.-code event)
                                      :reason (.-reason event)})
-                (swap! !state update :ws/connections dissoc tab-id))))
+                (swap! !state update :ws/connections dissoc tab-id)
+                ;; When WS closes, go back to injected state (Scittle still loaded)
+                (update-icon-for-tab! tab-id :injected))))
       (catch :default e
         (js/console.error "[Background] Failed to create WebSocket:" e)
         (send-to-tab tab-id {:type "ws-error"
@@ -210,6 +214,52 @@
                 (storage/pattern-approved? script pattern))
         (swap! !state update :pending/approvals dissoc approval-id))))
   (update-badge-for-active-tab!))
+
+;; ============================================================
+;; Toolbar Icon State Management
+;; ============================================================
+
+(defn- get-icon-paths
+  "Get icon paths for a given state."
+  [state]
+  (let [suffix (case state
+                 :connected "connected"
+                 :injected "injected"
+                 "disconnected")]
+    #js {:16 (str "icons/icon-" suffix "-16.png")
+         :32 (str "icons/icon-" suffix "-32.png")
+         :48 (str "icons/icon-" suffix "-48.png")
+         :128 (str "icons/icon-" suffix "-128.png")}))
+
+(defn update-icon-for-tab!
+  "Update toolbar icon for a specific tab based on state."
+  [tab-id state]
+  (swap! !state assoc-in [:icon/states tab-id] state)
+  ;; In Squint, keywords are strings, so state is already a string like "connected"
+  (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state state})
+  (js/chrome.action.setIcon
+   #js {:tabId tab-id
+        :path (get-icon-paths state)}))
+
+(defn ^:async update-icon-for-active-tab!
+  "Update icon for the currently active tab based on its state."
+  []
+  (let [tab-id (js-await (get-active-tab-id))]
+    (when tab-id
+      (let [state (get-in @!state [:icon/states tab-id] :disconnected)]
+        (js/chrome.action.setIcon
+         #js {:tabId tab-id
+              :path (get-icon-paths state)})))))
+
+(defn get-icon-state
+  "Get current icon state for a tab."
+  [tab-id]
+  (get-in @!state [:icon/states tab-id] :disconnected))
+
+(defn clear-icon-state!
+  "Clear icon state for a tab (when tab closes)."
+  [tab-id]
+  (swap! !state update :icon/states dissoc tab-id))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -336,7 +386,11 @@
                    (fn [r] (and r (.-hasScittle r)))
                    5000))
         ;; Log test event for E2E tests
-        (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))))
+        (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))
+        ;; Update icon to show Scittle is injected (yellow bolt)
+        ;; Only if not already connected (green)
+        (when (not= :connected (get-icon-state tab-id))
+          (update-icon-for-tab! tab-id :injected))))
     true))
 
 (defn wait-for-bridge-ready
@@ -837,6 +891,9 @@
     (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
     (js-await (ensure-initialized!))
 
+    ;; Reset icon state on navigation (Scittle is not injected on new page)
+    (update-icon-for-tab! tab-id :disconnected)
+
     ;; Check auto-connect setting
     (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))]
       (when enabled?
@@ -856,9 +913,10 @@
 ;; Clean up when tab is closed
 (.addListener js/chrome.tabs.onRemoved
               (fn [tab-id _remove-info]
+                (js/console.log "[Background] Tab closed, cleaning up:" tab-id)
                 (when (get-ws tab-id)
-                  (js/console.log "[Background] Tab closed, cleaning up:" tab-id)
-                  (close-ws! tab-id))))
+                  (close-ws! tab-id))
+                (clear-icon-state! tab-id)))
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]
