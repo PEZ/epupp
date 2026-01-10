@@ -829,6 +829,37 @@ button#connect:active {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
+/* Export / Import buttons */
+.export-import-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.export-btn,
+.import-btn {
+  flex: 1;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  transition: all 0.15s;
+}
+
+.export-btn:hover,
+.import-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--clojure-blue);
+}
+
+.export-btn:active,
+.import-btn:active {
+  transform: translateY(1px);
+}
+
 /* Run-at timing badge */
 .run-at-badge {
   font-size: 0.8em;

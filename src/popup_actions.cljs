@@ -130,6 +130,16 @@
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})
 
+    :popup/ax.export-scripts
+    {:uf/fxs [[:popup/fx.export-scripts]]}
+
+    :popup/ax.import-scripts
+    {:uf/fxs [[:popup/fx.trigger-import]]}
+
+    :popup/ax.handle-import
+    (let [[scripts-data] args]
+      {:uf/fxs [[:popup/fx.import-scripts scripts-data]]})
+
     :popup/ax.dump-dev-log
     {:uf/fxs [[:popup/fx.dump-dev-log]]}
 

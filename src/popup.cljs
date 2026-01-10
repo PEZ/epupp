@@ -305,6 +305,74 @@
          ;; Use a unique marker that Playwright can identify
          (js/console.log "__EPUPP_DEV_LOG__" (js/JSON.stringify events)))))
 
+    :popup/fx.export-scripts
+    ;; Export user scripts (not built-ins) as JSON file download
+    (js/chrome.storage.local.get
+     #js ["scripts"]
+     (fn [result]
+       (let [all-scripts (or (.-scripts result) #js [])
+             ;; Filter out built-in scripts using native JS filter
+             user-scripts (.filter all-scripts
+                                   (fn [s]
+                                     (let [id (.-id s)]
+                                       (not (and id (.startsWith id "epupp-builtin-"))))))
+             json-str (js/JSON.stringify user-scripts nil 2)
+             blob (js/Blob. #js [json-str] #js {:type "application/json"})
+             url (js/URL.createObjectURL blob)
+             link (js/document.createElement "a")
+             filename (str "epupp-scripts-" (.toISOString (js/Date.)) ".json")]
+         (set! (.-href link) url)
+         (set! (.-download link) filename)
+         (js/document.body.appendChild link)
+         (.click link)
+         (js/document.body.removeChild link)
+         (js/URL.revokeObjectURL url))))
+
+    :popup/fx.trigger-import
+    ;; Create a hidden file input and trigger click
+    (let [input (js/document.createElement "input")]
+      (set! (.-type input) "file")
+      (set! (.-accept input) ".json")
+      (set! (.-onchange input)
+            (fn [e]
+              (when-let [file (aget (.. e -target -files) 0)]
+                (let [reader (js/FileReader.)]
+                  (set! (.-onload reader)
+                        (fn [e]
+                          (try
+                            (let [json-str (.. e -target -result)
+                                  scripts (js/JSON.parse json-str)]
+                              (dispatch [[:popup/ax.handle-import scripts]]))
+                            (catch :default err
+                              (js/alert (str "Failed to parse JSON: " (.-message err)))))))
+                  (.readAsText reader file)))))
+      (.click input))
+
+    :popup/fx.import-scripts
+    ;; Import scripts, preserving built-in scripts from current storage
+    (let [[imported-scripts] args]
+      (js/chrome.storage.local.get
+       #js ["scripts"]
+       (fn [result]
+         (let [current-scripts (or (.-scripts result) #js [])
+               ;; Keep only built-in scripts from current storage
+               builtin-scripts (.filter current-scripts
+                                        (fn [s]
+                                          (let [id (.-id s)]
+                                            (and id (.startsWith id "epupp-builtin-")))))
+               ;; Filter out any built-ins from imported (safety)
+               user-scripts (.filter imported-scripts
+                                     (fn [s]
+                                       (let [id (.-id s)]
+                                         (not (and id (.startsWith id "epupp-builtin-"))))))
+               ;; Merge: imported user scripts + current built-ins
+               merged-scripts (.concat user-scripts builtin-scripts)]
+           (js/chrome.storage.local.set
+            #js {:scripts merged-scripts}
+            (fn []
+              (js/alert "Scripts imported successfully! Reloading...")
+              (dispatch [[:popup/ax.load-scripts]])))))))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -509,6 +577,15 @@
      [:p.auto-connect-warning
       "Warning: Enabling this will inject the Scittle REPL on every page you visit. "
       "Only enable if you understand the implications."]]]
+   [:div.settings-section
+    [:h3.settings-section-title "Export / Import Scripts"]
+    [:p.section-description
+     "Export your scripts to a JSON file for backup, or import scripts from a previously exported file."]
+    [:div.export-import-buttons
+     [:button.export-btn {:on-click #(dispatch! [[:popup/ax.export-scripts]])}
+      "Export Scripts"]
+     [:button.import-btn {:on-click #(dispatch! [[:popup/ax.import-scripts]])}
+      "Import Scripts"]]]
    [:div.settings-section
     [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
     [:p.section-description
