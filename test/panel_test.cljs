@@ -286,4 +286,124 @@
                           new-state (:uf/db result)]
                       ;; Description should be preserved after save
                       (-> (expect (:panel/script-description new-state))
-                          (.toBe "A description")))))))
+                          (.toBe "A description")))))
+
+            (test ":editor/ax.save-script normalizes string match to vector"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match "*://example.com/*"))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      ;; String match should become a vector
+                      (-> (expect (js/Array.isArray (:script/match script)))
+                          (.toBe true))
+                      (-> (expect (aget (:script/match script) 0))
+                          (.toBe "*://example.com/*")))))
+
+            (test ":editor/ax.save-script preserves vector match without double-wrapping"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(println \"hi\")")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match ["*://example.com/*" "*://foo.com/*"]))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      ;; Vector match should stay flat (not double-wrapped)
+                      (-> (expect (js/Array.isArray (:script/match script)))
+                          (.toBe true))
+                      (-> (expect (count (:script/match script)))
+                          (.toBe 2))
+                      (-> (expect (aget (:script/match script) 0))
+                          (.toBe "*://example.com/*"))
+                      (-> (expect (aget (:script/match script) 1))
+                          (.toBe "*://foo.com/*")))))))
+
+;; ============================================================
+;; Phase 2: Manifest-driven metadata tests
+;; ============================================================
+
+(describe "panel set-code with manifest parsing"
+          (fn []
+            (test ":editor/ax.set-code parses manifest and returns dxs to update fields"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"GitHub Tweaks\"
+  :epupp/site-match \"https://github.com/*\"
+  :epupp/description \"Enhance GitHub UX\"}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)
+                          dxs (:uf/dxs result)]
+                      ;; Code should be updated
+                      (-> (expect (:panel/code new-state))
+                          (.toBe code))
+                      ;; Should have dxs to update fields from manifest
+                      (-> (expect dxs)
+                          (.toBeTruthy))
+                      ;; dxs should contain set-script-name with normalized name
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
+                          (.toBeTruthy)))))
+
+            (test ":editor/ax.set-code stores manifest hints for normalization"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"GitHub Tweaks\"}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      ;; Should store manifest hints showing normalization occurred
+                      (-> (expect (:panel/manifest-hints new-state))
+                          (.toBeTruthy))
+                      (-> (expect (:name-normalized? (:panel/manifest-hints new-state)))
+                          (.toBe true))
+                      (-> (expect (:raw-script-name (:panel/manifest-hints new-state)))
+                          (.toBe "GitHub Tweaks")))))
+
+            (test ":editor/ax.set-code stores unknown keys in hints"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/author \"PEZ\"
+  :epupp/version \"1.0\"}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      (-> (expect (:unknown-keys (:panel/manifest-hints new-state)))
+                          (.toContain "epupp/author"))
+                      (-> (expect (:unknown-keys (:panel/manifest-hints new-state)))
+                          (.toContain "epupp/version")))))
+
+            (test ":editor/ax.set-code clears hints when no manifest"
+                  (fn []
+                    (let [state-with-hints (assoc initial-state
+                                                  :panel/manifest-hints {:name-normalized? true})
+                          code "(defn foo [] 42)"
+                          result (panel-actions/handle-action state-with-hints uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      ;; Should clear hints when no manifest found
+                      (-> (expect (:panel/manifest-hints new-state))
+                          (.toBeFalsy)))))
+
+            (test ":editor/ax.set-code handles site-match as vector"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/site-match [\"https://github.com/*\" \"https://gist.github.com/*\"]}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          dxs (:uf/dxs result)
+                          ;; Find the set-script-match action
+                          match-action (first (filter #(= (first %) :editor/ax.set-script-match) dxs))]
+                      ;; Should pass vector to set-script-match
+                      (-> (expect (second match-action))
+                          (.toEqual ["https://github.com/*" "https://gist.github.com/*"])))))
+
+            (test ":editor/ax.set-code stores run-at invalid flag in hints"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/run-at \"invalid-timing\"}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      (-> (expect (:run-at-invalid? (:panel/manifest-hints new-state)))
+                          (.toBe true))
+                      (-> (expect (:raw-run-at (:panel/manifest-hints new-state)))
+                          (.toBe "invalid-timing")))))))

@@ -481,24 +481,128 @@ body {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-/* Manifest info display */
-.manifest-info {
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  background: var(--bg-input);
-  border-radius: var(--radius);
-  margin-bottom: 10px;
-  border: 1px solid var(--border-color);
+/* Manifest-driven metadata fields */
+.save-script-form.manifest-driven .metadata-field {
+  flex-basis: auto;
+  min-width: 0;
 }
 
-.manifest-label {
+.save-script-form.manifest-driven .metadata-field .field-content {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  min-height: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.field-value {
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
+.field-value.placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  font-family: inherit;
+}
+
+/* Multiple values (e.g., site-match array) */
+.field-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-values .field-value {
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Field hints */
+.field-hint {
+  font-size: 11px;
+  margin-top: 4px;
+  padding: 2px 0;
+}
+
+.field-hint.hint-info {
+  color: var(--clojure-blue);
+}
+
+.field-hint.hint-warning {
+  color: var(--error);
+}
+
+/* Run-at field specific */
+.run-at-field .field-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Unknown keys warning */
+.manifest-warning {
+  flex-basis: 100%;
+  font-size: 11px;
+  padding: 8px 10px;
+  background: var(--refresh-banner-bg);
+  border: 1px solid var(--refresh-banner-border);
+  border-radius: var(--radius);
+  color: var(--refresh-banner-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.manifest-warning .warning-icon {
+  flex-shrink: 0;
+}
+
+.manifest-warning code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  background: rgba(0,0,0,0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* No manifest message */
+.no-manifest-message {
+  flex-basis: 100%;
+  padding: 12px;
+  background: var(--bg-input);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.no-manifest-message p {
+  margin: 0 0 10px 0;
+}
+
+.manifest-example {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
   color: var(--text-muted);
 }
 
-.manifest-name {
-  color: var(--clojure-blue);
-  font-weight: 500;
+/* No manifest form shows disabled button */
+.save-script-form.no-manifest .save-actions {
+  margin-top: 10px;
 }
 
 /* Run-at timing badge (reused from popup) */

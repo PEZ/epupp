@@ -1,7 +1,8 @@
 (ns panel
   "DevTools panel for live ClojureScript evaluation.
    Communicates with inspected page via chrome.devtools.inspectedWindow."
-  (:require [reagami :as r]
+  (:require [clojure.string :as str]
+            [reagami :as r]
             [event-handler :as event-handler]
             [icons :as icons]
             [panel-actions :as panel-actions]
@@ -24,7 +25,7 @@
          :panel/init-version nil
          :panel/needs-refresh? false
          :panel/current-hostname nil
-         :panel/detected-manifest nil}))  ; Parsed manifest from current code
+         :panel/manifest-hints nil}))  ; Parsed manifest from current code
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -273,21 +274,77 @@
     ;; document-idle (default) - no badge
     nil))
 
-(defn manifest-info
-  "Display detected manifest info from code."
-  [{:keys [panel/detected-manifest]}]
-  (when detected-manifest
-    (let [script-name (get detected-manifest "script-name")
-          run-at (get detected-manifest "run-at")]
-      [:div.manifest-info
-       [:span.manifest-label "Detected manifest: "]
-       [:span.manifest-name script-name]
-       (run-at-badge run-at)])))
+(defn- hint-message
+  "Render a hint/warning message below a field."
+  [{:keys [type text]}]
+  [:span {:class (str "field-hint " (when type (str "hint-" type)))}
+   text])
+
+(defn- format-site-match
+  "Format site-match for display, handling both string and vector."
+  [site-match]
+  (cond
+    (nil? site-match) nil
+    (string? site-match) [site-match]
+    (sequential? site-match) (vec site-match)
+    :else [site-match]))
+
+(defn- metadata-field
+  "Render a read-only metadata field with optional hint."
+  [{:keys [label value values hint placeholder run-at-badge]}]
+  [:div.save-field.metadata-field
+   [:label label]
+   [:div.field-content
+    (cond
+      ;; Multiple values (e.g., vector site-match)
+      (seq values)
+      [:div.field-values
+       (for [[idx v] (map-indexed vector values)]
+         ^{:key idx}
+         [:div.field-value v])]
+
+      ;; Single value with optional run-at badge
+      (seq value)
+      [:div.field-value
+       value
+       run-at-badge]
+
+      ;; No value - show placeholder
+      :else
+      [:div.field-value.placeholder (or placeholder "Not specified in manifest")])]
+   (when hint
+     [hint-message hint])])
+
+(defn- unknown-keys-warning
+  "Render warning for unknown manifest keys."
+  [unknown-keys]
+  (when (seq unknown-keys)
+    [:div.manifest-warning
+     [:span.warning-icon "⚠️"]
+     [:span "Unknown manifest keys: "]
+     [:code (str/join ", " unknown-keys)]]))
+
+(defn- no-manifest-message
+  "Message shown when code has no manifest annotations."
+  []
+  [:div.no-manifest-message
+   [:p "Add a manifest map to your code to define script metadata:"]
+   [:pre.manifest-example
+    "{:epupp/script-name \"My Script\"\n :epupp/site-match \"https://example.com/*\"\n :epupp/description \"What it does\"}\n\n(ns my-script)\n; your code..."]])
+
+
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
-                                   panel/code panel/save-status panel/script-id panel/original-name]
-                            :as state}]
-  (let [;; Normalize current name for comparison
+                                   panel/code panel/save-status panel/script-id panel/original-name
+                                   panel/manifest-hints]
+                            :as _state}]
+  (let [;; Check if we have manifest data (hints present means manifest was parsed)
+        has-manifest? (some? manifest-hints)
+        ;; Extract hint details
+        {:keys [name-normalized? raw-script-name unknown-keys run-at-invalid? raw-run-at]} manifest-hints
+        ;; Site match can be string or already joined (from panel actions)
+        site-matches (format-site-match script-match)
+        ;; Normalize current name for comparison
         normalized-name (when (seq script-name)
                           (script-utils/normalize-script-name script-name))
         ;; Check if we're editing a built-in script
@@ -303,61 +360,95 @@
         ;; Save button disabled rules:
         ;; - Missing required fields
         ;; - Editing built-in with unchanged name (can't overwrite built-in)
+        ;; - No manifest present (can't save without manifest)
         save-disabled? (or (empty? code)
                            (empty? script-name)
                            (empty? script-match)
+                           (not has-manifest?)
                            (and editing-builtin? (not name-changed?)))
         ;; Button text: "Create Script" when name changed, otherwise "Save Script"
         save-button-text (if name-changed? "Create Script" "Save Script")
         ;; Rename disabled for built-in scripts
-        rename-disabled? editing-builtin?]
+        rename-disabled? editing-builtin?
+        ;; Get run-at for display (from parsed manifest, via state)
+        run-at (when has-manifest?
+                 (if run-at-invalid?
+                   "document-idle"
+                   raw-run-at))]
     [:div.save-script-section
      [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
-     [manifest-info state]
-     [:div.save-script-form
-      [:div.save-field
-       [:label {:for "script-name"} "Name"]
-       [:input {:type "text"
-                :id "script-name"
-                :value script-name
-                :placeholder "My Script"
-                :on-input (fn [e] (dispatch! [[:editor/ax.set-script-name (.. e -target -value)]]))}]]
-      [:div.save-field
-       [:label {:for "script-match"} "URL Pattern"]
-       [:div.match-input-group
-        [:input {:type "text"
-                 :id "script-match"
-                 :value script-match
-                 :placeholder "https://example.com/*"
-                 :on-input (fn [e] (dispatch! [[:editor/ax.set-script-match (.. e -target -value)]]))}]
-        [:button.btn-use-url {:on-click #(dispatch! [[:editor/ax.use-current-url]])
-                              :title "Use current page URL"}
-         "↵"]]]
-      [:div.save-field.description-field
-       [:label {:for "script-description"} "Description (optional)"]
-       [:textarea {:id "script-description"
-                   :value script-description
-                   :placeholder "What does this script do?"
-                   :rows 2
-                   :on-input (fn [e] (dispatch! [[:editor/ax.set-script-description (.. e -target -value)]]))}]]
-      [:div.save-actions
-       [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
-                          :disabled save-disabled?
-                          :title (when (and editing-builtin? (not name-changed?))
-                                   "Cannot overwrite built-in script - change the name to create a copy")}
-        save-button-text]
-       ;; Rename button - appears after Save to keep layout stable
-       (when show-rename?
-         [:button.btn-rename {:on-click #(dispatch! [[:editor/ax.rename-script]])
-                              :disabled rename-disabled?
-                              :title (if rename-disabled?
-                                       "Cannot rename built-in scripts"
-                                       (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
-          "Rename"])
-       ;; In Squint, keywords are already strings, so no need for `name`
-       (when save-status
-         [:span {:class (str "save-status save-status-" (:type save-status))}
-          (:text save-status)])]]]))
+
+     (if has-manifest?
+       ;; Manifest-driven: read-only field displays
+       [:div.save-script-form.manifest-driven
+        ;; Name field
+        [metadata-field
+         {:label "Name"
+          :value script-name
+          :placeholder "Add :epupp/script-name to manifest"
+          :hint (when name-normalized?
+                  {:type "info" :text (str "Normalized from: " raw-script-name)})}]
+
+        ;; URL Pattern field
+        [metadata-field
+         {:label "URL Pattern"
+          :values site-matches
+          :placeholder "Add :epupp/site-match to manifest"}]
+
+        ;; Description field
+        [metadata-field
+         {:label "Description"
+          :value script-description
+          :placeholder "Add :epupp/description to manifest (optional)"}]
+
+        ;; Run-at display (if specified)
+        (when run-at
+          [:div.save-field.metadata-field.run-at-field
+           [:label "Run At"]
+           [:div.field-content
+            [:div.field-value
+             run-at
+             (run-at-badge run-at)]
+            (when run-at-invalid?
+              [hint-message {:type "warning"
+                             :text (str "Invalid run-at value \"" raw-run-at "\" - using default")}])]])
+
+        ;; Unknown keys warning
+        [unknown-keys-warning unknown-keys]
+
+        ;; Save actions
+        [:div.save-actions
+         [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
+                            :disabled save-disabled?
+                            :title (cond
+                                     (and editing-builtin? (not name-changed?))
+                                     "Cannot overwrite built-in script - change the name to create a copy"
+                                     (empty? script-name)
+                                     "Add :epupp/script-name to manifest"
+                                     (empty? script-match)
+                                     "Add :epupp/site-match to manifest"
+                                     :else nil)}
+          save-button-text]
+         ;; Rename button - appears after Save to keep layout stable
+         (when show-rename?
+           [:button.btn-rename {:on-click #(dispatch! [[:editor/ax.rename-script]])
+                                :disabled rename-disabled?
+                                :title (if rename-disabled?
+                                         "Cannot rename built-in scripts"
+                                         (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
+            "Rename"])
+         ;; Status message
+         (when save-status
+           [:span {:class (str "save-status save-status-" (:type save-status))}
+            (:text save-status)])]]
+
+       ;; No manifest: show guidance message
+       [:div.save-script-form.no-manifest
+        [no-manifest-message]
+        [:div.save-actions
+         [:button.btn-save {:disabled true
+                            :title "Add manifest to code to enable saving"}
+          "Save Script"]]])]))
 
 (defn refresh-banner []
   [:div.refresh-banner

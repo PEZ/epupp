@@ -4,6 +4,40 @@
   (:require [script-utils :as script-utils]
             [manifest-parser :as mp]))
 
+(defn- normalize-match-patterns
+  "Ensure match patterns are always a flat vector of strings.
+   Handles both single string and vector of strings from manifest."
+  [match]
+  (cond
+    (nil? match) []
+    (string? match) [match]
+    (sequential? match) (vec match)
+    :else [match]))
+
+(defn- build-manifest-dxs
+  "Build deferred dispatch actions from manifest data.
+   Returns vector of actions to update name, match, description from manifest."
+  [manifest]
+  (when manifest
+    (let [script-name (get manifest "script-name")
+          site-match (get manifest "site-match")
+          description (get manifest "description")]
+      (cond-> []
+        script-name (conj [:editor/ax.set-script-name script-name])
+        site-match (conj [:editor/ax.set-script-match site-match])
+        description (conj [:editor/ax.set-script-description description])))))
+
+(defn- build-manifest-hints
+  "Build hints map from manifest for UI display.
+   Includes normalization info, unknown keys, and validation issues."
+  [manifest]
+  (when manifest
+    {:name-normalized? (get manifest "name-normalized?")
+     :raw-script-name (get manifest "raw-script-name")
+     :unknown-keys (get manifest "unknown-keys")
+     :run-at-invalid? (get manifest "run-at-invalid?")
+     :raw-run-at (get manifest "raw-run-at")}))
+
 (defn handle-action
   "Pure action handler for panel state transitions.
    Returns map with :uf/db, :uf/fxs, :uf/dxs keys."
@@ -11,23 +45,18 @@
   (case action
     :editor/ax.set-code
     (let [[code] args
-          ;; Try to extract manifest from code - safely catch any parse errors
+          ;; Parse manifest from code - safely catch any parse errors
           manifest (try (mp/extract-manifest code) (catch :default _ nil))
-          ;; Only auto-fill if manifest detected and fields are currently empty
-          {:panel/keys [script-name script-match script-description]} state
-          new-state (cond-> (assoc state
-                                   :panel/code code
-                                   :panel/detected-manifest manifest)
-                      ;; Auto-fill name if manifest has one and current is empty
-                      (and manifest (get manifest "script-name") (empty? script-name))
-                      (assoc :panel/script-name (get manifest "script-name"))
-                      ;; Auto-fill match if manifest has one and current is empty
-                      (and manifest (get manifest "site-match") (empty? script-match))
-                      (assoc :panel/script-match (get manifest "site-match"))
-                      ;; Auto-fill description if manifest has one and current is empty
-                      (and manifest (get manifest "description") (empty? script-description))
-                      (assoc :panel/script-description (get manifest "description")))]
-      {:uf/db new-state})
+          ;; Build hints for UI display
+          hints (build-manifest-hints manifest)
+          ;; Build dxs to update fields from manifest
+          dxs (build-manifest-dxs manifest)
+          ;; Update state with code and hints
+          new-state (-> state
+                        (assoc :panel/code code)
+                        (assoc :panel/manifest-hints hints))]
+      (cond-> {:uf/db new-state}
+        (seq dxs) (assoc :uf/dxs dxs)))
 
     :editor/ax.set-script-name
     (let [[new-name] args]
@@ -100,7 +129,7 @@
                    (script-utils/generate-script-id))
               script (cond-> {:script/id id
                               :script/name normalized-name
-                              :script/match [script-match]
+                              :script/match (normalize-match-patterns script-match)
                               :script/code code
                               :script/enabled true}
                        (seq script-description) (assoc :script/description script-description))
@@ -132,14 +161,18 @@
                            :panel/original-name normalized-name)}))))
 
     :editor/ax.load-script-for-editing
-    (let [[id name match code description] args]
+    (let [[id name match code description] args
+          ;; Parse manifest from loaded code for hint display
+          manifest (try (mp/extract-manifest code) (catch :default _ nil))
+          hints (build-manifest-hints manifest)]
       {:uf/db (assoc state
                      :panel/script-id id
                      :panel/script-name name
                      :panel/original-name name  ;; Track for rename detection
                      :panel/script-match match
                      :panel/code code
-                     :panel/script-description (or description ""))})
+                     :panel/script-description (or description "")
+                     :panel/manifest-hints hints)})
 
     :editor/ax.clear-results
     {:uf/db (assoc state :panel/results [])}
