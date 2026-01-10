@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Epupp Test Page - SPA Navigation</title>
+</head>
+<body>
+  <h1>SPA Navigation Test</h1>
+  <p>Tests that REPL connection persists across SPA-style client-side navigation.</p>
+  
+  <div id="test-marker">ready</div>
+  <div id="current-view">home</div>
+  
+  <nav>
+    <button id="nav-home" onclick="navigate('home')">Home</button>
+    <button id="nav-about" onclick="navigate('about')">About</button>
+    <button id="nav-contact" onclick="navigate('contact')">Contact</button>
+  </nav>
+  
+  <div id="content">
+    <p>Welcome to the home page.</p>
+  </div>
+  
+  <script>
+    // SPA-style navigation using History API (no page reload)
+    function navigate(view) {
+      // Update URL without page reload
+      history.pushState({ view: view }, '', '?view=' + view);
+      
+      // Update content
+      document.getElementById('current-view').textContent = view;
+      document.getElementById('content').innerHTML = '<p>You are now on the ' + view + ' page.</p>';
+      
+      // Log navigation for test verification
+      console.log('[SPA] Navigated to:', view);
+    }
+    
+    // Handle browser back/forward
+    window.onpopstate = function(event) {
+      if (event.state && event.state.view) {
+        document.getElementById('current-view').textContent = event.state.view;
+        document.getElementById('content').innerHTML = '<p>You are now on the ' + event.state.view + ' page.</p>';
+        console.log('[SPA] Popstate navigation to:', event.state.view);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -281,3 +281,73 @@
 
             (finally
               (js-await (.close context)))))))
+
+(test "Log-powered: SPA navigation does NOT trigger REPL reconnection"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Enable auto-connect via popup
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings section
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+
+              ;; Enable auto-connect
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (.click auto-connect-checkbox))
+                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to SPA test page - should trigger initial auto-connect
+            (let [page (js-await (.newPage context))]
+              (js/console.log "Navigating to SPA test page with auto-connect enabled...")
+              (js-await (.goto page "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "SPA page loaded")
+
+              ;; Wait for initial SCITTLE_LOADED event
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for initial SCITTLE_LOADED...")
+                    event (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))]
+                (js/console.log "Initial SCITTLE_LOADED:" (js/JSON.stringify event))
+
+                ;; Get current event count
+                (let [events-before (js-await (get-test-events popup))
+                      scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                  (js/console.log "SCITTLE_LOADED count before SPA nav:" scittle-count-before)
+
+                  ;; Perform SPA navigation (client-side, no page reload)
+                  (js/console.log "Performing SPA navigation (should NOT trigger reconnect)...")
+                  (js-await (.click (.locator page "#nav-about")))
+                  (js-await (-> (expect (.locator page "#current-view"))
+                                (.toContainText "about")))
+                  (js/console.log "SPA navigated to 'about' view")
+
+                  ;; Do another SPA navigation
+                  (js-await (.click (.locator page "#nav-contact")))
+                  (js-await (-> (expect (.locator page "#current-view"))
+                                (.toContainText "contact")))
+                  (js/console.log "SPA navigated to 'contact' view")
+
+                  ;; Small wait to ensure any erroneous reconnect would have happened
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+                  ;; Check that NO new SCITTLE_LOADED events occurred
+                  (let [events-after (js-await (get-test-events popup))
+                        scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                    (js/console.log "SCITTLE_LOADED count after SPA nav:" scittle-count-after)
+                    ;; Should be same count - SPA nav should NOT trigger reconnection
+                    (js-await (-> (expect scittle-count-after)
+                                  (.toBe scittle-count-before)))))
+
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
