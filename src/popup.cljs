@@ -525,24 +525,37 @@
     [:div.connect-row
      [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
 
+(defn popup-footer []
+  [:div.popup-footer
+   [:div.footer-logos
+    [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
+     [:img {:src "images/sci.png" :alt "SCI"}]]
+    [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
+     [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
+    [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
+     [:img {:src "images/clojure.png" :alt "Clojure"}]]]
+   [:div.footer-powered
+    "Powered by "
+    [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]
+   [:div.footer-credits
+    [:span "Created by "
+     [:a {:href "https://github.com/PEZ" :target "_blank"} "Peter Strömberg"]]
+    [:span.sponsor-link
+     [icons/heart {:size 14 :class "heart-icon"}]
+     [:a {:href "https://github.com/sponsors/PEZ" :target "_blank"} "Epupp is Open Source. Please Sponsor."]]]])
+
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %))))]
     [:div
-     ;; Header with logos
+     ;; Header
      [:div.header
       [:div.header-left
-       [icons/jack-in]
-       [:h1 "Epupp"]]
-      [:div.header-right
-       [:a.header-tagline {:href "https://github.com/babashka/scittle/tree/main/doc/nrepl"
-                           :target "_blank"}
-        "Scittle nREPL"]
-       [:div.header-logos
-        [:img {:src "images/sci.png" :alt "SCI"}]
-        [:img {:src "images/clojure.png" :alt "Clojure"}]]]]
+       [icons/jack-in {:size 28}]
+       [:h1 "Epupp"]
+       [:span.tagline "Live Tamper your Web"]]]
 
      ;; REPL Connect section
      [collapsible-section {:id :repl-connect
@@ -571,7 +584,10 @@
       [settings-content state]]
 
      ;; Dev log button (only in dev/test mode)
-     [dev-log-button]]))
+     [dev-log-button]
+
+     ;; Footer
+     [popup-footer]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")

@@ -10,7 +10,8 @@
   * [ ] Scittle dependencie (replicant, etc)
   * [ ] Code files ("src"-ish)
   * [ ] Urls?
-* [ ] Popup UI footer with info and sponsor link and sucj
+* [ ] Popup UI footer with info and sponsor link and such
+  * [ ] Update README screenshot
 * [x] Installing scripts from script installer should add them as not approved
 * [ ] Script installer not adding button with Firefox and Safari
 * [ ] Add setting for re-establishing the repl/websocket connection after reload

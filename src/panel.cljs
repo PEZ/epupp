@@ -232,18 +232,8 @@
        ^{:key idx}
        [result-item result])
      [:div.empty-results
-      [:div.empty-results-logos
-       [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
-        [:img {:src "images/sci.png" :alt "SCI"}]]
-       [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
-        [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
-       [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
-        [:img {:src "images/clojure.png" :alt "Clojure"}]]]
       [:div.empty-results-text
-       "Evaluate ClojureScript code above"
-       [:br]
-       "Powered by "
-       [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]])])
+       "Evaluate ClojureScript code above"]])])
 
 (defn code-input [{:keys [panel/code panel/evaluating? panel/scittle-status]}]
   (let [loading? (= :loading scittle-status)
@@ -380,8 +370,29 @@
    [:div.panel-header
     [:div.panel-title
      [:img {:src "icons/icon-32.png" :alt ""}]
-     "Epupp"]
+     [:span.panel-title-header
+      "Epupp"
+      [:span.tagline "Live Tamper your Web"]]]
     [:div.panel-status "Ready"]]])
+
+(defn panel-footer []
+  [:div.panel-footer
+   [:div.footer-logos
+    [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
+     [:img {:src "images/sci.png" :alt "SCI"}]]
+    [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
+     [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
+    [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
+     [:img {:src "images/clojure.png" :alt "Clojure"}]]]
+   [:div.footer-powered
+    "Powered by "
+    [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]
+   [:div.footer-credits
+    [:span "Created by "
+     [:a {:href "https://github.com/PEZ" :target "_blank"} "Peter Strömberg"]]
+    [:span.sponsor-link
+     [icons/heart {:size 14 :class "heart-icon"}]
+     [:a {:href "https://github.com/sponsors/PEZ" :target "_blank"} "Epupp is Open Source. Please Sponsor."]]]])
 
 (defn panel-ui [state]
   [:div.panel-root
@@ -389,7 +400,8 @@
    [:div.panel-content
     [save-script-section state]
     [code-input state]
-    [results-area state]]])
+    [results-area state]
+    [panel-footer]]])
 
 ;; ============================================================
 ;; Init
