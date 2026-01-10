@@ -194,9 +194,9 @@
                 (js-await (.click settings-header))
                 (js-await (-> (expect settings-content) (.toBeVisible))))
 
-              ;; Settings content renders with section title
-              (js-await (-> (expect (.locator popup ".settings-section-title"))
-                            (.toContainText "Allowed Userscript-install Base URLs")))
+              ;; Settings content renders with section titles (2 sections now)
+              (js-await (-> (expect (.locator popup ".settings-section-title:text(\"Allowed Userscript-install Base URLs\")"))
+                            (.toBeVisible)))
 
               ;; Default origins list shows config origins
               (js-await (-> (expect (.locator popup ".origin-item-default"))

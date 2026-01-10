@@ -26,7 +26,7 @@
                   eval-btn (.locator panel "button.btn-eval")
                   clear-btn (.locator panel "button.btn-clear")
                   results (.locator panel ".results-area")
-                  status (.locator panel ".panel-status")
+                  status (.locator panel ".app-header-status")
                   name-input (.locator panel "#script-name")
                   match-input (.locator panel "#script-match")
                   use-url-btn (.locator panel "button.btn-use-url")
