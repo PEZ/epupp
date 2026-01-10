@@ -179,6 +179,10 @@ When accessing JavaScript object properties with hyphenated names, `(.-hyphenate
         (aget result "test-events")))  ; Becomes result["test-events"] - correct!
 ```
 
+### 8. Strings Are Sequential
+
+Use `vector?` when you need to distinguish strings from actual collections. In Squint, `sequential?` returns `true` for strings because JavaScript strings are iterable. This differs from ClojureScript where `sequential?` is `false` for strings.
+
 ## Debugging Squint Issues
 
 1. **Check compiled `.mjs` output** - Look at the generated JavaScript to understand what's happening
