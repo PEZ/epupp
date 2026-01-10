@@ -6,7 +6,8 @@
             [icons :as icons]
             [panel-actions :as panel-actions]
             [script-utils :as script-utils]
-            [storage :as storage]))
+            [storage :as storage]
+            [view-elements :as view-elements]))
 
 (defonce !state
   (atom {:panel/results []
@@ -364,35 +365,15 @@
    [:span " to use the new version of this panel"]])
 
 (defn panel-header [{:panel/keys [needs-refresh?]}]
-  [:div.panel-header-wrapper
-   (when needs-refresh?
-     [refresh-banner])
-   [:div.panel-header
-    [:div.panel-title
-     [:img {:src "icons/icon-32.png" :alt ""}]
-     [:span.panel-title-header
-      "Epupp"
-      [:span.tagline "Live Tamper your Web"]]]
-    [:div.panel-status "Ready"]]])
+  [view-elements/app-header
+   {:elements/wrapper-class "panel-header-wrapper"
+    :elements/header-class "panel-header"
+    :elements/status "Ready"
+    :elements/banner (when needs-refresh?
+                       [refresh-banner])}])
 
 (defn panel-footer []
-  [:div.panel-footer
-   [:div.footer-logos
-    [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
-     [:img {:src "images/sci.png" :alt "SCI"}]]
-    [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
-     [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
-    [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
-     [:img {:src "images/clojure.png" :alt "Clojure"}]]]
-   [:div.footer-powered
-    "Powered by "
-    [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]
-   [:div.footer-credits
-    [:span "Created by "
-     [:a {:href "https://github.com/PEZ" :target "_blank"} "Peter Strömberg"]]
-    [:span.sponsor-link
-     [icons/heart {:size 14 :class "heart-icon"}]
-     [:a {:href "https://github.com/sponsors/PEZ" :target "_blank"} "Epupp is Open Source. Please Sponsor."]]]])
+  [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
 
 (defn panel-ui [state]
   [:div.panel-root

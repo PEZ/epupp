@@ -6,7 +6,8 @@
             [icons :as icons]
             [script-utils :as script-utils]
             [popup-utils :as popup-utils]
-            [popup-actions :as popup-actions]))
+            [popup-actions :as popup-actions]
+            [view-elements :as view-elements]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
 ;; Shape: {"dev": boolean, "depsString": string}
@@ -416,11 +417,10 @@
   "Button to dump all test events to console. Only shown in dev/test mode.
    Playwright can capture console output via page.on('console')."
   []
-  (when (or (.-dev config) (.-test config))
-    [:div.dev-log-section
-     [:button.dev-log-btn
-      {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
-      "Dump Dev Log"]]))
+  [:div.dev-log-section
+   [:button.dev-log-btn
+    {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
+    "Dump Dev Log"]])
 
 ;; ============================================================
 ;; Settings Components
@@ -525,69 +525,38 @@
     [:div.connect-row
      [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
 
-(defn popup-footer []
-  [:div.popup-footer
-   [:div.footer-logos
-    [:a {:href "https://github.com/babashka/sci" :target "_blank" :title "SCI - Small Clojure Interpreter"}
-     [:img {:src "images/sci.png" :alt "SCI"}]]
-    [:a {:href "https://clojurescript.org/" :target "_blank" :title "ClojureScript"}
-     [:img {:src "images/cljs.svg" :alt "ClojureScript"}]]
-    [:a {:href "https://clojure.org/" :target "_blank" :title "Clojure"}
-     [:img {:src "images/clojure.png" :alt "Clojure"}]]]
-   [:div.footer-powered
-    "Powered by "
-    [:a {:href "https://github.com/babashka/scittle" :target "_blank"} "Scittle"]]
-   [:div.footer-credits
-    [:span "Created by "
-     [:a {:href "https://github.com/PEZ" :target "_blank"} "Peter Strömberg"]]
-    [:span.sponsor-link
-     [icons/heart {:size 14 :class "heart-icon"}]
-     [:a {:href "https://github.com/sponsors/PEZ" :target "_blank"} "Epupp is Open Source. Please Sponsor."]]]])
-
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %))))]
     [:div
-     ;; Header
-     [:div.header
-      [:div.header-left
-       [icons/jack-in {:size 28}]
-       [:h1 "Epupp"]
-       [:span.tagline "Live Tamper your Web"]]]
+     [view-elements/app-header
+      {:elements/wrapper-class "popup-header-wrapper"
+       :elements/header-class "popup-header"
+       :elements/icon [icons/jack-in {:size 28}]}]
 
-     ;; REPL Connect section
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
                            :expanded? (not (:repl-connect sections-collapsed))}
       [repl-connect-content state]]
-
-     ;; Matching Scripts section
      [collapsible-section {:id :matching-scripts
                            :title "Matching Scripts"
                            :expanded? (not (:matching-scripts sections-collapsed))
                            :badge-count (count matching-scripts)}
       [matching-scripts-section state]]
-
-     ;; Other Scripts section
      [collapsible-section {:id :other-scripts
                            :title "Other Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-scripts)}
       [other-scripts-section state]]
-
-     ;; Settings section (collapsed by default)
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))}
       [settings-content state]]
-
-     ;; Dev log button (only in dev/test mode)
-     [dev-log-button]
-
-     ;; Footer
-     [popup-footer]]))
+     (when (or (.-dev config) (.-test config))
+       [dev-log-button])
+     [view-elements/app-footer {:elements/wrapper-class "popup-footer"}]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")

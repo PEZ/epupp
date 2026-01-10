@@ -90,6 +90,7 @@
       (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
     ;; Copy static files
     (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
+    (fs/copy "extension/shared.css" "build/shared.css" {:replace-existing true})
     (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
     (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
     (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
@@ -196,6 +197,8 @@
         (fs/copy (str build-dir "/popup.html") (str browser-dir "/popup.html")
                  {:replace-existing true})
         (fs/copy (str build-dir "/popup.js") (str browser-dir "/popup.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/shared.css") (str browser-dir "/shared.css")
                  {:replace-existing true})
         (fs/copy (str build-dir "/popup.css") (str browser-dir "/popup.css")
                  {:replace-existing true})

@@ -76,60 +76,13 @@ body {
   overflow: hidden;
 }
 
-/* Header wrapper for fixed positioning */
+/* Panel header overrides */
 .panel-header-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
   background: var(--bg-secondary);
 }
 
-/* Header */
 .panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.panel-title {
-  font-size: 1rem;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.panel-title-header {
-  font-weight: 500;
-  display: flex;
-  align-items: flex-end;
-}
-
-.panel-title img {
-  width: 32px;
-  height: 32px;
-}
-
-.panel-title .tagline {
-  font-size: 1rem;
-  font-style: italic;
-  font-weight: 400;
-  margin-left: 4px;
-}
-
-.panel-status {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.panel-status.connected {
-  color: var(--success);
 }
 
 /* Refresh banner */
@@ -555,76 +508,9 @@ body {
   opacity: 0.8;
 }
 
+/* Footer (view-specific overrides - shared styles in shared.css) */
+
 .panel-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 12px;
   background: var(--bg-primary);
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
   flex-shrink: 0;
-}
-
-.panel-footer .footer-logos {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  opacity: 0.6;
-}
-
-.panel-footer .footer-logos a {
-  transition: opacity 0.15s;
-}
-
-.panel-footer .footer-logos a:hover {
-  opacity: 0.8;
-}
-
-.panel-footer .footer-logos img {
-  width: 28px;
-  height: 28px;
-}
-
-.panel-footer .footer-powered {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.panel-footer .footer-powered a {
-  color: var(--clojure-blue);
-  text-decoration: none;
-}
-
-.panel-footer .footer-powered a:hover {
-  text-decoration: underline;
-}
-
-.panel-footer .footer-credits {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.panel-footer a {
-  color: var(--clojure-blue);
-  text-decoration: none;
-}
-
-.panel-footer a:hover {
-  text-decoration: underline;
-}
-
-.panel-footer .sponsor-link {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.panel-footer .heart-icon {
-  color: #e53935;
 }
