@@ -5,10 +5,24 @@
    - REPL connection setup (ports, command generation)
    - Script management with approval workflow"
   (:require ["@playwright/test" :refer [test expect]]
+            [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
                               create-panel-page clear-storage wait-for-popup-ready
                               wait-for-save-status wait-for-script-count
-                              wait-for-checkbox-state]]))
+                              wait-for-checkbox-state wait-for-panel-ready]]))
+
+(defn code-with-manifest
+  "Generate test code with epupp manifest metadata."
+  [{:keys [name match description run-at code]
+    :or {code "(println \"Test script\")"}}]
+  (let [meta-parts (cond-> []
+                     name (conj (str ":epupp/script-name \"" name "\""))
+                     match (conj (str ":epupp/site-match \"" match "\""))
+                     description (conj (str ":epupp/description \"" description "\""))
+                     run-at (conj (str ":epupp/run-at \"" run-at "\"")))
+        meta-block (when (seq meta-parts)
+                     (str "{" (str/join "\n " meta-parts) "}\n\n"))]
+    (str meta-block code)))
 
 ;; =============================================================================
 ;; Popup User Journey: REPL Connection Setup
@@ -63,18 +77,20 @@
               (js-await (.close popup)))
 
             ;; === PHASE 2: Create scripts via panel ===
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"script one\")"))
-              (js-await (.fill (.locator panel "#script-name") "Script One"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Script One"
+                                            :match "*://example.com/*"
+                                            :code "(println \"script one\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "script_one.cljs"))
               (js-await (.close panel)))
 
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"script two\")"))
-              (js-await (.fill (.locator panel "#script-name") "Script Two"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.org/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Script Two"
+                                            :match "*://example.org/*"
+                                            :code "(println \"script two\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "script_two.cljs"))
               (js-await (.close panel)))
@@ -110,10 +126,11 @@
 
             ;; === PHASE 4: Approval workflow (Allow) ===
             ;; Re-enable and create script for approval test
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"needs approval\")"))
-              (js-await (.fill (.locator panel "#script-name") "Approval Test"))
-              (js-await (.fill (.locator panel "#script-match") "*://approval.test/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Approval Test"
+                                            :match "*://approval.test/*"
+                                            :code "(println \"needs approval\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "approval_test.cljs"))
               (js-await (.close panel)))
@@ -143,10 +160,11 @@
               (js-await (.close popup)))
 
             ;; === PHASE 5: Approval workflow (Deny) ===
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"deny me\")"))
-              (js-await (.fill (.locator panel "#script-name") "Deny Test"))
-              (js-await (.fill (.locator panel "#script-match") "*://deny.test/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Deny Test"
+                                            :match "*://deny.test/*"
+                                            :code "(println \"deny me\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "deny_test.cljs"))
               (js-await (.close panel)))

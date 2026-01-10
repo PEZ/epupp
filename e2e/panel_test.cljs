@@ -8,13 +8,31 @@
    - Actual code evaluation in inspected page
    - Real chrome.devtools.inspectedWindow.eval behavior"
   (:require ["@playwright/test" :refer [test expect]]
+            [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count wait-for-edit-hint]]))
 
+
 ;; =============================================================================
 ;; Panel User Journey: Evaluation and Save
 ;; =============================================================================
+
+(defn code-with-manifest
+  "Generate test code with epupp manifest metadata.
+   Uses the official manifest keys: :epupp/script-name, :epupp/site-match, etc."
+  [{:keys [name match description run-at code]
+    :or {code "(println \"Test script\")"}}]
+  (let [meta-parts (cond-> []
+                     name (conj (str ":epupp/script-name \"" name "\""))
+                     match (conj (str ":epupp/site-match \"" match "\""))
+                     description (conj (str ":epupp/description \"" description "\""))
+                     run-at (conj (str ":epupp/run-at \"" run-at "\"")))
+        meta-block (when (seq meta-parts)
+                     (str "{" (str/join "\n " meta-parts) "}\n\n"))]
+    (str meta-block code)))
+
+
 
 (test "Panel: evaluation and save workflow"
       (^:async fn []
@@ -27,22 +45,21 @@
                   clear-btn (.locator panel "button.btn-clear")
                   results (.locator panel ".results-area")
                   status (.locator panel ".app-header-status")
-                  name-input (.locator panel "#script-name")
-                  match-input (.locator panel "#script-match")
-                  use-url-btn (.locator panel "button.btn-use-url")
-                  save-btn (.locator panel "button.btn-save")]
+                  save-btn (.locator panel "button.btn-save")
+                  ;; New manifest-driven selectors (read-only displays)
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
+                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")]
 
               ;; Clear storage for clean slate
               (js-await (clear-storage panel))
 
               ;; === EVALUATION WORKFLOW ===
 
-              ;; 1. Panel renders with all UI elements
+              ;; 1. Panel renders with code input and action buttons
               (js-await (-> (expect textarea) (.toBeVisible)))
               (js-await (-> (expect eval-btn) (.toBeVisible)))
               (js-await (-> (expect clear-btn) (.toBeVisible)))
-              (js-await (-> (expect name-input) (.toBeVisible)))
-              (js-await (-> (expect match-input) (.toBeVisible)))
 
               ;; 2. Status shows Ready (mock returns hasScittle: true)
               (js-await (-> (expect status) (.toContainText "Ready")))
@@ -58,31 +75,34 @@
               ;; Playwright auto-waits for the negative assertion too
               (js-await (-> (expect results) (.not.toContainText "(+ 1 2 3)")))
 
-              ;; === SAVE WORKFLOW ===
+              ;; === SAVE WORKFLOW (Manifest-Driven) ===
 
-              ;; 5. Save button disabled with empty name/pattern
+              ;; 5. Without manifest, save section shows guidance message
+              (js-await (-> (expect (.locator save-section ".no-manifest-message")) (.toBeVisible)))
               (js-await (-> (expect save-btn) (.toBeDisabled)))
 
-              ;; 6. Fill save form
-              (js-await (.fill textarea "(println \"My userscript\")"))
-              (js-await (.fill name-input "Test Userscript"))
-              (js-await (.click use-url-btn))
-              ;; Wait for input to be populated with pattern
-              (js-await (-> (expect match-input)
-                            (.toHaveValue #"test\.example\.com")))
-              (let [match-value (js-await (.inputValue match-input))]
-                (js-await (-> (expect (.includes match-value "test.example.com"))
-                              (.toBeTruthy))))
+              ;; 6. Add code with manifest - metadata displays should appear
+              (let [test-code (code-with-manifest {:name "Test Userscript"
+                                                   :match "*://test.example.com/*"
+                                                   :code "(println \"My userscript\")"})]
+                (js-await (.fill textarea test-code)))
 
-              ;; 7. Save and verify (first save = Created since it's a new script)
+              ;; 7. Verify manifest-driven displays show correct values
+              (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs")))
+              (js-await (-> (expect match-field) (.toContainText "*://test.example.com/*")))
+
+              ;; 8. Save button should now be enabled
               (js-await (-> (expect save-btn) (.toBeEnabled)))
+
+              ;; 9. Save and verify (first save = Created since it's a new script)
               (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "Created"))
 
-              ;; 8. Form fields kept after save (normalized name shown)
-              (js-await (-> (expect name-input) (.toHaveValue "test_userscript.cljs"))))
+              ;; 10. Name field still shows normalized name after save
+              (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs"))))
             (finally
               (js-await (.close context)))))))
+
 
 ;; =============================================================================
 ;; Panel User Journey: Create vs Save Behavior
@@ -93,18 +113,20 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Create initial script ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 1: Create initial script with manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
               (js-await (clear-storage panel))
               (js-await (.reload panel))
               (js-await (wait-for-panel-ready panel))
-              (js-await (.fill (.locator panel "#code-area") "(println \"version 1\")"))
-              (js-await (.fill (.locator panel "#script-name") "My Cool Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
+              (let [initial-code (code-with-manifest {:name "My Cool Script"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"version 1\")"})]
+                (js-await (.fill textarea initial-code)))
               ;; Button should say "Save Script" for new script
-              (js-await (-> (expect (.locator panel "button.btn-save"))
-                            (.toContainText "Save Script")))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (-> (expect save-btn) (.toContainText "Save Script")))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "my_cool_script.cljs"))
               (js-await (.close panel)))
 
@@ -121,16 +143,21 @@
               (js-await (.close popup)))
 
             ;; === PHASE 3: Update code WITHOUT changing name - should save over existing ===
-            (let [panel (js-await (create-panel-page context ext-id))]
-              ;; Wait for script to load - check that name field is populated
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "my_cool_script.cljs")))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+              ;; Wait for script to load - check that name field shows loaded name
+              (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
               ;; Script loaded for editing - button says "Save Script"
-              (js-await (-> (expect (.locator panel "button.btn-save"))
-                            (.toContainText "Save Script")))
-              ;; Update just the code
-              (js-await (.fill (.locator panel "#code-area") "(println \"version 2 - UPDATED\")"))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (-> (expect save-btn) (.toContainText "Save Script")))
+              ;; Update just the code body (keep same manifest name)
+              (let [updated-code (code-with-manifest {:name "my_cool_script.cljs"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"version 2 - UPDATED\")"})]
+                (js-await (.fill textarea updated-code)))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "Saved"))
               (js-await (.close panel)))
 
@@ -148,24 +175,28 @@
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
-            ;; === PHASE 5: Change name while editing - should show "Create Script" ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 5: Change name in manifest - should show "Create Script" ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")
+                  rename-btn (.locator panel "button.btn-rename")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
               ;; Wait for script to load
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "my_cool_script.cljs")))
+              (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
               ;; Initially "Save Script" since name matches
-              (js-await (-> (expect (.locator panel "button.btn-save"))
-                            (.toContainText "Save Script")))
-              ;; Change the name
-              (js-await (.fill (.locator panel "#script-name") "New Script Name"))
-              ;; Button should change to "Create Script"
-              (js-await (-> (expect (.locator panel "button.btn-save"))
-                            (.toContainText "Create Script")))
+              (js-await (-> (expect save-btn) (.toContainText "Save Script")))
+              ;; Change the name in manifest (by updating the whole code)
+              (let [new-name-code (code-with-manifest {:name "New Script Name"
+                                                       :match "*://example.com/*"
+                                                       :code "(println \"version 2 - UPDATED\")"})]
+                (js-await (.fill textarea new-name-code)))
+              ;; Button should change to "Create Script" when name differs
+              (js-await (-> (expect save-btn) (.toContainText "Create Script")))
               ;; Rename button should appear
-              (js-await (-> (expect (.locator panel "button.btn-rename"))
-                            (.toBeVisible)))
+              (js-await (-> (expect rename-btn) (.toBeVisible)))
               ;; Click Create to make a new script
-              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
 
@@ -186,6 +217,7 @@
             (finally
               (js-await (.close context)))))))
 
+
 ;; =============================================================================
 ;; Panel User Journey: Rename Behavior
 ;; =============================================================================
@@ -195,15 +227,18 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Create initial script ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 1: Create initial script with manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
               (js-await (clear-storage panel))
               (js-await (.reload panel))
               (js-await (wait-for-panel-ready panel))
-              (js-await (.fill (.locator panel "#code-area") "(println \"version 1\")"))
-              (js-await (.fill (.locator panel "#script-name") "My Cool Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (let [initial-code (code-with-manifest {:name "My Cool Script"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"version 1\")"})]
+                (js-await (.fill textarea initial-code)))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "my_cool_script.cljs"))
               (js-await (.close panel)))
 
@@ -219,15 +254,21 @@
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
-            ;; === PHASE 3: Rename script in panel ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 3: Rename script by changing name in manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  rename-btn (.locator panel "button.btn-rename")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
               ;; Wait for script to load
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "my_cool_script.cljs")))
-              ;; Change the name
-              (js-await (.fill (.locator panel "#script-name") "Renamed Script"))
-              ;; Click Rename
-              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
+              ;; Change the name in manifest
+              (let [renamed-code (code-with-manifest {:name "Renamed Script"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"version 1\")"})]
+                (js-await (.fill textarea renamed-code)))
+              ;; Click Rename button
+              (js-await (.click rename-btn))
               (js-await (wait-for-save-status panel "Renamed"))
               (js-await (.close panel)))
 
@@ -249,6 +290,7 @@
             (finally
               (js-await (.close context)))))))
 
+
 ;; =============================================================================
 ;; Panel User Journey: Rename with Multiple Scripts
 ;; =============================================================================
@@ -258,25 +300,31 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Create first script ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 1: Create first script with manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
               (js-await (clear-storage panel))
               (js-await (.reload panel))
               (js-await (wait-for-panel-ready panel))
-              (js-await (.fill (.locator panel "#code-area") "(println \"script 1\")"))
-              (js-await (.fill (.locator panel "#script-name") "First Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (let [code1 (code-with-manifest {:name "First Script"
+                                               :match "*://example.com/*"
+                                               :code "(println \"script 1\")"})]
+                (js-await (.fill textarea code1)))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "first_script.cljs"))
               (js-await (.close panel)))
 
-            ;; === PHASE 2: Create second script ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 2: Create second script with manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
               (js-await (wait-for-panel-ready panel))
-              (js-await (.fill (.locator panel "#code-area") "(println \"script 2\")"))
-              (js-await (.fill (.locator panel "#script-name") "Second Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://github.com/*"))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (let [code2 (code-with-manifest {:name "Second Script"
+                                               :match "*://github.com/*"
+                                               :code "(println \"script 2\")"})]
+                (js-await (.fill textarea code2)))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "second_script.cljs"))
               (js-await (.close panel)))
 
@@ -303,13 +351,19 @@
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
-            (let [panel (js-await (create-panel-page context ext-id))]
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  rename-btn (.locator panel "button.btn-rename")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
               ;; Wait for script to load
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "first_script.cljs")))
-              ;; Rename it
-              (js-await (.fill (.locator panel "#script-name") "Renamed First Script"))
-              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (-> (expect name-field) (.toContainText "first_script.cljs")))
+              ;; Rename by changing manifest name
+              (let [renamed-code (code-with-manifest {:name "Renamed First Script"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"script 1\")"})]
+                (js-await (.fill textarea renamed-code)))
+              (js-await (.click rename-btn))
               (js-await (wait-for-save-status panel "Renamed"))
               (js-await (.close panel)))
 
@@ -332,26 +386,29 @@
                 (js-await (-> (expect (some #(= % "first_script.cljs") script-names)) (.toBeFalsy))))
               ;; CRITICAL: No approval buttons should appear (other scripts should be unaffected)
               (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
-              (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
               (js-await (.close popup)))
 
             (finally
               (js-await (.close context)))))))
+
 
 (test "Panel: multiple renames do not create duplicates"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; === PHASE 1: Create initial script ===
-            (let [panel (js-await (create-panel-page context ext-id))]
+            ;; === PHASE 1: Create initial script with manifest ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
               (js-await (clear-storage panel))
               (js-await (.reload panel))
               (js-await (wait-for-panel-ready panel))
-              (js-await (.fill (.locator panel "#code-area") "(println \"original\")"))
-              (js-await (.fill (.locator panel "#script-name") "Original Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://example.com/*"))
-              (js-await (.click (.locator panel "button.btn-save")))
+              (let [initial-code (code-with-manifest {:name "Original Script"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"original\")"})]
+                (js-await (.fill textarea initial-code)))
+              (js-await (.click save-btn))
               (js-await (wait-for-save-status panel "original_script.cljs"))
               (js-await (.close panel)))
 
@@ -366,12 +423,18 @@
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
-            (let [panel (js-await (create-panel-page context ext-id))]
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  rename-btn (.locator panel "button.btn-rename")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
               ;; Wait for script to load
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "original_script.cljs")))
-              (js-await (.fill (.locator panel "#script-name") "First Rename"))
-              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (-> (expect name-field) (.toContainText "original_script.cljs")))
+              (let [renamed-code (code-with-manifest {:name "First Rename"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"original\")"})]
+                (js-await (.fill textarea renamed-code)))
+              (js-await (.click rename-btn))
               (js-await (wait-for-save-status panel "Renamed"))
               (js-await (.close panel)))
 
@@ -396,12 +459,18 @@
                 (js-await (wait-for-edit-hint popup)))
               (js-await (.close popup)))
 
-            (let [panel (js-await (create-panel-page context ext-id))]
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  rename-btn (.locator panel "button.btn-rename")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
               ;; Wait for script to load
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "first_rename.cljs")))
-              (js-await (.fill (.locator panel "#script-name") "Second Rename"))
-              (js-await (.click (.locator panel "button.btn-rename")))
+              (js-await (-> (expect name-field) (.toContainText "first_rename.cljs")))
+              (let [renamed-code (code-with-manifest {:name "Second Rename"
+                                                      :match "*://example.com/*"
+                                                      :code "(println \"original\")"})]
+                (js-await (.fill textarea renamed-code)))
+              (js-await (.click rename-btn))
               (js-await (wait-for-save-status panel "Renamed"))
               (js-await (.close panel)))
 
@@ -423,3 +492,4 @@
 
             (finally
               (js-await (.close context)))))))
+

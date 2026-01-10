@@ -1,5 +1,6 @@
 (ns integration-test
   (:require ["@playwright/test" :refer [test expect]]
+            [clojure.string :as str]
             [fixtures :refer [launch-browser
                               get-extension-id
                               create-panel-page
@@ -7,7 +8,21 @@
                               clear-storage
                               wait-for-save-status
                               wait-for-checkbox-state
-                              wait-for-edit-hint]]))
+                              wait-for-edit-hint
+                              wait-for-panel-ready]]))
+
+(defn code-with-manifest
+  "Generate test code with epupp manifest metadata."
+  [{:keys [name match description run-at code]
+    :or {code "(println \"Test script\")"}}]
+  (let [meta-parts (cond-> []
+                     name (conj (str ":epupp/script-name \"" name "\""))
+                     match (conj (str ":epupp/site-match \"" match "\""))
+                     description (conj (str ":epupp/description \"" description "\""))
+                     run-at (conj (str ":epupp/run-at \"" run-at "\"")))
+        meta-block (when (seq meta-parts)
+                     (str "{" (str/join "\n " meta-parts) "}\n\n"))]
+    (str meta-block code)))
 
 ;; =============================================================================
 ;; Integration: Script Lifecycle (panel -> popup -> panel -> popup)
@@ -26,10 +41,11 @@
 
             ;; === PHASE 1: Save script from panel ===
             ;; Input: "Lifecycle Test" -> Normalized: "lifecycle_test.cljs"
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"Original code\")"))
-              (js-await (.fill (.locator panel "#script-name") "Lifecycle Test"))
-              (js-await (.fill (.locator panel "#script-match") "*://lifecycle.test/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Lifecycle Test"
+                                            :match "*://lifecycle.test/*"
+                                            :code "(println \"Original code\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               ;; First save of new script shows "Created"
               (js-await (wait-for-save-status panel "Created"))
@@ -64,28 +80,33 @@
               (js-await (.close popup)))
 
             ;; === PHASE 3: Edit script - panel receives it ===
-            (let [panel (js-await (create-panel-page context ext-id))
-                  popup (js-await (create-popup-page context ext-id))
+            ;; Click inspect in popup first, then open panel (which reads editingScript on init)
+            (let [popup (js-await (create-popup-page context ext-id))
                   ;; Use normalized name
                   script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
                   inspect-btn (.locator script-item "button.script-inspect")]
 
-              ;; Click inspect in popup
+              ;; Click inspect in popup to set editingScript in storage
               (js-await (.click inspect-btn))
               (js-await (wait-for-edit-hint popup))
+              (js-await (.close popup)))
 
-              ;; Panel should receive the script (name field shows normalized name)
-              (js-await (-> (expect (.locator panel "#code-area"))
-                            (.toHaveValue "(println \"Original code\")")))
-              (js-await (-> (expect (.locator panel "#script-name"))
-                            (.toHaveValue "lifecycle_test.cljs")))
+            ;; Now open panel - it will read editingScript on init
+            (let [panel (js-await (create-panel-page context ext-id))
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
 
-              ;; Modify and save
-              (js-await (.fill (.locator panel "#code-area") "(println \"Updated code\")"))
+              ;; Wait for script to load - check name field shows loaded name
+              (js-await (-> (expect name-field) (.toContainText "lifecycle_test.cljs")))
+
+              ;; Modify code (keep same manifest name to update existing)
+              (let [updated-code (code-with-manifest {:name "lifecycle_test.cljs"
+                                                      :match "*://lifecycle.test/*"
+                                                      :code "(println \"Updated code\")"})]
+                (js-await (.fill (.locator panel "#code-area") updated-code)))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Saved"))
 
-              (js-await (.close popup))
               (js-await (.close panel)))
 
             ;; === PHASE 4: Delete script ===
@@ -120,29 +141,32 @@
 
             ;; === PHASE 1: Create script with document-start timing ===
             (let [panel (js-await (create-panel-page context ext-id))
-                  code-with-manifest "{:epupp/run-at \"document-start\"}\n(println \"early script\")"]
-              (js-await (.fill (.locator panel "#code-area") code-with-manifest))
-              (js-await (.fill (.locator panel "#script-name") "Early Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://early.test/*"))
+                  code (code-with-manifest {:name "Early Script"
+                                            :match "*://early.test/*"
+                                            :run-at "document-start"
+                                            :code "(println \"early script\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
 
             ;; === PHASE 2: Create script with document-end timing ===
             (let [panel (js-await (create-panel-page context ext-id))
-                  code-with-manifest "{:epupp/run-at \"document-end\"}\n(println \"dom ready script\")"]
-              (js-await (.fill (.locator panel "#code-area") code-with-manifest))
-              (js-await (.fill (.locator panel "#script-name") "DOM Ready Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://domready.test/*"))
+                  code (code-with-manifest {:name "DOM Ready Script"
+                                            :match "*://domready.test/*"
+                                            :run-at "document-end"
+                                            :code "(println \"dom ready script\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
 
-            ;; === PHASE 3: Create script with default timing (no manifest) ===
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(println \"normal script\")"))
-              (js-await (.fill (.locator panel "#script-name") "Normal Script"))
-              (js-await (.fill (.locator panel "#script-match") "*://normal.test/*"))
+            ;; === PHASE 3: Create script with default timing (no run-at in manifest) ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Normal Script"
+                                            :match "*://normal.test/*"
+                                            :code "(println \"normal script\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))

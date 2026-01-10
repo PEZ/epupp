@@ -2,10 +2,24 @@
   "True E2E tests that verify userscript loading, timing, and REPL interaction
    via structured event logging to chrome.storage.local."
   (:require ["@playwright/test" :refer [test expect]]
+            [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
                               create-panel-page wait-for-event
                               get-test-events wait-for-save-status wait-for-popup-ready
                               generate-timing-report print-timing-report]]))
+
+(defn code-with-manifest
+  "Generate test code with epupp manifest metadata."
+  [{:keys [name match description run-at code]
+    :or {code "(println \"Test script\")"}}]
+  (let [meta-parts (cond-> []
+                     name (conj (str ":epupp/script-name \"" name "\""))
+                     match (conj (str ":epupp/site-match \"" match "\""))
+                     description (conj (str ":epupp/description \"" description "\""))
+                     run-at (conj (str ":epupp/run-at \"" run-at "\"")))
+        meta-block (when (seq meta-parts)
+                     (str "{" (str/join "\n " meta-parts) "}\n\n"))]
+    (str meta-block code)))
 
 (test "True E2E: extension starts and emits startup event"
       (^:async fn []
@@ -61,10 +75,11 @@
               ext-id (js-await (get-extension-id context))]
           (try
             ;; Setup: Create a script that matches localhost:18080
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(js/console.log \"Userscript ran!\")"))
-              (js-await (.fill (.locator panel "#script-name") "Injection Test"))
-              (js-await (.fill (.locator panel "#script-match") "http://localhost:18080/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Injection Test"
+                                            :match "http://localhost:18080/*"
+                                            :code "(js/console.log \"Userscript ran!\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
@@ -124,10 +139,11 @@
           (try
             ;; Setup: Create a document-start script that records timing
             (let [panel (js-await (create-panel-page context ext-id))
-                  code "{:epupp/run-at \"document-start\"}\n(set! js/window.__EPUPP_SCRIPT_PERF (js/performance.now))"]
+                  code (code-with-manifest {:name "Timing Test"
+                                            :match "http://localhost:18080/*"
+                                            :run-at "document-start"
+                                            :code "(set! js/window.__EPUPP_SCRIPT_PERF (js/performance.now))"})]
               (js-await (.fill (.locator panel "#code-area") code))
-              (js-await (.fill (.locator panel "#script-name") "Timing Test"))
-              (js-await (.fill (.locator panel "#script-match") "http://localhost:18080/*"))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
@@ -181,10 +197,11 @@
               ext-id (js-await (get-extension-id context))]
           (try
             ;; Setup: Create a simple script to trigger full injection pipeline
-            (let [panel (js-await (create-panel-page context ext-id))]
-              (js-await (.fill (.locator panel "#code-area") "(js/console.log \"Perf test\")"))
-              (js-await (.fill (.locator panel "#script-name") "Performance Report Test"))
-              (js-await (.fill (.locator panel "#script-match") "http://localhost:18080/*"))
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Performance Report Test"
+                                            :match "http://localhost:18080/*"
+                                            :code "(js/console.log \"Perf test\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
               (js-await (.click (.locator panel "button.btn-save")))
               (js-await (wait-for-save-status panel "Created"))
               (js-await (.close panel)))
