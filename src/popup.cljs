@@ -30,6 +30,7 @@
          :settings/user-origins []    ; User-added allowed origins
          :settings/new-origin ""      ; Input field for new origin
          :settings/default-origins [] ; Config origins (read-only)
+         :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/error nil}))          ; Validation error message
 
 
@@ -279,6 +280,19 @@
            (js/chrome.storage.local.set
             #js {:userAllowedOrigins (clj->js updated)})))))
 
+    :popup/fx.load-auto-connect-setting
+    (js/chrome.storage.local.get
+     #js ["autoConnectRepl"]
+     (fn [result]
+       (let [enabled (if (some? (.-autoConnectRepl result))
+                       (.-autoConnectRepl result)
+                       false)]
+         (dispatch [[:db/ax.assoc :settings/auto-connect-repl enabled]]))))
+
+    :popup/fx.save-auto-connect-setting
+    (let [[enabled] args]
+      (js/chrome.storage.local.set #js {:autoConnectRepl enabled}))
+
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
     ;; Playwright can capture this via page.on('console')
@@ -481,8 +495,19 @@
    (when error
      [:div.add-origin-error error])])
 
-(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error]}]
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl]}]
   [:div.settings-content
+   [:div.settings-section
+    [:h3.settings-section-title "REPL Auto-Connect"]
+    [:div.auto-connect-setting
+     [:label.checkbox-label
+      [:input#auto-connect-repl {:type "checkbox"
+                                 :checked auto-connect-repl
+                                 :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
+      "Auto-connect REPL on every page"]
+     [:p.auto-connect-warning
+      "Warning: Enabling this will inject the Scittle REPL on every page you visit. "
+      "Only enable if you understand the implications."]]]
    [:div.settings-section
     [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
     [:p.section-description
@@ -576,7 +601,8 @@
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
-              [:popup/ax.load-user-origins]]))
+              [:popup/ax.load-user-origins]
+              [:popup/ax.load-auto-connect-setting]]))
 
 ;; Start the app when DOM is ready
 (js/console.log "Popup script loaded, readyState:" js/document.readyState)

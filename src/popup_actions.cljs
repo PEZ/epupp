@@ -118,6 +118,14 @@
                       (fn [origins] (filterv #(not= % origin) origins)))
        :uf/fxs [[:popup/fx.remove-user-origin origin]]})
 
+    :popup/ax.load-auto-connect-setting
+    {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
+
+    :popup/ax.toggle-auto-connect-repl
+    (let [new-value (not (:settings/auto-connect-repl state))]
+      {:uf/db (assoc state :settings/auto-connect-repl new-value)
+       :uf/fxs [[:popup/fx.save-auto-connect-setting new-value]]})
+
     :popup/ax.toggle-section
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})

@@ -541,6 +541,47 @@
       (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
     true))
 
+(defn ^:async get-auto-connect-settings
+  "Get auto-connect REPL settings from storage.
+   Returns {:enabled? boolean :ws-port string} or nil if disabled."
+  []
+  (js/Promise.
+   (fn [resolve]
+     (js/chrome.storage.local.get
+      #js ["autoConnectRepl"]
+      (fn [result]
+        (let [enabled (.-autoConnectRepl result)]
+          (resolve {:enabled? (boolean enabled)})))))))
+
+(defn ^:async get-tab-hostname
+  "Get hostname for a specific tab to look up its saved port."
+  [tab-id]
+  (js/Promise.
+   (fn [resolve]
+     (js/chrome.tabs.get
+      tab-id
+      (fn [tab]
+        (if js/chrome.runtime.lastError
+          (resolve "default")
+          (try
+            (resolve (.-hostname (js/URL. (.-url tab))))
+            (catch :default _ (resolve "default")))))))))
+
+(defn ^:async get-saved-ws-port
+  "Get saved WebSocket port for a tab's hostname."
+  [tab-id]
+  (let [hostname (js-await (get-tab-hostname tab-id))
+        key (str "ports_" hostname)]
+    (js/Promise.
+     (fn [resolve]
+       (js/chrome.storage.local.get
+        #js [key]
+        (fn [result]
+          (let [saved (aget result key)]
+            (if (and saved (.-wsPort saved))
+              (resolve (str (.-wsPort saved)))
+              (resolve "1340"))))))))) ; default ws port
+
 (defn ^:async fetch-text!
   [url]
   (let [resp (js-await (js/fetch url))]
@@ -788,12 +829,26 @@
 
 (defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
-   Never drops navigation events - always waits for readiness."
+   Never drops navigation events - always waits for readiness.
+   If auto-connect REPL is enabled, also connects the Scittle nREPL."
   [tab-id url]
   (try
     ;; Log test event for E2E debugging
     (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
     (js-await (ensure-initialized!))
+
+    ;; Check auto-connect setting
+    (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))]
+      (when enabled?
+        (js/console.log "[Auto-connect] REPL auto-connect enabled, connecting to tab:" tab-id)
+        (let [ws-port (js-await (get-saved-ws-port tab-id))]
+          (try
+            (js-await (connect-tab! tab-id ws-port))
+            (js/console.log "[Auto-connect] Successfully connected REPL to tab:" tab-id)
+            (catch :default err
+              (js/console.warn "[Auto-connect] Failed to connect REPL:" (.-message err)))))))
+
+    ;; Continue with normal userscript processing
     (js-await (process-navigation! tab-id url))
     (catch :default err
       (js/console.error "[Auto-inject] Navigation handler error:" err))))
