@@ -414,3 +414,72 @@
 
             (finally
               (js-await (.close context)))))))
+
+(test "Log-powered: toolbar icon shows best state across all tabs"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Enable auto-connect
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (wait-for-popup-ready popup))
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (.click auto-connect-checkbox))
+                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+              (js-await (.close popup)))
+
+            ;; Open Tab A and trigger auto-connect (gets Scittle injected -> yellow)
+            (let [tab-a (js-await (.newPage context))]
+              (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator tab-a "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for Tab A to have Scittle injected
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))]
+                (js-await (.close popup)))
+
+              ;; Get Tab A's final icon state
+              (let [popup (js-await (create-popup-page context ext-id))
+                    events-a (js-await (get-test-events popup))
+                    icon-events-a (.filter events-a (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
+                    last-state-a (.. (aget icon-events-a (dec (.-length icon-events-a))) -data -state)]
+                (js/console.log "Tab A final state:" last-state-a)
+                ;; Tab A should be at least "injected"
+                (js-await (-> (expect (or (= last-state-a "injected") (= last-state-a "connected")))
+                              (.toBeTruthy)))
+                (js-await (.close popup)))
+
+              ;; Open Tab B (fresh page, would normally be "disconnected")
+              (let [tab-b (js-await (.newPage context))]
+                (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
+                (js-await (-> (expect (.locator tab-b "#test-marker"))
+                              (.toContainText "ready")))
+
+                ;; Bring Tab B to focus (simulates user switching tabs)
+                (js-await (.bringToFront tab-b))
+
+                ;; Small wait for tab activation event to process
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
+                ;; Check the LAST icon state - should still show "injected" from Tab A
+                ;; even though Tab B itself would be "disconnected"
+                (let [popup (js-await (create-popup-page context ext-id))
+                      events (js-await (get-test-events popup))
+                      icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
+                      last-event (aget icon-events (dec (.-length icon-events)))
+                      last-state (.. last-event -data -state)]
+                  (js/console.log "After switching to Tab B, last icon state:" last-state)
+                  ;; Key assertion: icon should show best state (injected from Tab A)
+                  ;; NOT disconnected (Tab B's individual state)
+                  (js-await (-> (expect (or (= last-state "injected") (= last-state "connected")))
+                                (.toBeTruthy)))
+                  (js-await (.close popup)))
+
+                (js-await (.close tab-b)))
+              (js-await (.close tab-a)))
+
+            (finally
+              (js-await (.close context)))))))

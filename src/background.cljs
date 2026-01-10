@@ -57,6 +57,8 @@
 
 ;; Note: Use def (not defonce) for state that should reset on script wake.
 ;; WebSocket connections don't survive script termination anyway.
+(declare update-icon-for-tab!)
+
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
                    :icon/states {}}))  ; tab-id -> :disconnected | :injected | :connected
@@ -219,37 +221,59 @@
 ;; Toolbar Icon State Management
 ;; ============================================================
 
+(def ^:private state-priority
+  {"disconnected" 0
+   "injected" 1
+   "connected" 2})
+
 (defn- get-icon-paths
   "Get icon paths for a given state."
   [state]
+  ;; State could be keyword (:connected) or string ("connected")
+  ;; Squint keywords ARE strings, but case handles both
   (let [suffix (case state
                  :connected "connected"
+                 "connected" "connected"
                  :injected "injected"
+                 "injected" "injected"
                  "disconnected")]
     #js {:16 (str "icons/icon-" suffix "-16.png")
          :32 (str "icons/icon-" suffix "-32.png")
          :48 (str "icons/icon-" suffix "-48.png")
          :128 (str "icons/icon-" suffix "-128.png")}))
 
+(defn- compute-best-icon-state
+  "Compute the best (highest priority) icon state across all tabs.
+   Priority: connected > injected > disconnected"
+  []
+  (let [all-states (vals (:icon/states @!state))]
+    (if (empty? all-states)
+      "disconnected"
+      (reduce (fn [best state]
+                (let [best-priority (get state-priority best 0)
+                      state-priority-val (get state-priority state 0)]
+                  (if (> state-priority-val best-priority)
+                    state
+                    best)))
+              "disconnected"
+              all-states))))
+
+(defn- update-global-icon!
+  "Update the toolbar icon globally (not per-tab) to show the best state across all tabs."
+  []
+  (let [best-state (compute-best-icon-state)]
+    (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id nil :state best-state})
+    (js/chrome.action.setIcon
+     #js {:path (get-icon-paths best-state)})))
+
 (defn update-icon-for-tab!
-  "Update toolbar icon for a specific tab based on state."
+  "Update icon state for a specific tab, then update the global toolbar icon
+   to reflect the best state across all tabs."
   [tab-id state]
   (swap! !state assoc-in [:icon/states tab-id] state)
-  ;; In Squint, keywords are strings, so state is already a string like "connected"
-  (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state state})
-  (js/chrome.action.setIcon
-   #js {:tabId tab-id
-        :path (get-icon-paths state)}))
+  (update-global-icon!))
 
-(defn ^:async update-icon-for-active-tab!
-  "Update icon for the currently active tab based on its state."
-  []
-  (let [tab-id (js-await (get-active-tab-id))]
-    (when tab-id
-      (let [state (get-in @!state [:icon/states tab-id] :disconnected)]
-        (js/chrome.action.setIcon
-         #js {:tabId tab-id
-              :path (get-icon-paths state)})))))
+
 
 (defn get-icon-state
   "Get current icon state for a tab."
@@ -257,9 +281,10 @@
   (get-in @!state [:icon/states tab-id] :disconnected))
 
 (defn clear-icon-state!
-  "Clear icon state for a tab (when tab closes)."
+  "Clear icon state for a tab (when tab closes) and update global icon."
   [tab-id]
-  (swap! !state update :icon/states dissoc tab-id))
+  (swap! !state update :icon/states dissoc tab-id)
+  (update-global-icon!))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -917,6 +942,10 @@
                 (when (get-ws tab-id)
                   (close-ws! tab-id))
                 (clear-icon-state! tab-id)))
+
+(.addListener js/chrome.tabs.onActivated
+              (fn [_active-info]
+                (update-global-icon!)))
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]
