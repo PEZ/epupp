@@ -231,3 +231,53 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Auto-Connect REPL Setting Tests
+;; =============================================================================
+
+(test "Log-powered: auto-connect REPL triggers Scittle injection on page load"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Enable auto-connect setting via popup
+            (let [popup (js-await (create-popup-page context ext-id))]
+              ;; Clear storage for clean state
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings section
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+
+              ;; Enable auto-connect
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.toBeVisible)))
+                (js-await (.click auto-connect-checkbox))
+                ;; Wait for checkbox to be checked
+                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to a page - should trigger auto-connect (WS_CONNECTED event)
+            (let [page (js-await (.newPage context))]
+              (js/console.log "Navigating to localhost:18080/basic.html with auto-connect enabled...")
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Page loaded")
+
+              ;; Wait for SCITTLE_LOADED event - indicates auto-connect triggered
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for SCITTLE_LOADED event...")
+                    event (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))]
+                (js/console.log "SCITTLE_LOADED event:" (js/JSON.stringify event))
+                (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
