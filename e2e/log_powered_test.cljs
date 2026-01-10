@@ -415,70 +415,110 @@
             (finally
               (js-await (.close context)))))))
 
-(test "Log-powered: toolbar icon shows best state across all tabs"
+(test "Log-powered: injected state is tab-local, connected state is global"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; Enable auto-connect
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (wait-for-popup-ready popup))
-              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-                (js-await (.click settings-header)))
-              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-                (js-await (.click auto-connect-checkbox))
-                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
-              (js-await (.close popup)))
+            ;; Create a userscript that ONLY targets basic.html
+            (let [panel (js-await (create-panel-page context ext-id))]
+              (let [code-area (.locator panel "#code-area")
+                    name-input (.locator panel "#script-name")
+                    match-input (.locator panel "#script-match")]
+                (js-await (.fill code-area "(js/console.log \"Tab A script loaded\")"))
+                (js-await (.fill name-input "tab-local-test"))
+                (js-await (.fill match-input "*://localhost:*/basic.html"))
+                (js-await (.click (.locator panel "button:text(\"Save Script\")")))
+                (js-await (wait-for-save-status panel "Created")))
+              (js-await (.close panel)))
 
-            ;; Open Tab A and trigger auto-connect (gets Scittle injected -> yellow)
+            ;; Approve the script using test URL override
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+              (let [script-item (.locator popup ".script-item:has-text(\"tab_local_test.cljs\")")]
+                (js-await (-> (expect script-item) (.toBeVisible)))
+                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+                  (when (pos? (js-await (.count allow-btn)))
+                    (js-await (.click allow-btn))
+                    (js-await (-> (expect allow-btn) (.not.toBeVisible)))))
+                (js-await (.close popup))))
+
+            ;; Navigate Tab A - script is pre-approved, should inject
             (let [tab-a (js-await (.newPage context))]
               (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 10000}))
               (js-await (-> (expect (.locator tab-a "#test-marker"))
                             (.toContainText "ready")))
 
-              ;; Wait for Tab A to have Scittle injected
+              ;; Wait for Scittle injection, capture Tab A's Chrome tab-id
               (let [popup (js-await (create-popup-page context ext-id))
-                    _ (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))]
-                (js-await (.close popup)))
+                    scittle-loaded-event (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))
+                    tab-a-id (aget (.-data scittle-loaded-event) "tab-id")]
+                (js-await (.close popup))
 
-              ;; Get Tab A's final icon state
-              (let [popup (js-await (create-popup-page context ext-id))
-                    events-a (js-await (get-test-events popup))
-                    icon-events-a (.filter events-a (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
-                    last-state-a (.. (aget icon-events-a (dec (.-length icon-events-a))) -data -state)]
-                (js/console.log "Tab A final state:" last-state-a)
-                ;; Tab A should be at least "injected"
-                (js-await (-> (expect (or (= last-state-a "injected") (= last-state-a "connected")))
-                              (.toBeTruthy)))
-                (js-await (.close popup)))
-
-              ;; Open Tab B (fresh page, would normally be "disconnected")
-              (let [tab-b (js-await (.newPage context))]
-                (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
-                (js-await (-> (expect (.locator tab-b "#test-marker"))
-                              (.toContainText "ready")))
-
-                ;; Bring Tab B to focus (simulates user switching tabs)
-                (js-await (.bringToFront tab-b))
-
-                ;; Small wait for tab activation event to process
-                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
-
-                ;; Check the LAST icon state - should still show "injected" from Tab A
-                ;; even though Tab B itself would be "disconnected"
+                ;; Assert Tab A shows injected/connected based on its tab-id
                 (let [popup (js-await (create-popup-page context ext-id))
                       events (js-await (get-test-events popup))
-                      icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
-                      last-event (aget icon-events (dec (.-length icon-events)))
-                      last-state (.. last-event -data -state)]
-                  (js/console.log "After switching to Tab B, last icon state:" last-state)
-                  ;; Key assertion: icon should show best state (injected from Tab A)
-                  ;; NOT disconnected (Tab B's individual state)
-                  (js-await (-> (expect (or (= last-state "injected") (= last-state "connected")))
-                                (.toBeTruthy)))
+                      icon-events (.filter events
+                                           (fn [e]
+                                             (and (= (.-event e) "ICON_STATE_CHANGED")
+                                                  (= (aget (.-data e) "tab-id") tab-a-id))))]
+                  (js-await (-> (expect (.-length icon-events))
+                                (.toBeGreaterThan 0)))
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))
+                        last-state (.. last-event -data -state)]
+                    (js-await (-> (expect (or (= last-state "injected")
+                                              (= last-state "connected")))
+                                  (.toBeTruthy))))
                   (js-await (.close popup)))
 
-                (js-await (.close tab-b)))
+                ;; Open Tab B (spa-test.html - does NOT match our script)
+                (let [tab-b (js-await (.newPage context))]
+                  (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
+                  (js-await (-> (expect (.locator tab-b "#test-marker"))
+                                (.toContainText "ready")))
+
+                  ;; Bring Tab B to focus
+                  (js-await (.bringToFront tab-b))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
+                  ;; Tab B should show disconnected, and the icon event should be for Tab B
+                  ;; (i.e. not Tab A's Chrome tab-id)
+                  (let [popup (js-await (create-popup-page context ext-id))
+                        events (js-await (get-test-events popup))
+                        icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
+                        last-event (aget icon-events (dec (.-length icon-events)))
+                        last-tab-id (aget (.-data last-event) "tab-id")
+                        last-state (.. last-event -data -state)]
+                    (js-await (-> (expect last-tab-id) (.toBeTruthy)))
+                    (js-await (-> (expect (not (= last-tab-id tab-a-id)))
+                                  (.toBeTruthy)))
+                    (js-await (-> (expect (= last-state "disconnected"))
+                                  (.toBeTruthy)))
+                    (js-await (.close popup)))
+
+                  ;; Bring Tab A back to focus
+                  (js-await (.bringToFront tab-a))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
+                  ;; Tab A should STILL show injected/connected
+                  (let [popup (js-await (create-popup-page context ext-id))
+                        events (js-await (get-test-events popup))
+                        icon-events (.filter events
+                                             (fn [e]
+                                               (and (= (.-event e) "ICON_STATE_CHANGED")
+                                                    (= (aget (.-data e) "tab-id") tab-a-id))))]
+                    (js-await (-> (expect (.-length icon-events))
+                                  (.toBeGreaterThan 0)))
+                    (let [last-event (aget icon-events (dec (.-length icon-events)))
+                          last-state (.. last-event -data -state)]
+                      (js-await (-> (expect (or (= last-state "injected")
+                                                (= last-state "connected")))
+                                    (.toBeTruthy))))
+                    (js-await (.close popup)))
+
+                  (js-await (.close tab-b))))
               (js-await (.close tab-a)))
 
             (finally

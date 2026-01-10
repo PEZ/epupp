@@ -75,3 +75,35 @@
             (fn [result]
               ;; Use bracket notation for hyphenated key access
               (resolve (or (aget result "test-events") #js []))))))))
+
+(defn install-global-error-handlers!
+  "Install global error handlers that log to test events.
+   Call this early in each context (background, popup, panel).
+
+   context-name: String like 'background', 'popup', 'panel'
+   global-obj: The global object (js/self for service worker, js/window for pages)"
+  [context-name global-obj]
+  (when (test-mode?)
+    ;; Uncaught exceptions
+    (.addEventListener global-obj "error"
+                       (fn [event]
+                         (log-event! "UNCAUGHT_ERROR"
+                                     {:context context-name
+                                      :message (.-message event)
+                                      :filename (.-filename event)
+                                      :lineno (.-lineno event)
+                                      :colno (.-colno event)
+                                      :stack (when-let [err (.-error event)]
+                                               (.-stack err))})))
+    ;; Unhandled promise rejections
+    (.addEventListener global-obj "unhandledrejection"
+                       (fn [event]
+                         (let [reason (.-reason event)]
+                           (log-event! "UNHANDLED_REJECTION"
+                                       {:context context-name
+                                        :message (if (instance? js/Error reason)
+                                                   (.-message reason)
+                                                   (str reason))
+                                        :stack (when (instance? js/Error reason)
+                                                 (.-stack reason))}))))
+    (js/console.log (str "[" context-name "] Global error handlers installed for test mode"))))

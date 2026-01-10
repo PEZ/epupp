@@ -7,11 +7,15 @@
             [script-utils :as script-utils]
             [registration :as registration]
             [manifest-parser :as manifest-parser]
-            [test-logger :as test-logger]))
+            [test-logger :as test-logger]
+            [background-utils :as bg-utils]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
 (js/console.log "[Epupp Background] Service worker started")
+
+;; Install global error handlers early so we catch all errors in test mode
+(test-logger/install-global-error-handlers! "background" js/self)
 
 ;; DEBUG: Write directly to storage at module load to confirm service worker is running
 (.set js/chrome.storage.local #js {:bg-started true :ts (.now js/Date)})
@@ -170,14 +174,10 @@
   "Count scripts needing approval for a given URL.
    A script needs approval if: enabled, matches URL, and pattern not yet approved."
   [url]
-  (if (or (nil? url) (= "" url))
-    0
-    (let [scripts (storage/get-enabled-scripts)]
-      (->> scripts
-           (filter (fn [script]
-                     (when-let [pattern (url-matching/get-matching-pattern url script)]
-                       (not (storage/pattern-approved? script pattern)))))
-           count))))
+  (bg-utils/count-pending-for-url url
+                                  (storage/get-enabled-scripts)
+                                  url-matching/get-matching-pattern
+                                  storage/pattern-approved?))
 
 (defn update-badge-for-tab!
   "Update badge based on pending count for a specific tab's URL."
@@ -221,57 +221,38 @@
 ;; Toolbar Icon State Management
 ;; ============================================================
 
-(def ^:private state-priority
-  {"disconnected" 0
-   "injected" 1
-   "connected" 2})
+
 
 (defn- get-icon-paths
-  "Get icon paths for a given state."
+  "Get icon paths for a given state. Delegates to tested pure function."
   [state]
-  ;; State could be keyword (:connected) or string ("connected")
-  ;; Squint keywords ARE strings, but case handles both
-  (let [suffix (case state
-                 :connected "connected"
-                 "connected" "connected"
-                 :injected "injected"
-                 "injected" "injected"
-                 "disconnected")]
-    #js {:16 (str "icons/icon-" suffix "-16.png")
-         :32 (str "icons/icon-" suffix "-32.png")
-         :48 (str "icons/icon-" suffix "-48.png")
-         :128 (str "icons/icon-" suffix "-128.png")}))
+  (bg-utils/get-icon-paths state))
 
-(defn- compute-best-icon-state
-  "Compute the best (highest priority) icon state across all tabs.
-   Priority: connected > injected > disconnected"
-  []
-  (let [all-states (vals (:icon/states @!state))]
-    (if (empty? all-states)
-      "disconnected"
-      (reduce (fn [best state]
-                (let [best-priority (get state-priority best 0)
-                      state-priority-val (get state-priority state 0)]
-                  (if (> state-priority-val best-priority)
-                    state
-                    best)))
-              "disconnected"
-              all-states))))
 
-(defn- update-global-icon!
-  "Update the toolbar icon globally (not per-tab) to show the best state across all tabs."
-  []
-  (let [best-state (compute-best-icon-state)]
-    (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id nil :state best-state})
+
+(defn- compute-display-icon-state
+  "Compute icon state to display based on:
+   - Connected is GLOBAL: if ANY tab has REPL connected -> green
+   - Injected is TAB-LOCAL: only if active-tab has Scittle -> yellow
+   - Otherwise: disconnected (white)"
+  [active-tab-id]
+  (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
+
+(defn- ^:async update-icon-now!
+  "Update the toolbar icon based on global (connected) and tab-local (injected) state.
+   Takes the relevant tab-id to use for tab-local state checking."
+  [relevant-tab-id]
+  (let [display-state (compute-display-icon-state relevant-tab-id)]
+    (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id relevant-tab-id :state display-state}))
     (js/chrome.action.setIcon
-     #js {:path (get-icon-paths best-state)})))
+     #js {:path (get-icon-paths display-state)})))
 
-(defn update-icon-for-tab!
-  "Update icon state for a specific tab, then update the global toolbar icon
-   to reflect the best state across all tabs."
+(defn ^:async update-icon-for-tab!
+  "Update icon state for a specific tab, then update the toolbar icon.
+   Uses the given tab-id for tab-local state calculation."
   [tab-id state]
   (swap! !state assoc-in [:icon/states tab-id] state)
-  (update-global-icon!))
+  (js-await (update-icon-now! tab-id)))
 
 
 
@@ -281,10 +262,11 @@
   (get-in @!state [:icon/states tab-id] :disconnected))
 
 (defn clear-icon-state!
-  "Clear icon state for a tab (when tab closes) and update global icon."
+  "Clear icon state for a tab (when tab closes).
+   Does NOT update the toolbar icon - that's handled by onActivated when
+   the user switches to another tab."
   [tab-id]
-  (swap! !state update :icon/states dissoc tab-id)
-  (update-global-icon!))
+  (swap! !state update :icon/states dissoc tab-id))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -410,12 +392,12 @@
                    (fn [] (execute-in-page tab-id check-scittle-fn))
                    (fn [r] (and r (.-hasScittle r)))
                    5000))
-        ;; Log test event for E2E tests
-        (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))
         ;; Update icon to show Scittle is injected (yellow bolt)
         ;; Only if not already connected (green)
         (when (not= :connected (get-icon-state tab-id))
-          (update-icon-for-tab! tab-id :injected))))
+          (js-await (update-icon-for-tab! tab-id :injected)))
+        ;; Log test event for E2E tests (after icon update so tests see stable state)
+        (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))))
     true))
 
 (defn wait-for-bridge-ready
@@ -677,7 +659,7 @@
 (defn- url-origin-allowed?
   "Check if a URL starts with any allowed origin prefix"
   [url]
-  (some #(.startsWith url %) (allowed-script-origins)))
+  (bg-utils/url-origin-allowed? url (allowed-script-origins)))
 
 (defn ^:async install-userscript!
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
@@ -917,7 +899,7 @@
     (js-await (ensure-initialized!))
 
     ;; Reset icon state on navigation (Scittle is not injected on new page)
-    (update-icon-for-tab! tab-id :disconnected)
+    (js-await (update-icon-for-tab! tab-id :disconnected))
 
     ;; Check auto-connect setting
     (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))]
@@ -944,14 +926,31 @@
                 (clear-icon-state! tab-id)))
 
 (.addListener js/chrome.tabs.onActivated
-              (fn [_active-info]
-                (update-global-icon!)))
+              (fn [active-info]
+                (let [tab-id (.-tabId active-info)]
+                  ;; Query the tab to check if it's an extension page or empty/new tab
+                  (-> (js/chrome.tabs.get tab-id)
+                      (.then (fn [tab]
+                               (let [url (or (.-url tab) "")]
+                                 ;; Only update icon for real web pages
+                                 ;; Skip: extension pages, empty tabs, about:blank
+                                 (when (and (seq url)
+                                            (not (.startsWith url "chrome-extension://"))
+                                            (not (.startsWith url "about:")))
+                                   (update-icon-now! tab-id)))))
+                      (.catch (fn [_err]
+                                ;; Tab might be gone, ignore
+                                nil))))))
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]
                 ;; Only handle main frame (not iframes)
-                (when (zero? (.-frameId details))
-                  (handle-navigation! (.-tabId details) (.-url details)))))
+                ;; Skip extension pages, about:blank, etc.
+                (let [url (.-url details)]
+                  (when (and (zero? (.-frameId details))
+                             (or (.startsWith url "http://")
+                                 (.startsWith url "https://")))
+                    (handle-navigation! (.-tabId details) url)))))
 
 ;; ============================================================
 ;; Lifecycle Events

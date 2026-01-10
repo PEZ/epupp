@@ -7,7 +7,8 @@
             [panel-actions :as panel-actions]
             [script-utils :as script-utils]
             [storage :as storage]
-            [view-elements :as view-elements]))
+            [view-elements :as view-elements]
+            [test-logger :as test-logger]))
 
 (defonce !state
   (atom {:panel/results []
@@ -420,6 +421,8 @@
 
 (defn init! []
   (js/console.log "[Panel] Initializing...")
+  ;; Install global error handlers for test mode
+  (test-logger/install-global-error-handlers! "panel" js/window)
   ;; Store version at init time
   (swap! !state assoc :panel/init-version (get-extension-version))
   ;; Restore panel state, then continue initialization

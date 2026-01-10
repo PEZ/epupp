@@ -7,7 +7,8 @@
             [script-utils :as script-utils]
             [popup-utils :as popup-utils]
             [popup-actions :as popup-actions]
-            [view-elements :as view-elements]))
+            [view-elements :as view-elements]
+            [test-logger :as test-logger]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
 ;; Shape: {"dev": boolean, "depsString": string}
@@ -589,6 +590,8 @@
 
 (defn init! []
   (js/console.log "Epupp popup init!")
+  ;; Install global error handlers for test mode
+  (test-logger/install-global-error-handlers! "popup" js/window)
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
 
   ;; Detect browser features
