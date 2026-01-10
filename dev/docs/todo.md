@@ -21,3 +21,4 @@
 * [ ] Badge counter not reliable enough
 * [ ] Editing array matches doesn't work/is unclear
 * [ ] Consider moving all metadata to the manifest
+* [ ] Undo doesn't work in editor

@@ -33,33 +33,69 @@ When visiting a page that matches an enabled script's URL pattern for the first 
 
 ## Script Editor (DevTools Panel)
 
+### Manifest-Driven Metadata
+
+Script metadata (name, site match, description, timing) is defined in the code itself using manifest annotations. The panel displays these values as read-only fields - there are no input fields to fill in manually.
+
+**Example script with manifest:**
+```clojure
+{:epupp/script-name "GitHub Tweaks"
+ :epupp/site-match "https://github.com/*"
+ :epupp/description "Enhance GitHub UX"
+ :epupp/run-at "document-idle"}
+
+(ns github-tweaks)
+(js/console.log "Hello GitHub!")
+```
+
+**Manifest keys:**
+| Key | Required | Description |
+|-----|----------|-------------|
+| `:epupp/script-name` | Yes | Script name (auto-normalized to ID format) |
+| `:epupp/site-match` | Yes | URL pattern - string or vector of strings |
+| `:epupp/description` | No | Human-readable description |
+| `:epupp/run-at` | No | Injection timing: `"document-start"`, `"document-end"`, or `"document-idle"` (default) |
+
 ### Creating a New Script
-1. Fill in name, match pattern, and code
-2. Click **Save Script** - creates a new script
+
+1. Write your code with a manifest map at the top
+2. The panel shows the parsed values as read-only displays:
+   - **Name** - from `:epupp/script-name` (shows normalized ID form)
+   - **Match** - from `:epupp/site-match`
+   - **Description** - from `:epupp/description` (if present)
+   - **Timing** - from `:epupp/run-at` (if present, shows warning for invalid values)
+3. Click **Save Script**
+
+**Hints and warnings:**
+- Name normalization: `"My Cool Script"` shown as `my-cool-script` with hint "(normalized)"
+- Invalid run-at values show a warning
+- Unknown `:epupp/*` keys are flagged
+
+**No manifest?** The panel shows guidance text explaining the manifest format with a copyable example.
 
 ### Editing an Existing Script
-Load a script from popup (click Edit button), then:
 
-**Update code/pattern (keep same name):**
-- Button shows **Save Script**
-- Click - updates the existing script
+Load a script from popup (click Eye icon), then:
 
-**Forking/copy:**
-- Change the name
-- Button changes to **Create Script**
-- **Rename** button also appears
-- Click **Create Script** - creates new script, original untouched
+1. The code loads into the editor with its manifest
+2. Read-only fields show current metadata values
+3. Edit the code (including manifest values) as needed
+4. Click **Save Script** to update
 
-**Rename in place (change the name):**
-- Click **Rename** - updates name only, same ID preserved
-- Status shows "Renamed to..."
+**Name changes:**
+- Change `:epupp/script-name` in the manifest to rename
+- Button stays **Save Script** - the script ID remains the same
+- The name field updates to show the new normalized name
 
 ### Built-in Scripts
-- Cannot be overwritten (Save disabled when name unchanged)
-- Can be forked by changing name - **Create Script**
+
+- Loaded read-only for inspection
+- Save button is disabled
+- To customize: copy the code, change the name in manifest, save as new script
 
 ### ID Behavior (under the hood)
+
 - IDs are timestamp-based (e.g., `script-1736294400000`)
 - IDs never change once created
-- Rename updates script “file“ name only
-- Fork creates new ID
+- Manifest name changes update the display name, not the ID
+- To create a copy: change the manifest name, save creates new script with new ID
