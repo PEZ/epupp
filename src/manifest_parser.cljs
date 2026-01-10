@@ -1,40 +1,76 @@
 (ns manifest-parser
-  "Parses Epupp manifest metadata from script code."
+  "Parses Epupp manifest metadata from script code.
+   Returns rich structure with raw values, coerced values, and warnings."
   (:require ["edn-data" :as edn-data]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [script-utils :as script-utils]))
 
 (def valid-run-at-values
   #{"document-start" "document-end" "document-idle"})
 
 (def default-run-at "document-idle")
 
-(defn- has-epupp-keys?
-  "Returns true if parsed EDN object has any epupp/ prefixed keys."
+(def known-epupp-keys
+  "Set of known epupp manifest keys."
+  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at"})
+
+(defn- get-epupp-keys
+  "Returns vector of all epupp/ prefixed keys found in parsed object."
   [parsed]
   (when parsed
-    (some #(string/starts-with? % "epupp/") (js/Object.keys parsed))))
+    (->> (js/Object.keys parsed)
+         (filter #(string/starts-with? % "epupp/"))
+         vec)))
+
+
 
 (defn extract-manifest
   "Extracts Epupp manifest data from code string containing ^{:epupp/...} metadata.
-   Returns a map with extracted fields (script-name, site-match, description, run-at)
-   or nil if no valid manifest found.
-   Throws if run-at value is present but invalid."
+   Returns a rich map with:
+   - :script-name - normalized name (or nil if missing)
+   - :raw-script-name - original name before normalization
+   - :name-normalized? - true if normalization changed the name
+   - :site-match - URL pattern(s), preserved as string or vector
+   - :description - description text
+   - :run-at - timing value (defaults to document-idle)
+   - :raw-run-at - original run-at value
+   - :run-at-invalid? - true if run-at was invalid and defaulted
+   - :found-keys - vector of all epupp/* keys found
+   - :unknown-keys - vector of unrecognized epupp/* keys
+   Returns nil if no valid manifest found."
   [code]
-  (let [parsed (edn-data/parseEDNString code #js {:mapAs "object" :keywordAs "string"})]
-    (when (has-epupp-keys? parsed)
-      (let [script-name (aget parsed "epupp/script-name")
+  (let [parsed (edn-data/parseEDNString code #js {:mapAs "object" :keywordAs "string"})
+        found-keys (get-epupp-keys parsed)]
+    (when (seq found-keys)
+      (let [;; Raw values from manifest
+            raw-script-name (aget parsed "epupp/script-name")
             site-match (aget parsed "epupp/site-match")
             description (aget parsed "epupp/description")
             raw-run-at (aget parsed "epupp/run-at")
-            run-at (cond
-                     (nil? raw-run-at) default-run-at
-                     (contains? valid-run-at-values raw-run-at) raw-run-at
-                     :else (throw (js/Error. (str "Invalid run-at value: " raw-run-at
-                                                  ". Must be one of: document-start, document-end, document-idle"))))]
+            ;; Coerced values
+            script-name (when raw-script-name
+                          (script-utils/normalize-script-name raw-script-name))
+            name-normalized? (and raw-script-name
+                                  (not= raw-script-name script-name))
+            run-at-invalid? (and raw-run-at
+                                 (not (contains? valid-run-at-values raw-run-at)))
+            run-at (if (or (nil? raw-run-at) run-at-invalid?)
+                     default-run-at
+                     raw-run-at)
+            ;; Identify unknown keys
+            unknown-keys (->> found-keys
+                              (remove #(contains? known-epupp-keys %))
+                              vec)]
         {"script-name" script-name
+         "raw-script-name" raw-script-name
+         "name-normalized?" name-normalized?
          "site-match" site-match
          "description" description
-         "run-at" run-at}))))
+         "run-at" run-at
+         "raw-run-at" raw-run-at
+         "run-at-invalid?" run-at-invalid?
+         "found-keys" found-keys
+         "unknown-keys" unknown-keys}))))
 
 (defn has-manifest?
   "Returns true if the code contains Epupp manifest metadata."

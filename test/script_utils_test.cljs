@@ -70,7 +70,19 @@
             (test "handles URL fragments"
                   (fn []
                     (-> (expect (script-utils/url-matches-pattern? "https://example.com/page#section" "*://example.com/*"))
-                        (.toBe true))))))
+                        (.toBe true))))
+
+            (test "returns false for non-string patterns (corrupted data)"
+                  (fn []
+                    ;; Nested array from corrupted storage
+                    (-> (expect (script-utils/url-matches-pattern? "https://github.com/foo" #js ["*://github.com/*"]))
+                        (.toBe false))
+                    ;; nil pattern
+                    (-> (expect (script-utils/url-matches-pattern? "https://github.com/foo" nil))
+                        (.toBe false))
+                    ;; number pattern
+                    (-> (expect (script-utils/url-matches-pattern? "https://github.com/foo" 123))
+                        (.toBe false))))))
 
 (describe "url-matches-any-pattern?"
           (fn []
@@ -230,7 +242,41 @@
                           (.toBe "minimal"))
               ;; Missing fields become nil/undefined
                       (-> (expect (:script/approved-patterns script))
-                          (.toEqual [])))))))
+                          (.toEqual []))))))
+
+            (test "normalizes nested match arrays from corrupted storage"
+                  (fn []
+                    ;; This handles the case where match was saved as [["pattern"]] instead of ["pattern"]
+                    (let [js-script #js {:id "corrupted"
+                                         :name "Corrupted Match"
+                                         :match #js [#js ["*://github.com/*"]]  ;; Nested array - corrupted
+                                         :code "(println \"hi\")"}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/match script))
+                          (.toEqual ["*://github.com/*"])))))  ;; Flattened to flat array
+
+            (test "handles deeply nested match arrays"
+                  (fn []
+                    (let [js-script #js {:id "deep-nested"
+                                         :name "Deep Nested"
+                                         :match #js [#js ["*://a.com/*" "*://b.com/*"]]
+                                         :code ""}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/match script))
+                          (.toEqual ["*://a.com/*" "*://b.com/*"])))))
+
+            (test "preserves normal flat match arrays"
+                  (fn []
+                    (let [js-script #js {:id "normal"
+                                         :name "Normal"
+                                         :match #js ["*://github.com/*" "*://gitlab.com/*"]
+                                         :code ""}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/match script))
+                          (.toEqual ["*://github.com/*" "*://gitlab.com/*"]))))))
 
 (describe "script->js"
           (fn []

@@ -30,6 +30,19 @@
   [arr]
   (if arr (vec arr) []))
 
+(defn- normalize-match-array
+  "Flatten and normalize match patterns from storage.
+   Handles corrupted data where patterns might be nested arrays."
+  [arr]
+  (when arr
+    (->> (js-arr->vec arr)
+         (mapcat (fn [item]
+                   (if (array? item)
+                     (vec item)  ; Flatten nested array
+                     [item])))   ; Keep single item in vector
+         (filter string?)        ; Only keep strings
+         vec)))
+
 (defn parse-scripts
   "Convert JS scripts array to Clojure with namespaced keys"
   [js-scripts]
@@ -38,7 +51,7 @@
                {:script/id (.-id s)
                 :script/name (.-name s)
                 :script/description (.-description s)
-                :script/match (js-arr->vec (.-match s))
+                :script/match (normalize-match-array (.-match s))
                 :script/code (.-code s)
                 :script/enabled (.-enabled s)
                 :script/created (.-created s)
@@ -93,10 +106,13 @@
       (js/RegExp. (str "^" with-wildcards "$")))))
 
 (defn url-matches-pattern?
-  "Check if a URL matches a single pattern"
+  "Check if a URL matches a single pattern.
+   Returns false for invalid (non-string) patterns."
   [url pattern]
-  (let [regex (pattern->regex pattern)]
-    (.test regex url)))
+  (if (string? pattern)
+    (let [regex (pattern->regex pattern)]
+      (.test regex url))
+    false))
 
 (defn url-matches-any-pattern?
   "Check if a URL matches any pattern in the list"
