@@ -632,6 +632,76 @@ button#connect:active {
   gap: 16px;
 }
 
+/* ============================================================
+   Connected Tabs (Step 4 - Show active REPL connections)
+   ============================================================ */
+
+.connected-tabs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connected-tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.connected-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+}
+
+.connected-tab-port {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--clojure-blue);
+  flex-shrink: 0;
+}
+
+.connected-tab-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reveal-tab-btn {
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reveal-tab-btn:hover {
+  background: var(--edit-hover-bg);
+  color: var(--clojure-blue);
+}
+
+.no-connections {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;

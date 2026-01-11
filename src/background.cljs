@@ -75,7 +75,7 @@
 (defn get-ws
   "Get WebSocket for a tab"
   [tab-id]
-  (get-in @!state [:ws/connections tab-id]))
+  (get-in @!state [:ws/connections tab-id :ws/socket]))
 
 (defn close-ws!
   "Close and remove WebSocket for a tab. Does not send ws-close event."
@@ -96,48 +96,67 @@
   (js/chrome.tabs.sendMessage tab-id (clj->js message)))
 
 (defn handle-ws-connect
-  "Create WebSocket connection for a tab"
+  "Create WebSocket connection for a tab.
+   Closes existing connection for this tab, AND any other tab on the same port
+   (browser-nrepl only supports one client per port)."
   [tab-id port]
-  ;; Close existing connection if any
+  ;; Close existing connection for THIS tab
   (close-ws! tab-id)
 
-  (let [ws-url (str "ws://localhost:" port "/_nrepl")]
-    (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
-    (try
-      (let [ws (js/WebSocket. ws-url)]
-        (swap! !state assoc-in [:ws/connections tab-id] ws)
+  ;; Close any OTHER tab using the same port (browser-nrepl limitation)
+  (when-let [other-tab-id (bg-utils/find-tab-on-port (:ws/connections @!state) port tab-id)]
+    (log/info "Background" "WS" "Disconnecting tab" other-tab-id "- port" port "claimed by tab" tab-id)
+    (close-ws! other-tab-id)
+    ;; Update icon for the disconnected tab
+    (update-icon-for-tab! other-tab-id :injected))
 
-        (set! (.-onopen ws)
-              (fn []
-                (log/info "Background" "WS" "Connected for tab:" tab-id)
-                (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
-                (update-icon-for-tab! tab-id :connected)
-                (send-to-tab tab-id {:type "ws-open"})))
+  ;; Fetch tab title for display
+  (js/chrome.tabs.get
+   tab-id
+   (fn [tab]
+     (let [tab-title (if js/chrome.runtime.lastError
+                       "Unknown"
+                       (or (.-title tab) "Unknown"))
+           ws-url (str "ws://localhost:" port "/_nrepl")]
+       (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
+       (try
+         (let [ws (js/WebSocket. ws-url)]
+           (swap! !state assoc-in [:ws/connections tab-id]
+                  {:ws/socket ws
+                   :ws/port port
+                   :ws/tab-title tab-title})
 
-        (set! (.-onmessage ws)
-              (fn [event]
-                (send-to-tab tab-id {:type "ws-message"
-                                     :data (.-data event)})))
+           (set! (.-onopen ws)
+                 (fn []
+                   (log/info "Background" "WS" "Connected for tab:" tab-id)
+                   (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
+                   (update-icon-for-tab! tab-id :connected)
+                   (send-to-tab tab-id {:type "ws-open"})))
 
-        (set! (.-onerror ws)
-              (fn [error]
-                (log/error "Background" "WS" "Error for tab:" tab-id error)
-                (send-to-tab tab-id {:type "ws-error"
-                                     :error (str "WebSocket error connecting to " ws-url)})))
+           (set! (.-onmessage ws)
+                 (fn [event]
+                   (send-to-tab tab-id {:type "ws-message"
+                                        :data (.-data event)})))
 
-        (set! (.-onclose ws)
-              (fn [event]
-                (log/info "Background" "WS" "Closed for tab:" tab-id)
-                (send-to-tab tab-id {:type "ws-close"
-                                     :code (.-code event)
-                                     :reason (.-reason event)})
-                (swap! !state update :ws/connections dissoc tab-id)
-                ;; When WS closes, go back to injected state (Scittle still loaded)
-                (update-icon-for-tab! tab-id :injected))))
-      (catch :default e
-        (log/error "Background" "WS" "Failed to create WebSocket:" e)
-        (send-to-tab tab-id {:type "ws-error"
-                             :error (str e)})))))
+           (set! (.-onerror ws)
+                 (fn [error]
+                   (log/error "Background" "WS" "Error for tab:" tab-id error)
+                   (send-to-tab tab-id {:type "ws-error"
+                                        :error (str "WebSocket error connecting to " ws-url)})))
+
+           (set! (.-onclose ws)
+                 (fn [event]
+                   (log/info "Background" "WS" "Closed for tab:" tab-id)
+                   (send-to-tab tab-id {:type "ws-close"
+                                        :code (.-code event)
+                                        :reason (.-reason event)})
+                   (swap! !state update :ws/connections dissoc tab-id)
+                   ;; When WS closes, go back to injected state (Scittle still loaded)
+                   (update-icon-for-tab! tab-id :injected))))
+         (catch :default e
+           (log/error "Background" "WS" "Failed to create WebSocket:" e)
+           (send-to-tab tab-id {:type "ws-error"
+                                :error (str e)})))))))
 
 (defn handle-ws-send
   "Send data through WebSocket for a tab"
@@ -724,6 +743,19 @@
                     ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
+
+                    ;; Popup requests active connection info
+                    "get-connections"
+                    (let [connections (:ws/connections @!state)
+                          display-list (bg-utils/connections->display-list connections)]
+                      ;; Log for E2E test debugging
+                      (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
+                                              {:raw-connection-count (count (keys connections))
+                                               :display-list-count (count display-list)
+                                               :connections-keys (vec (keys connections))})
+                      (send-response (clj->js {:success true
+                                               :connections display-list}))
+                      false)
 
                     ;; Popup messages
                     "refresh-approvals"

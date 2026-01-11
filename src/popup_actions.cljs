@@ -143,4 +143,11 @@
     :popup/ax.dump-dev-log
     {:uf/fxs [[:popup/fx.dump-dev-log]]}
 
+    :popup/ax.load-connections
+    {:uf/fxs [[:popup/fx.load-connections]]}
+
+    :popup/ax.reveal-tab
+    (let [[tab-id] args]
+      {:uf/fxs [[:popup/fx.reveal-tab tab-id]]})
+
     :uf/unhandled-ax))

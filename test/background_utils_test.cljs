@@ -192,3 +192,67 @@
                     (fn []
                       (-> (expect (bg/url-origin-allowed? "https://gist.githubusercontent.com/foo" []))
                           (.toBe false)))))))
+
+(describe "find-tab-on-port"
+          (fn []
+            (test "returns nil for empty connections"
+                  (fn []
+                    (-> (expect (bg/find-tab-on-port {} 1340 nil))
+                        (.toBeUndefined))))
+
+            (test "finds tab on matching port"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340 :ws/tab-title "Tab 1"}
+                                       2 {:ws/port 1341 :ws/tab-title "Tab 2"}}]
+                      (-> (expect (bg/find-tab-on-port connections 1340 nil))
+                          (.toBe "1")))))
+
+            (test "excludes specified tab-id"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340 :ws/tab-title "Tab 1"}
+                                       2 {:ws/port 1340 :ws/tab-title "Tab 2"}}]
+                      ;; Should find tab 2 when excluding tab 1
+                      (-> (expect (bg/find-tab-on-port connections 1340 "1"))
+                          (.toBe "2")))))
+
+            (test "returns nil when port not found"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340 :ws/tab-title "Tab 1"}}]
+                      (-> (expect (bg/find-tab-on-port connections 9999 nil))
+                          (.toBeUndefined)))))
+
+            (test "returns nil when only match is excluded"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340 :ws/tab-title "Tab 1"}}]
+                      (-> (expect (bg/find-tab-on-port connections 1340 "1"))
+                          (.toBeUndefined)))))))
+
+(describe "connections->display-list"
+          (fn []
+            (test "returns empty array for empty connections"
+                  (fn []
+                    (let [result (bg/connections->display-list {})]
+                      (-> (expect (count result))
+                          (.toBe 0)))))
+
+            (test "transforms connections map to sorted list"
+                  (fn []
+                    (let [connections {2 {:ws/port 1341 :ws/tab-title "Second"}
+                                       1 {:ws/port 1340 :ws/tab-title "First"}}
+                          result (bg/connections->display-list connections)]
+                      (-> (expect (count result))
+                          (.toBe 2))
+                      ;; First item should have lower port (sorted)
+                      (-> (expect (:port (first result)))
+                          (.toBe 1340))
+                      (-> (expect (:title (first result)))
+                          (.toBe "First"))
+                      (-> (expect (:tab-id (first result)))
+                          (.toBe "1")))))
+
+            (test "uses 'Unknown' for missing title"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340}}
+                          result (bg/connections->display-list connections)]
+                      (-> (expect (:title (first result)))
+                          (.toBe "Unknown")))))))

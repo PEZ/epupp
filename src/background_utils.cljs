@@ -57,3 +57,24 @@
    Pure function - takes url and list of allowed origins."
   [url allowed-origins]
   (boolean (some #(.startsWith url %) allowed-origins)))
+
+(defn find-tab-on-port
+  "Find the first tab-id connected to a given port, excluding exclude-tab-id.
+   Returns tab-id or nil."
+  [connections port exclude-tab-id]
+  (->> connections
+       (some (fn [[tab-id conn-info]]
+               (when (and (not= tab-id exclude-tab-id)
+                          (= (:ws/port conn-info) port))
+                 tab-id)))))
+
+(defn connections->display-list
+  "Transform connections map to list for popup display.
+   Returns [{:tab-id n :port n :title s}]"
+  [connections]
+  (->> connections
+       (mapv (fn [[tab-id conn-info]]
+               {:tab-id tab-id
+                :port (:ws/port conn-info)
+                :title (or (:ws/tab-title conn-info) "Unknown")}))
+       (sort-by :port)))
