@@ -6,51 +6,22 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
 
 | Severity | Count | Description |
 |----------|-------|-------------|
-| Critical | 1 | Uniflow violation in panel state |
+| Critical | 0 | - |
 | High | 2 | Missing error handling, memory leak |
 | Medium | 3 | Logic edge cases |
 | Low | 2 | Code quality |
 
-## Critical Issues
+## Resolved Issues
 
-### 1. Panel State Restoration: Uniflow Violation
+### 1. Panel State Restoration: Uniflow Violation - FIXED
 
-**File:** [panel.cljs](../../src/panel.cljs#L52-L72)
-**Category:** State/Architecture
-**Severity:** Critical
+**Status:** Resolved January 11, 2026
 
-**Description:** The `restore-panel-state!` function updates `!state` directly via `swap!` before dispatching the initialize action through Uniflow. This violates the Uniflow pattern where all state updates should flow through actions.
+**Original problem:** `restore-panel-state!` used direct `swap!` to set `current-hostname` outside Uniflow, then dispatched other state via `[:editor/ax.initialize-editor]`. This violated the Uniflow pattern.
 
-**Evidence:**
-```clojure
-(defn- restore-panel-state!
-  [dispatch callback]
-  (get-inspected-hostname
-   (fn [hostname]
-     (let [key (panel-state-key hostname)]
-       ;; Direct swap! outside Uniflow - VIOLATION
-       (swap! !state assoc :panel/current-hostname hostname)
-       (js/chrome.storage.local.get
-        #js [key]
-        (fn [result]
-          ;; Later dispatch - state update split across two paths
-          (dispatch [[:editor/ax.initialize-editor ...]]))))))
-```
+**Fix:** Modified `:editor/ax.initialize-editor` action to accept `hostname` in its data map. The action handler now sets `:panel/current-hostname` along with other panel state, keeping all state updates within Uniflow.
 
-**Why this is a bug:** The Uniflow pattern ensures state updates are predictable and sequenced. Mixing direct `swap!` with Uniflow dispatch creates inconsistent intermediate states and makes data flow harder to reason about.
-
-**Recommendation:** Move hostname into the initialize action:
-```clojure
-(dispatch [[:editor/ax.initialize-editor
-            {:code code
-             :script-id script-id
-             :original-name original-name
-             :hostname hostname}]])  ; Include hostname in action
-```
-
-Then update `handle-action` in panel-actions.cljs to handle `:panel/current-hostname`.
-
-**Action:** Refactor to Uniflow pattern.
+---
 
 ## High Severity Issues
 
