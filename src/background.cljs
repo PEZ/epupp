@@ -26,6 +26,8 @@
 
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
 ;; The init-promise ensures all operations wait for storage to load.
+(declare prune-icon-states!)
+
 (def !init-promise (atom nil))
 
 (defn ^:async ensure-initialized!
@@ -42,6 +44,8 @@
               (js-await (storage/ensure-gist-installer!))
               ;; Sync content script registrations for early-timing scripts
               (js-await (registration/sync-registrations!))
+              ;; Prune stale icon states from previous session
+              (js-await (prune-icon-states!))
               (js/console.log "[Background] Initialization complete")
               ;; Log test event for E2E tests
               (js-await (test-logger/log-event! "EXTENSION_STARTED"
@@ -271,6 +275,17 @@
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
 ;; ============================================================
+
+(defn ^:async prune-icon-states!
+  "Remove icon states for tabs that no longer exist.
+   Called on service worker wake to prevent memory leaks from orphaned entries
+   when tabs close while the worker is asleep."
+  []
+  (let [tabs (js-await (js/chrome.tabs.query #js {}))
+        valid-ids (set (map #(.-id %) tabs))]
+    (swap! !state update :icon/states
+           (fn [states]
+             (select-keys states valid-ids)))))
 
 (defn execute-in-page
   "Execute a function in page context (MAIN world).
