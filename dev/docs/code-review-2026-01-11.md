@@ -2,12 +2,25 @@
 
 Comprehensive code review focusing on bugs, errors, and potential issues.
 
+## ⚠️ Workflow Reminder
+
+**ALWAYS use `bb <task>` over direct shell commands.** The bb tasks encode project-specific configurations. Check `bb tasks` for available commands.
+
+**ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
+
+**ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+
+**ALWAYS use the `commot` subagent for commits.** Provide a succinct overview of what the task has been about.
+
+- `bb test` - Compile and run unit tests
+- `bb test:e2e` - Compile and run E2E tests (Docker)
+
 ## Summary
 
 | Severity | Count | Description |
 |----------|-------|-------------|
 | Critical | 0 | - |
-| High | 2 | Missing error handling, memory leak |
+| High | 0 | All resolved |
 | Medium | 3 | Logic edge cases |
 | Low | 2 | Code quality |
 
@@ -23,46 +36,31 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
 
 ---
 
-## High Severity Issues
+### 2. Missing Error Handling in `save-panel-state!` - FIXED
 
-### 2. Missing Error Handling in `save-panel-state!`
+**Status:** Resolved January 11, 2026
 
-**File:** [panel.cljs](../../src/panel.cljs#L41-L50)
-**Category:** Storage
-**Severity:** High
+**Original problem:** `save-panel-state!` wrote to `chrome.storage.local` without checking for errors. If storage quota is exceeded or write fails, it failed silently.
 
-**Description:** `save-panel-state!` writes to `chrome.storage.local` without checking for errors. If storage quota is exceeded or write fails, it fails silently.
-
-**Evidence:**
-```clojure
-(defn save-panel-state!
-  []
-  (when-let [hostname (:panel/current-hostname @!state)]
-    ;; No error handling callback
-    (js/chrome.storage.local.set (js-obj key state-to-save))))
-```
-
-**Recommendation:** Add error handling:
+**Fix:** Added callback to `chrome.storage.local.set` that checks `chrome.runtime.lastError` and logs errors:
 ```clojure
 (js/chrome.storage.local.set
-  (js-obj key state-to-save)
-  (fn []
-    (when js/chrome.runtime.lastError
-      (js/console.error "[Panel] Failed to save state:"
+ (js-obj key state-to-save)
+ (fn []
+   (when js/chrome.runtime.lastError
+     (js/console.error "[Panel] Failed to save state:"
                        (.-message js/chrome.runtime.lastError)))))
 ```
 
 ---
 
-### 4. Icon State Memory Leak
+### 4. Icon State Memory Leak - FIXED
 
-**File:** [background.cljs](../../src/background.cljs#L52-L54)
-**Category:** State/Memory
-**Severity:** High
+**Status:** Resolved January 11, 2026
 
-**Description:** Icon states are stored with tab IDs as keys. Cleanup happens in `onRemoved` listener, but if the service worker is asleep when a tab closes, the cleanup doesn't fire. Over time, orphaned entries can accumulate.
+**Original problem:** Icon states stored with tab IDs as keys. Cleanup happened in `onRemoved` listener, but if the service worker was asleep when a tab closed, cleanup didn't fire. Over time, orphaned entries could accumulate.
 
-**Recommendation:** Prune stale entries on service worker wake:
+**Fix:** Added `prune-icon-states!` function that queries existing tabs and removes entries for tabs that no longer exist. Called during `ensure-initialized!` on service worker wake:
 ```clojure
 (defn ^:async prune-icon-states!
   "Remove icon states for tabs that no longer exist."
@@ -73,10 +71,6 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
            (fn [states]
              (select-keys states valid-ids)))))
 ```
-
-Call this in `ensure-initialized!`.
-
-**Action:** Implement tab state pruning.
 
 ---
 
