@@ -33,7 +33,8 @@
          :settings/new-origin ""      ; Input field for new origin
          :settings/default-origins [] ; Config origins (read-only)
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
-         :settings/error nil}))          ; Validation error message
+         :settings/error nil
+         :repl/connections []}))          ; Validation error message
 
 
 
@@ -373,7 +374,28 @@
             (fn []
               (js/alert "Scripts imported successfully! Reloading...")
               (dispatch [[:popup/ax.load-scripts]])))))))
+    :popup/fx.load-connections
+    (js/chrome.runtime.sendMessage
+     #js {:type "get-connections"}
+     (fn [response]
+       (when (and response (.-success response))
+         ;; In Squint, data is already JS - no js->clj needed
+         ;; Keywords are strings, so {:keys [tab-id]} works with "tab-id" keys
+         (let [connections (.-connections response)]
+           (dispatch [[:db/ax.assoc :repl/connections connections]])))))
 
+    :popup/fx.reveal-tab
+    (let [[tab-id] args
+          ;; Tab IDs from state are strings in Squint, convert to number for Chrome API
+          numeric-tab-id (js/parseInt tab-id 10)]
+      (js/chrome.tabs.update numeric-tab-id #js {:active true}
+        (fn [_tab]
+          (when-not js/chrome.runtime.lastError
+            ;; Also focus the window containing the tab
+            (js/chrome.tabs.get numeric-tab-id
+              (fn [tab]
+                (when-not js/chrome.runtime.lastError
+                  (js/chrome.windows.update (.-windowId tab) #js {:focused true}))))))))
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -596,8 +618,28 @@
     [user-origins-list user-origins]
     [add-origin-form {:value new-origin :error error}]]])
 
+;; ============================================================;; Connected Tabs Section
 ;; ============================================================
-;; Main View
+
+(defn connected-tab-item [{:keys [tab-id port title]}]
+  [:div.connected-tab-item
+   [:span.connected-tab-port (str ":" port)]
+   [:span.connected-tab-title (or title "Unknown")]
+   [:button.reveal-tab-btn
+    {:on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])
+     :title "Reveal this tab"}
+    [icons/link-external {:size 14}]]])
+
+(defn connected-tabs-section [{:keys [repl/connections]}]
+  [:div.connected-tabs-section
+   (if (seq connections)
+     [:div.connected-tabs-list
+      (for [{:keys [tab-id] :as conn} connections]
+        ^{:key tab-id}
+        [connected-tab-item conn])]
+     [:div.no-connections "No REPL connections active"])])
+
+;; ============================================================;; Main View
 ;; ============================================================
 
 (defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
@@ -627,7 +669,10 @@
    [:div.step
     [:div.step-header "3. Connect editor to browser (via server)"]
     [:div.connect-row
-     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]])
+     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]
+   [:div.step
+    [:div.step-header "Connected Tabs"]
+    [connected-tabs-section state]]])
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
@@ -683,7 +728,8 @@
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
               [:popup/ax.load-user-origins]
-              [:popup/ax.load-auto-connect-setting]]))
+              [:popup/ax.load-auto-connect-setting]
+              [:popup/ax.load-connections]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" nil "Script loaded, readyState:" js/document.readyState)
