@@ -182,16 +182,33 @@ description (let [d (aget parsed "epupp/description")]
 
 ---
 
-## Clarification Needed
+### 10. Panel State `save-panel-state!` Reads from Atom - FIXED
 
-### Panel State `swap!` vs Dispatch Pattern
+**Status:** Resolved January 11, 2026
 
-The direct `swap!` for `current-hostname` appears intentional - it's needed for `save-panel-state!` to work correctly since that function reads hostname directly from `!state`. However, this creates architectural inconsistency.
+**File:** [panel.cljs](../../src/panel.cljs#L47-L63)
+**Category:** Architecture
+**Severity:** Low
 
-**Question:** Is the current pattern intentional? Options:
-1. Keep as-is and document why hostname is special
-2. Refactor to pass hostname through Uniflow entirely
-3. Change `save-panel-state!` to receive hostname as parameter
+**Original problem:** `save-panel-state!` read state directly from `@!state` including hostname, creating architectural inconsistency with the Uniflow pattern where state should flow explicitly.
+
+**Fix:** Changed `save-panel-state!` to accept state as a parameter. The `add-watch` callback now passes `new-state` directly:
+
+```clojure
+(defn save-panel-state!
+  "Persist editor state per hostname. Receives state snapshot to ensure consistency."
+  [state]
+  (when-let [hostname (:panel/current-hostname state)]
+    ...))
+
+;; In add-watch:
+(add-watch !state :panel/persist
+  (fn [_ _ old-state new-state]
+    (when (fields-changed? old-state new-state)
+      (save-panel-state! new-state))))
+```
+
+This ensures state flows explicitly through the system rather than being read from the atom inside side-effecting functions.
 
 ---
 

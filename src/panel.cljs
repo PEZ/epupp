@@ -45,10 +45,10 @@
   (str panel-state-prefix hostname))
 
 (defn save-panel-state!
-  "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
-  []
-  (when-let [hostname (:panel/current-hostname @!state)]
-    (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
+  "Persist editor state per hostname. Receives state snapshot to ensure consistency."
+  [state]
+  (when-let [hostname (:panel/current-hostname state)]
+    (let [{:panel/keys [code script-name script-match script-description script-id]} state
           key (panel-state-key hostname)
           state-to-save #js {:code code
                              :scriptName script-name
@@ -563,7 +563,7 @@
                                                           (not= (:panel/script-match old-state) (:panel/script-match new-state))
                                                           (not= (:panel/script-description old-state) (:panel/script-description new-state))
                                                           (not= (:panel/script-id old-state) (:panel/script-id new-state)))
-                                                  (save-panel-state!))))
+                                                  (save-panel-state! new-state))))
                                    (render!)
                                    ;; Check Scittle status on init
                                    (dispatch! [[:editor/ax.check-scittle]])
