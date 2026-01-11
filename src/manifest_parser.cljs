@@ -31,7 +31,7 @@
    - :raw-script-name - original name before normalization
    - :name-normalized? - true if normalization changed the name
    - :site-match - URL pattern(s), preserved as string or vector
-   - :description - description text
+   - :description - description text (validated as string)
    - :run-at - timing value (defaults to document-idle)
    - :raw-run-at - original run-at value
    - :run-at-invalid? - true if run-at was invalid and defaulted
@@ -45,7 +45,8 @@
       (let [;; Raw values from manifest
             raw-script-name (aget parsed "epupp/script-name")
             site-match (aget parsed "epupp/site-match")
-            description (aget parsed "epupp/description")
+            description (let [d (aget parsed "epupp/description")]
+                          (when (string? d) d))
             raw-run-at (aget parsed "epupp/run-at")
             ;; Coerced values
             script-name (when raw-script-name

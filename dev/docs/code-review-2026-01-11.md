@@ -21,8 +21,8 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
 |----------|-------|-------------|
 | Critical | 0 | - |
 | High | 0 | All resolved |
-| Medium | 3 | Logic edge cases |
-| Low | 2 | Code quality |
+| Medium | 0 | All resolved |
+| Low | 1 | Consistency (deferred) |
 
 ## Resolved Issues
 
@@ -74,81 +74,63 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
 
 ---
 
-## Medium Severity Issues
+### 5. Missing Validation in `approve-pattern!` - FIXED
 
-### 5. Missing Validation in `approve-pattern!`
+**Status:** Resolved January 11, 2026
 
-**File:** [storage.cljs](../../src/storage.cljs#L93-L103)
+**File:** [storage.cljs](../../src/storage.cljs#L176-L196)
 **Category:** Logic
 **Severity:** Medium
 
-**Description:** `approve-pattern!` doesn't validate that the script exists. If called with invalid script-id, it silently does nothing, potentially hiding bugs.
+**Original problem:** `approve-pattern!` didn't validate that the script exists. If called with invalid script-id, it silently did nothing and still persisted, potentially hiding bugs.
 
-**Evidence:**
+**Fix:** Added validation and early return with warning:
 ```clojure
 (defn approve-pattern!
-  [script-id pattern]
-  (swap! !db update :storage/scripts
-         (fn [scripts]
-           (mapv (fn [s]
-                   (if (= (:script/id s) script-id)
-                     (update s :script/approved-patterns ...)
-                     s))
-                 scripts)))
-  (persist!))  ; Persists even if nothing changed
-```
-
-**Recommendation:** Add warning and early return:
-```clojure
-(defn approve-pattern!
+  "Add a pattern to a script's approved-patterns list.
+   Logs warning and returns nil if script doesn't exist."
   [script-id pattern]
   (if-not (get-script script-id)
     (js/console.warn "[Storage] approve-pattern! called for non-existent script:" script-id)
     (do
-      (swap! !db ...)
+      (swap! !db update :storage/scripts ...)
       (persist!))))
 ```
 
 ---
 
-### 6. `send-to-tab` Swallows Errors
+### 6. `send-to-tab` Swallows Errors - FIXED
 
-**File:** [background.cljs](../../src/background.cljs#L78-L82)
+**Status:** Resolved January 11, 2026
+
+**File:** [background.cljs](../../src/background.cljs#L91-L95)
 **Category:** Async/Message
 **Severity:** Medium
 
-**Description:** `send-to-tab` logs errors but doesn't propagate them to callers. This can hide failures when the content script isn't injected or tab is closed.
+**Original problem:** `send-to-tab` logged errors but didn't propagate them to callers. This could hide failures when the content script isn't injected or tab is closed.
 
-**Evidence:**
+**Fix:** Return the promise directly, let callers decide on error handling:
 ```clojure
 (defn send-to-tab
-  [tab-id message]
-  (-> (js/chrome.tabs.sendMessage tab-id (clj->js message))
-      (.catch (fn [e]
-                ;; Error logged but not propagated
-                (js/console.error "[Background] Failed to send to tab:" tab-id "error:" e)))))
-```
-
-**Recommendation:** Return the promise and let callers decide on error handling:
-```clojure
-(defn send-to-tab
+  "Send message to content script in a tab.
+   Returns the promise - callers should handle errors as appropriate."
   [tab-id message]
   (js/chrome.tabs.sendMessage tab-id (clj->js message)))
 ```
 
-Callers that need fire-and-forget can add their own `.catch`.
-
 ---
 
-### 7. Manifest Parser Doesn't Validate Description Type
+### 7. Manifest Parser Doesn't Validate Description Type - FIXED
 
-**File:** [manifest_parser.cljs](../../src/manifest_parser.cljs)
+**Status:** Resolved January 11, 2026
+
+**File:** [manifest_parser.cljs](../../src/manifest_parser.cljs#L48-L49)
 **Category:** Logic
 **Severity:** Medium
 
-**Description:** The manifest parser extracts `description` without validating it's a string. If a user provides a map or vector, it will be stored as-is and cause display issues.
+**Original problem:** The manifest parser extracted `description` without validating it's a string. If a user provides a map or vector, it would be stored as-is and cause display issues.
 
-**Recommendation:** Add type validation:
+**Fix:** Added type validation:
 ```clojure
 description (let [d (aget parsed "epupp/description")]
               (when (string? d) d))
@@ -156,7 +138,32 @@ description (let [d (aget parsed "epupp/description")]
 
 ---
 
-## Low Severity Issues
+### 9. Test Logger Potentially Installed Multiple Times - FIXED
+
+**Status:** Resolved January 11, 2026
+
+**File:** [test_logger.cljs](../../src/test_logger.cljs#L77-L99)
+**Category:** Logic
+**Severity:** Low
+
+**Original problem:** `install-global-error-handlers!` could add duplicate event listeners if called multiple times in the same context.
+
+**Fix:** Added guard using a flag on the global object:
+```clojure
+(defn install-global-error-handlers!
+  "Install global error handlers that log to test events.
+   Guards against double-installation using a flag on global-obj."
+  [context-name global-obj]
+  (when (and (test-mode?)
+             (not (aget global-obj "__epupp_error_handlers_installed")))
+    (aset global-obj "__epupp_error_handlers_installed" true)
+    ;; ... rest of function
+  ))
+```
+
+---
+
+## Low Severity Issues (Deferred)
 
 ### 8. Inconsistent Error Message Prefixes
 
@@ -168,15 +175,7 @@ description (let [d (aget parsed "epupp/description")]
 
 **Recommendation:** Standardize on `[ModuleName] ContextInfo: Details` format.
 
----
-
-### 9. Test Logger Potentially Installed Multiple Times
-
-**File:** [background.cljs](../../src/background.cljs#L12), [content_bridge.cljs](../../src/content_bridge.cljs#L138)
-**Category:** Logic
-**Severity:** Low
-
-**Description:** Both modules call `install-global-error-handlers!`. Should verify the function guards against double-installation.
+**Status:** Deferred - Low priority cosmetic issue requiring changes across multiple files.
 
 ---
 

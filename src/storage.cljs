@@ -174,21 +174,25 @@
 ;; ============================================================
 
 (defn approve-pattern!
-  "Add a pattern to a script's approved-patterns list"
+  "Add a pattern to a script's approved-patterns list.
+   Logs warning and returns nil if script doesn't exist."
   [script-id pattern]
-  (swap! !db update :storage/scripts
-         (fn [scripts]
-           (mapv (fn [s]
-                   (if (= (:script/id s) script-id)
-                     (update s :script/approved-patterns
-                             (fn [patterns]
-                               (let [patterns (or patterns [])]
-                                 (if (some #(= % pattern) patterns)
-                                   patterns
-                                   (conj patterns pattern)))))
-                     s))
-                 scripts)))
-  (persist!))
+  (if-not (get-script script-id)
+    (js/console.warn "[Storage] approve-pattern! called for non-existent script:" script-id)
+    (do
+      (swap! !db update :storage/scripts
+             (fn [scripts]
+               (mapv (fn [s]
+                       (if (= (:script/id s) script-id)
+                         (update s :script/approved-patterns
+                                 (fn [patterns]
+                                   (let [patterns (or patterns [])]
+                                     (if (some #(= % pattern) patterns)
+                                       patterns
+                                       (conj patterns pattern)))))
+                         s))
+                     scripts)))
+      (persist!))))
 
 (defn pattern-approved?
   "Check if a pattern is approved for a script"

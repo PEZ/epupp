@@ -77,11 +77,14 @@
 (defn install-global-error-handlers!
   "Install global error handlers that log to test events.
    Call this early in each context (background, popup, panel).
+   Guards against double-installation using a flag on global-obj.
 
    context-name: String like 'background', 'popup', 'panel'
    global-obj: The global object (js/self for service worker, js/window for pages)"
   [context-name global-obj]
-  (when (test-mode?)
+  (when (and (test-mode?)
+             (not (aget global-obj "__epupp_error_handlers_installed")))
+    (aset global-obj "__epupp_error_handlers_installed" true)
     ;; Uncaught exceptions
     (.addEventListener global-obj "error"
                        (fn [event]

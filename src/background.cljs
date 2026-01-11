@@ -89,11 +89,10 @@
   (swap! !state update :ws/connections dissoc tab-id))
 
 (defn send-to-tab
-  "Send message to content script in a tab"
+  "Send message to content script in a tab.
+   Returns the promise - callers should handle errors as appropriate."
   [tab-id message]
-  (-> (js/chrome.tabs.sendMessage tab-id (clj->js message))
-      (.catch (fn [e]
-                (js/console.error "[Background] Failed to send to tab:" tab-id "error:" e)))))
+  (js/chrome.tabs.sendMessage tab-id (clj->js message)))
 
 (defn handle-ws-connect
   "Create WebSocket connection for a tab"
