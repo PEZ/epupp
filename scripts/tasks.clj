@@ -393,6 +393,25 @@
 ;; ============================================================
 
 (def ^:private test-server-port 18080)
+(def ^:private browser-nrepl-port 12345)
+(def ^:private browser-ws-port 12346)
+
+(defn- wait-for-port
+  "Wait for a port to become available, with timeout."
+  [port timeout-ms]
+  (let [start (System/currentTimeMillis)
+        deadline (+ start timeout-ms)]
+    (loop []
+      (if (> (System/currentTimeMillis) deadline)
+        false
+        (if (try
+              (with-open [_ (java.net.Socket. "localhost" port)]
+                true)
+              (catch Exception _ false))
+          true
+          (do
+            (Thread/sleep 100)
+            (recur)))))))
 
 (defn with-test-server
   "Execute f with an HTTP test server running on port 18080.
@@ -407,8 +426,29 @@
         (stop-fn)
         (println "Test server stopped")))))
 
+(defn with-browser-nrepl
+  "Execute f with browser-nrepl relay server running.
+   Server is started before f and stopped after (even on exception)."
+  [f]
+  (println "Starting browser-nrepl server...")
+  (let [proc (p/process ["bb" "browser-nrepl"
+                         "--nrepl-port" (str browser-nrepl-port)
+                         "--websocket-port" (str browser-ws-port)]
+                        {:out :inherit :err :inherit})]
+    (try
+      (if (wait-for-port browser-nrepl-port 5000)
+        (do
+          (println (format "browser-nrepl ready on ports %d / %d" browser-nrepl-port browser-ws-port))
+          (f))
+        (throw (ex-info "browser-nrepl failed to start" {:port browser-nrepl-port})))
+      (finally
+        (p/destroy-tree proc)
+        (Thread/sleep 300)
+        (println "browser-nrepl stopped")))))
+
 (defn run-e2e-tests!
-  "Run Playwright E2E tests with test server. Pass command-line args to Playwright."
+  "Run Playwright E2E tests with test server and browser-nrepl. Pass command-line args to Playwright."
   [args]
   (with-test-server
-    #(apply p/shell "npx playwright test" args)))
+    #(with-browser-nrepl
+       (fn [] (apply p/shell "npx playwright test" args)))))

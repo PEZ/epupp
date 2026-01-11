@@ -6,10 +6,10 @@
    Playwright assertions by capturing events emitted to storage."
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
-            [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              create-panel-page wait-for-event
-                              get-test-events wait-for-save-status wait-for-popup-ready
-                              generate-timing-report print-timing-report]]))
+            [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
+                                           create-panel-page wait-for-event
+                                           get-test-events wait-for-save-status wait-for-popup-ready
+                                           generate-timing-report print-timing-report]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -535,6 +535,117 @@
 
                   (js-await (.close tab-b))))
               (js-await (.close tab-a)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Connection Tracking Test - Verify get-connections returns connection data
+;; =============================================================================
+
+(def ws-port 12346)  ;; Must match browser-nrepl port in tasks.clj
+
+(test "Log-powered: get-connections returns active REPL connections"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Open popup 
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Check initial state - no connections yet
+                (let [initial-conns (js-await (fixtures/get-connections popup))]
+                  (js/console.log "Initial connections:" (.-length initial-conns))
+                  (js-await (-> (expect (.-length initial-conns))
+                                (.toBe 0))))
+
+                ;; Find the test page tab and connect
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Found test page tab ID:" tab-id)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js/console.log "Connected to tab via WebSocket port" ws-port)
+
+                  ;; Wait a moment for connection to be fully established
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+                  ;; Now get-connections should return the connection
+                  (let [connections (js-await (fixtures/get-connections popup))
+                        conn-count (.-length connections)]
+                    (js/console.log "Connections after connect:" conn-count)
+                    (js/console.log "Connection data:" (js/JSON.stringify connections))
+
+                    ;; Should have exactly 1 connection now
+                    (js-await (-> (expect conn-count)
+                                  (.toBe 1)))
+                    
+                    ;; Verify the connection has the tab-id
+                    (when (> conn-count 0)
+                      (let [conn (aget connections 0)
+                            conn-tab-id (aget conn "tab-id")]
+                        (js/console.log "Connected tab ID:" conn-tab-id "expected:" tab-id)
+                        (js-await (-> (expect (str conn-tab-id))
+                                      (.toBe (str tab-id))))))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Log-powered: popup UI displays active REPL connections"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Open popup and check initial state shows "No REPL connections"
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                
+                ;; Initially should show no connections message
+                (let [no-conn-msg (.locator popup ".no-connections")]
+                  (js-await (-> (expect no-conn-msg)
+                                (.toBeVisible))))
+
+                ;; Find and connect to the test page
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+
+                  ;; Wait for connection then reload popup to show updated state
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js-await (.reload popup))
+                  (js-await (wait-for-popup-ready popup))
+
+                  ;; Now the "no connections" message should be hidden
+                  ;; and we should see a connected tab item
+                  (let [no-conn-msg (.locator popup ".no-connections")
+                        connected-items (.locator popup ".connected-tab-item")]
+                    ;; "No connections" should no longer be visible
+                    (js-await (-> (expect no-conn-msg)
+                                  (.not.toBeVisible)))
+                    ;; Should have exactly 1 connected tab item
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1)))
+                    ;; The connected tab should show the port
+                    (let [port-elem (.locator popup ".connected-tab-port")]
+                      (js-await (-> (expect port-elem)
+                                    (.toContainText ":12346"))))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
 
             (finally
               (js-await (.close context)))))))

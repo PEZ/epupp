@@ -150,4 +150,27 @@
                    (^:async fn []
                      (let [result (js-await (eval-in-browser "(def x 10) (def y 20) (+ x y)"))]
                        (-> (expect (.-success result)) (.toBe true))
-                       (-> (expect (.-values result)) (.toContain "30")))))))
+                       (-> (expect (.-values result)) (.toContain "30")))))
+
+             (test "get-connections returns connected tab with port"
+                   (^:async fn []
+                     ;; Open popup to query connections
+                     (let [ext-id (js-await (get-extension-id @!context))
+                           popup (js-await (.newPage @!context))]
+                       (js-await (.goto popup
+                                        (str "chrome-extension://" ext-id "/popup.html")
+                                        #js {:waitUntil "networkidle"}))
+                       (js-await (sleep 500))
+                       (let [result (js-await (send-runtime-message popup "get-connections" #js {}))]
+                         (js/console.log "get-connections result:" (js/JSON.stringify result))
+                         (-> (expect (.-success result)) (.toBe true))
+                         (-> (expect (.-connections result)) (.toBeDefined))
+                         (let [connections (.-connections result)]
+                           ;; Should have at least one connection
+                           (-> (expect (.-length connections)) (.toBeGreaterThan 0))
+                           ;; First connection should have the expected port
+                           (let [conn (aget connections 0)]
+                             (-> (expect (.-port conn)) (.toBe ws-port))
+                             (-> (expect (.-title conn)) (.toBeDefined))
+                             (-> (expect (.-tab-id conn)) (.toBeDefined)))))
+                       (js-await (.close popup)))))))

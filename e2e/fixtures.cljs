@@ -124,6 +124,58 @@
   (js-await (.evaluate page "() => chrome.storage.local.clear()")))
 
 ;; =============================================================================
+;; Runtime Message Helpers - For sending messages to background worker
+;; =============================================================================
+
+(defn ^:async send-runtime-message
+  "Send a message to the background worker via chrome.runtime.sendMessage.
+   ext-page must be an extension page (popup or panel) that has access to chrome.runtime.
+   Returns the response from the background worker."
+  [ext-page msg-type data]
+  (js-await
+   (.evaluate ext-page
+              (fn [opts]
+                (js/Promise.
+                 (fn [resolve]
+                   (js/chrome.runtime.sendMessage
+                    (js/Object.assign #js {:type (.-type opts)} (.-data opts))
+                    resolve))))
+              #js {:type msg-type :data (or data #js {})})))
+
+(defn ^:async find-tab-id
+  "Find a tab matching the given URL pattern. Returns tab ID or throws.
+   ext-page must be an extension page (popup/panel)."
+  [ext-page url-pattern]
+  (let [result (js-await (send-runtime-message ext-page "e2e/find-tab-id"
+                                               #js {:urlPattern url-pattern}))]
+    (if (and result (.-success result))
+      (.-tabId result)
+      (throw (js/Error. (str "Could not find tab matching: " url-pattern
+                             " - " (or (.-error result) "unknown error")))))))
+
+(defn ^:async connect-tab
+  "Connect the REPL to a specific tab via WebSocket port.
+   ext-page must be an extension page (popup/panel).
+   Returns true on success, throws on failure."
+  [ext-page tab-id ws-port]
+  (let [result (js-await (send-runtime-message ext-page "connect-tab"
+                                               #js {:tabId tab-id :wsPort ws-port}))]
+    (if (and result (.-success result))
+      true
+      (throw (js/Error. (str "Connection failed: " (or (.-error result) "unknown error")))))))
+
+(defn ^:async get-connections
+  "Get active REPL connections from background worker.
+   ext-page must be an extension page (popup/panel).
+   Returns a vector of connection maps on success."
+  [ext-page]
+  (let [result (js-await (send-runtime-message ext-page "get-connections"
+                                               #js {}))]
+    (if (and result (.-success result))
+      (.-connections result)
+      (throw (js/Error. (str "get-connections failed: " (or (.-error result) "unknown error")))))))
+
+;; =============================================================================
 ;; Wait Helpers - Use these instead of sleep for reliable tests
 ;; =============================================================================
 
