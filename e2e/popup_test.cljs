@@ -6,10 +6,10 @@
    - Script management with approval workflow"
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
-            [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              create-panel-page clear-storage wait-for-popup-ready
-                              wait-for-save-status wait-for-script-count
-                              wait-for-checkbox-state wait-for-panel-ready]]))
+            [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
+                                           create-panel-page clear-storage wait-for-popup-ready
+                                           wait-for-save-status wait-for-script-count
+                                           wait-for-checkbox-state wait-for-panel-ready]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -375,6 +375,63 @@
                 (js-await (wait-for-checkbox-state auto-connect-checkbox false)))
 
               (js-await (.close popup)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Popup User Journey: Connection Tracking and Management
+;; =============================================================================
+
+
+(def ws-port 12346)  ;; Must match browser-nrepl port in tasks.clj
+
+(test "Popup: connection tracking displays connected tabs with reveal buttons"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Open popup and connect
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Initially no connections
+                (let [no-conn-msg (.locator popup ".no-connections")]
+                  (js-await (-> (expect no-conn-msg)
+                                (.toBeVisible))))
+
+                ;; Find and connect the page
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+
+                  ;; Wait for connection then reload popup
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js-await (.reload popup))
+                  (js-await (wait-for-popup-ready popup))
+
+                  ;; Should now show 1 connected tab
+                  (let [connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1))))
+
+                  ;; Connected tab should show port number
+                  (let [port-elem (.locator popup ".connected-tab-port")]
+                    (js-await (-> (expect port-elem)
+                                  (.toContainText ":12346"))))
+
+                  ;; Tab should have a reveal or disconnect button
+                  (let [action-btns (.locator popup ".reveal-tab-btn, .disconnect-tab-btn")]
+                    (js-await (-> (expect action-btns)
+                                  (.toBeVisible)))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
 
             (finally
               (js-await (.close context)))))))
