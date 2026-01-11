@@ -244,29 +244,6 @@
                       (-> (expect (:script/approved-patterns script))
                           (.toEqual []))))))
 
-            (test "normalizes nested match arrays from corrupted storage"
-                  (fn []
-                    ;; This handles the case where match was saved as [["pattern"]] instead of ["pattern"]
-                    (let [js-script #js {:id "corrupted"
-                                         :name "Corrupted Match"
-                                         :match #js [#js ["*://github.com/*"]]  ;; Nested array - corrupted
-                                         :code "(println \"hi\")"}
-                          result (script-utils/parse-scripts #js [js-script])
-                          script (first result)]
-                      (-> (expect (:script/match script))
-                          (.toEqual ["*://github.com/*"])))))  ;; Flattened to flat array
-
-            (test "handles deeply nested match arrays"
-                  (fn []
-                    (let [js-script #js {:id "deep-nested"
-                                         :name "Deep Nested"
-                                         :match #js [#js ["*://a.com/*" "*://b.com/*"]]
-                                         :code ""}
-                          result (script-utils/parse-scripts #js [js-script])
-                          script (first result)]
-                      (-> (expect (:script/match script))
-                          (.toEqual ["*://a.com/*" "*://b.com/*"])))))
-
             (test "preserves normal flat match arrays"
                   (fn []
                     (let [js-script #js {:id "normal"

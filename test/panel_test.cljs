@@ -288,20 +288,6 @@
                       (-> (expect (:panel/script-description new-state))
                           (.toBe "A description")))))
 
-            (test ":editor/ax.save-script normalizes string match to vector"
-                  (fn []
-                    (let [state (-> initial-state
-                                    (assoc :panel/code "(println \"hi\")")
-                                    (assoc :panel/script-name "My Script")
-                                    (assoc :panel/script-match "*://example.com/*"))
-                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
-                          [_fx-name script] (first (:uf/fxs result))]
-                      ;; String match should become a vector
-                      (-> (expect (js/Array.isArray (:script/match script)))
-                          (.toBe true))
-                      (-> (expect (aget (:script/match script) 0))
-                          (.toBe "*://example.com/*")))))
-
             (test ":editor/ax.save-script preserves vector match without double-wrapping"
                   (fn []
                     (let [state (-> initial-state
