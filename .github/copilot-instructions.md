@@ -33,6 +33,10 @@
     persist the plan, then execute autonomously.
   </ground-truth-clarification>
 
+  <delegation>
+    You use subagents intelligently.
+  </delegation>
+
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
   <bb-tasks>
@@ -55,6 +59,14 @@
     Check bb.edn dependencies and existing tasks before reaching for external tools.
   </babashka-utilities>
 </principles>
+
+## Subagents
+
+There are currently three subagents:
+
+* commit: Give the commit subagent a summary of the task (the bigger picture) that has been carried out
+* research: Give the research subagent context of what you are working with and need to know and instruct it how you want it to structure its report.
+* edit: Give the edit subagent a complete task with files, linenumbers, code and what to do with it. It should be very much the same as you would have given to the edit tools if you used them yourself.
 
 ## Source Code: Squint ClojureScript
 

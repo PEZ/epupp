@@ -81,11 +81,14 @@
     (println "  Bundling background.js...")
     (p/shell "npx" "esbuild" "extension/background.mjs" "--bundle" "--format=iife"
              define-flag "--outfile=build/background.js")
+    ;; panel.mjs needs EXTENSION_CONFIG for test mode debug features
+    (println "  Bundling panel.js...")
+    (p/shell "npx" "esbuild" "extension/panel.mjs" "--bundle" "--format=iife"
+             define-flag "--outfile=build/panel.js")
     ;; Other bundles don't need config
     (doseq [[name entry] [["content-bridge" "extension/content_bridge.mjs"]
                           ["ws-bridge" "extension/ws_bridge.mjs"]
-                          ["devtools" "extension/devtools.mjs"]
-                          ["panel" "extension/panel.mjs"]]]
+                          ["devtools" "extension/devtools.mjs"]]]
       (println (str "  Bundling " name ".js..."))
       (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
     ;; Copy static files

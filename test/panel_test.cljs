@@ -407,3 +407,74 @@
                           (.toBe true))
                       (-> (expect (:raw-run-at (:panel/manifest-hints new-state)))
                           (.toBe "invalid-timing")))))))
+
+;; ============================================================
+;; Panel initialization tests
+;; ============================================================
+
+(describe "panel initialization action"
+          (fn []
+            (test ":editor/ax.initialize-editor with saved code parses manifest"
+                  (fn []
+                    (let [saved-code "{:epupp/script-name \"My Script\"
+ :epupp/site-match \"https://example.com/*\"
+ :epupp/description \"Test script\"}
+
+(ns my-script)
+(println \"hello\")"
+                          result (panel-actions/handle-action
+                                  initial-state uf-data
+                                  [:editor/ax.initialize-editor
+                                   {:code saved-code
+                                    :script-id "script-123"
+                                    :original-name "my_script.cljs"}])
+                          new-state (:uf/db result)
+                          dxs (:uf/dxs result)]
+                      ;; Code should be set
+                      (-> (expect (:panel/code new-state))
+                          (.toBe saved-code))
+                      ;; Script ID should be set
+                      (-> (expect (:panel/script-id new-state))
+                          (.toBe "script-123"))
+                      ;; Original name should be set
+                      (-> (expect (:panel/original-name new-state))
+                          (.toBe "my_script.cljs"))
+                      ;; Manifest hints should be populated
+                      (-> (expect (:panel/manifest-hints new-state))
+                          (.toBeTruthy))
+                      ;; Should have dxs to set name/match/description from manifest
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
+                          (.toBeTruthy))
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-match) dxs))
+                          (.toBeTruthy))
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-description) dxs))
+                          (.toBeTruthy)))))
+
+            (test ":editor/ax.initialize-editor with no saved code uses default script"
+                  (fn []
+                    (let [result (panel-actions/handle-action
+                                  initial-state uf-data
+                                  [:editor/ax.initialize-editor {}])
+                          new-state (:uf/db result)
+                          dxs (:uf/dxs result)]
+                      ;; Code should have default script
+                      (-> (expect (:panel/code new-state))
+                          (.toContain "hello_world.cljs"))
+                      (-> (expect (:panel/code new-state))
+                          (.toContain "(ns hello-world)"))
+                      ;; Should NOT have script-id (it's a new script template)
+                      (-> (expect (:panel/script-id new-state))
+                          (.toBeFalsy))
+                      ;; Should have dxs to set name from manifest
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
+                          (.toBeTruthy)))))
+
+            (test ":editor/ax.initialize-editor with empty code uses default script"
+                  (fn []
+                    (let [result (panel-actions/handle-action
+                                  initial-state uf-data
+                                  [:editor/ax.initialize-editor {:code ""}])
+                          new-state (:uf/db result)]
+                      ;; Empty code should trigger default script
+                      (-> (expect (:panel/code new-state))
+                          (.toContain "hello_world.cljs")))))))

@@ -110,7 +110,7 @@
             ;; Navigate to matching page
             (let [page (js-await (.newPage context))]
               (js/console.log "Navigating to localhost:18080/basic.html...")
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
               (js/console.log "Page loaded, test-marker visible")
@@ -168,7 +168,7 @@
 
             ;; Navigate to timing test page
             (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/timing-test.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/timing-test.html" #js {:timeout 1000}))
               ;; Wait for page to fully load
               (js-await (-> (expect (.locator page "#timing-marker"))
                             (.toBeVisible)))
@@ -225,7 +225,7 @@
 
             ;; Navigate to trigger injection
             (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
               (js-await (.close page)))
@@ -281,7 +281,7 @@
             ;; Navigate to a page - should trigger auto-connect (WS_CONNECTED event)
             (let [page (js-await (.newPage context))]
               (js/console.log "Navigating to localhost:18080/basic.html with auto-connect enabled...")
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
               (js/console.log "Page loaded")
@@ -322,7 +322,7 @@
             ;; Navigate to SPA test page - should trigger initial auto-connect
             (let [page (js-await (.newPage context))]
               (js/console.log "Navigating to SPA test page with auto-connect enabled...")
-              (js-await (.goto page "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/spa-test.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
               (js/console.log "SPA page loaded")
@@ -376,7 +376,7 @@
           (try
             ;; Navigate to a test page first
             (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
 
@@ -404,7 +404,7 @@
                 (js-await (.close popup)))
 
               ;; Navigate to trigger auto-connect (Scittle injection)
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
 
@@ -462,7 +462,7 @@
 
             ;; Navigate Tab A - script is pre-approved, should inject
             (let [tab-a (js-await (.newPage context))]
-              (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 10000}))
+              (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 1000}))
               (js-await (-> (expect (.locator tab-a "#test-marker"))
                             (.toContainText "ready")))
 
@@ -490,7 +490,7 @@
 
                 ;; Open Tab B (spa-test.html - does NOT match our script)
                 (let [tab-b (js-await (.newPage context))]
-                  (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 10000}))
+                  (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 1000}))
                   (js-await (-> (expect (.locator tab-b "#test-marker"))
                                 (.toContainText "ready")))
 

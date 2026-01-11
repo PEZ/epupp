@@ -41,7 +41,7 @@
               ;; Copy command works
               (let [copy-btn (.locator popup "button.copy-btn")]
                 (js-await (.click copy-btn))
-                (js-await (-> (expect copy-btn) (.toContainText "Copied" #js {:timeout 2000}))))
+                (js-await (-> (expect copy-btn) (.toContainText "Copied" #js {:timeout 500}))))
 
               ;; Connect button exists
               (js-await (-> (expect (.locator popup "button:has-text(\"Connect\")")) (.toBeVisible)))
@@ -139,7 +139,7 @@
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'https://approval.test/page';"))
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
 
               (let [item (.locator popup ".script-item:has-text(\"approval_test.cljs\")")]
@@ -172,7 +172,7 @@
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
               (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'https://deny.test/';"))
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
 
               ;; "Deny Test" normalized to "deny_test.cljs"

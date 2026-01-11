@@ -47,36 +47,75 @@
 (defn save-panel-state!
   "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
   []
-  (when-let [hostname (:panel/current-hostname @!state)]
-    (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
-          key (panel-state-key hostname)
-          state-to-save #js {:code code
-                             :scriptName script-name
-                             :scriptMatch script-match
-                             :scriptDescription script-description
-                             :scriptId script-id}]
-      (js/chrome.storage.local.set (js-obj key state-to-save)))))
+  (let [hostname (:panel/current-hostname @!state)]
+    (test-logger/log-event! "PANEL_SAVE_ATTEMPT"
+                            {:hostname hostname
+                             :has-hostname (some? hostname)})
+    (when hostname
+      (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
+            key (panel-state-key hostname)
+            state-to-save #js {:code code
+                               :scriptName script-name
+                               :scriptMatch script-match
+                               :scriptDescription script-description
+                               :scriptId script-id}]
+        (test-logger/log-event! "PANEL_SAVE_WRITING"
+                                {:key key
+                                 :code-len (count code)
+                                 :script-id script-id})
+        (js/chrome.storage.local.set
+         (js-obj key state-to-save)
+         (fn []
+           (test-logger/log-event! "PANEL_SAVE_COMPLETE"
+                                   {:key key
+                                    :success true})
+           ;; EXP-1: Immediately read back to verify write persisted
+           (js/chrome.storage.local.get
+            #js [key]
+            (fn [result]
+              (let [saved (aget result key)]
+                (test-logger/log-event! "PANEL_SAVE_VERIFY"
+                                        {:key key
+                                         :found (some? saved)
+                                         :code-len (when saved (count (.-code saved)))}))))))))))
 
-(defn restore-panel-state!
-  "Restore editor state from storage for current hostname."
-  [callback]
+(defn- restore-panel-state!
+  [dispatch callback]
   (get-inspected-hostname
    (fn [hostname]
      (let [key (panel-state-key hostname)]
-       ;; Update tracked hostname BEFORE restoring state
+       ;; Update tracked hostname directly (needed for save-panel-state!)
        (swap! !state assoc :panel/current-hostname hostname)
+       (test-logger/log-event! "PANEL_RESTORE_HOSTNAME" {:hostname hostname :key key})
+       ;; First, let's see what ALL keys are in storage
        (js/chrome.storage.local.get
-        #js [key]
-        (fn [result]
-          (let [saved (aget result key)]
-            ;; Reset editor fields - either from saved state or to empty
-            (swap! !state merge
-                   {:panel/code (if saved (or (.-code saved) "") "")
-                    :panel/script-name (if saved (or (.-scriptName saved) "") "")
-                    :panel/script-match (if saved (or (.-scriptMatch saved) "") "")
-                    :panel/script-description (if saved (or (.-scriptDescription saved) "") "")
-                    :panel/script-id (when saved (.-scriptId saved))}))
-          (when callback (callback))))))))
+        nil  ;; Get all keys
+        (fn [all-result]
+          (let [all-keys (js/Object.keys all-result)]
+            (test-logger/log-event! "PANEL_RESTORE_ALL_KEYS"
+                                    {:keys (vec all-keys)
+                                     :count (.-length all-keys)})
+            ;; Now get our specific key
+            (js/chrome.storage.local.get
+             #js [key]
+             (fn [result]
+               (let [saved (aget result key)
+                     code (when saved (.-code saved))
+                     script-id (when saved (.-scriptId saved))
+                     original-name (when saved (.-scriptName saved))]
+                 (test-logger/log-event! "PANEL_RESTORE_DATA"
+                                         {:has-saved (boolean saved)
+                                          :has-code (boolean code)
+                                          :code-length (when code (.-length code))
+                                          :script-id script-id
+                                          :original-name original-name})
+                 ;; Dispatch initialize action with saved data (or nil for default)
+                 (dispatch [[:editor/ax.initialize-editor
+                             {:code code
+                              :script-id script-id
+                              :original-name original-name}]])
+                 ;; Call callback after dispatch completes
+                 (when callback (callback))))))))))))
 
 ;; ============================================================
 ;; Evaluation via inspectedWindow
@@ -136,6 +175,11 @@
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
+    :editor/fx.restore-panel-state
+    (let [[callback] args]
+      (test-logger/log-event! "PANEL_RESTORE_START" {})
+      (restore-panel-state! dispatch callback))
+
     :editor/fx.eval-in-page
     (let [[code] args]
       (eval-in-page!
@@ -471,6 +515,12 @@
   [:div.panel-root
    [panel-header state]
    [:div.panel-content
+    ;; Debug info for tests (only in test mode)
+    (when (test-logger/test-mode?)
+      [:div#debug-info {:style {:font-size "10px" :color "#888" :margin-bottom "5px"}}
+       "hostname: " (:panel/current-hostname state)
+       " | code-len: " (count (:panel/code state))
+       " | script-id: " (or (:panel/script-id state) "nil")])
     [save-script-section state]
     [code-input state]
     [results-area state]
@@ -508,45 +558,48 @@
          :panel/scittle-status :unknown)
   (dispatch! [[:editor/ax.clear-results]
               [:editor/ax.check-scittle]])
-  (restore-panel-state! nil))
+  (perform-effect! dispatch! [:editor/fx.restore-panel-state nil]))
 
 (defn init! []
   (js/console.log "[Panel] Initializing...")
   ;; Install global error handlers for test mode
   (test-logger/install-global-error-handlers! "panel" js/window)
+  ;; Expose state for test debugging
+  (when (test-logger/test-mode?)
+    (set! js/window.__panelState !state))
   ;; Store version at init time
   (swap! !state assoc :panel/init-version (get-extension-version))
   ;; Restore panel state, then continue initialization
-  (restore-panel-state!
-   (fn []
-     ;; Use async IIFE for the rest of initialization
-     ((^:async fn []
-        ;; Load existing scripts from storage before rendering
-        (js-await (storage/load!))
-        (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
-        ;; Watch for render
-        (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
-        ;; Watch for state changes to persist editor state
-        (add-watch !state :panel/persist
-                   (fn [_ _ old-state new-state]
-                     ;; Only save when editor fields change
-                     (when (or (not= (:panel/code old-state) (:panel/code new-state))
-                               (not= (:panel/script-name old-state) (:panel/script-name new-state))
-                               (not= (:panel/script-match old-state) (:panel/script-match new-state))
-                               (not= (:panel/script-description old-state) (:panel/script-description new-state))
-                               (not= (:panel/script-id old-state) (:panel/script-id new-state)))
-                       (save-panel-state!))))
-        (render!)
-        ;; Check Scittle status on init
-        (dispatch! [[:editor/ax.check-scittle]])
-        ;; Check if there's a script to edit (from popup)
-        (dispatch! [[:editor/ax.check-editing-script]])
-        ;; Listen for page navigation to clear stale results
-        (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
-        ;; Check version when panel becomes visible
-        (js/document.addEventListener "visibilitychange"
-                                      (fn [_] (when (= "visible" js/document.visibilityState)
-                                                (check-version!)))))))))
+  (perform-effect! dispatch! [:editor/fx.restore-panel-state
+                              (fn []
+                                ;; Use async IIFE for the rest of initialization
+                                ((^:async fn []
+                                   ;; Load existing scripts from storage before rendering
+                                   (js-await (storage/load!))
+                                   (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
+                                   ;; Watch for render
+                                   (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
+                                   ;; Watch for state changes to persist editor state
+                                   (add-watch !state :panel/persist
+                                              (fn [_ _ old-state new-state]
+                                                ;; Only save when editor fields change
+                                                (when (or (not= (:panel/code old-state) (:panel/code new-state))
+                                                          (not= (:panel/script-name old-state) (:panel/script-name new-state))
+                                                          (not= (:panel/script-match old-state) (:panel/script-match new-state))
+                                                          (not= (:panel/script-description old-state) (:panel/script-description new-state))
+                                                          (not= (:panel/script-id old-state) (:panel/script-id new-state)))
+                                                  (save-panel-state!))))
+                                   (render!)
+                                   ;; Check Scittle status on init
+                                   (dispatch! [[:editor/ax.check-scittle]])
+                                   ;; Check if there's a script to edit (from popup)
+                                   (dispatch! [[:editor/ax.check-editing-script]])
+                                   ;; Listen for page navigation to clear stale results
+                                   (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
+                                   ;; Check version when panel becomes visible
+                                   (js/document.addEventListener "visibilitychange"
+                                                                 (fn [_] (when (= "visible" js/document.visibilityState)
+                                                                           (check-version!)))))))]))
 
 ;; Listen for storage changes (when popup sets editingScript)
 (js/chrome.storage.onChanged.addListener

@@ -4,6 +4,20 @@
   (:require [script-utils :as script-utils]
             [manifest-parser :as mp]))
 
+(def default-script
+  "Default script shown when panel initializes with no saved state.
+   Has a valid manifest with proper name and namespace."
+  "{:epupp/script-name \"hello_world.cljs\"
+ :epupp/site-match \"https://example.com/*\"
+ :epupp/description \"A script saying hello\"}
+
+(ns hello-world)
+
+(defn hello [s]
+  (js/console.log \"Epupp: Hello\" (str s \"!\")))
+
+(hello \"World\")")
+
 (defn- normalize-match-patterns
   "Ensure match patterns are always a flat vector of strings.
    Handles both single string and vector of strings from manifest."
@@ -137,8 +151,7 @@
               ;; "Saved" only when updating existing script with same name
               action-text (if (or (not script-id) name-changed?) "Created" "Saved")]
           {:uf/fxs [[:editor/fx.save-script script]
-                    [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]
-                    [:editor/fx.clear-persisted-state]]
+                    [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]
            ;; After save/create, update state to reflect the new/saved script
            :uf/db (assoc state
                          :panel/save-status {:type :success :text (str action-text " \"" normalized-name "\"")}
@@ -185,5 +198,23 @@
 
     :editor/ax.check-editing-script
     {:uf/fxs [[:editor/fx.check-editing-script]]}
+
+    :editor/ax.initialize-editor
+    (let [[{:keys [code script-id original-name]}] args
+          ;; Use default script if no code saved
+          effective-code (if (seq code) code default-script)
+          ;; Parse manifest from code
+          manifest (try (mp/extract-manifest effective-code) (catch :default _ nil))
+          hints (build-manifest-hints manifest)
+          dxs (build-manifest-dxs manifest)
+          ;; Build new state - only set script-id/original-name if we have saved code
+          new-state (cond-> (assoc state
+                                   :panel/code effective-code
+                                   :panel/manifest-hints hints)
+                      ;; Only set these if restoring existing script (has saved code)
+                      (seq code) (assoc :panel/script-id script-id
+                                        :panel/original-name original-name))]
+      (cond-> {:uf/db new-state}
+        (seq dxs) (assoc :uf/dxs dxs)))
 
     :uf/unhandled-ax))

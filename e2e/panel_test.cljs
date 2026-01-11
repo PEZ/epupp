@@ -11,7 +11,8 @@
             [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
-                              wait-for-save-status wait-for-script-count wait-for-edit-hint]]))
+                              wait-for-save-status wait-for-script-count wait-for-edit-hint
+                              wait-for-panel-state-saved get-test-events]]))
 
 
 ;; =============================================================================
@@ -133,7 +134,7 @@
             ;; === PHASE 2: Edit script from popup ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Script appears with normalized name - click inspect
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
@@ -164,7 +165,7 @@
             ;; === PHASE 4: Verify still only 1 user script (overwrite worked) ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Still 2 scripts total (built-in + our script)
               (js-await (wait-for-script-count popup 2))
@@ -203,7 +204,7 @@
             ;; === PHASE 6: Verify both scripts exist (original + new) ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Now 3 scripts: built-in + original + new
               (js-await (wait-for-script-count popup 3))
@@ -245,7 +246,7 @@
             ;; === PHASE 2: Edit script from popup ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Script appears with normalized name - click inspect
               (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
@@ -275,7 +276,7 @@
             ;; === PHASE 4: Verify still only 2 scripts (built-in + renamed) ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Only 2 scripts: built-in + renamed
               (js-await (wait-for-script-count popup 2))
@@ -331,7 +332,7 @@
             ;; === PHASE 3: Verify both scripts exist and are enabled ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; 3 scripts: built-in + script1 + script2
               (js-await (wait-for-script-count popup 3))
@@ -342,7 +343,7 @@
             ;; === PHASE 4: Edit and rename first script ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Inspect first script
               (let [script-item (.locator popup ".script-item:has-text(\"first_script.cljs\")")
@@ -370,7 +371,7 @@
             ;; === PHASE 5: Verify rename worked and other scripts unaffected ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; Still 3 scripts total (no duplicates)
               (js-await (wait-for-script-count popup 3))
@@ -415,7 +416,7 @@
             ;; === PHASE 2: First rename ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               (let [script-item (.locator popup ".script-item:has-text(\"original_script.cljs\")")
                     inspect-btn (.locator script-item "button.script-inspect")]
@@ -441,7 +442,7 @@
             ;; === PHASE 3: Verify only 2 scripts (built-in + renamed) ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               (js-await (wait-for-script-count popup 2))
               (js-await (-> (expect (.locator popup ".script-item:has-text(\"first_rename.cljs\")"))
@@ -451,7 +452,7 @@
             ;; === PHASE 4: Second rename ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               (let [script-item (.locator popup ".script-item:has-text(\"first_rename.cljs\")")
                     inspect-btn (.locator script-item "button.script-inspect")]
@@ -477,7 +478,7 @@
             ;; === PHASE 5: Verify still only 2 scripts ===
             (let [popup (js-await (.newPage context))
                   popup-url (str "chrome-extension://" ext-id "/popup.html")]
-              (js-await (.goto popup popup-url #js {:timeout 10000}))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
               (js-await (wait-for-popup-ready popup))
               ;; CRITICAL: Still only 2 scripts (no duplicates from multiple renames)
               (js-await (wait-for-script-count popup 2))
@@ -493,3 +494,125 @@
             (finally
               (js-await (.close context)))))))
 
+
+;; =============================================================================
+;; Panel User Journey: Initialization
+;; =============================================================================
+
+(test "Panel: initializes with default script when no saved state"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
+                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")]
+              ;; Clear storage for clean slate
+              (js-await (clear-storage panel))
+              ;; Reload to trigger fresh initialization
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Code area should have the default script (use toHaveValue for textarea)
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs") #js {:timeout 500})))
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(ns hello-world\\)"))))
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(defn hello \\[s\\]"))))
+
+              ;; Metadata fields should be populated from default script manifest
+              (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
+              (js-await (-> (expect match-field) (.toContainText "https://example.com/*")))
+
+              ;; Save button should be enabled (valid manifest)
+              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled))))
+            (finally
+              (js-await (.close context)))))))
+
+
+(test "Panel: restores saved state and parses manifest on reload"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; === PHASE 1: Save a script to create persisted state ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-btn (.locator panel "button.btn-save")]
+              ;; Clear storage first (this also clears test events)
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Enter a script with manifest
+              (let [test-code (code-with-manifest {:name "Persisted Script"
+                                                   :match "*://persist.example.com/*"
+                                                   :description "Test persistence"
+                                                   :code "(println \"persisted\")"})]
+                (js-await (.fill textarea test-code)))
+
+              ;; After fill, check if the state changed (debug element shows code-len)
+              (let [debug-info (.locator panel "#debug-info")]
+                (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 300})))
+                (let [debug-text (js-await (.textContent debug-info))]
+                  (println "=== PHASE 1: After fill ===" debug-text)))
+
+              ;; Save it (this will persist the state)
+              (js-await (.click save-btn))
+              (js-await (wait-for-save-status panel "Created"))
+              ;; Wait for panel state to be persisted before closing
+              ;; Note: We look for code content that's actually in the manifest,
+              ;; not the normalized name which appears in UI but not in code
+              (js-await (wait-for-panel-state-saved panel "(println \"persisted\")"))
+              (js-await (.close panel)))
+
+            ;; === PHASE 2: Reopen panel and verify state + manifest parsing ===
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  save-section (.locator panel ".save-script-section")
+                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
+                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")
+                  description-field (.locator save-section ".metadata-field:has(label:text('Description')) .field-value")]
+
+              ;; Wait for panel to fully initialize
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Give restore a moment to complete
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
+
+              ;; Read debug info from visible element
+              (let [debug-info (.locator panel "#debug-info")]
+                (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 300})))
+                (let [debug-text (js-await (.textContent debug-info))]
+                  (println "=== DEBUG INFO ===" debug-text)))
+
+              ;; Get test events via popup's dev-log button
+              (let [popup (js-await (.newPage context))
+                    popup-url (str "chrome-extension://" ext-id "/popup.html")]
+                (js-await (.goto popup popup-url #js {:timeout 1000}))
+                (js-await (wait-for-popup-ready popup))
+                (let [events (js-await (get-test-events popup))]
+                  (println "=== TEST EVENTS ===" (js/JSON.stringify events nil 2)))
+                (js-await (.close popup)))
+
+              ;; Get current textarea value to debug
+              (let [textarea-value (js-await (.inputValue textarea))]
+                (println "=== DEBUG: Current textarea value ===")
+                (println (subs textarea-value 0 100))
+                (println "=== END DEBUG ==="))
+
+              ;; Code should be restored (use toHaveValue for textarea)
+              ;; Check for the manifest content - the original script-name, not the normalized version
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "Persisted Script") #js {:timeout 500})))
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(println \"persisted\"\\)"))))
+
+              ;; CRITICAL: Manifest should be parsed and metadata displayed
+              ;; This was the bug - manifest wasn't parsed on restore
+              (js-await (-> (expect name-field) (.toContainText "persisted_script.cljs")))
+              (js-await (-> (expect match-field) (.toContainText "*://persist.example.com/*")))
+              (js-await (-> (expect description-field) (.toContainText "Test persistence")))
+
+              ;; Save button should be enabled
+              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled))))
+            (finally
+              (js-await (.close context)))))))
