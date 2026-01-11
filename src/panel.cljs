@@ -55,7 +55,12 @@
                              :scriptMatch script-match
                              :scriptDescription script-description
                              :scriptId script-id}]
-      (js/chrome.storage.local.set (js-obj key state-to-save)))))
+      (js/chrome.storage.local.set
+       (js-obj key state-to-save)
+       (fn []
+         (when js/chrome.runtime.lastError
+           (js/console.error "[Panel] Failed to save state:"
+                             (.-message js/chrome.runtime.lastError))))))))
 
 (defn- restore-panel-state!
   [dispatch callback]
