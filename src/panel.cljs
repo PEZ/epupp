@@ -47,37 +47,15 @@
 (defn save-panel-state!
   "Persist editor state per hostname. Uses cached hostname to avoid race conditions."
   []
-  (let [hostname (:panel/current-hostname @!state)]
-    (test-logger/log-event! "PANEL_SAVE_ATTEMPT"
-                            {:hostname hostname
-                             :has-hostname (some? hostname)})
-    (when hostname
-      (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
-            key (panel-state-key hostname)
-            state-to-save #js {:code code
-                               :scriptName script-name
-                               :scriptMatch script-match
-                               :scriptDescription script-description
-                               :scriptId script-id}]
-        (test-logger/log-event! "PANEL_SAVE_WRITING"
-                                {:key key
-                                 :code-len (count code)
-                                 :script-id script-id})
-        (js/chrome.storage.local.set
-         (js-obj key state-to-save)
-         (fn []
-           (test-logger/log-event! "PANEL_SAVE_COMPLETE"
-                                   {:key key
-                                    :success true})
-           ;; EXP-1: Immediately read back to verify write persisted
-           (js/chrome.storage.local.get
-            #js [key]
-            (fn [result]
-              (let [saved (aget result key)]
-                (test-logger/log-event! "PANEL_SAVE_VERIFY"
-                                        {:key key
-                                         :found (some? saved)
-                                         :code-len (when saved (count (.-code saved)))}))))))))))
+  (when-let [hostname (:panel/current-hostname @!state)]
+    (let [{:panel/keys [code script-name script-match script-description script-id]} @!state
+          key (panel-state-key hostname)
+          state-to-save #js {:code code
+                             :scriptName script-name
+                             :scriptMatch script-match
+                             :scriptDescription script-description
+                             :scriptId script-id}]
+      (js/chrome.storage.local.set (js-obj key state-to-save)))))
 
 (defn- restore-panel-state!
   [dispatch callback]
@@ -86,36 +64,20 @@
      (let [key (panel-state-key hostname)]
        ;; Update tracked hostname directly (needed for save-panel-state!)
        (swap! !state assoc :panel/current-hostname hostname)
-       (test-logger/log-event! "PANEL_RESTORE_HOSTNAME" {:hostname hostname :key key})
-       ;; First, let's see what ALL keys are in storage
        (js/chrome.storage.local.get
-        nil  ;; Get all keys
-        (fn [all-result]
-          (let [all-keys (js/Object.keys all-result)]
-            (test-logger/log-event! "PANEL_RESTORE_ALL_KEYS"
-                                    {:keys (vec all-keys)
-                                     :count (.-length all-keys)})
-            ;; Now get our specific key
-            (js/chrome.storage.local.get
-             #js [key]
-             (fn [result]
-               (let [saved (aget result key)
-                     code (when saved (.-code saved))
-                     script-id (when saved (.-scriptId saved))
-                     original-name (when saved (.-scriptName saved))]
-                 (test-logger/log-event! "PANEL_RESTORE_DATA"
-                                         {:has-saved (boolean saved)
-                                          :has-code (boolean code)
-                                          :code-length (when code (.-length code))
-                                          :script-id script-id
-                                          :original-name original-name})
-                 ;; Dispatch initialize action with saved data (or nil for default)
-                 (dispatch [[:editor/ax.initialize-editor
-                             {:code code
-                              :script-id script-id
-                              :original-name original-name}]])
-                 ;; Call callback after dispatch completes
-                 (when callback (callback))))))))))))
+        #js [key]
+        (fn [result]
+          (let [saved (aget result key)
+                code (when saved (.-code saved))
+                script-id (when saved (.-scriptId saved))
+                original-name (when saved (.-scriptName saved))]
+            ;; Dispatch initialize action with saved data (or nil for default)
+            (dispatch [[:editor/ax.initialize-editor
+                        {:code code
+                         :script-id script-id
+                         :original-name original-name}]])
+            ;; Call callback after dispatch completes
+            (when callback (callback)))))))))
 
 ;; ============================================================
 ;; Evaluation via inspectedWindow
