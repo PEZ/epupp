@@ -90,6 +90,18 @@ Per-pattern approval is handled via `:script/approved-patterns` on each script.
 2. **Persist on mutation** - after `swap!`, write the whole blob back
 3. **Listen for external changes** - popup, DevTools panel, and background worker share storage; use `chrome.storage.onChanged` to keep atoms in sync
 
+### Data Integrity Invariants
+
+**`:script/match` is always a flat vector of strings.** All code paths that set this field produce flat vectors:
+
+| Path | Code | Result |
+|------|------|--------|
+| Panel save | `normalize-match-patterns` parses manifest | `["pattern1" "pattern2"]` |
+| Background install | `[site-match]` wraps single string | `["pattern"]` |
+| Built-in scripts | Hardcoded vectors | `["pattern"]` |
+
+Nested arrays cannot occur in normal operation. If future import functionality is added, validate at import time rather than adding defensive flattening throughout the codebase. (January 2026: removed `normalize-match-array` after analysis confirmed it was unreachable defensive code.)
+
 ## Permission Model
 
 ### Implemented Approach
