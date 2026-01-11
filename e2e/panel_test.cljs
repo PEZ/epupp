@@ -47,10 +47,10 @@
                   results (.locator panel ".results-area")
                   status (.locator panel ".app-header-status")
                   save-btn (.locator panel "button.btn-save")
-                  ;; New manifest-driven selectors (read-only displays)
+                  ;; Property table selectors
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
-                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
+                  match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")]
 
               ;; Clear storage for clean slate
               (js-await (clear-storage panel))
@@ -148,7 +148,7 @@
                   textarea (.locator panel "#code-area")
                   save-btn (.locator panel "button.btn-save")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load - check that name field shows loaded name
               (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
               ;; Script loaded for editing - button says "Save Script"
@@ -182,7 +182,7 @@
                   save-btn (.locator panel "button.btn-save")
                   rename-btn (.locator panel "button.btn-rename")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load
               (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
               ;; Initially "Save Script" since name matches
@@ -260,7 +260,7 @@
                   textarea (.locator panel "#code-area")
                   rename-btn (.locator panel "button.btn-rename")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load
               (js-await (-> (expect name-field) (.toContainText "my_cool_script.cljs")))
               ;; Change the name in manifest
@@ -356,7 +356,7 @@
                   textarea (.locator panel "#code-area")
                   rename-btn (.locator panel "button.btn-rename")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load
               (js-await (-> (expect name-field) (.toContainText "first_script.cljs")))
               ;; Rename by changing manifest name
@@ -428,7 +428,7 @@
                   textarea (.locator panel "#code-area")
                   rename-btn (.locator panel "button.btn-rename")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load
               (js-await (-> (expect name-field) (.toContainText "original_script.cljs")))
               (let [renamed-code (code-with-manifest {:name "First Rename"
@@ -464,7 +464,7 @@
                   textarea (.locator panel "#code-area")
                   rename-btn (.locator panel "button.btn-rename")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
               ;; Wait for script to load
               (js-await (-> (expect name-field) (.toContainText "first_rename.cljs")))
               (let [renamed-code (code-with-manifest {:name "Second Rename"
@@ -507,8 +507,8 @@
             (let [panel (js-await (create-panel-page context ext-id))
                   textarea (.locator panel "#code-area")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
-                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
+                  match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")]
               ;; Clear storage for clean slate
               (js-await (clear-storage panel))
               ;; Reload to trigger fresh initialization
@@ -570,9 +570,9 @@
             (let [panel (js-await (create-panel-page context ext-id))
                   textarea (.locator panel "#code-area")
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")
-                  match-field (.locator save-section ".metadata-field:has(label:text('URL Pattern')) .field-value")
-                  description-field (.locator save-section ".metadata-field:has(label:text('Description')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
+                  match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")
+                  description-field (.locator save-section ".property-row:has(th:text('Description')) .property-value")]
 
               ;; Wait for panel to fully initialize
               (js-await (wait-for-panel-ready panel))

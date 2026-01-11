@@ -94,7 +94,7 @@
             ;; Now open panel - it will read editingScript on init
             (let [panel (js-await (create-panel-page context ext-id))
                   save-section (.locator panel ".save-script-section")
-                  name-field (.locator save-section ".metadata-field:has(label:text('Name')) .field-value")]
+                  name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
 
               ;; Wait for script to load - check name field shows loaded name
               (js-await (-> (expect name-field) (.toContainText "lifecycle_test.cljs")))

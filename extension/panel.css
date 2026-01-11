@@ -481,55 +481,66 @@ body {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-/* Manifest-driven metadata fields */
-.save-script-form.manifest-driven .metadata-field {
-  flex-basis: auto;
-  min-width: 0;
-}
-
-.save-script-form.manifest-driven .metadata-field .field-content {
-  padding: 6px 10px;
+/* Metadata property table */
+.metadata-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  min-height: 32px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  margin-bottom: 10px;
 }
 
-.field-value {
+.property-row th,
+.property-row td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.property-row:last-child th,
+.property-row:last-child td {
+  border-bottom: none;
+}
+
+.property-label {
+  width: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.property-value {
   color: var(--text-primary);
+}
+
+.property-value .value-text {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   word-break: break-all;
 }
 
-.field-value.placeholder {
+.property-value .value-placeholder {
   color: var(--text-muted);
   font-style: italic;
-  font-family: inherit;
 }
 
 /* Multiple values (e.g., site-match array) */
-.field-values {
+.property-value .multi-values {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.field-values .field-value {
-  padding: 2px 6px;
-  background: var(--bg-secondary);
-  border-radius: 3px;
-  font-size: 11px;
+.property-value .value-item {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  word-break: break-all;
 }
 
 /* Field hints */
 .field-hint {
+  display: block;
   font-size: 11px;
   margin-top: 4px;
-  padding: 2px 0;
 }
 
 .field-hint.hint-info {
@@ -538,13 +549,6 @@ body {
 
 .field-hint.hint-warning {
   color: var(--error);
-}
-
-/* Run-at field specific */
-.run-at-field .field-value {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 /* Unknown keys warning */

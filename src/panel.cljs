@@ -295,31 +295,29 @@
     (sequential? site-match) (vec site-match)
     :else [site-match]))
 
-(defn- metadata-field
-  "Render a read-only metadata field with optional hint."
-  [{:keys [label value values hint placeholder run-at-badge]}]
-  [:div.save-field.metadata-field
-   [:label label]
-   [:div.field-content
+(defn- property-row
+  "Render a single row in the metadata property table."
+  [{:keys [label value values hint badge]}]
+  [:tr.property-row
+   [:th.property-label label]
+   [:td.property-value
     (cond
       ;; Multiple values (e.g., vector site-match)
       (seq values)
-      [:div.field-values
+      [:div.multi-values
        (for [[idx v] (map-indexed vector values)]
          ^{:key idx}
-         [:div.field-value v])]
+         [:div.value-item v])]
 
-      ;; Single value with optional run-at badge
+      ;; Single value with optional badge
       (seq value)
-      [:div.field-value
-       value
-       run-at-badge]
+      [:span.value-text value badge]
 
       ;; No value - show placeholder
       :else
-      [:div.field-value.placeholder (or placeholder "Not specified in manifest")])]
-   (when hint
-     [hint-message hint])])
+      [:span.value-placeholder "Not specified"])
+    (when hint
+      [hint-message hint])]])
 
 (defn- unknown-keys-warning
   "Render warning for unknown manifest keys."
@@ -377,47 +375,43 @@
         ;; Rename disabled for built-in scripts
         rename-disabled? editing-builtin?
         ;; Get run-at for display (from parsed manifest, via state)
-        run-at (when has-manifest?
-                 (if run-at-invalid?
-                   "document-idle"
-                   raw-run-at))]
+        run-at (if run-at-invalid?
+                 "document-idle"
+                 raw-run-at)]
     [:div.save-script-section
      [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
 
      (if has-manifest?
-       ;; Manifest-driven: read-only field displays
+       ;; Manifest-driven: property table display
        [:div.save-script-form.manifest-driven
-        ;; Name field
-        [metadata-field
-         {:label "Name"
-          :value script-name
-          :placeholder "Add :epupp/script-name to manifest"
-          :hint (when name-normalized?
-                  {:type "info" :text (str "Normalized from: " raw-script-name)})}]
+        ;; Property table showing all metadata fields
+        [:table.metadata-table
+         [:tbody
+          ;; Name row - always shown
+          [property-row
+           {:label "Name"
+            :value script-name
+            :hint (when name-normalized?
+                    {:type "info" :text (str "Normalized from: " raw-script-name)})}]
 
-        ;; URL Pattern field
-        [metadata-field
-         {:label "URL Pattern"
-          :values site-matches
-          :placeholder "Add :epupp/site-match to manifest"}]
+          ;; URL Pattern row - always shown
+          [property-row
+           {:label "URL Pattern"
+            :values site-matches}]
 
-        ;; Description field
-        [metadata-field
-         {:label "Description"
-          :value script-description
-          :placeholder "Add :epupp/description to manifest (optional)"}]
+          ;; Description row - always shown
+          [property-row
+           {:label "Description"
+            :value script-description}]
 
-        ;; Run-at display (if specified)
-        (when run-at
-          [:div.save-field.metadata-field.run-at-field
-           [:label "Run At"]
-           [:div.field-content
-            [:div.field-value
-             run-at
-             (run-at-badge run-at)]
-            (when run-at-invalid?
-              [hint-message {:type "warning"
-                             :text (str "Invalid run-at value \"" raw-run-at "\" - using default")}])]])
+          ;; Run At row - always shown
+          [property-row
+           {:label "Run At"
+            :value (or run-at "document-idle (default)")
+            :badge (run-at-badge run-at)
+            :hint (when run-at-invalid?
+                    {:type "warning"
+                     :text (str "Invalid value \"" raw-run-at "\" - using default")})}]]]
 
         ;; Unknown keys warning
         [unknown-keys-warning unknown-keys]

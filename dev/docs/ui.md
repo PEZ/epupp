@@ -35,7 +35,7 @@ When visiting a page that matches an enabled script's URL pattern for the first 
 
 ### Manifest-Driven Metadata
 
-Script metadata (name, site match, description, timing) is defined in the code itself using manifest annotations. The panel displays these values as read-only fields - there are no input fields to fill in manually.
+Script metadata (name, site match, description, timing) is defined in the code itself using manifest annotations. The panel displays these values in a property table format - always showing all four fields regardless of whether values are specified.
 
 **Example script with manifest:**
 ```clojure
@@ -48,6 +48,14 @@ Script metadata (name, site match, description, timing) is defined in the code i
 (js/console.log "Hello GitHub!")
 ```
 
+**Property table fields:**
+| Field | Source | Notes |
+|-------|--------|-------|
+| Name | `:epupp/script-name` | Shows normalized ID format (e.g., `my_script.cljs`) |
+| URL Pattern | `:epupp/site-match` | String or vector of patterns |
+| Description | `:epupp/description` | Shows "Not specified" if omitted |
+| Run At | `:epupp/run-at` | Shows "document-idle (default)" if omitted |
+
 **Manifest keys:**
 | Key | Required | Description |
 |-----|----------|-------------|
@@ -59,15 +67,15 @@ Script metadata (name, site match, description, timing) is defined in the code i
 ### Creating a New Script
 
 1. Write your code with a manifest map at the top
-2. The panel shows the parsed values as read-only displays:
+2. The panel shows parsed values in a property table:
    - **Name** - from `:epupp/script-name` (shows normalized ID form)
-   - **Match** - from `:epupp/site-match`
-   - **Description** - from `:epupp/description` (if present)
-   - **Timing** - from `:epupp/run-at` (if present, shows warning for invalid values)
+   - **URL Pattern** - from `:epupp/site-match`
+   - **Description** - from `:epupp/description` (or "Not specified")
+   - **Run At** - from `:epupp/run-at` (or "document-idle (default)")
 3. Click **Save Script**
 
 **Hints and warnings:**
-- Name normalization: `"My Cool Script"` shown as `my-cool-script` with hint "(normalized)"
+- Name normalization: `"My Cool Script"` shown as `my_cool_script.cljs` with hint "(normalized)"
 - Invalid run-at values show a warning
 - Unknown `:epupp/*` keys are flagged
 
@@ -78,7 +86,7 @@ Script metadata (name, site match, description, timing) is defined in the code i
 Load a script from popup (click Eye icon), then:
 
 1. The code loads into the editor with its manifest
-2. Read-only fields show current metadata values
+2. Property table shows current metadata values
 3. Edit the code (including manifest values) as needed
 4. Click **Save Script** to update
 
