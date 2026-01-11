@@ -538,3 +538,101 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Error Assertion Test - Verify No Uncaught Errors
+;; =============================================================================
+
+(defn ^:async assert-no-errors!
+  "Check that no UNCAUGHT_ERROR or UNHANDLED_REJECTION events were logged.
+   Call this at the end of tests to catch extension errors."
+  [popup]
+  (let [events (js-await (get-test-events popup))
+        error-events (.filter events
+                              (fn [e]
+                                (or (= (.-event e) "UNCAUGHT_ERROR")
+                                    (= (.-event e) "UNHANDLED_REJECTION"))))]
+    (when (pos? (.-length error-events))
+      (js/console.error "Unexpected errors captured:")
+      (.forEach error-events
+                (fn [e]
+                  (js/console.error (js/JSON.stringify e nil 2)))))
+    (js-await (-> (expect (.-length error-events))
+                  (.toBe 0)))))
+
+(test "Log-powered: extension startup produces no uncaught errors"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Wait for extension to fully start
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Navigate to a test page to trigger content bridge injection
+              (let [page (js-await (.newPage context))]
+                (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+                (js-await (-> (expect (.locator page "#test-marker"))
+                              (.toContainText "ready")))
+
+                ;; Small wait for any async operations
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+                ;; Re-open popup and check for any errors
+                (js-await (.close popup))
+                (let [popup2 (js-await (create-popup-page context ext-id))]
+                  (js-await (wait-for-popup-ready popup2))
+                  (js-await (assert-no-errors! popup2))
+                  (js-await (.close popup2)))
+
+                (js-await (.close page))))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Log-powered: userscript injection produces no uncaught errors"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Create and approve a script
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Error Check Test"
+                                            :match "http://localhost:18080/*"
+                                            :code "(js/console.log \"No errors please\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (wait-for-save-status panel "Created"))
+              (js-await (.close panel)))
+
+            ;; Approve the script
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              (let [script-item (.locator popup ".script-item:has-text(\"error_check_test.cljs\")")]
+                (js-await (-> (expect script-item) (.toBeVisible)))
+                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+                  (when (pos? (js-await (.count allow-btn)))
+                    (js-await (.click allow-btn))
+                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+              (js-await (.close popup)))
+
+            ;; Navigate to trigger injection
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for script injection
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))]
+                ;; Check for any errors
+                (js-await (assert-no-errors! popup))
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))

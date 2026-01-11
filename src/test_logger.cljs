@@ -8,10 +8,8 @@
    - Works identically in Chrome and Firefox")
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
-;; Some bundles (content-bridge, ws-bridge) don't get it injected, so check first
-(def ^:private config
-  (when (exists? js/EXTENSION_CONFIG)
-    js/EXTENSION_CONFIG))
+;; All extension bundles now get config injected
+(def ^:private config js/EXTENSION_CONFIG)
 
 (defn test-mode?
   "Check if test mode is enabled via build config."
@@ -21,7 +19,7 @@
 (defn ^:async init-test-mode!
   "Store test-mode flag in chrome.storage.local for non-bundled scripts.
    Call this at background worker startup. The userscript-loader.js reads
-   this flag since it can't access EXTENSION_CONFIG (not bundled via esbuild)."
+   this flag since it's not bundled via esbuild."
   []
   (js-await
    (js/Promise.

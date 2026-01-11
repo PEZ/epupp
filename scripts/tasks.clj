@@ -72,25 +72,17 @@
     (p/shell "npx squint compile")
     (println "Bundling with esbuild...")
     (fs/create-dirs "build")
-    ;; Bundle all JS files as IIFE
-    ;; popup.mjs needs EXTENSION_CONFIG injected
-    (println "  Bundling popup.js...")
-    (p/shell "npx" "esbuild" "extension/popup.mjs" "--bundle" "--format=iife"
-             define-flag "--outfile=build/popup.js")
-    ;; background.mjs also needs EXTENSION_CONFIG for dev-only test hooks
-    (println "  Bundling background.js...")
-    (p/shell "npx" "esbuild" "extension/background.mjs" "--bundle" "--format=iife"
-             define-flag "--outfile=build/background.js")
-    ;; panel.mjs needs EXTENSION_CONFIG for test mode debug features
-    (println "  Bundling panel.js...")
-    (p/shell "npx" "esbuild" "extension/panel.mjs" "--bundle" "--format=iife"
-             define-flag "--outfile=build/panel.js")
-    ;; Other bundles don't need config
-    (doseq [[name entry] [["content-bridge" "extension/content_bridge.mjs"]
-                          ["ws-bridge" "extension/ws_bridge.mjs"]
-                          ["devtools" "extension/devtools.mjs"]]]
-      (println (str "  Bundling " name ".js..."))
-      (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
+    ;; Bundle all JS files as IIFE with EXTENSION_CONFIG injected
+    ;; All bundles get config for consistent test instrumentation
+    (doseq [[bundle-name entry] [["popup" "extension/popup.mjs"]
+                                 ["background" "extension/background.mjs"]
+                                 ["panel" "extension/panel.mjs"]
+                                 ["content-bridge" "extension/content_bridge.mjs"]
+                                 ["ws-bridge" "extension/ws_bridge.mjs"]
+                                 ["devtools" "extension/devtools.mjs"]]]
+      (println (str "  Bundling " bundle-name ".js..."))
+      (p/shell "npx" "esbuild" entry "--bundle" "--format=iife"
+               define-flag (str "--outfile=build/" bundle-name ".js")))
     ;; Copy static files
     (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
     (fs/copy "extension/shared.css" "build/shared.css" {:replace-existing true})
