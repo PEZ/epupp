@@ -13,9 +13,9 @@
 
 **ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
 
-- `bb test:e2e` - Run E2E tests (Docker)
-- `bb build:test` - Build for testing
-- `bb watch` - Auto-compile (should be running)
+
+- `bb test` - Compile and run unit tests
+- `bb test:e2e` - Compile and run E2E tests (Docker)
 
 ## Observed Facts
 
