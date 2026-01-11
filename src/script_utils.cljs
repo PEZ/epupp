@@ -30,19 +30,6 @@
   [arr]
   (if arr (vec arr) []))
 
-(defn- normalize-match-array
-  "Flatten and normalize match patterns from storage.
-   Handles corrupted data where patterns might be nested arrays."
-  [arr]
-  (when arr
-    (->> (js-arr->vec arr)
-         (mapcat (fn [item]
-                   (if (array? item)
-                     (vec item)  ; Flatten nested array
-                     [item])))   ; Keep single item in vector
-         (filter string?)        ; Only keep strings
-         vec)))
-
 (defn parse-scripts
   "Convert JS scripts array to Clojure with namespaced keys"
   [js-scripts]
@@ -51,7 +38,7 @@
                {:script/id (.-id s)
                 :script/name (.-name s)
                 :script/description (.-description s)
-                :script/match (normalize-match-array (.-match s))
+                :script/match (.-match s)
                 :script/code (.-code s)
                 :script/enabled (.-enabled s)
                 :script/created (.-created s)

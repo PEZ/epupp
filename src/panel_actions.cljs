@@ -18,16 +18,6 @@
 
 (hello \"World\")")
 
-(defn- normalize-match-patterns
-  "Ensure match patterns are always a flat vector of strings.
-   Handles both single string and vector of strings from manifest."
-  [match]
-  (cond
-    (nil? match) []
-    (string? match) [match]
-    (sequential? match) (vec match)
-    :else [match]))
-
 (defn- build-manifest-dxs
   "Build deferred dispatch actions from manifest data.
    Returns vector of actions to update name, match, description from manifest."
@@ -143,7 +133,7 @@
                    (script-utils/generate-script-id))
               script (cond-> {:script/id id
                               :script/name normalized-name
-                              :script/match (normalize-match-patterns script-match)
+                              :script/match script-match
                               :script/code code
                               :script/enabled true}
                        (seq script-description) (assoc :script/description script-description))
