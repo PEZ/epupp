@@ -10,10 +10,13 @@ Comprehensive code review focusing on bugs, errors, and potential issues.
 
 **ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
 
-**ALWAYS use the `commot` subagent for commits.** Provide a succinct overview of what the task has been about.
-
 - `bb test` - Compile and run unit tests
 - `bb test:e2e` - Compile and run E2E tests (Docker)
+
+Before reporting a task as done:
+
+1. Run unit ad e2e tests
+2. Build the extension for manual testing, `bb build:dev`
 
 ## Summary
 
