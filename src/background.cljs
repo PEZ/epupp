@@ -77,6 +77,21 @@
   [tab-id]
   (get-in @!state [:ws/connections tab-id :ws/socket]))
 
+(defn broadcast-connections-changed!
+  "Notify popup/panel that connections have changed.
+   Sends message to all extension pages listening for connection updates."
+  []
+  (let [connections (:ws/connections @!state)
+        display-list (bg-utils/connections->display-list connections)]
+    ;; Send to all extension pages (popup, panel)
+    ;; This is a fire-and-forget - some pages may not be open
+    (js/chrome.runtime.sendMessage
+     #js {:type "connections-changed"
+          :connections (clj->js display-list)}
+     (fn [_response]
+       ;; Ignore errors - expected when no popup/panel is open
+       (when js/chrome.runtime.lastError nil)))))
+
 (defn close-ws!
   "Close and remove WebSocket for a tab. Does not send ws-close event."
   [tab-id]
@@ -87,7 +102,8 @@
       (.close ws)
       (catch :default e
         (log/error "Background" "WS" "Error closing WebSocket:" e))))
-  (swap! !state update :ws/connections dissoc tab-id))
+  (swap! !state update :ws/connections dissoc tab-id)
+  (broadcast-connections-changed!))
 
 (defn send-to-tab
   "Send message to content script in a tab.
@@ -131,7 +147,8 @@
                    (log/info "Background" "WS" "Connected for tab:" tab-id)
                    (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
                    (update-icon-for-tab! tab-id :connected)
-                   (send-to-tab tab-id {:type "ws-open"})))
+                   (send-to-tab tab-id {:type "ws-open"})
+                   (broadcast-connections-changed!)))
 
            (set! (.-onmessage ws)
                  (fn [event]
@@ -152,7 +169,8 @@
                                         :reason (.-reason event)})
                    (swap! !state update :ws/connections dissoc tab-id)
                    ;; When WS closes, go back to injected state (Scittle still loaded)
-                   (update-icon-for-tab! tab-id :injected))))
+                   (update-icon-for-tab! tab-id :injected)
+                   (broadcast-connections-changed!))))
          (catch :default e
            (log/error "Background" "WS" "Failed to create WebSocket:" e)
            (send-to-tab tab-id {:type "ws-error"
@@ -988,6 +1006,17 @@
                       (.catch (fn [_err]
                                 ;; Tab might be gone, ignore
                                 nil))))))
+
+;; Close WebSocket when page starts navigating (reload, navigation to new URL)
+;; This ensures the connection list updates immediately when a page reloads
+(.addListener js/chrome.webNavigation.onBeforeNavigate
+              (fn [details]
+                ;; Only handle main frame navigation
+                (when (zero? (.-frameId details))
+                  (let [tab-id (.-tabId details)]
+                    (when (get-ws tab-id)
+                      (log/info "Background" "WS" "Closing connection for navigating tab:" tab-id)
+                      (close-ws! tab-id))))))
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]

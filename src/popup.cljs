@@ -723,6 +723,16 @@
   (render!)
   ;; Refresh badge on popup open
   (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
+
+  ;; Listen for connection changes from background
+  (js/chrome.runtime.onMessage.addListener
+   (fn [message _sender _send-response]
+     (when (= "connections-changed" (.-type message))
+       (let [connections (.-connections message)]
+         (dispatch! [[:db/ax.assoc :repl/connections connections]])))
+     ;; Return false - we don't send async response
+     false))
+
   (dispatch! [[:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]

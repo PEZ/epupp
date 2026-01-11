@@ -650,6 +650,106 @@
             (finally
               (js-await (.close context)))))))
 
+(test "Log-powered: popup UI updates immediately after connecting (no tab switch needed)"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Open popup - keep it open throughout the test
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Initially should show no connections
+                (let [no-conn-msg (.locator popup ".no-connections")]
+                  (js-await (-> (expect no-conn-msg)
+                                (.toBeVisible)))
+                  (js/console.log "Initial state: no connections shown"))
+
+                ;; Connect to the test page while popup is still open
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js/console.log "Connected to tab" tab-id)
+
+                  ;; Wait briefly for any async updates
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+                  ;; WITHOUT reloading or switching tabs, the UI should update
+                  ;; BUG: Currently requires popup reload or tab switch
+                  (let [connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1 #js {:timeout 2000})))
+                    (js/console.log "UI updated with connected tab")))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Log-powered: popup UI updates when connected page is reloaded"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Connect to the test page
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js/console.log "Connected to tab" tab-id)
+
+                  ;; Wait for connection and verify it shows
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js-await (.reload popup))
+                  (js-await (wait-for-popup-ready popup))
+
+                  (let [connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1)))
+                    (js/console.log "Connection shown in UI"))
+
+                  ;; Now reload the connected page - this disconnects WebSocket
+                  (js-await (.reload page))
+                  (js-await (-> (expect (.locator page "#test-marker"))
+                                (.toContainText "ready")))
+                  (js/console.log "Page reloaded")
+
+                  ;; Wait for WebSocket close to propagate
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+                  ;; Reload popup to get fresh state
+                  (js-await (.reload popup))
+                  (js-await (wait-for-popup-ready popup))
+
+                  ;; The connection should now be gone
+                  ;; BUG: Currently shows stale connection data
+                  (let [no-conn-msg (.locator popup ".no-connections")
+                        connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 0 #js {:timeout 2000})))
+                    (js-await (-> (expect no-conn-msg)
+                                  (.toBeVisible)))
+                    (js/console.log "Connection removed from UI after page reload")))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
 ;; =============================================================================
 ;; Error Assertion Test - Verify No Uncaught Errors
 ;; =============================================================================
