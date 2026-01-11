@@ -217,4 +217,21 @@
       (cond-> {:uf/db new-state}
         (seq dxs) (assoc :uf/dxs dxs)))
 
+    :editor/ax.new-script
+    ;; Reset editor to default script state, preserving results
+    (let [manifest (try (mp/extract-manifest default-script) (catch :default _ nil))
+          hints (build-manifest-hints manifest)
+          dxs (build-manifest-dxs manifest)]
+      {:uf/db (assoc state
+                     :panel/code default-script
+                     :panel/script-id nil
+                     :panel/original-name nil
+                     :panel/script-name ""
+                     :panel/script-match ""
+                     :panel/script-description ""
+                     :panel/save-status nil
+                     :panel/manifest-hints hints)
+       :uf/fxs [[:editor/fx.clear-persisted-state]]
+       :uf/dxs dxs})
+
     :uf/unhandled-ax))

@@ -294,12 +294,43 @@ body {
 }
 
 .save-script-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.save-script-header .header-title {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin-bottom: 10px;
+}
+
+.btn-new-script {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-new-script:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-new-script svg {
+  width: 14px;
+  height: 14px;
 }
 
 .save-script-form {

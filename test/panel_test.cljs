@@ -478,3 +478,67 @@
                       ;; Empty code should trigger default script
                       (-> (expect (:panel/code new-state))
                           (.toContain "hello_world.cljs")))))))
+
+;; ============================================================
+;; New Script action tests
+;; ============================================================
+
+(describe "panel new script action"
+          (fn []
+            (test ":editor/ax.new-script resets to default script"
+                  (fn []
+                    (let [state-with-script (-> initial-state
+                                                (assoc :panel/code "(println \"custom code\")")
+                                                (assoc :panel/script-name "custom_script.cljs")
+                                                (assoc :panel/script-match "*://custom.com/*")
+                                                (assoc :panel/script-description "Custom description")
+                                                (assoc :panel/script-id "script-123")
+                                                (assoc :panel/original-name "custom_script.cljs")
+                                                (assoc :panel/save-status {:type :success :text "Saved"}))
+                          result (panel-actions/handle-action state-with-script uf-data [:editor/ax.new-script])
+                          new-state (:uf/db result)]
+                      ;; Code should be reset to default script
+                      (-> (expect (:panel/code new-state))
+                          (.toContain "hello_world.cljs"))
+                      (-> (expect (:panel/code new-state))
+                          (.toContain "(ns hello-world)"))
+                      ;; Script ID should be cleared
+                      (-> (expect (:panel/script-id new-state))
+                          (.toBeNull))
+                      ;; Original name should be cleared
+                      (-> (expect (:panel/original-name new-state))
+                          (.toBeNull))
+                      ;; Save status should be cleared
+                      (-> (expect (:panel/save-status new-state))
+                          (.toBeNull)))))
+
+            (test ":editor/ax.new-script clears persisted state"
+                  (fn []
+                    (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.new-script])
+                          fxs (:uf/fxs result)]
+                      ;; Should trigger clear-persisted-state effect
+                      (-> (expect (some #(= (first %) :editor/fx.clear-persisted-state) fxs))
+                          (.toBeTruthy)))))
+
+            (test ":editor/ax.new-script returns dxs to parse default manifest"
+                  (fn []
+                    (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.new-script])
+                          dxs (:uf/dxs result)]
+                      ;; Should have dxs to set fields from default manifest
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
+                          (.toBeTruthy))
+                      (-> (expect (some #(= (first %) :editor/ax.set-script-match) dxs))
+                          (.toBeTruthy)))))
+
+            (test ":editor/ax.new-script preserves results array"
+                  (fn []
+                    (let [state-with-results (-> initial-state
+                                                 (assoc :panel/results [{:type :input :text "(+ 1 2)"}
+                                                                        {:type :output :text "3"}]))
+                          result (panel-actions/handle-action state-with-results uf-data [:editor/ax.new-script])
+                          new-state (:uf/db result)]
+                      ;; Results should be preserved
+                      (-> (expect (count (:panel/results new-state)))
+                          (.toBe 2))
+                      (-> (expect (:type (first (:panel/results new-state))))
+                          (.toBe :input)))))))

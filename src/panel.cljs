@@ -336,7 +336,20 @@
    [:pre.manifest-example
     "{:epupp/script-name \"My Script\"\n :epupp/site-match \"https://example.com/*\"\n :epupp/description \"What it does\"}\n\n(ns my-script)\n; your code..."]])
 
-
+(defn- new-script-button
+  "Button to clear editor and start a new script. Shows confirmation if code has changed."
+  [{:keys [panel/code]}]
+  (let [has-changes? (and (seq code)
+                          (not= code panel-actions/default-script))]
+    [:button.btn-new-script
+     {:on-click (fn [_e]
+                  (if has-changes?
+                    (when (js/confirm "Clear current script and start fresh?")
+                      (dispatch! [[:editor/ax.new-script]]))
+                    (dispatch! [[:editor/ax.new-script]])))
+      :title "Start a new script"}
+     [icons/plus {:size 14}]
+     "New"]))
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
                                    panel/code panel/save-status panel/script-id panel/original-name
@@ -379,7 +392,9 @@
                  "document-idle"
                  raw-run-at)]
     [:div.save-script-section
-     [:div.save-script-header (if script-id "Edit Userscript" "Save as Userscript")]
+     [:div.save-script-header
+      [:span.header-title (if script-id "Edit Userscript" "Save as Userscript")]
+      [new-script-button _state]]
 
      (if has-manifest?
        ;; Manifest-driven: property table display
@@ -471,9 +486,9 @@
   [:div.panel-root
    [panel-header state]
    [:div.panel-content
-    ;; Debug info for tests (only in test mode)
+    ;; Debug info for tests (hidden but queryable by E2E tests)
     (when (test-logger/test-mode?)
-      [:div#debug-info {:style {:font-size "10px" :color "#888" :margin-bottom "5px"}}
+      [:div#debug-info {:style {:position "absolute" :left "-9999px"}}
        "hostname: " (:panel/current-hostname state)
        " | code-len: " (count (:panel/code state))
        " | script-id: " (or (:panel/script-id state) "nil")])
