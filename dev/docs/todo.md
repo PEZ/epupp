@@ -19,6 +19,6 @@
 * [ ] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab
 * [ ] Badge counter not reliable enough
-* [ ] Editing array matches doesn't work/is unclear
-* [ ] Consider moving all metadata to the manifest
+* [x] Editing array matches doesn't work/is unclear
+* [x] Consider moving all metadata to the manifest
 * [ ] Undo doesn't work in editor
