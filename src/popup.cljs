@@ -7,6 +7,7 @@
             [script-utils :as script-utils]
             [popup-utils :as popup-utils]
             [popup-actions :as popup-actions]
+            [log :as log]
             [view-elements :as view-elements]
             [test-logger :as test-logger]))
 
@@ -160,7 +161,7 @@
           (when status
             (let [has-scittle (.-hasScittle status)
                   has-bridge (.-hasWsBridge status)]
-              (js/console.log "[Check Status] hasScittle:" has-scittle "hasWsBridge:" has-bridge)
+              (log/info "Popup" nil "hasScittle:" has-scittle "hasWsBridge:" has-bridge)
               (when (and has-scittle has-bridge)
                 (dispatch [[:db/ax.assoc
                             :ui/has-connected true
@@ -666,7 +667,7 @@
             [popup-ui @!state]))
 
 (defn init! []
-  (js/console.log "Epupp popup init!")
+  (log/info "Popup" nil "Init!")
   ;; Install global error handlers for test mode
   (test-logger/install-global-error-handlers! "popup" js/window)
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
@@ -685,7 +686,7 @@
               [:popup/ax.load-auto-connect-setting]]))
 
 ;; Start the app when DOM is ready
-(js/console.log "Popup script loaded, readyState:" js/document.readyState)
+(log/info "Popup" nil "Script loaded, readyState:" js/document.readyState)
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
   (init!))

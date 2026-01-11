@@ -8,11 +8,12 @@
             [registration :as registration]
             [manifest-parser :as manifest-parser]
             [test-logger :as test-logger]
-            [background-utils :as bg-utils]))
+            [background-utils :as bg-utils]
+            [log :as log]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
-(js/console.log "[Epupp Background] Service worker started")
+(log/info "Background" nil "Service worker started")
 
 ;; Install global error handlers early so we catch all errors in test mode
 (test-logger/install-global-error-handlers! "background" js/self)
@@ -46,13 +47,13 @@
               (js-await (registration/sync-registrations!))
               ;; Prune stale icon states from previous session
               (js-await (prune-icon-states!))
-              (js/console.log "[Background] Initialization complete")
+              (log/info "Background" nil "Initialization complete")
               ;; Log test event for E2E tests
               (js-await (test-logger/log-event! "EXTENSION_STARTED"
                                                 {:version (.-version (.getManifest js/chrome.runtime))}))
               true
               (catch :default err
-                (js/console.error "[Background] Initialization failed:" err)
+                (log/error "Background" nil "Initialization failed:" err)
                 ;; Reset so next call can retry
                 (reset! !init-promise nil)
                 (throw err)))]
@@ -85,7 +86,7 @@
     (try
       (.close ws)
       (catch :default e
-        (js/console.error "[Background] Error closing WebSocket:" e))))
+        (log/error "Background" "WS" "Error closing WebSocket:" e))))
   (swap! !state update :ws/connections dissoc tab-id))
 
 (defn send-to-tab
@@ -101,14 +102,14 @@
   (close-ws! tab-id)
 
   (let [ws-url (str "ws://localhost:" port "/_nrepl")]
-    (js/console.log "[Background] Connecting to:" ws-url "for tab:" tab-id)
+    (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
     (try
       (let [ws (js/WebSocket. ws-url)]
         (swap! !state assoc-in [:ws/connections tab-id] ws)
 
         (set! (.-onopen ws)
               (fn []
-                (js/console.log "[Background] WebSocket connected for tab:" tab-id)
+                (log/info "Background" "WS" "Connected for tab:" tab-id)
                 (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
                 (update-icon-for-tab! tab-id :connected)
                 (send-to-tab tab-id {:type "ws-open"})))
@@ -120,13 +121,13 @@
 
         (set! (.-onerror ws)
               (fn [error]
-                (js/console.error "[Background] WebSocket error for tab:" tab-id error)
+                (log/error "Background" "WS" "Error for tab:" tab-id error)
                 (send-to-tab tab-id {:type "ws-error"
                                      :error (str "WebSocket error connecting to " ws-url)})))
 
         (set! (.-onclose ws)
               (fn [event]
-                (js/console.log "[Background] WebSocket closed for tab:" tab-id)
+                (log/info "Background" "WS" "Closed for tab:" tab-id)
                 (send-to-tab tab-id {:type "ws-close"
                                      :code (.-code event)
                                      :reason (.-reason event)})
@@ -134,7 +135,7 @@
                 ;; When WS closes, go back to injected state (Scittle still loaded)
                 (update-icon-for-tab! tab-id :injected))))
       (catch :default e
-        (js/console.error "[Background] Failed to create WebSocket:" e)
+        (log/error "Background" "WS" "Failed to create WebSocket:" e)
         (send-to-tab tab-id {:type "ws-error"
                              :error (str e)})))))
 
@@ -307,18 +308,18 @@
   [tab-id file]
   (js/Promise.
    (fn [resolve reject]
-     (js/console.log "[inject-content-script] Injecting" file "into tab" tab-id)
+     (log/info "Background" "Inject" "Injecting" file "into tab" tab-id)
      (js/chrome.scripting.executeScript
       #js {:target #js {:tabId tab-id}
            :files #js [file]}
       (fn [results]
-        (js/console.log "[inject-content-script] executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
+        (log/info "Background" "Inject" "executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
         (if js/chrome.runtime.lastError
           (do
-            (js/console.error "[inject-content-script] Error:" (.-message js/chrome.runtime.lastError))
+            (log/error "Background" "Inject" "Error:" (.-message js/chrome.runtime.lastError))
             (reject (js/Error. (.-message js/chrome.runtime.lastError))))
           (do
-            (js/console.log "[inject-content-script] Success, results:" (js/JSON.stringify results))
+            (log/info "Background" "Inject" "Success, results:" (js/JSON.stringify results))
             (resolve true))))))))
 
 ;; Page-context functions (pure JS, no Squint runtime)
@@ -431,7 +432,7 @@
                       ;; Success - bridge responded
                       (and response (.-ready response))
                       (do
-                        (js/console.log "[Background] Content bridge ready for tab:" tab-id)
+                        (log/info "Background" "Bridge" "Content bridge ready for tab:" tab-id)
                         (resolve true))
 
                       ;; Timeout
@@ -493,7 +494,7 @@
         ;; Trigger Scittle to evaluate them
         (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url})))
       (catch :default err
-        (js/console.error "[Userscript] Injection error:" err)
+        (log/error "Background" "Inject" "Userscript injection error:" err)
         (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_ERROR" {:error (.-message err)}))))))
 
 (defn ws-fail-message []
@@ -801,7 +802,7 @@
                                                  :scriptId (:script/id saved)
                                                  :scriptName (:script/name saved)}))
                            (catch :default err
-                             (js/console.error "[Install] Install failed:" err)
+                             (log/error "Background" "Install" "Install failed:" err)
                              (send-response #js {:success false :error (.-message err)})))))
                       true)
 
@@ -832,7 +833,7 @@
                       true)  ; Return true to indicate async response
 
                     ;; Unknown
-                    (do (js/console.log "[Background] Unknown message type:" msg-type)
+                    (do (log/info "Background" nil "Unknown message type:" msg-type)
                         false)))))
 
 (defn request-approval!
@@ -849,7 +850,7 @@
               :script/code (:script/code script)
               :approval/pattern pattern
               :approval/tab-id tab-id})
-      (js/console.log "[Approval] Pending approval for" (:script/name script) "on pattern" pattern)))
+      (log/info "Background" "Approval" "Pending approval for" (:script/name script) "on pattern" pattern)))
   ;; Always update badge from source of truth
   (update-badge-for-tab! tab-id))
 
@@ -872,7 +873,7 @@
                                        :all-scripts-count (count all-scripts)
                                        :idle-scripts-count (count idle-scripts)}))
     (when (seq idle-scripts)
-      (js/console.log "[Auto-inject] Found" (count idle-scripts) "document-idle scripts for" url)
+      (log/info "Background" "Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
       (let [script-contexts (map (fn [script]
                                    (let [pattern (url-matching/get-matching-pattern url script)]
                                      {:script script
@@ -890,16 +891,16 @@
                                                                (select-keys [:script/name :script/approved-patterns]))
                                                           script-contexts)}))
         (when (seq approved)
-          (js/console.log "[Auto-inject] Executing" (count approved) "approved scripts")
+          (log/info "Background" "Inject" "Executing" (count approved) "approved scripts")
           (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count approved)}))
           (try
             (js-await (ensure-scittle! tab-id))
             (js-await (execute-scripts! tab-id (map :script approved)))
             (catch :default err
-              (js/console.error "[Auto-inject] Failed:" (.-message err))
+              (log/error "Background" "Inject" "Failed:" (.-message err))
               (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))
         (doseq [{:keys [script pattern]} unapproved]
-          (js/console.log "[Auto-inject] Requesting approval for" (:script/name script))
+          (log/info "Background" "Approval" "Requesting approval for" (:script/name script))
           (request-approval! script pattern tab-id url))))))
 
 (defn ^:async handle-navigation!
@@ -918,23 +919,23 @@
     ;; Check auto-connect setting
     (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))]
       (when enabled?
-        (js/console.log "[Auto-connect] REPL auto-connect enabled, connecting to tab:" tab-id)
+        (log/info "Background" "AutoConnect" "REPL auto-connect enabled, connecting to tab:" tab-id)
         (let [ws-port (js-await (get-saved-ws-port tab-id))]
           (try
             (js-await (connect-tab! tab-id ws-port))
-            (js/console.log "[Auto-connect] Successfully connected REPL to tab:" tab-id)
+            (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
             (catch :default err
-              (js/console.warn "[Auto-connect] Failed to connect REPL:" (.-message err)))))))
+              (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err)))))))
 
     ;; Continue with normal userscript processing
     (js-await (process-navigation! tab-id url))
     (catch :default err
-      (js/console.error "[Auto-inject] Navigation handler error:" err))))
+      (log/error "Background" "Inject" "Navigation handler error:" err))))
 
 ;; Clean up when tab is closed
 (.addListener js/chrome.tabs.onRemoved
               (fn [tab-id _remove-info]
-                (js/console.log "[Background] Tab closed, cleaning up:" tab-id)
+                (log/info "Background" nil "Tab closed, cleaning up:" tab-id)
                 (when (get-ws tab-id)
                   (close-ws! tab-id))
                 (clear-icon-state! tab-id)))
@@ -978,22 +979,22 @@
 (.addListener js/chrome.storage.onChanged
               (fn [changes area]
                 (when (and (= area "local") (.-scripts changes))
-                  (js/console.log "[Background] Scripts changed, syncing registrations")
+                  (log/info "Background" nil "Scripts changed, syncing registrations")
                   ((^:async fn []
                      (js-await (ensure-initialized!))
                      (js-await (registration/sync-registrations!)))))))
 
 (.addListener js/chrome.runtime.onInstalled
               (fn [details]
-                (js/console.log "[Background] onInstalled:" (.-reason details))
+                (log/info "Background" nil "onInstalled:" (.-reason details))
                 (ensure-initialized!)))
 
 (.addListener js/chrome.runtime.onStartup
               (fn []
-                (js/console.log "[Background] onStartup")
+                (log/info "Background" nil "onStartup")
                 (ensure-initialized!)))
 
 ;; Start initialization immediately for service worker wake scenarios
 (ensure-initialized!)
 
-(js/console.log "[Epupp Background] Listeners registered")
+(log/info "Background" nil "Listeners registered")

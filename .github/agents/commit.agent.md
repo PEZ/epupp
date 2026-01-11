@@ -46,7 +46,7 @@ You are a git commit specialist and zsh expert. Your job is to commit changed fi
 - **Include version bumps with related code** - manifest.json version bumps should be part of the feature/fix commit, not a separate commit
 - **Validate** - before calling the task done, ensure all changed files are committed appropriately
 - **Avoid shell interpolation issues** - use single quotes in zsh commands to prevent variable expansion problems
-- **Add and commit in one step** - use `git add` (possibly with `-p`) followed by `git commit -m 'message'` for each logical unit
+- **Add and commit in one step** - use `git add` (possibly with `-p`) appended by `&& git commit -m 'message'` for each logical unit
 
 ## Examples
 

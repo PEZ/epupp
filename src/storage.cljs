@@ -5,7 +5,8 @@
 
    Note: In Squint, keywords become strings and maps are JS objects.
    We use namespaced string keys like \"script/id\" for consistency."
-  (:require [manifest-parser :as mp]
+  (:require [log :as log]
+            [manifest-parser :as mp]
             [script-utils :as script-utils]))
 
 ;; ============================================================
@@ -47,7 +48,7 @@
     (reset! !db {:storage/scripts scripts
                  :storage/granted-origins granted-origins
                  :storage/user-allowed-origins user-allowed-origins})
-    (js/console.log "[Storage] Loaded" (count scripts) "scripts")
+    (log/info "Storage" nil "Loaded" (count scripts) "scripts")
     @!db))
 
 (defn init!
@@ -72,7 +73,7 @@
                                   (vec (.-newValue user-origins-change))
                                   [])]
            (swap! !db assoc :storage/user-allowed-origins new-user-origins)))
-       (js/console.log "[Storage] Updated from external change"))))
+       (log/info "Storage" nil "Updated from external change"))))
   ;; Return promise from load! so caller can await initialization
   (load!))
 
@@ -178,7 +179,7 @@
    Logs warning and returns nil if script doesn't exist."
   [script-id pattern]
   (if-not (get-script script-id)
-    (js/console.warn "[Storage] approve-pattern! called for non-existent script:" script-id)
+    (log/warn "Storage" nil "approve-pattern! called for non-existent script:" script-id)
     (do
       (swap! !db update :storage/scripts
              (fn [scripts]
@@ -275,9 +276,9 @@
                          :script/code code
                          :script/enabled true
                          :script/approved-patterns ["https://gist.github.com/*"]})
-          (js/console.log "[Storage] Installed/updated built-in gist installer")))
+          (log/info "Storage" nil "Installed/updated built-in gist installer")))
       (catch :default err
-        (js/console.error "[Storage] Failed to load gist installer:" err)))))
+        (log/error "Storage" nil "Failed to load gist installer:" err)))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing

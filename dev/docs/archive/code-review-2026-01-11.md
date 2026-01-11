@@ -25,7 +25,7 @@ Before reporting a task as done:
 | Critical | 0 | - |
 | High | 0 | All resolved |
 | Medium | 0 | All resolved |
-| Low | 1 | Consistency (deferred) |
+| Low | 0 | All resolved |
 
 ## Resolved Issues
 
@@ -166,19 +166,136 @@ description (let [d (aget parsed "epupp/description")]
 
 ---
 
-## Low Severity Issues (Deferred)
+## Low Severity Issues (Resolved)
 
-### 8. Inconsistent Error Message Prefixes
+### 8. Inconsistent Error Message Prefixes - FIXED
 
 **File:** Multiple files
 **Category:** Consistency
 **Severity:** Low
+**Status:** Resolved January 11, 2026
 
-**Description:** Error messages use different prefixes: `[Background]`, `[Storage]`, `[Panel]`, `[Auto-inject]`, `[Userscript]`. This makes grep/searching harder.
+**Original problem:** Console logging prefixes were inconsistent across modules (`[Background]`, `[Bridge]`, `[Check Status]`, `[Epupp]`, etc.), making filtering and searching harder.
 
-**Recommendation:** Standardize on `[ModuleName] ContextInfo: Details` format.
+**Fix:** Created `src/log.cljs` module with helper functions (`log/info`, `log/warn`, `log/error`) that produce consistent prefixes in format `[Epupp:Module]` or `[Epupp:Module:Context]`.
 
-**Status:** Deferred - Low priority cosmetic issue requiring changes across multiple files.
+**Files updated:**
+
+| File | Status | Notes |
+|------|--------|-------|
+| `src/log.cljs` | Created | Helper module |
+| `src/background.cljs` | Done | Uses `log/*` functions |
+| `src/storage.cljs` | Done | Uses `log/*` functions |
+| `src/panel.cljs` | Done | Uses `log/*` functions |
+| `src/content_bridge.cljs` | Done | Uses `log/*` functions |
+| `src/ws_bridge.cljs` | Done | Manual prefix update (MAIN world, can't use module) |
+| `src/popup.cljs` | Done | Uses `log/*` functions |
+| `src/devtools.cljs` | Done | Uses `log/*` functions |
+| `src/panel_actions.cljs` | Skipped | Intentional demo log output |
+| `src/event_handler.cljs` | Skipped | Generic fx handler |
+| `src/test_logger.cljs` | Skipped | Test infrastructure |
+
+All logging now uses consistent `[Epupp:Module]` format for easy filtering with `grep "[Epupp:"`.
+
+---
+
+## Logging System Design
+
+Epupp uses two logging systems with distinct purposes:
+
+### 1. Console Logging (Human-readable)
+
+For developer debugging via browser DevTools console.
+
+**Standard Format:** `[Epupp:Module]` or `[Epupp:Module:Context]`
+
+| Module | Context | Example |
+|--------|---------|---------|
+| `Background` | (none) | `[Epupp:Background] Initialization complete` |
+| `Background` | `WS` | `[Epupp:Background:WS] Connected for tab: 123` |
+| `Background` | `Inject` | `[Epupp:Background:Inject] Executing 2 approved scripts` |
+| `Storage` | (none) | `[Epupp:Storage] Loaded 5 scripts` |
+| `Panel` | (none) | `[Epupp:Panel] Initializing...` |
+| `Popup` | (none) | `[Epupp:Popup] Init!` |
+| `Bridge` | (none) | `[Epupp:Bridge] Content script loaded` |
+| `Bridge` | `WS` | `[Epupp:Bridge:WS] WebSocket connected` |
+| `WsBridge` | (none) | `[Epupp:WsBridge] Installing WebSocket bridge` |
+
+**Design Principles:**
+- All prefixes start with `Epupp:` for easy filtering (`grep "\[Epupp:"`)
+- Module name matches the source file/namespace
+- Context is optional, for logical sub-areas within a module
+- No spaces in prefix (avoids `[Check Status]` style)
+
+**Current → Proposed Mapping:**
+
+| Current | Proposed |
+|---------|----------|
+| `[Background]` | `[Epupp:Background]` |
+| `[Epupp Background]` | `[Epupp:Background]` |
+| `[Auto-inject]` | `[Epupp:Background:Inject]` |
+| `[Userscript]` | `[Epupp:Background:Inject]` |
+| `[Approval]` | `[Epupp:Background:Approval]` |
+| `[Install]` | `[Epupp:Background:Install]` |
+| `[Storage]` | `[Epupp:Storage]` |
+| `[Panel]` | `[Epupp:Panel]` |
+| `[Check Status]` | `[Epupp:Popup]` |
+| `[Bridge]` | `[Epupp:Bridge]` |
+| `[Epupp Bridge]` | `[Epupp:Bridge]` |
+| `[Epupp]` | `[Epupp:WsBridge]` |
+
+### 2. Test Logger (Structured Events)
+
+For E2E test assertions via `chrome.storage.local`. Already consistent.
+
+**Event Format:**
+```javascript
+{event: "SCREAMING_SNAKE_CASE", ts: Date.now(), perf: performance.now(), data: {...}}
+```
+
+**Naming Convention:** `VERB_NOUN` or `NOUN_VERB` in `SCREAMING_SNAKE_CASE`
+
+**Current Events (from architecture.md):**
+
+| Event | Module | Purpose |
+|-------|--------|---------|
+| `EXTENSION_STARTED` | background | Baseline timing |
+| `SCITTLE_LOADED` | background | Load performance |
+| `SCRIPT_INJECTED` | background | Injection tracking |
+| `BRIDGE_READY_CONFIRMED` | background | Bridge setup overhead |
+| `WS_CONNECTED` | background | REPL connection tracking |
+| `NAVIGATION_STARTED` | background | Auto-injection pipeline |
+| `NAVIGATION_PROCESSED` | background | Script matching diagnostics |
+| `BRIDGE_READY` | content_bridge | Bridge initialization |
+| `PANEL_RESTORE_START` | panel | Panel state restoration |
+| `ICON_STATE_CHANGED` | background | Icon state transitions |
+| `UNCAUGHT_ERROR` | test_logger | Global error handler |
+| `UNHANDLED_REJECTION` | test_logger | Promise rejection handler |
+
+**When to Add Test Events:**
+- Observable state transitions (connected, loaded, injected)
+- Error conditions that tests should verify
+- Timing-critical operations for performance assertions
+- NOT for routine debug logging (use console for that)
+
+### Implementation Notes
+
+**For future implementation:**
+
+1. Update all `js/console.log/warn/error` calls to use new prefix format
+2. Consider a logging helper function for consistency:
+   ```clojure
+   (defn log [level module context & args]
+     (let [prefix (if context
+                    (str "[Epupp:" module ":" context "]")
+                    (str "[Epupp:" module "]"))]
+       (apply (case level
+                :log js/console.log
+                :warn js/console.warn
+                :error js/console.error)
+              prefix args)))
+   ```
+3. Changes should be batched per-file to minimize churn
 
 ---
 

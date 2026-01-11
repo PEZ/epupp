@@ -5,6 +5,7 @@
             [reagami :as r]
             [event-handler :as event-handler]
             [icons :as icons]
+            [log :as log]
             [panel-actions :as panel-actions]
             [script-utils :as script-utils]
             [storage :as storage]
@@ -59,8 +60,8 @@
        (js-obj key state-to-save)
        (fn []
          (when js/chrome.runtime.lastError
-           (js/console.error "[Panel] Failed to save state:"
-                             (.-message js/chrome.runtime.lastError))))))))
+           (log/error "Panel" nil "Failed to save state:"
+                      (.-message js/chrome.runtime.lastError))))))))
 
 (defn- restore-panel-state!
   [dispatch callback]
@@ -521,11 +522,11 @@
         init-version (:panel/init-version @!state)]
     (when (or (nil? current-version)  ; Context invalidated
               (and init-version (not= current-version init-version)))
-      (js/console.log "[Panel] Extension updated or context invalidated")
+      (log/info "Panel" nil "Extension updated or context invalidated")
       (swap! !state assoc :panel/needs-refresh? true))))
 
 (defn on-page-navigated [_url]
-  (js/console.log "[Panel] Page navigated")
+  (log/info "Panel" nil "Page navigated")
   (check-version!)
   ;; Reset state for the new page
   (swap! !state assoc
@@ -536,7 +537,7 @@
   (perform-effect! dispatch! [:editor/fx.restore-panel-state nil]))
 
 (defn init! []
-  (js/console.log "[Panel] Initializing...")
+  (log/info "Panel" nil "Initializing...")
   ;; Install global error handlers for test mode
   (test-logger/install-global-error-handlers! "panel" js/window)
   ;; Expose state for test debugging
@@ -551,7 +552,7 @@
                                 ((^:async fn []
                                    ;; Load existing scripts from storage before rendering
                                    (js-await (storage/load!))
-                                   (js/console.log "[Panel] Storage loaded, version:" (get-extension-version))
+                                   (log/info "Panel" nil "Storage loaded, version:" (get-extension-version))
                                    ;; Watch for render
                                    (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
                                    ;; Watch for state changes to persist editor state

@@ -22,3 +22,4 @@
 * [x] Editing array matches doesn't work/is unclear
 * [x] Consider moving all metadata to the manifest
 * [ ] Undo doesn't work in editor
+* [ ] Change to plain data for the manifest for installer scripts

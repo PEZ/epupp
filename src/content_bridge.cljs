@@ -17,7 +17,8 @@
 (ns content-bridge
   "Content script bridge for WebSocket connections.
    Runs in ISOLATED world, relays messages between page (MAIN) and background service worker."
-  (:require [test-logger :as test-logger]))
+  (:require [log :as log]
+            [test-logger :as test-logger]))
 
 (def !state (atom {:bridge/connected? false
                    :bridge/keepalive-interval nil}))
@@ -52,7 +53,7 @@
     true
     (catch :default e
       (when (re-find #"Extension context invalidated" (.-message e))
-        (js/console.log "[Bridge] Extension context invalidated, stopping keepalive")
+        (log/info "Bridge" nil "Extension context invalidated, stopping keepalive")
         (stop-keepalive!)
         (set-connected! false))
       false)))
@@ -76,7 +77,7 @@
         (case (.-type msg)
           "ws-connect"
           (do
-            (js/console.log "[Bridge] Requesting connection to port:" (.-port msg))
+            (log/info "Bridge" nil "Requesting connection to port:" (.-port msg))
             (set-connected! true)
             (send-message-safe!
              #js {:type "ws-connect"
@@ -95,7 +96,7 @@
         (case (.-type msg)
           "install-userscript"
           (do
-            (js/console.log "[Bridge] Forwarding install request to background")
+            (log/info "Bridge" nil "Forwarding install request to background")
             ;; This one needs callback, wrap in try/catch
             (try
               (js/chrome.runtime.sendMessage
@@ -112,7 +113,7 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (js/console.log "[Bridge] Extension context invalidated")
+                  (log/info "Bridge" nil "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
@@ -125,14 +126,14 @@
   (let [script (js/document.createElement "script")]
     (set! (.-src script) url)
     (.appendChild js/document.head script)
-    (js/console.log "[Bridge] Injected script:" url)))
+    (log/info "Bridge" nil "Injected script:" url)))
 
 (defn- clear-old-userscripts!
   "Remove previously injected userscript tags to prevent re-execution on navigation."
   []
   (let [old-scripts (js/document.querySelectorAll "script[type='application/x-scittle'][id^='userscript-']")]
     (when (pos? (.-length old-scripts))
-      (js/console.log "[Bridge] Clearing" (.-length old-scripts) "old userscript tags")
+      (log/info "Bridge" nil "Clearing" (.-length old-scripts) "old userscript tags")
       (.forEach old-scripts (fn [script] (.remove script))))))
 
 (defn- inject-userscript!
@@ -143,7 +144,7 @@
     (set! (.-id script) id)
     (set! (.-textContent script) code)
     (.appendChild js/document.head script)
-    (js/console.log "[Bridge] Injected userscript:" id)))
+    (log/info "Bridge" nil "Injected userscript:" id)))
 
 (defn- handle-runtime-message [message _sender send-response]
   (let [msg-type (.-type message)]
@@ -151,7 +152,7 @@
       ;; Readiness check - background pings to confirm bridge is ready
       "bridge-ping"
       (do
-        (js/console.log "[Bridge] Responding to ping")
+        (log/info "Bridge" nil "Responding to ping")
         (send-response #js {:ready true})
         ;; Return true to keep sendResponse valid for async use
         true)
@@ -178,7 +179,7 @@
       ;; WebSocket relay messages - no response needed
       "ws-open"
       (do
-        (js/console.log "[Bridge] WebSocket connected")
+        (log/info "Bridge" nil "WebSocket connected")
         (start-keepalive!)
         (.postMessage js/window
                       #js {:source "epupp-bridge"
@@ -197,7 +198,7 @@
 
       "ws-error"
       (do
-        (js/console.error "[Bridge] WebSocket error:" (.-error message))
+        (log/error "Bridge" nil "WebSocket error:" (.-error message))
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
@@ -209,7 +210,7 @@
 
       "ws-close"
       (do
-        (js/console.log "[Bridge] WebSocket closed")
+        (log/info "Bridge" nil "WebSocket closed")
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
@@ -226,7 +227,7 @@
   (set! js/window.__browserJackInBridge true)
   ;; Install error handlers for test mode (now that we have EXTENSION_CONFIG)
   (test-logger/install-global-error-handlers! "content-bridge" js/window)
-  (js/console.log "[Epupp Bridge] Content script loaded")
+  (log/info "Bridge" nil "Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
   (.postMessage js/window
