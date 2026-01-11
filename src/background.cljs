@@ -805,6 +805,11 @@
                              (send-response #js {:success false :error (.-message err)})))))
                       true)
 
+                    "disconnect-tab"
+                    (let [target-tab-id (.-tabId message)]
+                      (close-ws! target-tab-id)
+                      false)
+
                     "e2e/find-tab-id"
                     (if (.-dev config)
                       (let [url-pattern (.-urlPattern message)]

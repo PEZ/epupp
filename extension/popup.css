@@ -675,7 +675,8 @@ button#connect:active {
   text-overflow: ellipsis;
 }
 
-.reveal-tab-btn {
+.reveal-tab-btn,
+.disconnect-tab-btn {
   padding: 4px 6px;
   background: transparent;
   border: none;
@@ -692,6 +693,17 @@ button#connect:active {
 .reveal-tab-btn:hover {
   background: var(--edit-hover-bg);
   color: var(--clojure-blue);
+}
+
+.disconnect-tab-btn:hover {
+  background: var(--delete-hover-bg);
+  color: var(--delete-hover-color);
+}
+
+.connected-tab-item.current-tab {
+  font-weight: 500;
+  border-left: 3px solid var(--clojure-blue);
+  padding-left: 9px; /* Compensate for border */
 }
 
 .no-connections {

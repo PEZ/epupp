@@ -211,3 +211,16 @@
           :class class}
     [:path {:d "M1.5 1H6v1H2v12h12v-4h1v4.5l-.5.5h-13l-.5-.5v-13l.5-.5z"}]
     [:path {:d "M15 1.5V8h-1V2.707L7.243 9.465l-.707-.708L13.293 2H8V1h6.5l.5.5z"}]]))
+
+(defn debug-disconnect
+  "Disconnect / unplug icon - Codicon"
+  ([] (debug-disconnect {}))
+  ([{:keys [size class] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size :height size
+          :viewBox "0 0 16 16"
+          :fill "currentColor"
+          :class class}
+    [:path {:fill-rule "evenodd"
+            :clip-rule "evenodd"
+            :d "M13.621 3.672l.707.707-1.793 1.793 1.672 1.672-.707.707-1.672-1.672-1.672 1.672-.707-.707 1.672-1.672-1.672-1.672.707-.707 1.672 1.672 1.793-1.793zm-2.379 5.828l1 1v.25a3.75 3.75 0 0 1-3.75 3.75H5.75a.75.75 0 0 1 0-1.5h2.742a2.25 2.25 0 0 0 2.25-2.25V9.5zm-7.05-3.586L3 7.207v1.543a3.25 3.25 0 0 0 3.25 3.25h1.25v1.5H6.25A4.75 4.75 0 0 1 1.5 8.75V6.5l.692-.793 2-2.293z"}]]))

@@ -150,4 +150,8 @@
     (let [[tab-id] args]
       {:uf/fxs [[:popup/fx.reveal-tab tab-id]]})
 
+    :popup/ax.disconnect-tab
+    (let [[tab-id] args]
+      {:uf/fxs [[:popup/fx.disconnect-tab tab-id]]})
+
     :uf/unhandled-ax))

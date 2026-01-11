@@ -18,9 +18,7 @@
 (defonce !state
   (atom {:ports/nrepl "1339"
          :ports/ws "1340"
-         :ui/status nil
          :ui/copy-feedback nil
-         :ui/has-connected false  ; Track if we've connected at least once
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
@@ -29,6 +27,7 @@
          :browser/brave? false
          :scripts/list []         ; All userscripts
          :scripts/current-url nil ; Current tab URL for matching
+         :scripts/current-tab-id nil ; Current tab ID for connection check
          :settings/user-origins []    ; User-added allowed origins
          :settings/new-origin ""      ; Input field for new origin
          :settings/default-origins [] ; Config origins (read-only)
@@ -122,7 +121,6 @@
     (let [[port] args
           tab (js-await (get-active-tab))]
       (try
-        (dispatch [[:db/ax.assoc :ui/status "Connecting..."]])
         (let [resp (js-await
                     (js/Promise.
                      (fn [resolve reject]
@@ -134,39 +132,26 @@
                           (if js/chrome.runtime.lastError
                             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
                             (resolve response)))))))]
-          (if (and resp (.-success resp))
+          (when-not (and resp (.-success resp))
+            ;; Show error feedback if connection failed
             (dispatch [[:db/ax.assoc
-                        :ui/status (str "Connected to ws://localhost:" port)
-                        :ui/has-connected true]])
-            (dispatch [[:db/ax.assoc
-                        :ui/status (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
+                        :ui/copy-feedback (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
         (catch :default err
-          (dispatch [[:db/ax.assoc :ui/status (str "Failed: " (.-message err))]]))))
+          (dispatch [[:db/ax.assoc :ui/copy-feedback (str "Failed: " (.-message err))]]))))
 
     :popup/fx.check-status
-    (let [[ws-port] args
+    (let [[_ws-port] args
           tab (js-await (get-active-tab))]
       (try
-        (let [resp (js-await
-                    (js/Promise.
-                     (fn [resolve reject]
-                       (js/chrome.runtime.sendMessage
-                        #js {:type "check-status"
-                             :tabId (.-id tab)}
-                        (fn [response]
-                          (if js/chrome.runtime.lastError
-                            (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-                            (resolve response)))))))
-              status (when (and resp (.-success resp))
-                       (.-status resp))]
-          (when status
-            (let [has-scittle (.-hasScittle status)
-                  has-bridge (.-hasWsBridge status)]
-              (log/info "Popup" nil "hasScittle:" has-scittle "hasWsBridge:" has-bridge)
-              (when (and has-scittle has-bridge)
-                (dispatch [[:db/ax.assoc
-                            :ui/has-connected true
-                            :ui/status (str "Connected to ws://localhost:" ws-port)]])))))
+        (js/Promise.
+         (fn [resolve reject]
+           (js/chrome.runtime.sendMessage
+            #js {:type "check-status"
+                 :tabId (.-id tab)}
+            (fn [response]
+              (if js/chrome.runtime.lastError
+                (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+                (resolve response))))))
         (catch :default _err
           nil)))
 
@@ -236,7 +221,9 @@
 
     :popup/fx.load-current-url
     (let [tab (js-await (get-active-tab))]
-      (dispatch [[:db/ax.assoc :scripts/current-url (.-url tab)]]))
+      (dispatch [[:db/ax.assoc
+                  :scripts/current-url (.-url tab)
+                  :scripts/current-tab-id (.-id tab)]]))
 
     :popup/fx.evaluate-script
     (let [[script] args
@@ -396,6 +383,13 @@
               (fn [tab]
                 (when-not js/chrome.runtime.lastError
                   (js/chrome.windows.update (.-windowId tab) #js {:focused true}))))))))
+
+    :popup/fx.disconnect-tab
+    (let [[tab-id] args
+          numeric-tab-id (js/parseInt tab-id 10)]
+      (js/chrome.runtime.sendMessage
+       #js {:type "disconnect-tab" :tabId numeric-tab-id}))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -621,58 +615,74 @@
 ;; ============================================================;; Connected Tabs Section
 ;; ============================================================
 
-(defn connected-tab-item [{:keys [tab-id port title]}]
-  [:div.connected-tab-item
+(defn connected-tab-item [{:keys [tab-id port title is-current-tab]}]
+  [:div.connected-tab-item {:class (when is-current-tab "current-tab")}
    [:span.connected-tab-port (str ":" port)]
    [:span.connected-tab-title (or title "Unknown")]
-   [:button.reveal-tab-btn
-    {:on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])
-     :title "Reveal this tab"}
-    [icons/link-external {:size 14}]]])
+   (if is-current-tab
+     [:button.disconnect-tab-btn
+      {:on-click #(dispatch! [[:popup/ax.disconnect-tab tab-id]])
+       :title "Disconnect this tab"}
+      [icons/debug-disconnect {:size 14}]]
+     [:button.reveal-tab-btn
+      {:on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])
+       :title "Reveal this tab"}
+      [icons/link-external {:size 14}]])])
 
-(defn connected-tabs-section [{:keys [repl/connections]}]
+(defn connected-tabs-section [{:keys [repl/connections scripts/current-tab-id]}]
   [:div.connected-tabs-section
    (if (seq connections)
-     [:div.connected-tabs-list
-      (for [{:keys [tab-id] :as conn} connections]
-        ^{:key tab-id}
-        [connected-tab-item conn])]
+     (let [current-tab-id-str (str current-tab-id)
+           ;; Sort with current tab first
+           sorted-connections (sort-by
+                               (fn [{:keys [tab-id]}]
+                                 (if (= tab-id current-tab-id-str) 0 1))
+                               connections)]
+       [:div.connected-tabs-list
+        (for [{:keys [tab-id] :as conn} sorted-connections]
+          ^{:key tab-id}
+          [connected-tab-item (assoc conn :is-current-tab (= tab-id current-tab-id-str))])])
      [:div.no-connections "No REPL connections active"])])
 
 ;; ============================================================;; Main View
 ;; ============================================================
 
-(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/status ui/copy-feedback ui/has-connected] :as state}]
-  [:div
-   [:div.step
-    [:div.step-header "1. Start the browser-nrepl server"]
-    [:div.port-row
-     [port-input {:id "nrepl-port"
-                  :label "nREPL:"
-                  :value nrepl
-                  :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
-     [port-input {:id "ws-port"
-                  :label "WebSocket:"
-                  :value ws
-                  :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
-    [command-box {:command (generate-server-cmd state)
-                  :copy-feedback copy-feedback}]]
+(defn- current-tab-connected?
+  "Check if current tab is in the connections list"
+  [{:keys [repl/connections scripts/current-tab-id]}]
+  (let [current-tab-id-str (str current-tab-id)]
+    (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-   [:div.step
-    [:div.step-header "2. Connect browser to server"]
-    [:div.connect-row
-     [:span.connect-target (str "ws://localhost:" ws)]
-     [:button#connect {:on-click #(dispatch! [[:popup/ax.connect]])}
-      (if has-connected "Reconnect" "Connect")]]
-    (when status
-      [:div#status {:class (popup-utils/status-class status)} status])]
-   [:div.step
-    [:div.step-header "3. Connect editor to browser (via server)"]
-    [:div.connect-row
-     [:span.connect-target (str "nrepl://localhost:" nrepl)]]]
-   [:div.step
-    [:div.step-header "Connected Tabs"]
-    [connected-tabs-section state]]])
+(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback] :as state}]
+  (let [is-connected (current-tab-connected? state)]
+    [:div
+     [:div.step
+      [:div.step-header "1. Start the browser-nrepl server"]
+      [:div.port-row
+       [port-input {:id "nrepl-port"
+                    :label "nREPL:"
+                    :value nrepl
+                    :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
+       [port-input {:id "ws-port"
+                    :label "WebSocket:"
+                    :value ws
+                    :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
+      [command-box {:command (generate-server-cmd state)
+                    :copy-feedback copy-feedback}]]
+
+     [:div.step
+      [:div.step-header "2. Connect browser to server"]
+      [:div.connect-row
+       [:span.connect-target (str "ws://localhost:" ws)]
+       [:button#connect {:on-click #(dispatch! [[:popup/ax.connect]])}
+        (if is-connected "Reconnect" "Connect")]]]
+     [:div.step
+      [:div.step-header "3. Connect editor to browser (via server)"]
+      [:div.connect-row
+       [:span.connect-target (str "nrepl://localhost:" nrepl)]]]
+     [:div.step
+      [:div.step-header "Connected Tabs"]
+      [connected-tabs-section state]]]))
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list

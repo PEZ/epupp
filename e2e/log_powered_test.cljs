@@ -557,7 +557,7 @@
                             (.toContainText "ready")))
               (js/console.log "Test page loaded")
 
-              ;; Open popup 
+              ;; Open popup
               (let [popup (js-await (create-popup-page context ext-id))]
                 (js-await (wait-for-popup-ready popup))
 
@@ -585,7 +585,7 @@
                     ;; Should have exactly 1 connection now
                     (js-await (-> (expect conn-count)
                                   (.toBe 1)))
-                    
+
                     ;; Verify the connection has the tab-id
                     (when (> conn-count 0)
                       (let [conn (aget connections 0)
@@ -614,7 +614,7 @@
               ;; Open popup and check initial state shows "No REPL connections"
               (let [popup (js-await (create-popup-page context ext-id))]
                 (js-await (wait-for-popup-ready popup))
-                
+
                 ;; Initially should show no connections message
                 (let [no-conn-msg (.locator popup ".no-connections")]
                   (js-await (-> (expect no-conn-msg)
