@@ -43,6 +43,20 @@
     (js/clearInterval interval)
     (swap! !state assoc :bridge/keepalive-interval nil)))
 
+(defn- send-message-safe!
+  "Send message to background, catching context invalidated errors.
+   Returns true if message was sent, false if context was invalidated."
+  [message]
+  (try
+    (js/chrome.runtime.sendMessage message)
+    true
+    (catch :default e
+      (when (re-find #"Extension context invalidated" (.-message e))
+        (js/console.log "[Bridge] Extension context invalidated, stopping keepalive")
+        (stop-keepalive!)
+        (set-connected! false))
+      false)))
+
 (defn- start-keepalive!
   "Start sending keepalive pings to background to prevent service worker termination"
   []
@@ -51,7 +65,7 @@
          (js/setInterval
           (fn []
             (when (connected?)
-              (js/chrome.runtime.sendMessage #js {:type "ping"})))
+              (send-message-safe! #js {:type "ping"})))
           5000)))
 
 (defn- handle-page-message [event]
@@ -64,13 +78,13 @@
           (do
             (js/console.log "[Bridge] Requesting connection to port:" (.-port msg))
             (set-connected! true)
-            (js/chrome.runtime.sendMessage
+            (send-message-safe!
              #js {:type "ws-connect"
                   :port (.-port msg)}))
 
           "ws-send"
           (when (connected?)
-            (js/chrome.runtime.sendMessage
+            (send-message-safe!
              #js {:type "ws-send"
                   :data (.-data msg)}))
 
@@ -82,18 +96,25 @@
           "install-userscript"
           (do
             (js/console.log "[Bridge] Forwarding install request to background")
-            (js/chrome.runtime.sendMessage
-             #js {:type "install-userscript"
-                  :manifest (.-manifest msg)
-                  :scriptUrl (.-scriptUrl msg)}
-             (fn [response]
-               ;; Send response back to page
-               (.postMessage js/window
-                             #js {:source "epupp-bridge"
-                                  :type "install-response"
-                                  :success (.-success response)
-                                  :error (.-error response)}
-                             "*"))))
+            ;; This one needs callback, wrap in try/catch
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "install-userscript"
+                    :manifest (.-manifest msg)
+                    :scriptUrl (.-scriptUrl msg)}
+               (fn [response]
+                 ;; Send response back to page
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "install-response"
+                                    :success (.-success response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (js/console.log "[Bridge] Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
 
           nil)))))
 
@@ -203,6 +224,8 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInBridge
   (set! js/window.__browserJackInBridge true)
+  ;; Install error handlers for test mode (now that we have EXTENSION_CONFIG)
+  (test-logger/install-global-error-handlers! "content-bridge" js/window)
   (js/console.log "[Epupp Bridge] Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
