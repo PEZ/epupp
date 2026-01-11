@@ -138,6 +138,8 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | `bb build:test` | Build for testing (dev config, no version bump) |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 
+Note that the test tasks compile source as needed before running tests, so you do not need to build separately before testing.
+
 **Other Commands, for the human (listed here for the AI's awareness only):**
 
 | Command | Purpose | Notes |
