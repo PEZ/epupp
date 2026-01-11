@@ -160,6 +160,21 @@
   (str "script-" (.now js/Date)))
 
 ;; ============================================================
+;; Match pattern normalization
+;; ============================================================
+
+(defn normalize-match-patterns
+  "Normalize match patterns to a vector.
+   Accepts a string (single pattern) or vector of patterns.
+   Returns a vector of pattern strings."
+  [match]
+  (cond
+    (nil? match) []
+    (string? match) [match]
+    (vector? match) match
+    :else (vec match)))
+
+;; ============================================================
 ;; Script name normalization
 ;; ============================================================
 
@@ -198,6 +213,7 @@
            :builtin_script_QMARK_ builtin-script?
            :generate_script_id generate-script-id
            :normalize_script_name normalize-script-name
+           :normalize_match_patterns normalize-match-patterns
            :normalize_run_at normalize-run-at
            :valid_run_at_values valid-run-at-values
            :default_run_at default-run-at})

@@ -62,8 +62,6 @@
   (get-inspected-hostname
    (fn [hostname]
      (let [key (panel-state-key hostname)]
-       ;; Update tracked hostname directly (needed for save-panel-state!)
-       (swap! !state assoc :panel/current-hostname hostname)
        (js/chrome.storage.local.get
         #js [key]
         (fn [result]
@@ -71,11 +69,12 @@
                 code (when saved (.-code saved))
                 script-id (when saved (.-scriptId saved))
                 original-name (when saved (.-scriptName saved))]
-            ;; Dispatch initialize action with saved data (or nil for default)
+            ;; Dispatch initialize action with saved data including hostname
             (dispatch [[:editor/ax.initialize-editor
                         {:code code
                          :script-id script-id
-                         :original-name original-name}]])
+                         :original-name original-name
+                         :hostname hostname}]])
             ;; Call callback after dispatch completes
             (when callback (callback)))))))))
 

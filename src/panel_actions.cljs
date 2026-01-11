@@ -131,9 +131,11 @@
               id (if (and script-id (not name-changed?))
                    script-id
                    (script-utils/generate-script-id))
+              ;; Normalize match to vector (manifest allows string or vector)
+              normalized-match (script-utils/normalize-match-patterns script-match)
               script (cond-> {:script/id id
                               :script/name normalized-name
-                              :script/match script-match
+                              :script/match normalized-match
                               :script/code code
                               :script/enabled true}
                        (seq script-description) (assoc :script/description script-description))
@@ -190,7 +192,7 @@
     {:uf/fxs [[:editor/fx.check-editing-script]]}
 
     :editor/ax.initialize-editor
-    (let [[{:keys [code script-id original-name]}] args
+    (let [[{:keys [code script-id original-name hostname]}] args
           ;; Use default script if no code saved
           effective-code (if (seq code) code default-script)
           ;; Parse manifest from code
@@ -200,7 +202,8 @@
           ;; Build new state - only set script-id/original-name if we have saved code
           new-state (cond-> (assoc state
                                    :panel/code effective-code
-                                   :panel/manifest-hints hints)
+                                   :panel/manifest-hints hints
+                                   :panel/current-hostname hostname)
                       ;; Only set these if restoring existing script (has saved code)
                       (seq code) (assoc :panel/script-id script-id
                                         :panel/original-name original-name))]
