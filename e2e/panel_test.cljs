@@ -745,3 +745,47 @@
             (finally
               (js-await (.close context)))))))
 
+
+;; =============================================================================
+;; Panel User Journey: Undo Functionality
+;; =============================================================================
+
+(test "Panel: undo works in code editor"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")]
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Get the initial value
+              (let [initial-value (js-await (.inputValue textarea))]
+
+                ;; Focus and type a character
+                (js-await (.focus textarea))
+                (js-await (.press (.-keyboard panel) "End"))
+                (js-await (.type (.-keyboard panel) "X"))
+
+                ;; Small delay to let state update propagate
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+
+                ;; Verify value changed
+                (let [after-typing (js-await (.inputValue textarea))]
+                  (js-await (-> (expect after-typing) (.not.toEqual initial-value)))
+
+                  ;; Undo (platform-appropriate: Cmd+Z on Mac, Ctrl+Z on Win/Linux)
+                  (js-await (.press (.-keyboard panel) "ControlOrMeta+z"))
+
+                  ;; Small delay for undo to process
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+
+                  ;; After undo, value should be back to initial
+                  (let [after-undo (js-await (.inputValue textarea))]
+                    (js-await (-> (expect after-undo) (.toEqual initial-value)))))))
+            (finally
+              (js-await (.close context)))))))
+
+
