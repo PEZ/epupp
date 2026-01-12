@@ -32,11 +32,11 @@
                         (test "resolves valid scittle:// URLs to library key"
                               (fn []
                                 (-> (expect (libs/resolve-scittle-url "scittle://pprint.js"))
-                                    (.toBe "pprint"))
+                                    (.toBe "scittle/pprint"))
                                 (-> (expect (libs/resolve-scittle-url "scittle://reagent.js"))
-                                    (.toBe "reagent"))
+                                    (.toBe "scittle/reagent"))
                                 (-> (expect (libs/resolve-scittle-url "scittle://js-interop.js"))
-                                    (.toBe "js-interop"))))
+                                    (.toBe "scittle/js-interop"))))
 
                         (test "returns nil for unknown library"
                               (fn []
@@ -64,53 +64,53 @@
                       (fn []
                         (test "returns single file for standard library"
                               (fn []
-                                (-> (expect (libs/get-library-files "pprint"))
+                                (-> (expect (libs/get-library-files :scittle/pprint))
                                     (.toEqual ["scittle.pprint.js"]))))
 
                         (test "returns multiple files for react"
                               (fn []
-                                (-> (expect (libs/get-library-files "react"))
+                                (-> (expect (libs/get-library-files :scittle/react))
                                     (.toEqual ["react.production.min.js" "react-dom.production.min.js"]))))
 
                         (test "returns nil for unknown library"
                               (fn []
-                                (-> (expect (libs/get-library-files "unknown"))
+                                (-> (expect (libs/get-library-files :scittle/unknown))
                                     (.toBeFalsy))))))
 
             (describe "resolve-dependencies"
                       (fn []
                         (test "returns single library for library with only core dep"
                               (fn []
-                                (-> (expect (libs/resolve-dependencies "pprint"))
-                                    (.toEqual ["pprint"]))))
+                                (-> (expect (libs/resolve-dependencies :scittle/pprint))
+                                    (.toEqual ["scittle/pprint"]))))
 
                         (test "returns library for reagent (React is internal)"
                               (fn []
-                                (-> (expect (libs/resolve-dependencies "reagent"))
-                                    (.toEqual ["reagent"]))))
+                                (-> (expect (libs/resolve-dependencies :scittle/reagent))
+                                    (.toEqual ["scittle/reagent"]))))
 
                         (test "returns transitive deps for re-frame"
                               (fn []
-                                (-> (expect (libs/resolve-dependencies "re-frame"))
-                                    (.toEqual ["reagent" "re-frame"]))))))
+                                (-> (expect (libs/resolve-dependencies :scittle/re-frame))
+                                    (.toEqual ["scittle/reagent" "scittle/re-frame"]))))))
 
             (describe "expand-require"
                       (fn []
                         (test "expands simple library without React"
                               (fn []
                                 (let [result (libs/expand-require "scittle://pprint.js")]
-                                  (-> (expect (:lib result))
-                                      (.toBe "pprint"))
-                                  (-> (expect (:files result))
+                                  (-> (expect (:require/lib result))
+                                      (.toBe "scittle/pprint"))
+                                  (-> (expect (:require/files result))
                                       (.toEqual ["scittle.pprint.js"])))))
 
                         (test "expands library with React dependency"
                               (fn []
                                 (let [result (libs/expand-require "scittle://reagent.js")]
-                                  (-> (expect (:lib result))
-                                      (.toBe "reagent"))
+                                  (-> (expect (:require/lib result))
+                                      (.toBe "scittle/reagent"))
                                   ;; Should include React files first
-                                  (-> (expect (:files result))
+                                  (-> (expect (:require/files result))
                                       (.toEqual ["react.production.min.js"
                                                  "react-dom.production.min.js"
                                                  "scittle.reagent.js"])))))
@@ -118,10 +118,10 @@
                         (test "expands library with transitive dependency"
                               (fn []
                                 (let [result (libs/expand-require "scittle://re-frame.js")]
-                                  (-> (expect (:lib result))
-                                      (.toBe "re-frame"))
+                                  (-> (expect (:require/lib result))
+                                      (.toBe "scittle/re-frame"))
                                   ;; Should include React, then Reagent, then Re-frame
-                                  (-> (expect (:files result))
+                                  (-> (expect (:require/files result))
                                       (.toEqual ["react.production.min.js"
                                                  "react-dom.production.min.js"
                                                  "scittle.reagent.js"
@@ -147,16 +147,16 @@
                         (test "returns sorted list of available libraries"
                               (fn []
                                 (-> (expect (libs/available-libraries))
-                                    (.toEqual ["cljs-ajax" "js-interop" "pprint"
-                                               "promesa" "re-frame" "reagent" "replicant"]))))
+                                    (.toEqual ["scittle/cljs-ajax" "scittle/js-interop" "scittle/pprint"
+                                               "scittle/promesa" "scittle/re-frame" "scittle/reagent" "scittle/replicant"]))))
 
                         (test "does not include internal libraries"
                               (fn []
                                 (let [libs-list (libs/available-libraries)]
                                   (-> (expect libs-list)
-                                      (.not.toContain "core"))
+                                      (.not.toContain "scittle/core"))
                                   (-> (expect libs-list)
-                                      (.not.toContain "react")))))))))
+                                      (.not.toContain "scittle/react")))))))))
 
 (describe "collect-require-files"
           (fn []

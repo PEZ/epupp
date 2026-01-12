@@ -4,27 +4,27 @@
 
 (def library-catalog
   "Catalog of bundled Scittle libraries and their dependencies.
-   Keys are library names as strings (Squint uses strings for keywords).
-   Internal libraries (:internal true) are not directly requestable."
-  {"pprint"     {:file "scittle.pprint.js"
-                 :deps #{"core"}}
-   "promesa"    {:file "scittle.promesa.js"
-                 :deps #{"core"}}
-   "replicant"  {:file "scittle.replicant.js"
-                 :deps #{"core"}}
-   "js-interop" {:file "scittle.js-interop.js"
-                 :deps #{"core"}}
-   "reagent"    {:file "scittle.reagent.js"
-                 :deps #{"core" "react"}}
-   "re-frame"   {:file "scittle.re-frame.js"
-                 :deps #{"core" "reagent"}}
-   "cljs-ajax"  {:file "scittle.cljs-ajax.js"
-                 :deps #{"core"}}
+   Keys are :scittle/lib-name keywords.
+   Internal libraries (:catalog/internal true) are not directly requestable."
+  {:scittle/pprint     {:catalog/file "scittle.pprint.js"
+                        :catalog/deps #{:scittle/core}}
+   :scittle/promesa    {:catalog/file "scittle.promesa.js"
+                        :catalog/deps #{:scittle/core}}
+   :scittle/replicant  {:catalog/file "scittle.replicant.js"
+                        :catalog/deps #{:scittle/core}}
+   :scittle/js-interop {:catalog/file "scittle.js-interop.js"
+                        :catalog/deps #{:scittle/core}}
+   :scittle/reagent    {:catalog/file "scittle.reagent.js"
+                        :catalog/deps #{:scittle/core :scittle/react}}
+   :scittle/re-frame   {:catalog/file "scittle.re-frame.js"
+                        :catalog/deps #{:scittle/core :scittle/reagent}}
+   :scittle/cljs-ajax  {:catalog/file "scittle.cljs-ajax.js"
+                        :catalog/deps #{:scittle/core}}
    ;; Internal dependencies (not directly requestable)
-   "core"       {:file "scittle.js"
-                 :internal true}
-   "react"      {:files ["react.production.min.js" "react-dom.production.min.js"]
-                 :internal true}})
+   :scittle/core       {:catalog/file "scittle.js"
+                        :catalog/internal true}
+   :scittle/react      {:catalog/files ["react.production.min.js" "react-dom.production.min.js"]
+                        :catalog/internal true}})
 
 (defn scittle-url?
   "Returns true if the URL is a scittle:// URL"
@@ -33,23 +33,25 @@
        (boolean (re-matches #"scittle://.*" url))))
 
 (defn resolve-scittle-url
-  "Resolve scittle:// URL to library key (string).
+  "Resolve scittle:// URL to library key (:scittle/lib-name keyword).
    Returns nil for invalid URLs, unknown libraries, or internal libraries."
   [url]
   (when (string? url)
     (when-let [[_ lib-name] (re-matches #"scittle://(.+)\.js" url)]
-      (when-let [lib (get library-catalog lib-name)]
-        (when-not (:internal lib)
-          lib-name)))))
+      ;; In Squint, keywords are strings, so :scittle/pprint = "scittle/pprint"
+      (let [lib-key (str "scittle/" lib-name)]
+        (when-let [lib (get library-catalog lib-key)]
+          (when-not (:catalog/internal lib)
+            lib-key))))))
 
 (defn get-library-files
   "Get the vendor file(s) for a library key.
    Returns vector of filenames in load order."
   [lib-key]
   (when-let [lib (get library-catalog lib-key)]
-    (if (:files lib)
-      (:files lib)
-      [(:file lib)])))
+    (if (:catalog/files lib)
+      (:catalog/files lib)
+      [(:catalog/file lib)])))
 
 (defn resolve-dependencies
   "Resolve all dependencies for a library key.
@@ -62,9 +64,9 @@
               (when-not (contains? @visited k)
                 (swap! visited conj k)
                 (when-let [lib (get library-catalog k)]
-                  (doseq [dep (:deps lib)]
+                  (doseq [dep (:catalog/deps lib)]
                     (visit dep))
-                  (when-not (:internal lib)
+                  (when-not (:catalog/internal lib)
                     (swap! result conj k)))))]
       (visit lib-key)
       @result)))
@@ -76,26 +78,26 @@
   [url]
   (when-let [lib-key (resolve-scittle-url url)]
     (when-let [lib (get library-catalog lib-key)]
-      (when-not (:internal lib)
+      (when-not (:catalog/internal lib)
         (let [all-deps (resolve-dependencies lib-key)
               ;; Check if any dep needs React
               needs-react? (some (fn [k]
                                    (when-let [l (get library-catalog k)]
-                                     (contains? (:deps l) "react")))
+                                     (contains? (:catalog/deps l) :scittle/react)))
                                  (conj all-deps lib-key))
               ;; Add internal deps first
               internal-files (if needs-react?
-                               (get-library-files "react")
+                               (get-library-files :scittle/react)
                                [])]
-          {:lib lib-key
-           :files (vec (concat internal-files
-                               (mapcat get-library-files all-deps)))})))))
+          {:require/lib lib-key
+           :require/files (vec (concat internal-files
+                                       (mapcat get-library-files all-deps)))})))))
 
 (defn available-libraries
   "Returns vector of available library keys (excluding internal)."
   []
   (->> library-catalog
-       (remove (fn [[_ v]] (:internal v)))
+       (remove (fn [[_ v]] (:catalog/internal v)))
        (map first)
        sort
        vec))
@@ -109,6 +111,6 @@
   (let [all-requires (mapcat #(get % :script/require []) scripts)
         scittle-urls (filter #(and (string? %) (.startsWith % "scittle://")) all-requires)
         expanded (keep expand-require scittle-urls)
-        all-files (mapcat :files expanded)]
+        all-files (mapcat :require/files expanded)]
     ;; Dedupe while preserving order (earlier files stay)
     (vec (distinct all-files))))
