@@ -31,6 +31,47 @@ The require injection logic is only in `execute-scripts!` (auto-injection flow).
 1. Panel: Before `eval-in-page!`, check if code has `:epupp/require` and inject dependencies
 2. Popup "Run": Ensure dependencies are injected before running script
 
+### Implementation Details for Phase 3B
+
+#### Key Insight: Two Different Code Paths
+
+**Popup "Run" button** - Uses the full script from storage:
+- **popup.cljs** `:popup/fx.evaluate-script` sends message to background with full script
+- **background.cljs** `"evaluate-script"` handler passes to `execute-scripts!`
+- **THE FIX**: The message currently sends `:script/code` but NOT `:script/require`
+  - Location: [popup.cljs#L235-L244](../../src/popup.cljs#L235)
+  - Change: Include `:script/require` in the message
+  - Location: [background.cljs#L919-L932](../../src/background.cljs#L919)
+  - Change: Pass `:script/require` to the script map given to `execute-scripts!`
+
+**Panel evaluation** - Uses code typed in editor (may have manifest):
+- **panel.cljs** `:editor/ax.eval` dispatches `:editor/fx.inject-and-eval` or `:editor/fx.eval-in-page`
+- Panel has `manifest-hints` with parsed `:require` from current code
+- **THE FIX**: Before evaluation, if manifest has requires, inject them
+  - Location: [panel.cljs#L91-L115](../../src/panel.cljs#L91) `perform-effect!`
+  - Two effects need updating: `:editor/fx.inject-and-eval` and `:editor/fx.eval-in-page`
+  - Need to call background `"inject-requires"` message (NEW) before eval
+
+#### New Message Type Needed
+
+Add `"inject-requires"` message to background.cljs:
+```clojure
+"inject-requires"
+(let [target-tab-id (.-tabId message)
+      requires (js->clj (.-requires message) :keywordize-keys true)]
+  ((^:async fn []
+     (try
+       (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+         (when (seq files)
+           (js-await (inject-content-script target-tab-id "content-bridge.js"))
+           (js-await (wait-for-bridge-ready target-tab-id))
+           (js-await (inject-requires-sequentially! target-tab-id files))))
+       (send-response #js {:success true})
+       (catch :default err
+         (send-response #js {:success false :error (.-message err)})))))
+  true)
+```
+
 ## Overview
 
 This plan covers implementing the `scittle://` URL scheme for the `@require` feature, allowing userscripts to load bundled Scittle ecosystem libraries.
@@ -239,46 +280,210 @@ Modified `background.cljs` to inject required libraries in `execute-scripts!` (n
 
 Panel and popup evaluation flows need to inject requires before running code.
 
-**Panel flow** (`panel_actions.cljs`):
-- `:editor/ax.eval` → check manifest hints for requires → inject before eval
+**Popup "Run" flow** - EASIEST (already calls `execute-scripts!`):
 
-**Popup "Run" flow** (`popup_actions.cljs` or `background.cljs`):
-- Run script action → inject requires → execute script
+The popup's "Run" button already goes through `execute-scripts!` which handles requires!
+The bug is that the message doesn't include `:script/require`:
 
-#### 3.1 Library Injection Function
+1. **Fix `popup.cljs` `:popup/fx.evaluate-script`** (line ~235):
+   - Currently sends: `{:type "evaluate-script" :tabId :scriptId :code}`
+   - Should send: `{:type "evaluate-script" :tabId :scriptId :code :require}`
 
+2. **Fix `background.cljs` `"evaluate-script"` handler** (line ~919):
+   - Currently creates: `{:script/id :script/name :script/code}`
+   - Should include: `:script/require` from message
+
+**Panel flow** - MORE COMPLEX (bypasses `execute-scripts!`):
+
+Panel evaluation uses `chrome.devtools.inspectedWindow.eval` directly, which:
+- Does NOT go through `execute-scripts!`
+- Has NO access to content bridge messaging directly
+- Must request background worker to inject requires
+
+1. **Add `"inject-requires"` message handler** to `background.cljs`
+2. **Update `panel.cljs` `:editor/fx.inject-and-eval`** to:
+   - Check `manifest-hints` for `:require`
+   - If requires exist, send `"inject-requires"` message first
+   - Then proceed with Scittle injection and eval
+
+3. **Panel state already has the data**: `(:require manifest-hints)` contains parsed requires
+
+**Alternative Panel Approach** (simpler but less reusable):
+- Send a new message type `"inject-and-eval-with-requires"` that:
+  - Takes `{:tabId :code :requires}`
+  - Handles the full flow in background worker
+  - Returns result to panel
+
+#### 3.1 Popup "Run" Button Fix (5 min)
+
+**File: `src/popup.cljs` line ~235**
+
+Change from:
 ```clojure
-(defn inject-scittle-library!
-  "Inject a vendor library file into the page"
-  [tab-id filename]
-  (let [url (js/chrome.runtime.getURL (str "vendor/" filename))]
-    (js/chrome.tabs.sendMessage
-     tab-id
-     #js {:type "inject-script" :url url})))
-
-(defn inject-requires!
-  "Inject all required libraries for a script"
-  [tab-id script]
-  (let [requires (get script :script/require [])
-        scittle-requires (filter #(str/starts-with? % "scittle://") requires)]
-    (doseq [url scittle-requires]
-      (when-let [{:keys [files]} (scittle-libs/expand-require url)]
-        (doseq [file files]
-          (inject-scittle-library! tab-id file))))))
+:popup/fx.evaluate-script
+(let [[script] args
+      tab (js-await (get-active-tab))]
+  (js/chrome.runtime.sendMessage
+   #js {:type "evaluate-script"
+        :tabId (.-id tab)
+        :scriptId (:script/id script)
+        :code (:script/code script)}))
 ```
 
-#### 3.2 Update `execute-scripts!`
+To:
+```clojure
+:popup/fx.evaluate-script
+(let [[script] args
+      tab (js-await (get-active-tab))]
+  (js/chrome.runtime.sendMessage
+   #js {:type "evaluate-script"
+        :tabId (.-id tab)
+        :scriptId (:script/id script)
+        :code (:script/code script)
+        :require (clj->js (:script/require script))}))
+```
 
-Modify the existing injection flow:
+**File: `src/background.cljs` line ~919**
+
+Change from:
+```clojure
+"evaluate-script"
+(let [target-tab-id (.-tabId message)
+      code (.-code message)]
+  ((^:async fn []
+     (try
+       (js-await (ensure-scittle! target-tab-id))
+       (js-await (execute-scripts! target-tab-id [{:script/id (.-scriptId message)
+                                                   :script/name "popup-eval"
+                                                   :script/code code}]))
+```
+
+To:
+```clojure
+"evaluate-script"
+(let [target-tab-id (.-tabId message)
+      code (.-code message)
+      requires (when (.-require message)
+                 (vec (.-require message)))]
+  ((^:async fn []
+     (try
+       (js-await (ensure-scittle! target-tab-id))
+       (js-await (execute-scripts! target-tab-id [(cond-> {:script/id (.-scriptId message)
+                                                           :script/name "popup-eval"
+                                                           :script/code code}
+                                                    requires (assoc :script/require requires))]))
+```
+
+#### 3.2 Panel Evaluation Fix (30 min)
+
+**File: `src/background.cljs`** - Add new message handler after `"ensure-scittle"`:
 
 ```clojure
-;; In execute-scripts!, after injecting Scittle core:
-;; 1. Inject content bridge
-;; 2. Wait for bridge ready
-;; 3. Inject Scittle core (existing)
-;; 4. NEW: Inject required libraries
-;; 5. Inject userscript
-;; 6. Trigger evaluation
+"inject-requires"
+(let [target-tab-id (.-tabId message)
+      requires (when (.-requires message)
+                 (vec (.-requires message)))]
+  ((^:async fn []
+     (try
+       (when (seq requires)
+         (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+           (when (seq files)
+             (js-await (inject-content-script target-tab-id "content-bridge.js"))
+             (js-await (wait-for-bridge-ready target-tab-id))
+             (js-await (inject-requires-sequentially! target-tab-id files)))))
+       (send-response #js {:success true})
+       (catch :default err
+         (send-response #js {:success false :error (.-message err)})))))
+  true)
+```
+
+**File: `src/panel.cljs` line ~91** - Update `:editor/fx.inject-and-eval`:
+
+Change from:
+```clojure
+:editor/fx.inject-and-eval
+(let [[code] args]
+  (ensure-scittle!
+   (fn [err]
+     (if err
+       ;; Injection failed
+       (dispatch [[:editor/ax.update-scittle-status "error"]
+                  [:editor/ax.handle-eval-result err]])
+       ;; Injection succeeded - Scittle is ready
+       (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                  [:editor/ax.do-eval code]])))))
+```
+
+To:
+```clojure
+:editor/fx.inject-and-eval
+(let [[code] args
+      requires (:require (:panel/manifest-hints @!state))]
+  ;; If requires exist, inject them first via background worker
+  (if (seq requires)
+    (js/chrome.runtime.sendMessage
+     #js {:type "inject-requires"
+          :tabId js/chrome.devtools.inspectedWindow.tabId
+          :requires (clj->js requires)}
+     (fn [response]
+       (if (and response (.-success response))
+         ;; Requires injected - now inject Scittle and eval
+         (ensure-scittle!
+          (fn [err]
+            (if err
+              (dispatch [[:editor/ax.update-scittle-status "error"]
+                         [:editor/ax.handle-eval-result err]])
+              (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                         [:editor/ax.do-eval code]]))))
+         ;; Require injection failed
+         (dispatch [[:editor/ax.update-scittle-status "error"]
+                    [:editor/ax.handle-eval-result {:error (or (.-error response) "Failed to inject requires")}]]))))
+    ;; No requires - proceed as before
+    (ensure-scittle!
+     (fn [err]
+       (if err
+         (dispatch [[:editor/ax.update-scittle-status "error"]
+                    [:editor/ax.handle-eval-result err]])
+         (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                    [:editor/ax.do-eval code]]))))))
+```
+
+**Also update `:editor/fx.eval-in-page`** - when Scittle is already loaded but user changes requires in code:
+
+This is a subtle case: if Scittle is already loaded (`:panel/scittle-status :loaded`), the panel calls `:editor/fx.eval-in-page` directly, skipping the injection flow. Need to check for requires there too.
+
+Change from:
+```clojure
+:editor/fx.eval-in-page
+(let [[code] args]
+  (eval-in-page!
+   code
+   (fn [result]
+     (dispatch [[:editor/ax.handle-eval-result result]]))))
+```
+
+To:
+```clojure
+:editor/fx.eval-in-page
+(let [[code] args
+      requires (:require (:panel/manifest-hints @!state))]
+  (if (seq requires)
+    ;; Inject requires before eval (even if Scittle already loaded - libs might not be)
+    (js/chrome.runtime.sendMessage
+     #js {:type "inject-requires"
+          :tabId js/chrome.devtools.inspectedWindow.tabId
+          :requires (clj->js requires)}
+     (fn [_response]
+       ;; Proceed with eval regardless (best effort)
+       (eval-in-page!
+        code
+        (fn [result]
+          (dispatch [[:editor/ax.handle-eval-result result]])))))
+    ;; No requires - eval directly
+    (eval-in-page!
+     code
+     (fn [result]
+       (dispatch [[:editor/ax.handle-eval-result result]])))))
 ```
 
 ### Phase 4: Panel UI ✅ COMPLETE
@@ -357,23 +562,78 @@ Epupp bundles the Scittle ecosystem libraries. Add them to your script:
 
 ## Implementation Order
 
-1. **Phase 1**: Library mapping module - pure functions, easy to test
-2. **Phase 2**: Manifest parser - extend existing infrastructure
-3. **Phase 3**: Injection flow - the core feature work
-4. **Phase 4**: Panel UI - user feedback
-5. **Phase 5**: Documentation - user guidance
+**Completed phases:**
+1. ✅ **Phase 1**: Library mapping module - pure functions, easy to test
+2. ✅ **Phase 2**: Manifest parser - extend existing infrastructure
+3. ✅ **Phase 3A**: Auto-injection flow - the core feature work
+4. ✅ **Phase 4**: Panel UI - user feedback
+
+**Remaining work (Phase 3B):**
+
+Execute in this order for cleanest incremental progress:
+
+1. **Popup "Run" fix** (easiest, 5-10 min)
+   - Edit `popup.cljs` `:popup/fx.evaluate-script` - add `:require` to message
+   - Edit `background.cljs` `"evaluate-script"` handler - pass `:script/require` to script map
+   - Run `bb test` to verify no regressions
+
+2. **Add `"inject-requires"` message handler** (15 min)
+   - Add handler in `background.cljs` after `"ensure-scittle"`
+   - Uses existing `inject-requires-sequentially!` function
+   - Run `bb test` to verify
+
+3. **Update panel effects** (30 min)
+   - Update `:editor/fx.inject-and-eval` to call `"inject-requires"` first when needed
+   - Update `:editor/fx.eval-in-page` similarly
+   - Manual test in browser to verify
+
+4. **Add E2E tests** (30 min)
+   - Test popup Run with requires
+   - Test panel eval with requires
+   - Run `bb test:e2e` to verify
+
+5. **Phase 5**: Documentation - user guidance (1h)
 
 ## Testing Strategy
 
 ### Unit Tests
-- Library resolution and dependency expansion
-- Manifest parsing with `:epupp/require`
-- URL validation
+- Library resolution and dependency expansion ✅ DONE (28 tests pass)
+- Manifest parsing with `:epupp/require` ✅ DONE
 
 ### E2E Tests
-- Script with `scittle://pprint.js` - verify pprint available
-- Script with `scittle://reagent.js` - verify React + Reagent load
-- Script with `scittle://re-frame.js` - verify transitive deps
+- Script with `scittle://pprint.js` - verify pprint available ✅ DONE
+- Script with `scittle://reagent.js` - verify React + Reagent load ✅ DONE
+- Script with `scittle://re-frame.js` - verify transitive deps ✅ DONE
+- **TODO**: Panel eval with `:epupp/require` injects libraries
+- **TODO**: Popup "Run" button with script that has requires
+
+### New E2E Tests Needed for Phase 3B
+
+#### Test: Panel eval with requires
+
+```clojure
+(test "Panel: evaluating code with :epupp/require injects libraries"
+      (^:async fn []
+        ;; 1. Open panel
+        ;; 2. Type code with {:epupp/require ["scittle://pprint.js"]}
+        ;; 3. Press Eval
+        ;; 4. Wait for INJECTING_REQUIRES event
+        ;; 5. Verify pprint is available (eval "(cljs.pprint/pprint {:a 1})")
+        ))
+```
+
+#### Test: Popup Run button with requires
+
+```clojure
+(test "Popup: Run button on script with requires injects libraries"
+      (^:async fn []
+        ;; 1. Save script with :epupp/require via panel
+        ;; 2. Open popup, find script
+        ;; 3. Click Run button (play icon)
+        ;; 4. Wait for INJECTING_REQUIRES event
+        ;; 5. Verify script executed with library available
+        ))
+```
 
 ### Manual Testing
 - Test on CSP-strict sites (GitHub, YouTube)
@@ -416,25 +676,30 @@ Update `bundle-scittle` task to also copy the new libraries:
 
 | Phase | Effort | Notes |
 |-------|--------|-------|
-| Phase 1: Library mapping | S (1-2h) | Pure functions, straightforward |
-| Phase 2: Manifest parser | S (1h) | Extend existing code |
-| Phase 3: Injection flow | M (3-4h) | Core feature, needs careful testing |
-| Phase 4: Panel UI | S (1h) | Simple UI addition |
+| Phase 1: Library mapping | ✅ S (1-2h) | Complete |
+| Phase 2: Manifest parser | ✅ S (1h) | Complete |
+| Phase 3A: Auto-injection | ✅ M (3-4h) | Complete |
+| Phase 3B-popup: Popup Run | S (15 min) | Add `:require` to message - 2 small changes |
+| Phase 3B-panel: Panel eval | M (1h) | New message handler + effect updates |
+| Phase 3B-tests: E2E tests | S (30 min) | 2 new E2E tests |
+| Phase 4: Panel UI | ✅ S (1h) | Complete |
 | Phase 5: Documentation | S (1h) | README updates |
-| **Total** | **M (6-9h)** | Can be done incrementally |
+| **Remaining** | **M (2.5-3h)** | Phase 3B + docs |
 
 ## Success Criteria
 
-- [x] `scittle://pprint.js` works in userscripts
-- [x] `scittle://reagent.js` loads React automatically
-- [x] `scittle://re-frame.js` loads Reagent + React
-- [ ] Panel evaluation injects requires from manifest
-- [ ] Popup "Run" button injects requires before execution
+- [x] `scittle://pprint.js` works in userscripts (auto-injection)
+- [x] `scittle://reagent.js` loads React automatically (auto-injection)
+- [x] `scittle://re-frame.js` loads Reagent + React (auto-injection)
+- [ ] **Panel evaluation injects requires from manifest** (Phase 3B)
+- [ ] **Popup "Run" button injects requires before execution** (Phase 3B)
 - [x] Panel shows require status
 - [x] Works on CSP-strict sites
-- [x] All unit tests pass
-- [ ] Gist Installer Script uses Replicant
-- [ ] E2E test for require feature (started)
+- [x] All unit tests pass (317)
+- [x] All E2E tests pass (56)
+- [ ] E2E test for panel eval with requires
+- [ ] E2E test for popup Run with requires
+- [ ] Gist Installer Script uses Replicant (future)
 
 ## Completed Implementation Details
 
