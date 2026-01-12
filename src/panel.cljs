@@ -257,6 +257,7 @@
                       :else "Eval")]
     [:div.code-input-area
      [:textarea#code-area {:value code
+                 :rows 10
                  :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter to evaluate"
                  :disabled (or evaluating? loading?)
                  :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
