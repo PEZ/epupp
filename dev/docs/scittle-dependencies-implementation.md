@@ -696,10 +696,10 @@ Update `bundle-scittle` task to also copy the new libraries:
 - [x] Works on CSP-strict sites (Chrome, Firefox)
 - [x] All unit tests pass (317)
 - [x] All E2E tests pass (56)
+- [ ] Gist Installer Script uses Replicant
 - [ ] E2E test for panel eval with requires
 - [ ] E2E test for popup Run with requires
 - [ ] Safari support (limited - known issues with panel and userscripts)
-- [ ] Gist Installer Script uses Replicant (future)
 
 ## Completed Implementation Details
 
