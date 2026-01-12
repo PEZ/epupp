@@ -26,7 +26,8 @@
          :panel/init-version nil
          :panel/needs-refresh? false
          :panel/current-hostname nil
-         :panel/manifest-hints nil}))  ; Parsed manifest from current code
+         :panel/manifest-hints nil  ; Parsed manifest from current code
+         :panel/selection nil}))    ; Current textarea selection {:start :end :text}
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -248,31 +249,45 @@
       [:div.empty-results-shortcut
        [:kbd "Ctrl"] "+" [:kbd "Enter"] " to evaluate"]])])
 
+(defn- track-selection!
+  "Track textarea selection and dispatch to state."
+  [textarea]
+  (let [start (.-selectionStart textarea)
+        end (.-selectionEnd textarea)
+        text (when (and start end (not= start end))
+               (.substring (.-value textarea) start end))]
+    (dispatch! [[:editor/ax.set-selection
+                 (when text {:start start :end end :text text})]])))
+
 (defn code-input [{:keys [panel/code panel/evaluating? panel/scittle-status]}]
-  (let [loading? (= :loading scittle-status)
-        button-text (cond
-                      loading? "Loading Scittle..."
-                      evaluating? "Evaluating..."
-                      (= :loaded scittle-status) "Eval"
-                      :else "Eval")]
+  (let [loading? (= :loading scittle-status)]
     [:div.code-input-area
      [:textarea#code-area {:value code
                  :rows 10
-                 :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter to evaluate"
+                 :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter evaluates selection"
                  :disabled (or evaluating? loading?)
                  :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
+                 :on-select (fn [e] (track-selection! (.-target e)))
+                 :on-click (fn [e] (track-selection! (.-target e)))
+                 :on-keyup (fn [e]
+                             ;; Track selection on arrow keys etc
+                             (track-selection! (.-target e)))
                  :on-keydown (fn [e]
                                (when (and (or (.-ctrlKey e) (.-metaKey e))
                                           (= "Enter" (.-key e)))
                                  (.preventDefault e)
-                                 (dispatch! [[:editor/ax.eval]])))}]
+                                 (dispatch! [[:editor/ax.eval-selection]])))}]
      [:div.code-actions
       [:button.btn-eval {:on-click #(dispatch! [[:editor/ax.eval]])
                          :disabled (or evaluating? loading? (empty? code))}
-       button-text]
+       [icons/play {:size 14}]
+       (cond
+         loading? " Loading Scittle..."
+         evaluating? " Evaluating..."
+         :else " Eval script")]
       [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
        "Clear Results"]
-      [:span.shortcut-hint "Ctrl+Enter to eval"]]]))
+      [:span.shortcut-hint "Ctrl+Enter evals selection"]]]))
 
 (defn- run-at-badge
   "Returns a badge component for non-default run-at timings (panel version)."

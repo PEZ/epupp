@@ -1,7 +1,8 @@
 # Feature: Eval Selection in DevTools Panel
 
 **Created:** January 12, 2026
-**Status:** Planning
+**Completed:** January 12, 2026
+**Status:** Done
 
 ## Overview
 
@@ -154,13 +155,13 @@ File: [e2e/panel_test.cljs](../../e2e/panel_test.cljs)
 
 ## Implementation Checklist
 
-- [ ] Write unit tests (Phase 1)
-- [ ] Implement action handlers (Phase 2)
-- [ ] Update UI components (Phase 3)
-- [ ] Write E2E tests (Phase 4)
-- [ ] Update documentation (Phase 5)
-- [ ] Verify unit tests pass (`bb test`)
-- [ ] Verify E2E tests pass (`bb test:e2e`)
+- [x] Write unit tests (Phase 1)
+- [x] Implement action handlers (Phase 2)
+- [x] Update UI components (Phase 3)
+- [x] Write E2E tests (Phase 4)
+- [x] Update documentation (Phase 5)
+- [x] Verify unit tests pass (`bb test`) - 273 tests pass
+- [x] Verify E2E tests pass (`bb test:e2e`) - 52 tests pass
 - [ ] Manual testing with real extension
 
 ## State Changes

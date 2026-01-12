@@ -33,6 +33,23 @@ When visiting a page that matches an enabled script's URL pattern for the first 
 
 ## Script Editor (DevTools Panel)
 
+### Evaluating Code
+
+The panel supports two evaluation modes:
+
+| Action | Behavior |
+|--------|----------|
+| **Ctrl+Enter** | Evaluates selected text (or entire script if no selection) |
+| **Eval script button** | Always evaluates the entire script |
+
+**Selection evaluation workflow:**
+1. Select part of your code (e.g., a single expression)
+2. Press Ctrl+Enter (or Cmd+Enter on Mac)
+3. Only the selected code is evaluated
+4. Results show the selected code as input
+
+This enables interactive development - test individual expressions before running the full script.
+
 ### Manifest-Driven Metadata
 
 Script metadata (name, site match, description, timing) is defined in the code itself using manifest annotations. The panel displays these values in a property table format - always showing all four fields regardless of whether values are specified.

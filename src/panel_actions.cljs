@@ -42,6 +42,15 @@
      :run-at-invalid? (get manifest "run-at-invalid?")
      :raw-run-at (get manifest "raw-run-at")}))
 
+(defn- get-code-to-eval
+  "Determine code to evaluate: selection text if present and non-empty, else full code."
+  [state]
+  (let [selection (:panel/selection state)
+        selection-text (when selection (:text selection))]
+    (if (seq selection-text)
+      selection-text
+      (:panel/code state))))
+
 (defn handle-action
   "Pure action handler for panel state transitions.
    Returns map with :uf/db, :uf/fxs, :uf/dxs keys."
@@ -226,5 +235,32 @@
                      :panel/manifest-hints hints)
        :uf/fxs [[:editor/fx.clear-persisted-state]]
        :uf/dxs dxs})
+
+    :editor/ax.set-selection
+    (let [[selection] args]
+      {:uf/db (assoc state :panel/selection selection)})
+
+    :editor/ax.eval-selection
+    (let [code-to-eval (get-code-to-eval state)
+          scittle-status (:panel/scittle-status state)]
+      (cond
+        ;; No code or already evaluating - no change
+        (or (empty? code-to-eval) (:panel/evaluating? state))
+        nil
+
+        ;; Scittle ready - eval directly
+        (= :loaded scittle-status)
+        {:uf/db (-> state
+                    (assoc :panel/evaluating? true)
+                    (update :panel/results conj {:type :input :text code-to-eval}))
+         :uf/fxs [[:editor/fx.eval-in-page code-to-eval]]}
+
+        ;; Scittle not ready - inject first
+        :else
+        {:uf/db (-> state
+                    (assoc :panel/evaluating? true)
+                    (assoc :panel/scittle-status :loading)
+                    (update :panel/results conj {:type :input :text code-to-eval}))
+         :uf/fxs [[:editor/fx.inject-and-eval code-to-eval]]}))
 
     :uf/unhandled-ax))

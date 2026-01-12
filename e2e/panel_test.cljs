@@ -829,3 +829,137 @@
                 (js-await (-> (expect (.locator results ".empty-results")) (.not.toBeVisible)))))
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Panel User Journey: Selection Evaluation
+;; =============================================================================
+
+(test "Panel: Ctrl+Enter evaluates selection when text is selected"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  results (.locator panel ".results-area")
+                  eval-btn (.locator panel "button.btn-eval")]
+              ;; Clear storage for clean state
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Enter code with multiple expressions
+              ;; "(+ 1 2)\n(* 3 4)\n(- 10 5)"
+              ;; Position 0-6: "(+ 1 2)"  Position 7: "\n"  Position 8-14: "(* 3 4)"
+              (let [test-code "(+ 1 2)\n(* 3 4)\n(- 10 5)"]
+                (js-await (.fill textarea test-code)))
+
+              ;; === TEST 1: Button always evaluates full script ===
+              (js-await (.click eval-btn))
+              ;; Result should show the full script as input
+              (js-await (-> (expect results) (.toContainText "(+ 1 2)")))
+              (js-await (-> (expect results) (.toContainText "(* 3 4)")))
+              (js-await (-> (expect results) (.toContainText "(- 10 5)")))
+
+              ;; Clear results for next test
+              (js-await (.click (.locator panel "button.btn-clear")))
+
+              ;; === TEST 2: Ctrl+Enter with selection evaluates only selection ===
+              ;; Re-enter code
+              (js-await (.fill textarea "(+ 1 2)\n(* 3 4)\n(- 10 5)"))
+
+              ;; Select only the middle expression (* 3 4) using JavaScript
+              ;; This is more reliable than keyboard navigation
+              (js-await (.evaluate textarea "el => { el.focus(); el.setSelectionRange(8, 15); }"))
+
+              ;; Trigger selection tracking by dispatching a select event
+              (js-await (.dispatchEvent textarea "select"))
+
+              ;; Small delay to let selection state update
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+
+              ;; Press Ctrl+Enter to evaluate selection
+              (js-await (.press (.-keyboard panel) "ControlOrMeta+Enter"))
+
+              ;; Result should show only the selected expression "(* 3 4)" as input
+              ;; Wait for result to appear
+              (js-await (-> (expect results) (.toContainText "(* 3 4)" #js {:timeout 2000})))
+
+              ;; Should NOT show the other expressions as input (they weren't selected)
+              ;; Note: We check that the input label shows only selected code
+              (let [input-items (.locator results ".result-input")]
+                ;; Should have exactly one input (the selection)
+                (js-await (-> (expect input-items) (.toHaveCount 1)))
+                ;; That input should be the selected code
+                (js-await (-> (expect (.first input-items)) (.toContainText "(* 3 4)")))))
+            (finally
+              (js-await (.close context)))))))
+
+(test "Panel: Ctrl+Enter evaluates full script when no selection"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  textarea (.locator panel "#code-area")
+                  results (.locator panel ".results-area")]
+              ;; Clear storage for clean state
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Enter code
+              (js-await (.fill textarea "(+ 100 200)"))
+
+              ;; Focus textarea without selecting anything
+              (js-await (.focus textarea))
+              (js-await (.press (.-keyboard panel) "End"))  ; Just position cursor
+
+              ;; Small delay
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+
+              ;; Ctrl+Enter should evaluate full script (no selection)
+              (js-await (.press (.-keyboard panel) "ControlOrMeta+Enter"))
+
+              ;; Result should show full script
+              (js-await (-> (expect results) (.toContainText "(+ 100 200)" #js {:timeout 2000}))))
+            (finally
+              (js-await (.close context)))))))
+
+(test "Panel: Eval button shows play icon and 'Eval script' label"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  eval-btn (.locator panel "button.btn-eval")]
+              ;; Clear storage for clean state
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Button should contain "Eval script" text
+              (js-await (-> (expect eval-btn) (.toContainText "Eval script")))
+
+              ;; Button should have a play icon (SVG)
+              (let [svg (.locator eval-btn "svg")]
+                (js-await (-> (expect svg) (.toBeVisible)))))
+            (finally
+              (js-await (.close context)))))))
+
+(test "Panel: shortcut hint says 'evals selection'"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  hint (.locator panel ".shortcut-hint")]
+              ;; Clear storage for clean state
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Hint should mention selection
+              (js-await (-> (expect hint) (.toContainText "evals selection"))))
+            (finally
+              (js-await (.close context)))))))

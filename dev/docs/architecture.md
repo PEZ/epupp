@@ -198,7 +198,8 @@ Each component maintains its own state atom with namespaced keys.
    :panel/save-status nil
    :panel/init-version nil
    :panel/needs-refresh? false
-   :panel/current-hostname nil}
+   :panel/current-hostname nil
+   :panel/selection nil}           ; {:start int :end int :text string} or nil
 ```
 
 ### Storage (`storage.cljs`)
@@ -245,7 +246,9 @@ The popup and panel use a Re-frame-inspired unidirectional data flow pattern cal
 | `:editor/ax.set-code` | `[code]` | Update code textarea |
 | `:editor/ax.set-script-name` | `[name]` | Update script name field |
 | `:editor/ax.set-script-match` | `[pattern]` | Update URL pattern field |
-| `:editor/ax.eval` | - | Evaluate code (inject Scittle if needed) |
+| `:editor/ax.set-selection` | `[{:start :end :text}]` | Track current textarea selection |
+| `:editor/ax.eval` | - | Evaluate full code (inject Scittle if needed) |
+| `:editor/ax.eval-selection` | - | Evaluate selection if present, else full code |
 | `:editor/ax.do-eval` | `[code]` | Execute evaluation (internal) |
 | `:editor/ax.handle-eval-result` | `[result]` | Process eval result/error |
 | `:editor/ax.save-script` | - | Save current code as userscript |

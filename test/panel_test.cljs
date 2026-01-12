@@ -528,3 +528,101 @@
                           (.toBe 2))
                       (-> (expect (:type (first (:panel/results new-state))))
                           (.toBe :input)))))))
+
+(describe "panel selection actions"
+          (fn []
+            (test ":editor/ax.set-selection updates selection state"
+                  (fn []
+                    (let [selection {:start 0 :end 7 :text "(+ 1 2)"}
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-selection selection])]
+                      (-> (expect (:panel/selection (:uf/db result)))
+                          (.toEqual {:start 0 :end 7 :text "(+ 1 2)"})))))
+
+            (test ":editor/ax.set-selection clears selection with nil"
+                  (fn []
+                    (let [state-with-selection (assoc initial-state :panel/selection {:start 0 :end 5 :text "hello"})
+                          result (panel-actions/handle-action state-with-selection uf-data [:editor/ax.set-selection nil])]
+                      (-> (expect (:panel/selection (:uf/db result)))
+                          (.toBeNull)))))
+
+            (test ":editor/ax.eval-selection with selection evaluates selected text"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(+ 1 2)\n(* 3 4)")
+                                    (assoc :panel/selection {:start 8 :end 15 :text "(* 3 4)"})
+                                    (assoc :panel/scittle-status :loaded))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])
+                          new-state (:uf/db result)
+                          [effect-name effect-code] (first (:uf/fxs result))]
+                      ;; Should be evaluating
+                      (-> (expect (:panel/evaluating? new-state))
+                          (.toBe true))
+                      ;; Should show selection as input, not full code
+                      (-> (expect (:text (last (:panel/results new-state))))
+                          (.toBe "(* 3 4)"))
+                      ;; Effect should receive selection text
+                      (-> (expect effect-name)
+                          (.toBe :editor/fx.eval-in-page))
+                      (-> (expect effect-code)
+                          (.toBe "(* 3 4)")))))
+
+            (test ":editor/ax.eval-selection without selection evaluates full code"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(+ 1 2)")
+                                    (assoc :panel/selection nil)
+                                    (assoc :panel/scittle-status :loaded))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])
+                          [_effect-name effect-code] (first (:uf/fxs result))]
+                      ;; Should fall back to full code
+                      (-> (expect effect-code)
+                          (.toBe "(+ 1 2)")))))
+
+            (test ":editor/ax.eval-selection with empty selection text evaluates full code"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(+ 1 2)")
+                                    (assoc :panel/selection {:start 3 :end 3 :text ""})
+                                    (assoc :panel/scittle-status :loaded))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])
+                          [_effect-name effect-code] (first (:uf/fxs result))]
+                      ;; Empty selection (cursor position) falls back to full code
+                      (-> (expect effect-code)
+                          (.toBe "(+ 1 2)")))))
+
+            (test ":editor/ax.eval-selection with empty code and empty selection returns nil"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/selection {:start 0 :end 0 :text ""}))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])]
+                      ;; Should return nil when both code and selection are empty
+                      (-> (expect result)
+                          (.toBeNull)))))
+
+            (test ":editor/ax.eval-selection when already evaluating returns nil"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(+ 1 2)")
+                                    (assoc :panel/selection {:start 0 :end 7 :text "(+ 1 2)"})
+                                    (assoc :panel/evaluating? true))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])]
+                      (-> (expect result)
+                          (.toBeNull)))))
+
+            (test ":editor/ax.eval-selection without scittle triggers inject-and-eval"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(+ 1 2)\n(* 3 4)")
+                                    (assoc :panel/selection {:start 8 :end 15 :text "(* 3 4)"})
+                                    (assoc :panel/scittle-status :unknown))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])
+                          new-state (:uf/db result)
+                          [effect-name effect-code] (first (:uf/fxs result))]
+                      ;; Should trigger inject-and-eval with selection
+                      (-> (expect effect-name)
+                          (.toBe :editor/fx.inject-and-eval))
+                      (-> (expect effect-code)
+                          (.toBe "(* 3 4)"))
+                      ;; Status should be loading
+                      (-> (expect (:panel/scittle-status new-state))
+                          (.toBe :loading)))))))
