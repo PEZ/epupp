@@ -33,6 +33,44 @@ Available timing values:
 > [!NOTE]
 > **Safari limitation:** Script timing (`document-start`/`document-end`) is not supported in Safari due to API limitations. Scripts will run at `document-idle` regardless of the timing annotation. Chrome and Firefox support all timing values.
 
+### Advanced: Using Scittle Libraries
+
+Epupp bundles the Scittle ecosystem libraries. Add them to your scripts using the `:epupp/require` manifest key:
+
+```clojure
+{:epupp/script-name "Reagent Test"
+ :epupp/site-match "*"
+ :epupp/require ["scittle://reagent.js"]}
+
+(ns reagent-test
+  (:require [reagent.core :as r]
+            [reagent.dom :as rdom]))
+
+;; Just test that Reagent is available
+(js/console.log "Reagent loaded!" (some? r/atom))
+
+;; Create our own container
+(let [container (js/document.createElement "div")]
+  (set! (.-id container) "epupp-reagent-test")
+  (set! (.. container -style -cssText) "position: fixed; top: 10px; right: 10px; padding: 10px; background: #2ea44f; color: white; border-radius: 8px; z-index: 99999;")
+  (.appendChild js/document.body container)
+  (rdom/render [:div "Hello from Reagent! 🎉"] container))
+```
+
+#### Available Libraries
+
+| Require URL | Provides |
+|-------------|----------|
+| `scittle://pprint.js` | `cljs.pprint` |
+| `scittle://promesa.js` | `promesa.core` |
+| `scittle://replicant.js` | Replicant UI library |
+| `scittle://js-interop.js` | `applied-science.js-interop` |
+| `scittle://reagent.js` | Reagent + React |
+| `scittle://re-frame.js` | Re-frame (includes Reagent) |
+| `scittle://cljs-ajax.js` | `cljs-http.client` |
+
+Dependencies are resolved automatically. For example, requiring `scittle://re-frame.js` will also load Reagent and React.
+
 I do not plan to build the code editor out much. Mostly because the preferred way to work with scripts is from your editor connected to the [REPL](#repl-usage) (or via your AI agent connected to the REPL). A thing I will probably add is to evaluate sub expressions (in addition to the whole script).
 
 ## REPL Usage

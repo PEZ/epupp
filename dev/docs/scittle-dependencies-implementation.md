@@ -1,8 +1,35 @@
 # Scittle Dependencies Implementation Plan
 
 **Created**: January 12, 2026
-**Status**: Ready for implementation
+**Status**: Phase 3A complete, Phase 3B in progress
 **Related**: [require-feature-design.md](research/require-feature-design.md)
+
+## Current Status
+
+### What Works
+- **Auto-injection on page load**: Userscripts with `:epupp/require` that match the current URL get their dependencies injected correctly when the page loads (via `webNavigation.onCompleted` → `execute-scripts!`)
+- **Library resolution**: `scittle-libs.cljs` correctly resolves dependencies (e.g., Reagent → React + ReactDOM + Reagent)
+- **Manifest parsing**: `:epupp/require` is parsed and stored with scripts
+- **Panel UI**: Shows "Requires: N libraries ✓" in property table
+
+### Testing Status
+- **E2E tests**: All 56 pass (Docker/headless Chrome)
+- **Unit tests**: All 317 pass
+- **Manual testing**: Limited - only tested in Brave (Chromium) with default Shields up
+- **Not yet tested**: Firefox, Safari, other Chromium browsers
+
+### What Doesn't Work Yet
+- **Panel evaluation**: Running a script with requires from the DevTools panel doesn't inject dependencies (goes through `ensure-scittle!` → `eval-in-page!`, bypasses `execute-scripts!`)
+- **Popup "Run" button**: Same issue - manual script execution doesn't inject requires
+- **REPL evaluation**: Code evaluated via nREPL doesn't have access to libraries unless a matching userscript already loaded them
+
+### Root Cause
+The require injection logic is only in `execute-scripts!` (auto-injection flow). Manual evaluation paths don't call this function.
+
+### Next Steps
+**Phase 3B**: Add require injection to panel/popup evaluation flows:
+1. Panel: Before `eval-in-page!`, check if code has `:epupp/require` and inject dependencies
+2. Popup "Run": Ensure dependencies are injected before running script
 
 ## Overview
 
@@ -28,11 +55,24 @@ All libraries downloaded and ready in `extension/vendor/`:
 
 **Total bundle size**: ~1.65 MB (all libraries)
 
+## Workflow
+
+**ALWAYS act informed.** You start by investigating the testing docs and the existing tests to understand patterns and available fixture.
+
+**ALWAYS use `bb <task>` over direct shell commands.** The bb tasks encode project-specific configurations. Check `bb tasks` for available commands.
+
+**ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
+
+**ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+
+- `bb test` - Compile and run unit tests
+- `bb test:e2e` - Compile and run E2E tests (Docker)
+
 ## Implementation Phases
 
-### Phase 1: Library Mapping (Small)
+### Phase 1: Library Mapping ✅ COMPLETE
 
-Add library resolution to the codebase.
+Created `src/scittle_libs.cljs` with library catalog and dependency resolution.
 
 #### 1.1 Create `src/scittle_libs.cljs`
 
@@ -151,9 +191,9 @@ Add library resolution to the codebase.
       (is (some #{"scittle.re-frame.js"} files)))))
 ```
 
-### Phase 2: Manifest Parser Extension (Small)
+### Phase 2: Manifest Parser Extension ✅ COMPLETE
 
-Update `manifest_parser.cljs` to handle `:epupp/require`.
+Updated `manifest_parser.cljs` to handle `:epupp/require`.
 
 #### 2.1 Update `parse-manifest`
 
@@ -187,9 +227,23 @@ Update `manifest_parser.cljs` to handle `:epupp/require`.
     (group-by categorize urls)))
 ```
 
-### Phase 3: Injection Flow (Medium)
+### Phase 3: Injection Flow (Medium) - PARTIALLY COMPLETE
 
-Modify `background.cljs` to inject required libraries before userscripts.
+#### Phase 3A: Auto-injection ✅ COMPLETE
+
+Modified `background.cljs` to inject required libraries in `execute-scripts!` (navigation-triggered flow).
+
+**Key implementation**: Uses `inject-requires-sequentially!` with `loop/recur` because `doseq` + `js-await` doesn't await properly in Squint.
+
+#### Phase 3B: Manual evaluation injection 🔲 TODO
+
+Panel and popup evaluation flows need to inject requires before running code.
+
+**Panel flow** (`panel_actions.cljs`):
+- `:editor/ax.eval` → check manifest hints for requires → inject before eval
+
+**Popup "Run" flow** (`popup_actions.cljs` or `background.cljs`):
+- Run script action → inject requires → execute script
 
 #### 3.1 Library Injection Function
 
@@ -227,9 +281,9 @@ Modify the existing injection flow:
 ;; 6. Trigger evaluation
 ```
 
-### Phase 4: Panel UI (Small)
+### Phase 4: Panel UI ✅ COMPLETE
 
-Update the DevTools panel to show require status.
+Panel shows "Requires: N libraries ✓" in the property table when manifest has `:epupp/require`.
 
 #### 4.1 Property Table Addition
 
@@ -256,7 +310,9 @@ Show validation errors for invalid require URLs:
       [:li url])]])
 ```
 
-### Phase 5: Documentation (Small)
+### Phase 5: Documentation 🔲 TODO
+
+Update README with usage examples and available libraries table.
 
 #### 5.1 Update README
 
@@ -369,13 +425,33 @@ Update `bundle-scittle` task to also copy the new libraries:
 
 ## Success Criteria
 
-- [ ] `scittle://pprint.js` works in userscripts
-- [ ] `scittle://reagent.js` loads React automatically
-- [ ] `scittle://re-frame.js` loads Reagent + React
-- [ ] Panel shows require status
-- [ ] Works on CSP-strict sites
-- [ ] All unit tests pass
-- [ ] E2E test for require feature
+- [x] `scittle://pprint.js` works in userscripts
+- [x] `scittle://reagent.js` loads React automatically
+- [x] `scittle://re-frame.js` loads Reagent + React
+- [x] Panel shows require status
+- [x] Works on CSP-strict sites
+- [x] All unit tests pass
+- [x] E2E test for require feature
+- [ ] **NEW**: Panel evaluation injects requires from manifest
+- [ ] **NEW**: Popup "Run" button injects requires before execution
+
+## Completed Implementation Details
+
+### Bug Fixes Applied
+
+1. **`doseq` + `js-await` doesn't await in Squint**: Fixed by creating `inject-requires-sequentially!` helper using `loop/recur` pattern
+2. **`web_accessible_resources` missing libraries**: Added all vendor files to manifest.json
+3. **Content bridge didn't wait for script load**: Added `onload` callback with `sendResponse`
+
+### Files Modified
+
+- `src/background.cljs` - Added `inject-requires-sequentially!`, updated `execute-scripts!`
+- `src/scittle_libs.cljs` - Created library catalog and resolution functions
+- `src/manifest_parser.cljs` - Added `:epupp/require` parsing
+- `src/panel_actions.cljs` - Save script includes require field
+- `src/content_bridge.cljs` - Script injection waits for load
+- `extension/manifest.json` - Added all vendor files to `web_accessible_resources`
+- `e2e/require_test.cljs` - 4 E2E tests for require feature
 
 ## Future Considerations
 

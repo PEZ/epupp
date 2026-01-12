@@ -58,13 +58,19 @@ See [architecture.md](architecture.md) for complete state schemas. Script fields
  :script/created "2026-01-02T..."         ; ISO timestamp
  :script/modified "2026-01-02T..."        ; ISO timestamp
  :script/approved-patterns ["https://github.com/*"]  ; patterns user has approved
- :script/run-at "document-idle"}          ; injection timing (see below)
+ :script/run-at "document-idle"           ; injection timing (see below)
+ :script/require ["scittle://reagent.js"]}  ; Scittle libraries to load
 ```
 
 **`:script/run-at` values:**
 - `"document-start"` - Runs before page scripts (via `registerContentScripts` + loader)
 - `"document-end"` - Runs at DOMContentLoaded (via `registerContentScripts` + loader)
 - `"document-idle"` - Runs after page load (default, via `webNavigation.onCompleted`)
+
+**`:script/require` values:**
+- Vector of `scittle://` URLs for bundled Scittle ecosystem libraries
+- Dependencies are resolved automatically (e.g., `scittle://reagent.js` loads React)
+- See README for available libraries
 
 Scripts specify timing via the `:epupp/run-at` annotation in the code's metadata map:
 
