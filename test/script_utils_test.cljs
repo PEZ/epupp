@@ -544,3 +544,50 @@
                           parsed (first (script-utils/parse-scripts #js [js-obj]))]
                       (-> (expect (:script/run-at parsed))
                           (.toBe "document-end")))))))
+
+(describe "url-to-match-pattern"
+          (fn []
+            (test "converts URL to match pattern with specific scheme"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern "https://github.com/foo/bar")]
+                      (-> (expect result)
+                          (.toBe "https://github.com/*")))))
+
+            (test "converts URL to match pattern with wildcard scheme"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern
+                                  "https://github.com/foo/bar"
+                                  {:wildcard-scheme? true})]
+                      (-> (expect result)
+                          (.toBe "*://github.com/*")))))
+
+            (test "handles http URLs"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern "http://localhost:3000/page")]
+                      (-> (expect result)
+                          (.toBe "http://localhost/*")))))
+
+            (test "handles URLs with paths and query params"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern
+                                  "https://example.com/path/to/page?query=1")]
+                      (-> (expect result)
+                          (.toBe "https://example.com/*")))))
+
+            (test "returns nil for invalid URL"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern "not-a-valid-url")]
+                      (-> (expect result)
+                          (.toBeNull)))))
+
+            (test "returns nil for nil input"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern nil)]
+                      (-> (expect result)
+                          (.toBeNull)))))
+
+            (test "returns nil for empty string"
+                  (fn []
+                    (let [result (script-utils/url-to-match-pattern "")]
+                      (-> (expect result)
+                          (.toBeNull)))))))

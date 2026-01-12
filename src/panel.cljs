@@ -192,11 +192,8 @@
       (js/chrome.devtools.inspectedWindow.eval
        "window.location.href"
        (fn [url _exception]
-         (when url
-           ;; Convert URL to a match pattern (e.g., https://github.com/* )
-           (let [parsed (js/URL. url)
-                 pattern (str (.-protocol parsed) "//" (.-hostname parsed) "/*")]
-             (dispatch [(conj action pattern)]))))))
+         (when-let [pattern (script-utils/url-to-match-pattern url)]
+           (dispatch [(conj action pattern)])))))
 
     :editor/fx.check-editing-script
     (js/chrome.storage.local.get

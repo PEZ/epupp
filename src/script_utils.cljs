@@ -197,6 +197,30 @@
         (str ".cljs"))))
 
 ;; ============================================================
+;; URL to match pattern conversion
+;; ============================================================
+
+(defn url-to-match-pattern
+  "Convert a URL to a match pattern string.
+   Options:
+   - :wildcard-scheme? - Use *:// instead of specific protocol (default: false)
+
+   Examples:
+   (url-to-match-pattern \"https://github.com/foo\")
+   => \"https://github.com/*\"
+
+   (url-to-match-pattern \"https://github.com/foo\" {:wildcard-scheme? true})
+   => \"*://github.com/*\""
+  ([url] (url-to-match-pattern url {}))
+  ([url {:keys [wildcard-scheme?] :or {wildcard-scheme? false}}]
+   (try
+     (let [parsed (js/URL. url)
+           scheme (if wildcard-scheme? "*" (.-protocol parsed))
+           sep (if wildcard-scheme? "://" "//")]
+       (str scheme sep (.-hostname parsed) "/*"))
+     (catch :default _ nil))))
+
+;; ============================================================
 ;; Debug: Expose for console testing
 ;; ============================================================
 
@@ -216,6 +240,7 @@
            :normalize_match_patterns normalize-match-patterns
            :normalize_run_at normalize-run-at
            :valid_run_at_values valid-run-at-values
-           :default_run_at default-run-at})
+           :default_run_at default-run-at
+           :url_to_match_pattern url-to-match-pattern})
 
 

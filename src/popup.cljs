@@ -532,13 +532,6 @@
   [scripts]
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn- extract-hostname
-  "Extract hostname from a URL string for pattern hint."
-  [url]
-  (try
-    (.-hostname (js/URL. url))
-    (catch :default _ nil)))
-
 (defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
@@ -546,7 +539,7 @@
         ;; Filter out built-in scripts to check if user has any custom scripts
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
-        hostname (extract-hostname current-url)]
+        example-pattern (script-utils/url-to-match-pattern current-url {:wildcard-scheme? true})]
     [:div.script-list
      (if (seq matching-scripts)
        (for [script matching-scripts]
@@ -561,8 +554,8 @@
         [:div.no-scripts-hint
          (if no-user-scripts?
            "Create your first script in DevTools → Epupp panel."
-           (if hostname
-             [:span "Scripts use URL patterns like " [:code (str "*://" hostname "/*")]]
+           (if example-pattern
+             [:span "Scripts use URL patterns like " [:code example-pattern]]
              "Check your script URL patterns in DevTools → Epupp panel."))]])]))
 
 ;; =============================================================================
