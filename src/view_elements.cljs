@@ -28,6 +28,12 @@
    - :elements/wrapper-class: CSS class for view-specific styling"
   [{:elements/keys [wrapper-class]}]
   [:div {:class (str "app-footer " wrapper-class)}
+   [:div.footer-powered
+    "Powered by "
+    [:a {:href "https://github.com/babashka/scittle"
+         :target "_blank"
+         :title "Scittle - Small Clojure Interpreter exposed for script tags"}
+     "Scittle"]]
    [:div.footer-logos
     [:a {:href "https://github.com/babashka/sci"
          :target "_blank"
@@ -41,12 +47,6 @@
          :target "_blank"
          :title "Clojure"}
      [:img {:src "images/clojure.png" :alt "Clojure"}]]]
-   [:div.footer-powered
-    "Powered by "
-    [:a {:href "https://github.com/babashka/scittle"
-         :target "_blank"
-         :title "Scittle - Small Clojure Interpreter exposed for script tags"}
-     "Scittle"]]
    [:div.footer-credits
     [:span "Created by "
      [:a {:href "https://github.com/PEZ"
