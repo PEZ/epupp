@@ -980,12 +980,12 @@
 (defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
    Never drops navigation events - always waits for readiness.
-   
+
    Connection priority:
    1. Auto-connect-all (supersedes everything) - connects to ALL pages
    2. Auto-reconnect (for previously connected tabs only) - uses saved port
    3. Otherwise, no automatic REPL connection
-   
+
    Then processes userscripts as usual."
   [tab-id url]
   (try
