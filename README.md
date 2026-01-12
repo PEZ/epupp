@@ -45,7 +45,7 @@ I do not plan to build the code editor out much. Mostly because the preferred wa
 On the web page where you want to jack-in your REPL client: open the **Epupp** extension
 and follow the 1-2-3 step instructions.
 
-![Epupp Popup UI](browser-jack-in-screenshot.png)
+![Epupp Popup UI](docs/browser-jack-in-screenshot.png)
 
 Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
@@ -55,6 +55,19 @@ Step **1** let's you copy a Babashka command line that starts the browser-nrepl 
 ### Demo
 
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
+
+
+### REPL Troubleshooting
+
+#### No scripting for you at the Extensions Gallery
+
+If you try to connect the REPL, immediatelly after installing, you may see a message that you can't script the extension gallery.
+
+![No scripting for you at the Extensions Gallery](docs/extension-gallary-no-scripting.png)
+
+This is because you can't. Which is a pity! But the web is full of pages we can script.
+
+(Same goes for `chrome://extensions/` and any other `chrome://` page.)
 
 ## Installing
 
@@ -82,6 +95,13 @@ I'm still pondering if I should submit to Safari App Store or not. Apple doesn't
 2. Enable "Developer mode"
 3. Click "Load unpacked"
 4. Select the `chrome` folder
+
+
+## Troubleshooting
+
+### No Epupp panel?
+
+The extension fails at adding a Development Tools panel at any `chrome://` page, and also at the Extension Gallery itself. These are pages from where you may have installed Epupp the first time. Please navigate to other pages and look for the panel.
 
 ## Privacy
 

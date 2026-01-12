@@ -245,9 +245,9 @@
        [result-item result])
      [:div.empty-results
       [:div.empty-results-text
-       "Evaluate ClojureScript code above"]
+       "Evaluate ClojureScript code above to see results here"]
       [:div.empty-results-shortcut
-       [:kbd "Ctrl"] "+" [:kbd "Enter"] " to evaluate"]])])
+       "(" [:kbd "Ctrl"] "+" [:kbd "Enter"] "evaluates only the selection)"]])])
 
 (defn- track-selection!
   "Track textarea selection and dispatch to state."
@@ -287,7 +287,7 @@
          :else " Eval script")]
       [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
        "Clear Results"]
-      [:span.shortcut-hint "Ctrl+Enter evals selection"]]]))
+      [:span.shortcut-hint [:kbd "Ctrl"] "+" [:kbd "Enter"] " evals selection"]]]))
 
 (defn- run-at-badge
   "Returns a badge component for non-default run-at timings (panel version)."

@@ -62,6 +62,15 @@ body {
   overflow: hidden;
 }
 
+kbd {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -174,6 +183,9 @@ body {
 .btn-eval {
   background: var(--clojure-blue);
   color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .btn-eval:hover {
@@ -689,14 +701,7 @@ body {
   margin-bottom: 8px;
 }
 
-.empty-results-shortcut kbd {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  background: var(--bg-input);
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid var(--border-color);
-  font-size: 11px;
-}
+/* kbd styling is now global */
 
 .blank-slate-link {
   color: var(--clojure-blue);

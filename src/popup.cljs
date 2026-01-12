@@ -656,6 +656,14 @@
       "Warning: Enabling this will inject the Scittle REPL on every page you visit, "
       "even tabs never connected before. Only enable if you understand the implications."]]]
    [:div.settings-section
+    [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
+    [:p.section-description
+     "Scripts can only be installed from URLs that start with one of these prefixes. "
+     "Format: Must start with http:// or https:// and end with / or :"]
+    [default-origins-list default-origins]
+    [user-origins-list user-origins]
+    [add-origin-form {:value new-origin :error error}]]
+   [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description
      "Export your scripts to a JSON file for backup, or import scripts from a previously exported file."]
@@ -663,17 +671,10 @@
      [:button.export-btn {:on-click #(dispatch! [[:popup/ax.export-scripts]])}
       "Export Scripts"]
      [:button.import-btn {:on-click #(dispatch! [[:popup/ax.import-scripts]])}
-      "Import Scripts"]]]
-   [:div.settings-section
-    [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
-    [:p.section-description
-     "Scripts can only be installed from URLs that start with one of these prefixes. "
-     "Format: Must start with http:// or https:// and end with / or :"]
-    [default-origins-list default-origins]
-    [user-origins-list user-origins]
-    [add-origin-form {:value new-origin :error error}]]])
+      "Import Scripts"]]]])
 
-;; ============================================================;; Connected Tabs Section
+;; ============================================================
+;; Connected Tabs Section
 ;; ============================================================
 
 (defn connected-tab-item [{:keys [tab-id port title favicon is-current-tab]}]
