@@ -10,7 +10,7 @@
                                            create-panel-page clear-storage wait-for-popup-ready
                                            wait-for-save-status wait-for-script-count
                                            wait-for-checkbox-state wait-for-panel-ready
-                                           ws-port-1]]))
+                                           wait-for-connection ws-port-1]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -409,8 +409,8 @@
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
-                  ;; Wait for connection then reload popup
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event then reload popup
+                  (js-await (wait-for-connection popup 5000))
                   (js-await (.reload popup))
                   (js-await (wait-for-popup-ready popup))
 
@@ -493,8 +493,8 @@
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
-                  ;; Wait for connection then reload popup
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event then reload popup
+                  (js-await (wait-for-connection popup 5000))
                   (js-await (.reload popup))
                   (js-await (wait-for-popup-ready popup))
 

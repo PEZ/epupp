@@ -10,7 +10,8 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           clear-test-events! assert-no-new-event-within ws-port-1]]))
+                                           clear-test-events! assert-no-new-event-within
+                                           wait-for-connection ws-port-1]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -566,8 +567,8 @@
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js/console.log "Connected to tab via WebSocket port" ws-port-1)
 
-                  ;; Wait a moment for connection to be fully established
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event
+                  (js-await (wait-for-connection popup 5000))
 
                   ;; Now get-connections should return the connection
                   (let [connections (js-await (fixtures/get-connections popup))
@@ -617,8 +618,8 @@
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
-                  ;; Wait for connection then reload popup to show updated state
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event then reload popup
+                  (js-await (wait-for-connection popup 5000))
                   (js-await (.reload popup))
                   (js-await (wait-for-popup-ready popup))
 
@@ -669,8 +670,8 @@
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js/console.log "Connected to tab" tab-id)
 
-                  ;; Wait briefly for any async updates
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event
+                  (js-await (wait-for-connection popup 5000))
 
                   ;; WITHOUT reloading or switching tabs, the UI should update
                   ;; BUG: Currently requires popup reload or tab switch
@@ -722,8 +723,8 @@
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js/console.log "Connected to tab" tab-id)
 
-                  ;; Wait for connection and verify it shows
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  ;; Wait for connection event
+                  (js-await (wait-for-connection popup 5000))
                   (js-await (.reload popup))
                   (js-await (wait-for-popup-ready popup))
 
@@ -1031,7 +1032,7 @@
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
                   (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
                   (js-await (fixtures/connect-tab popup tab-id ws-port-1))
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js-await (wait-for-connection popup 5000))
                   (js/console.log "REPL connected"))
                 (js-await (.close popup)))
 

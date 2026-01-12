@@ -187,6 +187,22 @@
       (.-connections result)
       (throw (js/Error. (str "get-connections failed: " (or (.-error result) "unknown error")))))))
 
+(defn ^:async wait-for-connection
+  "Wait for WebSocket connection to be established after connect-tab.
+   Polls get-connections until count is at least 1, or timeout.
+   Returns the connection count."
+  [ext-page timeout-ms]
+  (let [start (.now js/Date)]
+    (loop []
+      (let [current-count (.-length (js-await (get-connections ext-page)))]
+        (if (pos? current-count)
+          current-count
+          (if (> (- (.now js/Date) start) (or timeout-ms 5000))
+            (throw (js/Error. (str "Timeout waiting for connection. Count: " current-count)))
+            (do
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+              (recur))))))))
+
 ;; =============================================================================
 ;; Wait Helpers - Use these instead of sleep for reliable tests
 ;; =============================================================================
@@ -405,3 +421,5 @@
       check();
     })")]
     (js-await (.evaluate panel check-fn))))
+
+

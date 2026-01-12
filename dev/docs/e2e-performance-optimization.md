@@ -1,9 +1,27 @@
 # E2E Test Performance and Output Optimization
 
 **Created:** January 12, 2026
-**Status:** Phase 1A Complete (rapid-poll fixture)
+**Status:** Phase 1B Complete (wait-for-connection fixture)
 
 Analysis of `bb test:e2e` output revealed opportunities for performance improvement and noise reduction.
+
+## Phase 1B Results: Event-Driven Connection Waits
+
+**Baseline:** 41.7s for 46 tests (average of 2 runs)
+**After:** 38.05s for 46 tests (average of 2 runs)
+**Improvement:** 8.8% faster (3.65s saved)
+
+Replaced 7 explicit 500ms sleeps after `connect-tab` with event-driven `wait-for-connection` helper that polls `get-connections` until connection count is positive.
+
+| Run | Before | After | Saved |
+|-----|--------|-------|-------|
+| Run 1 | 41.7s | 38.1s | 3.6s |
+| Run 2 | 41.7s | 38.0s | 3.7s |
+
+Files modified:
+- `e2e/fixtures.cljs` - Added `wait-for-connection` helper
+- `e2e/popup_test.cljs` - 2 sleeps replaced
+- `e2e/log_powered_test.cljs` - 5 sleeps replaced
 
 ## Phase 1A Results: Rapid-Poll Fixture
 
@@ -125,15 +143,46 @@ Created `assert-no-new-event-within` fixture helper that polls rapidly for a sho
 - Shorter timeout acceptable (300ms vs 1000ms)
 - Guides future test authors
 
-#### B. Remove remaining explicit sleeps
+#### B. Remove remaining explicit sleeps ✅ IMPLEMENTED
 
-Replace sleeps after connection/navigation with event-driven waits where possible.
+Replaced 7 explicit 500ms sleeps after `connect-tab` calls with event-driven `wait-for-connection` helper that polls `get-connections` until connection count is positive.
 
-| Current | Replace With |
-|---------|--------------|
-| Wait 500ms after connect | `wait-for-event popup "WS_CONNECTED"` or connection count check |
-| Wait 500ms after SPA nav | Already using `toBeVisible` - remove extra sleep |
-| Wait 300ms for focus switch | Keep - legitimate UI settling time |
+**Implemented fixture in `e2e/fixtures.cljs`:**
+
+```clojure
+(defn ^:async wait-for-connection
+  "Wait for WebSocket connection to be established after connect-tab.
+   Polls get-connections until count is at least 1, or timeout.
+   Returns the connection count."
+  [ext-page timeout-ms]
+  (let [start (.now js/Date)]
+    (loop []
+      (let [current-count (.-length (js-await (get-connections ext-page)))]
+        (if (pos? current-count)
+          current-count
+          (if (> (- (.now js/Date) start) (or timeout-ms 5000))
+            (throw (js/Error. (str "Timeout waiting for connection. Count: " current-count)))
+            (do
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+              (recur))))))))
+```
+
+**Usage in tests:**
+```clojure
+;; Before: explicit 500ms sleep
+(js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+;; After: event-driven wait
+(js-await (wait-for-connection popup 5000))
+```
+
+**Preserved sleeps (legitimate waits):**
+| Pattern | Reason |
+|---------|--------|
+| 300ms focus switch | UI settling time |
+| 500ms after reload waiting for WS close | Different event (not connection) |
+| Panel restore 1000ms | Complex UI state restoration |
+| 100-200ms typing/dialog sleeps | UI interaction timing |
 
 ## 2. Output Handling (CHOSEN: All to file, filter display)
 
