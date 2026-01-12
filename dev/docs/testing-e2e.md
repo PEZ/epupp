@@ -101,9 +101,10 @@ All helpers in `e2e/fixtures.cljs`:
 - `get-connections` - Get active connections
 
 ### Log-Powered Test Helpers
-- `clear-test-events!` - Clear events before test
+- `clear-test-events!` - Clear events (use sparingly - see below)
 - `get-test-events` - Read events via dev log button
 - `wait-for-event` - Poll until event appears
+- `assert-no-new-event-within` - Rapid-poll for "nothing happens" tests
 
 ## Writing E2E Tests
 
@@ -124,6 +125,26 @@ All helpers in `e2e/fixtures.cljs`:
 ;; ❌ Bad - Never do this
 (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
 ```
+
+### Testing "Nothing Happens"
+
+For tests that verify something should NOT happen (e.g., no reconnection on SPA navigation), use `assert-no-new-event-within` instead of sleeping then checking:
+
+```clojure
+;; ✅ Good - rapid-poll with baseline count
+(let [events (js-await (get-test-events popup))
+      scittle-count-before (.-length (.filter events (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+  ;; ... perform action that should NOT trigger event ...
+  (js-await (assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300)))
+
+;; ❌ Bad - arbitrary sleep then check
+(js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
+(let [events (js-await (get-test-events popup))
+      count-after ...]
+  (js-await (-> (expect count-after) (.toBe count-before))))
+```
+
+The helper polls every 50ms for the specified timeout, failing immediately if a new event appears. This is both faster (fails fast if event occurs) and more reliable (shorter window = less false negatives).
 
 ### Short Timeouts for TDD
 
@@ -175,9 +196,12 @@ For approval workflow tests, override the "current URL":
 Assert on visible DOM elements. Test what users see and click.
 
 ### Log-Powered Tests
-Observe internal behavior invisible to UI assertions:
+Observe internal behavior invisible to UI assertions.
+**CRITICAL: Do NOT clear storage logs during test runs.** The error checking test (`z_final_error_check_test.cljs`) runs last and scans ALL accumulated events for `UNCAUGHT_ERROR` and `UNHANDLED_REJECTION`. Clearing storage mid-run would hide errors from earlier tests.
 
-1. Extension emits events to `chrome.storage.local` via `test-logger.cljs`
+The `z_` prefix ensures it runs last alphabetically.
+
+**Pattern:**1. Extension emits events to `chrome.storage.local` via `test-logger.cljs`
 2. Tests trigger actions
 3. Tests click dev log button (dumps events to console)
 4. Playwright captures console output
