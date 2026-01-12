@@ -142,6 +142,18 @@ body {
   color: var(--text-muted);
 }
 
+.code-input-area textarea::-webkit-resizer {
+  border-width: 0;
+  background-color: var(--bg-input);
+  background:
+    linear-gradient(135deg, transparent 10px, var(--text-muted) 10px, var(--text-muted) 11px, transparent 11px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 12px, var(--text-muted) 12px, var(--text-muted) 13px, transparent 13px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 14px, var(--text-muted) 14px, var(--text-muted) 15px, transparent 15px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 16px, var(--text-muted) 16px, var(--text-muted) 17px, transparent 17px) bottom right / 12px 12px,
+    var(--bg-input);
+  background-repeat: no-repeat;
+}
+
 .code-actions {
   display: flex;
   gap: 8px;
@@ -479,8 +491,13 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* Scrollbar styling */
@@ -602,7 +619,7 @@ body {
 
 .manifest-warning code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   padding: 1px 4px;
   border-radius: 3px;
 }
