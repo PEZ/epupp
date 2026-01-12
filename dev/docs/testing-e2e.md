@@ -6,28 +6,24 @@ Detailed documentation for Playwright E2E tests. For overview, see [testing.md](
 
 **Default (AI Agents and Automated Testing):**
 ```bash
-bb test:e2e          # UI tests (headless in Docker)
-bb test:repl-e2e     # REPL integration tests (headless in Docker)
+bb test:e2e  # All E2E tests (headless in Docker), includes REPL integration
 ```
 
 **Human Developers (Visible Browser):**
 ```bash
-bb test:e2e:headed           # UI tests
-bb test:e2e:ui:headed        # Playwright interactive UI
-bb test:repl-e2e:headed      # REPL tests
-bb test:repl-e2e:ui:headed   # REPL tests with Playwright UI
+bb test:e2e:headed     # E2E tests
+bb test:e2e:ui:headed  # Playwright interactive UI
 ```
 
 **CI/CD Only:**
 ```bash
-bb test:e2e:ci       # Assumes build artifacts exist
-bb test:repl-e2e:ci  # Assumes build artifacts exist
+bb test:e2e:ci  # Assumes build artifacts exist
 ```
 
 **Filter tests:**
 ```bash
 bb test:e2e --grep "popup"
-bb test:e2e --grep "approval"
+bb test:e2e --grep "REPL"
 ```
 
 ## Infrastructure
@@ -75,6 +71,7 @@ Static HTML in `test-data/pages/`:
 | `e2e/panel_test.cljs` | Panel: evaluation and save workflow |
 | `e2e/integration_test.cljs` | Cross-component script lifecycle |
 | `e2e/log_powered_test.cljs` | Internal behavior via event logging |
+| `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
 | `e2e/z_final_error_check_test.cljs` | Final validation for uncaught errors |
 
 ## Fixtures and Helpers
@@ -209,29 +206,28 @@ Full pipeline: `nREPL client -> browser-nrepl -> extension -> Scittle -> page`
 ### Architecture
 
 ```
-┌─────────────┐    ┌───────────────┐    ┌────────────┐    ┌──────────────┐
-│ repl_test   │───>│ browser-nrepl │<──>│ Extension  │<──>│ Test Page    │
-│ (Babashka)  │    │ (relay)       │    │ Background │    │ (Scittle)    │
-└─────────────┘    └───────────────┘    └────────────┘    └──────────────┘
+┌───────────────────┐    ┌───────────────┐    ┌────────────┐    ┌──────────────┐
+│ repl_ui_spec.cljs │───>│ browser-nrepl │<──>│ Extension  │<──>│ Test Page    │
+│ (Playwright)      │    │ (relay)       │    │ Background │    │ (Scittle)    │
+└───────────────────┘    └───────────────┘    └────────────┘    └──────────────┘
 ```
 
 ### Files
 
 | File | Purpose |
 |------|---------|
-| `e2e/repl_test.clj` | Babashka orchestration with setup/teardown |
 | `e2e/connect_helper.cljs` | Node script for browser automation |
-| `e2e/repl_ui_spec.cljs` | Playwright tests for UI mode |
+| `e2e/repl_ui_spec.cljs` | Playwright tests for REPL integration |
 
 ### Test Coverage
 
 | Test | Purpose |
 |------|---------|
-| `simple-eval-test` | Basic arithmetic `(+ 1 2 3)` |
-| `string-eval-test` | String operations |
-| `dom-access-test` | Access DOM via `js/document` |
-| `multi-form-test` | Multiple form evaluation |
-| `get-connections-test` | Connection tracking API |
+| `simple arithmetic evaluation` | Basic arithmetic `(+ 1 2 3)` |
+| `string operations` | String operations |
+| `DOM access in page context` | Access DOM via `js/document` |
+| `multiple forms evaluation` | Multiple form evaluation |
+| `get-connections returns connected tab with port` | Connection tracking API |
 
 ## Known Limitations
 
@@ -253,7 +249,7 @@ Keep target page open while waiting for `SCRIPT_INJECTED` event.
 
 REPL tests need:
 - Ports 12345/12346 for browser-nrepl
-- Port 18080 (UI) / 8765 (REPL) for HTTP server
+- Port 18080 for HTTP server
 - Dev/test build (`bb build:test`)
 
 ## Troubleshooting

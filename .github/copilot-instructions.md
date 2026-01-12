@@ -5,7 +5,7 @@
 **Essential facts:**
 - **Language:** Squint (ClojureScript-like, compiles to JS) - source in `src/*.cljs`
 - **Never edit:** `extension/*.mjs` or `build/*.js` (compiled artifacts)
-- **Testing:** Run `bb test:e2e` and `bb test:repl-e2e` (headless by default)
+- **Testing:** Run `bb test:e2e` (headless by default, includes REPL integration)
 - **Commands:** PREFER `bb <task>` - over direct `npx`/`npm` commands
 - **Watchers:** Usually already running - check task output before building
 
@@ -133,8 +133,7 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | Command | Purpose |
 |---------|--------|
 | `bb test` | Unit tests (fast, always run after changes) |
-| `bb test:e2e` | E2E UI tests (headless in Docker) |
-| `bb test:repl-e2e` | REPL integration tests (headless in Docker) |
+| `bb test:e2e` | E2E tests (headless in Docker, includes REPL integration) |
 | `bb build:test` | Build for testing (dev config, no version bump) |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 
@@ -148,7 +147,6 @@ Note that the test tasks compile source as needed before running tests, so you d
 | `bb test:watch` | Unit test watcher | Usually already running |
 | `bb squint-nrepl` | Squint REPL | For testing pure functions |
 | `bb test:e2e:headed` | E2E tests (visible browser) | **Avoid** - interrupts human |
-| `bb test:repl-e2e:headed` | REPL tests (visible browser) | **Avoid** - interrupts human |
 | `bb test:e2e:ci` | E2E tests (CI mode) | For GitHub Actions only |
 
 **Filtering tests:** Pass `--grep "pattern"` to any test command:
@@ -194,14 +192,12 @@ The remote agent runs in an ephemeral GitHub Actions environment with pre-config
 **Running tests:**
 ```bash
 bb test              # Unit tests (Vitest)
-bb test:e2e:ci       # Playwright E2E popup tests (use xvfb-run)
-bb test:repl-e2e:ci  # REPL integration tests (use xvfb-run)
+bb test:e2e:ci       # All E2E tests including REPL integration (use xvfb-run)
 ```
 
 **E2E tests require xvfb for headed Chrome:**
 ```bash
 xvfb-run --auto-servernum bb test:e2e:ci
-xvfb-run --auto-servernum bb test:repl-e2e:ci
 ```
 
 **Building after code changes:**
@@ -388,13 +384,12 @@ All icons are inline SVGs centralized in `icons.cljs`. This avoids external depe
 
 **Test hierarchy** (fastest to slowest):
 1. **Unit tests** (`bb test`) - Pure functions, action handlers
-2. **E2E UI** (`bb test:e2e`) - Extension loading, popup/panel UI
-3. **E2E REPL** (`bb test:repl-e2e`) - Full nREPL pipeline
+2. **E2E** (`bb test:e2e`) - Extension loading, popup/panel UI, full nREPL pipeline
 
 **When to run tests:**
 - **After ANY code change:** `bb test` (fast unit tests)
 - **Changed UI/extension code:** `bb test:e2e`
-- **Changed messaging/REPL:** `bb test:repl-e2e`
+- **Changed messaging/REPL:** `bb test:e2e`
 
 **See [testing.md](../dev/docs/testing.md) for:** detailed strategy, test utilities, fixtures, and troubleshooting.
 

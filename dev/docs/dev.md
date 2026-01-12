@@ -54,16 +54,13 @@ Unit tests use [Vitest](https://vitest.dev/) and live in `test/*.cljs`. Squint c
 
 **Default (AI Agents and Automated Testing):**
 ```bash
-bb test:e2e       # UI tests in Docker (headless)
-bb test:repl-e2e  # REPL tests in Docker (headless)
+bb test:e2e  # All E2E tests in Docker (headless), includes REPL integration
 ```
 
 **For humans** (headed tests with visible browser):
 ```bash
-bb test:e2e:headed          # Run tests (builds extension first)
-bb test:e2e:ui:headed       # Interactive Playwright UI
-bb test:repl-e2e:headed     # REPL integration tests
-bb test:repl-e2e:ui:headed  # REPL tests with Playwright UI
+bb test:e2e:headed     # Run tests (builds extension first)
+bb test:e2e:ui:headed  # Interactive Playwright UI
 ```
 
 **Filter tests:** Pass Playwright options to any e2e task:
