@@ -28,5 +28,5 @@
   * [ ] Clarify the "connect all pages on load" setting in the light of the “re-connect connected tabs” setting
 * [x] E2E test the script installer
 * [x] E2E test multiple tabs REPL connected and disconnected
-* [ ] E2E performance tuning
+* [x] E2E performance tuning
 * [ ] Blank slates for different sections of the UI
