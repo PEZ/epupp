@@ -591,3 +591,69 @@
                     (let [result (script-utils/url-to-match-pattern "")]
                       (-> (expect result)
                           (.toBeNull)))))))
+
+(describe "parse-scripts with require"
+          (fn []
+            (test "parses require field as vector"
+                  (fn []
+                    (let [js-script #js {:id "test"
+                                         :name "Test"
+                                         :match #js ["*://example.com/*"]
+                                         :code "()"
+                                         :enabled true
+                                         :require #js ["scittle://reagent.js" "scittle://pprint.js"]}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/require script))
+                          (.toEqual ["scittle://reagent.js" "scittle://pprint.js"])))))
+
+            (test "defaults to empty vector when require missing"
+                  (fn []
+                    (let [js-script #js {:id "test"
+                                         :name "Test"
+                                         :match #js ["*://example.com/*"]
+                                         :code "()"
+                                         :enabled true}
+                          result (script-utils/parse-scripts #js [js-script])
+                          script (first result)]
+                      (-> (expect (:script/require script))
+                          (.toEqual [])))))))
+
+(describe "script->js with require"
+          (fn []
+            (test "serializes require field"
+                  (fn []
+                    (let [script {:script/id "test"
+                                  :script/name "Test"
+                                  :script/match ["*://example.com/*"]
+                                  :script/code "()"
+                                  :script/enabled true
+                                  :script/require ["scittle://reagent.js"]}
+                          result (script-utils/script->js script)]
+                      (-> (expect (.-require result))
+                          (.toEqual #js ["scittle://reagent.js"])))))
+
+            (test "handles nil require"
+                  (fn []
+                    (let [script {:script/id "test"
+                                  :script/name "Test"
+                                  :script/match ["*://example.com/*"]
+                                  :script/code "()"
+                                  :script/enabled true}
+                          result (script-utils/script->js script)]
+                      ;; Squint: nil becomes undefined (not null)
+                      (-> (expect (.-require result))
+                          (.toBeFalsy)))))
+
+            (test "round-trips require through parse-scripts and script->js"
+                  (fn []
+                    (let [original {:script/id "round-trip"
+                                    :script/name "Round Trip"
+                                    :script/match ["*://example.com/*"]
+                                    :script/code "()"
+                                    :script/enabled true
+                                    :script/require ["scittle://pprint.js" "scittle://reagent.js"]}
+                          js-obj (script-utils/script->js original)
+                          parsed (first (script-utils/parse-scripts #js [js-obj]))]
+                      (-> (expect (:script/require parsed))
+                          (.toEqual ["scittle://pprint.js" "scittle://reagent.js"])))))))

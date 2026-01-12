@@ -33,14 +33,15 @@
 
 (defn- build-manifest-hints
   "Build hints map from manifest for UI display.
-   Includes normalization info, unknown keys, and validation issues."
+   Includes normalization info, unknown keys, validation issues, and require info."
   [manifest]
   (when manifest
     {:name-normalized? (get manifest "name-normalized?")
      :raw-script-name (get manifest "raw-script-name")
      :unknown-keys (get manifest "unknown-keys")
      :run-at-invalid? (get manifest "run-at-invalid?")
-     :raw-run-at (get manifest "raw-run-at")}))
+     :raw-run-at (get manifest "raw-run-at")
+     :require (get manifest "require")}))
 
 (defn- get-code-to-eval
   "Determine code to evaluate: selection text if present and non-empty, else full code."
@@ -126,7 +127,7 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match script-description script-id original-name]} state]
+    (let [{:panel/keys [code script-name script-match script-description script-id original-name manifest-hints]} state]
       (if (or (empty? code) (empty? script-name) (empty? script-match))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
         (let [;; Normalize the display name for consistency
@@ -142,12 +143,15 @@
                    (script-utils/generate-script-id))
               ;; Normalize match to vector (manifest allows string or vector)
               normalized-match (script-utils/normalize-match-patterns script-match)
+              ;; Get require from manifest hints (already normalized to vector by manifest parser)
+              script-require (:require manifest-hints)
               script (cond-> {:script/id id
                               :script/name normalized-name
                               :script/match normalized-match
                               :script/code code
                               :script/enabled true}
-                       (seq script-description) (assoc :script/description script-description))
+                       (seq script-description) (assoc :script/description script-description)
+                       (seq script-require) (assoc :script/require script-require))
               ;; "Created" for new scripts OR when forking (name changed)
               ;; "Saved" only when updating existing script with same name
               action-text (if (or (not script-id) name-changed?) "Created" "Saved")]

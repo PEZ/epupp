@@ -9,6 +9,7 @@
             [manifest-parser :as manifest-parser]
             [test-logger :as test-logger]
             [background-utils :as bg-utils]
+            [scittle-libs :as scittle-libs]
             [log :as log]))
 
 (def ^:private config js/EXTENSION_CONFIG)
@@ -504,15 +505,29 @@
           (resolve response)))))))
 
 ;; Listen for messages from content scripts, popup, and panel
+(defn ^:async inject-requires-sequentially!
+  "Inject required library files sequentially, awaiting each load.
+   Uses loop/recur instead of doseq because doseq doesn't properly
+   await js-await calls in Squint."
+  [tab-id files]
+  (loop [remaining files]
+    (when (seq remaining)
+      (let [url (js/chrome.runtime.getURL (str "vendor/" (first remaining)))]
+        (js-await (send-tab-message tab-id {:type "inject-script" :url url}))
+        (recur (rest remaining))))))
+
 (defn ^:async execute-scripts!
   "Execute a list of scripts in the page via Scittle using script tag injection.
-   Injects content bridge, waits for readiness signal, then injects userscripts."
+   Injects content bridge, waits for readiness signal, injects required Scittle
+   libraries, then injects userscripts."
   [tab-id scripts]
   ;; Log test event at start for E2E tests
   (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_START" {:tab-id tab-id :count (count scripts)}))
   (when (seq scripts)
     (try
-      (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
+      (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")
+            ;; Collect all required library files from scripts
+            require-files (scittle-libs/collect-require-files scripts)]
         ;; First ensure content bridge is loaded
         (js-await (inject-content-script tab-id "content-bridge.js"))
         (js-await (test-logger/log-event! "BRIDGE_INJECTED" {:tab-id tab-id}))
@@ -521,6 +536,12 @@
         (js-await (test-logger/log-event! "BRIDGE_READY_CONFIRMED" {:tab-id tab-id}))
         ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
         (js-await (send-tab-message tab-id {:type "clear-userscripts"}))
+        ;; Inject required Scittle libraries (in dependency order)
+        (when (seq require-files)
+          (js-await (test-logger/log-event! "INJECTING_REQUIRES" {:files require-files}))
+          ;; Use sequential await helper - doseq doesn't await properly in Squint
+          (js-await (inject-requires-sequentially! tab-id require-files))
+          (js-await (test-logger/log-event! "REQUIRES_INJECTED" {:count (count require-files)})))
         ;; Inject all userscript tags
         (js-await
          (js/Promise.all

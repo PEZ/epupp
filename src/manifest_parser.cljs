@@ -12,7 +12,7 @@
 
 (def known-epupp-keys
   "Set of known epupp manifest keys."
-  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at"})
+  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at" "epupp/require"})
 
 (defn- get-epupp-keys
   "Returns vector of all epupp/ prefixed keys found in parsed object."
@@ -21,6 +21,17 @@
     (->> (js/Object.keys parsed)
          (filter #(string/starts-with? % "epupp/"))
          vec)))
+
+(defn normalize-require
+  "Normalize :epupp/require to vector of strings.
+   Accepts nil, string, or vector/array."
+  [require-value]
+  (cond
+    (nil? require-value) []
+    (string? require-value) [require-value]
+    (vector? require-value) (vec require-value)
+    (array? require-value) (vec require-value)
+    :else []))
 
 
 
@@ -35,6 +46,7 @@
    - :run-at - timing value (defaults to document-idle)
    - :raw-run-at - original run-at value
    - :run-at-invalid? - true if run-at was invalid and defaulted
+   - :require - vector of require URLs (normalized from string/vector/nil)
    - :found-keys - vector of all epupp/* keys found
    - :unknown-keys - vector of unrecognized epupp/* keys
    Returns nil if no valid manifest found."
@@ -48,6 +60,7 @@
             description (let [d (aget parsed "epupp/description")]
                           (when (string? d) d))
             raw-run-at (aget parsed "epupp/run-at")
+            raw-require (aget parsed "epupp/require")
             ;; Coerced values
             script-name (when raw-script-name
                           (script-utils/normalize-script-name raw-script-name))
@@ -58,6 +71,7 @@
             run-at (if (or (nil? raw-run-at) run-at-invalid?)
                      default-run-at
                      raw-run-at)
+            require-urls (normalize-require raw-require)
             ;; Identify unknown keys
             unknown-keys (->> found-keys
                               (remove #(contains? known-epupp-keys %))
@@ -70,6 +84,7 @@
          "run-at" run-at
          "raw-run-at" raw-run-at
          "run-at-invalid?" run-at-invalid?
+         "require" require-urls
          "found-keys" found-keys
          "unknown-keys" unknown-keys}))))
 

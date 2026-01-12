@@ -191,3 +191,71 @@
                           (.toBe true))
                       (-> (expect (:raw-run-at manifest))
                           (.toBe "invalid-value")))))))
+
+;; ============================================================
+;; Phase 2: Require parsing tests
+;; ============================================================
+
+(describe "manifest-parser require feature"
+          (fn []
+            (test "parses single require as vector"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/require \"scittle://pprint.js\"}
+(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:require manifest))
+                          (.toEqual ["scittle://pprint.js"])))))
+
+            (test "parses require as vector of strings"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/require [\"scittle://pprint.js\" \"scittle://reagent.js\"]}
+(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:require manifest))
+                          (.toEqual ["scittle://pprint.js" "scittle://reagent.js"])))))
+
+            (test "returns empty vector when require is missing"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"}
+(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:require manifest))
+                          (.toEqual [])))))
+
+            (test "recognizes require as known key"
+                  (fn []
+                    (let [code "^{:epupp/script-name \"test.cljs\"
+  :epupp/require \"scittle://pprint.js\"}
+(ns test)"
+                          manifest (mp/extract-manifest code)]
+                      (-> (expect (:found-keys manifest))
+                          (.toContain "epupp/require"))
+                      ;; require should NOT be in unknown-keys
+                      (-> (expect (:unknown-keys manifest))
+                          (.not.toContain "epupp/require")))))))
+
+(describe "normalize-require"
+          (fn []
+            (test "normalizes nil to empty vector"
+                  (fn []
+                    (-> (expect (mp/normalize-require nil))
+                        (.toEqual []))))
+
+            (test "normalizes string to single-element vector"
+                  (fn []
+                    (-> (expect (mp/normalize-require "scittle://pprint.js"))
+                        (.toEqual ["scittle://pprint.js"]))))
+
+            (test "preserves vector as-is"
+                  (fn []
+                    (-> (expect (mp/normalize-require ["a" "b" "c"]))
+                        (.toEqual ["a" "b" "c"]))))
+
+            (test "normalizes invalid types to empty vector"
+                  (fn []
+                    (-> (expect (mp/normalize-require 123))
+                        (.toEqual []))
+                    (-> (expect (mp/normalize-require {}))
+                        (.toEqual []))))))

@@ -44,7 +44,8 @@
                 :script/created (.-created s)
                 :script/modified (.-modified s)
                 :script/approved-patterns (js-arr->vec (.-approvedPatterns s))
-                :script/run-at (normalize-run-at (.-runAt s))}))))
+                :script/run-at (normalize-run-at (.-runAt s))
+                :script/require (js-arr->vec (.-require s))}))))
 
 (defn script->js
   "Convert script map to JS object with simple keys for storage"
@@ -58,7 +59,8 @@
        :created (:script/created script)
        :modified (:script/modified script)
        :approvedPatterns (clj->js (:script/approved-patterns script))
-       :runAt (:script/run-at script)})
+       :runAt (:script/run-at script)
+       :require (clj->js (:script/require script))})
 
 ;; ============================================================
 ;; URL pattern matching

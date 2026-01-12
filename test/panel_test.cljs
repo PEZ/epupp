@@ -304,7 +304,19 @@
                       (-> (expect (aget (:script/match script) 0))
                           (.toBe "*://example.com/*"))
                       (-> (expect (aget (:script/match script) 1))
-                          (.toBe "*://foo.com/*")))))))
+                          (.toBe "*://foo.com/*")))))
+
+            (test ":editor/ax.save-script includes require from manifest hints"
+                  (fn []
+                    (let [state (-> initial-state
+                                    (assoc :panel/code "(ns test)")
+                                    (assoc :panel/script-name "My Script")
+                                    (assoc :panel/script-match "*://example.com/*")
+                                    (assoc :panel/manifest-hints {:require ["scittle://reagent.js"]}))
+                          result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+                          [_fx-name script] (first (:uf/fxs result))]
+                      (-> (expect (:script/require script))
+                          (.toEqual ["scittle://reagent.js"])))))))
 
 ;; ============================================================
 ;; Phase 2: Manifest-driven metadata tests
@@ -392,7 +404,28 @@
                       (-> (expect (:run-at-invalid? (:panel/manifest-hints new-state)))
                           (.toBe true))
                       (-> (expect (:raw-run-at (:panel/manifest-hints new-state)))
-                          (.toBe "invalid-timing")))))))
+                          (.toBe "invalid-timing")))))
+
+            (test ":editor/ax.set-code stores require in manifest hints"
+                  (fn []
+                    (let [code "{:epupp/script-name \"test.cljs\"
+  :epupp/require [\"scittle://reagent.js\" \"scittle://pprint.js\"]}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      ;; Should store require in hints
+                      (-> (expect (:require (:panel/manifest-hints new-state)))
+                          (.toEqual ["scittle://reagent.js" "scittle://pprint.js"])))))
+
+            (test ":editor/ax.set-code stores empty require when missing"
+                  (fn []
+                    (let [code "{:epupp/script-name \"test.cljs\"}
+(ns test)"
+                          result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
+                          new-state (:uf/db result)]
+                      ;; Should store empty vector when require is missing
+                      (-> (expect (:require (:panel/manifest-hints new-state)))
+                          (.toEqual [])))))))
 
 ;; ============================================================
 ;; Panel initialization tests

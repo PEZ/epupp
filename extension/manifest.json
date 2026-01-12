@@ -30,12 +30,21 @@
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.286",
+  "version": "0.0.7.293",
   "web_accessible_resources": [
     {
       "resources": [
         "vendor/scittle.js",
         "vendor/scittle.nrepl.js",
+        "vendor/scittle.pprint.js",
+        "vendor/scittle.promesa.js",
+        "vendor/scittle.replicant.js",
+        "vendor/scittle.js-interop.js",
+        "vendor/scittle.reagent.js",
+        "vendor/scittle.re-frame.js",
+        "vendor/scittle.cljs-ajax.js",
+        "vendor/react.production.min.js",
+        "vendor/react-dom.production.min.js",
         "ws-bridge.js",
         "trigger-scittle.js"
       ],

@@ -121,12 +121,21 @@
 
 ;; Script injection helpers
 (defn- inject-script-tag!
-  "Inject a script tag with src URL into the page."
-  [url]
+  "Inject a script tag with src URL into the page.
+   Returns a promise that resolves when the script has loaded."
+  [url send-response]
   (let [script (js/document.createElement "script")]
+    (set! (.-onload script)
+          (fn []
+            (log/info "Bridge" nil "Script loaded:" url)
+            (send-response #js {:success true})))
+    (set! (.-onerror script)
+          (fn [e]
+            (log/error "Bridge" nil "Script load error:" url e)
+            (send-response #js {:success false :error (str "Failed to load " url)})))
     (set! (.-src script) url)
     (.appendChild js/document.head script)
-    (log/info "Bridge" nil "Injected script:" url)))
+    (log/info "Bridge" nil "Injecting script:" url)))
 
 (defn- clear-old-userscripts!
   "Remove previously injected userscript tags to prevent re-execution on navigation."
@@ -157,12 +166,13 @@
         ;; Return true to keep sendResponse valid for async use
         true)
 
-      ;; Script injection messages - respond synchronously
+      ;; Script injection messages
       "inject-script"
       (do
-        (inject-script-tag! (.-url message))
-        (send-response #js {:success true})
-        false)
+        ;; inject-script-tag! calls send-response when script loads
+        (inject-script-tag! (.-url message) send-response)
+        ;; Return true to indicate async response
+        true)
 
       "clear-userscripts"
       (do

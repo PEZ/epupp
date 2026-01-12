@@ -7,6 +7,7 @@
             [icons :as icons]
             [log :as log]
             [panel-actions :as panel-actions]
+            [scittle-libs :as scittle-libs]
             [script-utils :as script-utils]
             [storage :as storage]
             [view-elements :as view-elements]
@@ -348,6 +349,34 @@
      [:span "Unknown manifest keys: "]
      [:code (str/join ", " unknown-keys)]]))
 
+(defn- valid-require-url?
+  "Returns true if the URL is a valid scittle:// URL that resolves to a known library."
+  [url]
+  (some? (scittle-libs/resolve-scittle-url url)))
+
+(defn- categorize-requires
+  "Categorize require URLs into valid and invalid.
+   Returns {:valid [...] :invalid [...]}."
+  [requires]
+  (when (seq requires)
+    (let [scittle-urls (filter scittle-libs/scittle-url? requires)
+          valid-urls (filter valid-require-url? scittle-urls)
+          invalid-urls (remove valid-require-url? scittle-urls)]
+      {:valid (vec valid-urls)
+       :invalid (vec invalid-urls)})))
+
+(defn- invalid-requires-warning
+  "Render warning for invalid require URLs."
+  [invalid-requires]
+  (when (seq invalid-requires)
+    [:div.manifest-warning
+     [:span.warning-icon "⚠️"]
+     [:span "Invalid requires: "]
+     [:ul.invalid-requires-list
+      (for [[idx url] (map-indexed vector invalid-requires)]
+        ^{:key idx}
+        [:li [:code url]])]]))
+
 (defn- no-manifest-message
   "Message shown when code has no manifest annotations."
   []
@@ -378,7 +407,9 @@
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
         has-manifest? (some? manifest-hints)
         ;; Extract hint details
-        {:keys [name-normalized? raw-script-name unknown-keys run-at-invalid? raw-run-at]} manifest-hints
+        {:keys [name-normalized? raw-script-name unknown-keys run-at-invalid? raw-run-at require]} manifest-hints
+        ;; Categorize require URLs for validation display
+        {:keys [valid invalid]} (categorize-requires require)
         ;; Site match can be string or already joined (from panel actions)
         site-matches (format-site-match script-match)
         ;; Normalize current name for comparison
@@ -446,10 +477,22 @@
             :badge (run-at-badge run-at)
             :hint (when run-at-invalid?
                     {:type "warning"
-                     :text (str "Invalid value \"" raw-run-at "\" - using default")})}]]]
+                     :text (str "Invalid value \"" raw-run-at "\" - using default")})}]
+
+          ;; Requires row - shows library count with checkmark if all valid
+          [property-row
+           {:label "Requires"
+            :value (if (seq require)
+                     (str (count require) " "
+                          (if (= 1 (count require)) "library" "libraries")
+                          (when (and (empty? invalid) (seq valid)) " ✓"))
+                     nil)}]]]
 
         ;; Unknown keys warning
         [unknown-keys-warning unknown-keys]
+
+        ;; Invalid requires warning
+        [invalid-requires-warning invalid]
 
         ;; Save actions
         [:div.save-actions
