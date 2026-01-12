@@ -915,16 +915,37 @@
                              (send-response #js {:success false :error (.-message err)})))))
                       true)  ; Return true to indicate async response
 
+                    ;; Panel - inject required libraries before evaluation
+                    "inject-requires"
+                    (let [target-tab-id (.-tabId message)
+                          requires (when (.-requires message)
+                                     (vec (.-requires message)))]
+                      ((^:async fn []
+                         (try
+                           (when (seq requires)
+                             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+                               (when (seq files)
+                                 (js-await (inject-content-script target-tab-id "content-bridge.js"))
+                                 (js-await (wait-for-bridge-ready target-tab-id))
+                                 (js-await (inject-requires-sequentially! target-tab-id files)))))
+                           (send-response #js {:success true})
+                           (catch :default err
+                             (send-response #js {:success false :error (.-message err)})))))
+                      true)
+
                     ;; Popup/Panel - evaluate a userscript in current tab
                     "evaluate-script"
                     (let [target-tab-id (.-tabId message)
-                          code (.-code message)]
+                          code (.-code message)
+                          requires (when (.-require message)
+                                     (vec (.-require message)))]
                       ((^:async fn []
                          (try
                            (js-await (ensure-scittle! target-tab-id))
-                           (js-await (execute-scripts! target-tab-id [{:script/id (.-scriptId message)
-                                                                       :script/name "popup-eval"
-                                                                       :script/code code}]))
+                           (js-await (execute-scripts! target-tab-id [(cond-> {:script/id (.-scriptId message)
+                                                                               :script/name "popup-eval"
+                                                                               :script/code code}
+                                                                        requires (assoc :script/require requires))]))
                            (send-response #js {:success true})
                            (catch :default err
                              (send-response #js {:success false :error (.-message err)})))))

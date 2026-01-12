@@ -150,11 +150,25 @@
       (restore-panel-state! dispatch callback))
 
     :editor/fx.eval-in-page
-    (let [[code] args]
-      (eval-in-page!
-       code
-       (fn [result]
-         (dispatch [[:editor/ax.handle-eval-result result]]))))
+    (let [[code] args
+          requires (:require (:panel/manifest-hints @!state))]
+      (if (seq requires)
+        ;; Inject requires before eval (even if Scittle already loaded - libs might not be)
+        (js/chrome.runtime.sendMessage
+         #js {:type "inject-requires"
+              :tabId js/chrome.devtools.inspectedWindow.tabId
+              :requires (clj->js requires)}
+         (fn [_response]
+           ;; Proceed with eval regardless (best effort)
+           (eval-in-page!
+            code
+            (fn [result]
+              (dispatch [[:editor/ax.handle-eval-result result]])))))
+        ;; No requires - eval directly
+        (eval-in-page!
+         code
+         (fn [result]
+           (dispatch [[:editor/ax.handle-eval-result result]])))))
 
     :editor/fx.check-scittle
     (check-scittle-status!
@@ -162,16 +176,35 @@
        (dispatch [[:editor/ax.update-scittle-status status]])))
 
     :editor/fx.inject-and-eval
-    (let [[code] args]
-      (ensure-scittle!
-       (fn [err]
-         (if err
-           ;; Injection failed
-           (dispatch [[:editor/ax.update-scittle-status "error"]
-                      [:editor/ax.handle-eval-result err]])
-           ;; Injection succeeded - Scittle is ready
-           (dispatch [[:editor/ax.update-scittle-status "loaded"]
-                      [:editor/ax.do-eval code]])))))
+    (let [[code] args
+          requires (:require (:panel/manifest-hints @!state))]
+      ;; If requires exist, inject them first via background worker
+      (if (seq requires)
+        (js/chrome.runtime.sendMessage
+         #js {:type "inject-requires"
+              :tabId js/chrome.devtools.inspectedWindow.tabId
+              :requires (clj->js requires)}
+         (fn [response]
+           (if (and response (.-success response))
+             ;; Requires injected - now inject Scittle and eval
+             (ensure-scittle!
+              (fn [err]
+                (if err
+                  (dispatch [[:editor/ax.update-scittle-status "error"]
+                             [:editor/ax.handle-eval-result err]])
+                  (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                             [:editor/ax.do-eval code]]))))
+             ;; Require injection failed
+             (dispatch [[:editor/ax.update-scittle-status "error"]
+                        [:editor/ax.handle-eval-result {:error (or (.-error response) "Failed to inject requires")}]]))))
+        ;; No requires - proceed as before
+        (ensure-scittle!
+         (fn [err]
+           (if err
+             (dispatch [[:editor/ax.update-scittle-status "error"]
+                        [:editor/ax.handle-eval-result err]])
+             (dispatch [[:editor/ax.update-scittle-status "loaded"]
+                        [:editor/ax.do-eval code]]))))))
 
     :editor/fx.save-script
     (let [[script] args]

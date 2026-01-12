@@ -239,7 +239,8 @@
        #js {:type "evaluate-script"
             :tabId (.-id tab)
             :scriptId (:script/id script)
-            :code (:script/code script)}))
+            :code (:script/code script)
+            :require (clj->js (:script/require script))}))
 
     :popup/fx.load-user-origins
     (js/chrome.storage.local.get

@@ -1,7 +1,7 @@
 # Scittle Dependencies Implementation Plan
 
 **Created**: January 12, 2026
-**Status**: Phase 3A complete, Phase 3B in progress
+**Status**: Phase 3B complete
 **Related**: [require-feature-design.md](research/require-feature-design.md)
 
 ## Current Status
@@ -11,25 +11,32 @@
 - **Library resolution**: `scittle-libs.cljs` correctly resolves dependencies (e.g., Reagent → React + ReactDOM + Reagent)
 - **Manifest parsing**: `:epupp/require` is parsed and stored with scripts
 - **Panel UI**: Shows "Requires: N libraries ✓" in property table
+- **Panel evaluation**: Running a script with requires from the DevTools panel injects dependencies before evaluation
+- **Popup "Run" button**: Manual script execution injects requires before running
 
 ### Testing Status
 - **E2E tests**: All 56 pass (Docker/headless Chrome)
 - **Unit tests**: All 317 pass
-- **Manual testing**: Limited - only tested in Brave (Chromium) with default Shields up
-- **Not yet tested**: Firefox, Safari, other Chromium browsers
+- **Manual testing Chrome/Firefox**: Verified working:
+  - Panel evaluation with requires (including when Scittle not already injected)
+  - Popup "Run" button with requires (including when Scittle not already injected)
+  - Auto-injection as enabled userscript
+- **Manual testing Safari**: Limited functionality:
+  - Popup "Run": Works on some sites (calva.io), but not on YouTube or GitHub
+  - Auto-injection userscripts: Not working on any site
+  - Panel evaluation: Not working ("tab not found" - appears to be a general panel issue, not require-specific)
 
-### What Doesn't Work Yet
-- **Panel evaluation**: Running a script with requires from the DevTools panel doesn't inject dependencies (goes through `ensure-scittle!` → `eval-in-page!`, bypasses `execute-scripts!`)
-- **Popup "Run" button**: Same issue - manual script execution doesn't inject requires
-- **REPL evaluation**: Code evaluated via nREPL doesn't have access to libraries unless a matching userscript already loaded them
-
-### Root Cause
-The require injection logic is only in `execute-scripts!` (auto-injection flow). Manual evaluation paths don't call this function.
+### Known Issues
+- **Safari DevTools panel**: No scripts work from panel - gets "tab not found" error. This is a pre-existing issue, not related to requires feature.
+- **Safari userscripts**: Auto-injection doesn't trigger on any site. Needs investigation.
+- **Safari popup on CSP sites**: Popup "Run" fails on GitHub, YouTube - likely CSP-related
+- **REPL evaluation**: Code evaluated via nREPL doesn't have access to libraries unless a matching userscript already loaded them (by design - REPL bypasses extension entirely)
 
 ### Next Steps
-**Phase 3B**: Add require injection to panel/popup evaluation flows:
-1. Panel: Before `eval-in-page!`, check if code has `:epupp/require` and inject dependencies
-2. Popup "Run": Ensure dependencies are injected before running script
+**Phase 5**: Documentation updates
+1. Update README with usage examples
+2. Document available libraries table
+3. Note Safari limitations
 
 ### Implementation Details for Phase 3B
 
@@ -276,9 +283,9 @@ Modified `background.cljs` to inject required libraries in `execute-scripts!` (n
 
 **Key implementation**: Uses `inject-requires-sequentially!` with `loop/recur` because `doseq` + `js-await` doesn't await properly in Squint.
 
-#### Phase 3B: Manual evaluation injection 🔲 TODO
+#### Phase 3B: Manual evaluation injection ✅ COMPLETE
 
-Panel and popup evaluation flows need to inject requires before running code.
+Panel and popup evaluation flows now inject requires before running code.
 
 **Popup "Run" flow** - EASIEST (already calls `execute-scripts!`):
 
@@ -566,33 +573,25 @@ Epupp bundles the Scittle ecosystem libraries. Add them to your script:
 1. ✅ **Phase 1**: Library mapping module - pure functions, easy to test
 2. ✅ **Phase 2**: Manifest parser - extend existing infrastructure
 3. ✅ **Phase 3A**: Auto-injection flow - the core feature work
-4. ✅ **Phase 4**: Panel UI - user feedback
+4. ✅ **Phase 3B**: Manual evaluation injection - popup and panel flows
+5. ✅ **Phase 4**: Panel UI - user feedback
 
-**Remaining work (Phase 3B):**
+**Remaining work:**
 
-Execute in this order for cleanest incremental progress:
-
-1. **Popup "Run" fix** (easiest, 5-10 min)
-   - Edit `popup.cljs` `:popup/fx.evaluate-script` - add `:require` to message
-   - Edit `background.cljs` `"evaluate-script"` handler - pass `:script/require` to script map
-   - Run `bb test` to verify no regressions
-
-2. **Add `"inject-requires"` message handler** (15 min)
-   - Add handler in `background.cljs` after `"ensure-scittle"`
-   - Uses existing `inject-requires-sequentially!` function
-   - Run `bb test` to verify
-
-3. **Update panel effects** (30 min)
-   - Update `:editor/fx.inject-and-eval` to call `"inject-requires"` first when needed
-   - Update `:editor/fx.eval-in-page` similarly
-   - Manual test in browser to verify
-
-4. **Add E2E tests** (30 min)
+1. **E2E tests for Phase 3B** (30 min)
    - Test popup Run with requires
    - Test panel eval with requires
    - Run `bb test:e2e` to verify
 
-5. **Phase 5**: Documentation - user guidance (1h)
+2. **Phase 5**: Documentation - user guidance (1h)
+   - Update README with usage examples
+   - Document available libraries
+   - Note Safari limitations
+
+3. **Safari investigation** (future)
+   - DevTools panel "tab not found" issue
+   - Userscript auto-injection not triggering
+   - CSP handling differences
 
 ## Testing Strategy
 
@@ -679,26 +678,27 @@ Update `bundle-scittle` task to also copy the new libraries:
 | Phase 1: Library mapping | ✅ S (1-2h) | Complete |
 | Phase 2: Manifest parser | ✅ S (1h) | Complete |
 | Phase 3A: Auto-injection | ✅ M (3-4h) | Complete |
-| Phase 3B-popup: Popup Run | S (15 min) | Add `:require` to message - 2 small changes |
-| Phase 3B-panel: Panel eval | M (1h) | New message handler + effect updates |
-| Phase 3B-tests: E2E tests | S (30 min) | 2 new E2E tests |
+| Phase 3B-popup: Popup Run | ✅ S (15 min) | Complete - added `:require` to message |
+| Phase 3B-panel: Panel eval | ✅ M (1h) | Complete - new message handler + effect updates |
+| Phase 3B-tests: E2E tests | 🔲 S (30 min) | TODO: 2 new E2E tests |
 | Phase 4: Panel UI | ✅ S (1h) | Complete |
-| Phase 5: Documentation | S (1h) | README updates |
-| **Remaining** | **M (2.5-3h)** | Phase 3B + docs |
+| Phase 5: Documentation | 🔲 S (1h) | TODO: README updates |
+| **Remaining** | **S (1.5h)** | E2E tests + docs |
 
 ## Success Criteria
 
 - [x] `scittle://pprint.js` works in userscripts (auto-injection)
 - [x] `scittle://reagent.js` loads React automatically (auto-injection)
 - [x] `scittle://re-frame.js` loads Reagent + React (auto-injection)
-- [ ] **Panel evaluation injects requires from manifest** (Phase 3B)
-- [ ] **Popup "Run" button injects requires before execution** (Phase 3B)
+- [x] **Panel evaluation injects requires from manifest** (Phase 3B)
+- [x] **Popup "Run" button injects requires before execution** (Phase 3B)
 - [x] Panel shows require status
-- [x] Works on CSP-strict sites
+- [x] Works on CSP-strict sites (Chrome, Firefox)
 - [x] All unit tests pass (317)
 - [x] All E2E tests pass (56)
 - [ ] E2E test for panel eval with requires
 - [ ] E2E test for popup Run with requires
+- [ ] Safari support (limited - known issues with panel and userscripts)
 - [ ] Gist Installer Script uses Replicant (future)
 
 ## Completed Implementation Details
@@ -711,10 +711,12 @@ Update `bundle-scittle` task to also copy the new libraries:
 
 ### Files Modified
 
-- `src/background.cljs` - Added `inject-requires-sequentially!`, updated `execute-scripts!`
+- `src/background.cljs` - Added `inject-requires-sequentially!`, updated `execute-scripts!`, added `"inject-requires"` message handler, updated `"evaluate-script"` handler to pass requires
 - `src/scittle_libs.cljs` - Created library catalog and resolution functions
 - `src/manifest_parser.cljs` - Added `:epupp/require` parsing
 - `src/panel_actions.cljs` - Save script includes require field
+- `src/panel.cljs` - Updated `:editor/fx.inject-and-eval` and `:editor/fx.eval-in-page` to inject requires
+- `src/popup.cljs` - Updated `:popup/fx.evaluate-script` to include requires in message
 - `src/content_bridge.cljs` - Script injection waits for load
 - `extension/manifest.json` - Added all vendor files to `web_accessible_resources`
 - `e2e/require_test.cljs` - 4 E2E tests for require feature
