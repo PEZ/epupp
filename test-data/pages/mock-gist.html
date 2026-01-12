@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Mock Gist Page - Epupp Test</title>
+  <style>
+    .file { border: 1px solid #ddd; margin: 20px; border-radius: 6px; }
+    .file-header { background: #f6f8fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    .gist-blob-name { font-weight: bold; }
+    .file-actions a { color: #0366d6; margin-left: 10px; }
+    .blob-code-inner { padding: 10px; font-family: monospace; white-space: pre; }
+    .js-file-line { display: block; }
+  </style>
+</head>
+<body>
+  <h1>Mock Gist Page</h1>
+  <p>This page simulates GitHub Gist structure for E2E testing.</p>
+  <div id="test-marker">ready</div>
+
+  <!-- Installable gist file with valid manifest -->
+  <div class="file" id="installable-gist">
+    <div class="file-header">
+      <span class="gist-blob-name">test_script.cljs</span>
+      <div class="file-actions">
+        <a href="http://localhost:18080/raw/test_script.cljs">Raw</a>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <table class="highlight">
+        <tbody>
+          <tr><td class="blob-code"><span class="js-file-line">{:epupp/script-name "Test Installer Script"</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"> :epupp/site-match "*://test.example.com/*"</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"> :epupp/description "A test script for E2E testing"}</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line">(ns test-installer-script)</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line">(js/console.log "Test script loaded!")</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Non-installable file (no manifest) -->
+  <div class="file" id="non-installable-gist">
+    <div class="file-header">
+      <span class="gist-blob-name">regular_code.cljs</span>
+      <div class="file-actions">
+        <a href="/raw/regular_code.cljs">Raw</a>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <table class="highlight">
+        <tbody>
+          <tr><td class="blob-code"><span class="js-file-line">(ns regular-code)</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line">(defn hello [] "world")</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</body>
+</html>

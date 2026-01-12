@@ -272,10 +272,12 @@
                   (not= (:script/code existing) code))
           (save-script! {:script/id installer-id
                          :script/name "GitHub Gist Installer (Built-in)"
-                         :script/match ["https://gist.github.com/*"]
+                         :script/match ["https://gist.github.com/*"
+                                        "http://localhost:18080/mock-gist.html"]
                          :script/code code
                          :script/enabled true
-                         :script/approved-patterns ["https://gist.github.com/*"]})
+                         :script/approved-patterns ["https://gist.github.com/*"
+                                                    "http://localhost:18080/mock-gist.html"]})
           (log/info "Storage" nil "Installed/updated built-in gist installer")))
       (catch :default err
         (log/error "Storage" nil "Failed to load gist installer:" err)))))

@@ -1076,3 +1076,69 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Gist Installer E2E Test
+;; =============================================================================
+
+(test "Log-powered: gist installer shows Install button and installs script"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage first
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+              (js-await (.close popup)))
+
+            ;; Navigate to mock gist page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Mock gist page loaded")
+
+              ;; Wait for the gist installer userscript to run and add Install button
+              ;; The button should appear on the installable gist file
+              (let [install-btn (.locator page "#installable-gist button:has-text(\"Install\")")]
+                (js/console.log "Waiting for Install button to appear...")
+                (js-await (-> (expect install-btn)
+                              (.toBeVisible #js {:timeout 10000})))
+                (js/console.log "Install button found, clicking...")
+
+                ;; Click the install button - should show confirmation modal
+                (js-await (.click install-btn))
+
+                ;; Wait for confirmation modal - uses #epupp-confirm ID
+                (let [confirm-btn (.locator page "#epupp-confirm")]
+                  (js-await (-> (expect confirm-btn)
+                                (.toBeVisible #js {:timeout 5000})))
+                  (js/console.log "Confirmation modal appeared, confirming...")
+
+                  ;; Confirm the installation
+                  (js-await (.click confirm-btn))
+
+                  ;; Wait for button to change to "Installed"
+                  (let [installed-indicator (.locator page "#installable-gist button:has-text(\"Installed\")")]
+                    (js-await (-> (expect installed-indicator)
+                                  (.toBeVisible #js {:timeout 5000})))
+                    (js/console.log "Script installed successfully"))))
+
+              (js-await (.close page)))
+
+            ;; Verify script appears in popup
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Look for the installed script
+              (let [script-item (.locator popup ".script-item:has-text(\"test_installer_script.cljs\")")]
+                (js-await (-> (expect script-item)
+                              (.toBeVisible #js {:timeout 5000})))
+                (js/console.log "Installed script visible in popup"))
+
+              (js-await (.close popup)))
+
+            (finally
+              (js-await (.close context)))))))
