@@ -23,4 +23,6 @@
 * [x] Consider moving all metadata to the manifest
 * [ ] Undo doesn't work in editor
 * [ ] Change to plain data for the manifest for installer scripts
-* [ ] Keep track on when we use the websocket for a new tab we are no longer connected on a previous connected tab using the same port number
+* [x] Keep track on when we use the websocket for a new tab we are no longer connected on a previous connected tab using the same port number
+* [ ] Add config/setting for keeping the current tab connected while navigating, if it has been connected.
+  * [ ] Clarify the "connect all pages on load" setting in the light of the “re-connect connected tabs” setting
