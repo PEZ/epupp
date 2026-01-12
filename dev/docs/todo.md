@@ -33,3 +33,4 @@
 * [x] E2E performance tuning
 * [x] Blank slates for different sections of the UI
 * [ ] Unify css between panel and popup
+* [ ] Consider if a version of Uniflow could be included as an Epupp library
