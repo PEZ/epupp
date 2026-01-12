@@ -6,6 +6,10 @@ build/
 
 # Squint compiled output (intermediate .mjs files)
 extension/*.mjs
+
+# Vendor libraries (downloaded via bb bundle-scittle)
+extension/vendor/*.js
+
 dev/docs/working-backwards/
 .nrepl-port
 !.clj-kondo/imports/

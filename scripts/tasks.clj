@@ -48,20 +48,45 @@
     (str "--define:EXTENSION_CONFIG=" (json/write-str config))))
 
 (defn bundle-scittle
-  "Download Scittle and nREPL plugin to extension/vendor"
+  "Download Scittle ecosystem libraries to extension/vendor"
   []
-  (let [version "0.7.30"
-        base-url "https://cdn.jsdelivr.net/npm/scittle@"
+  (let [scittle-version "0.7.30"
+        react-version "18"
+        scittle-base (str "https://cdn.jsdelivr.net/npm/scittle@" scittle-version "/dist/")
+        react-base "https://cdn.jsdelivr.net/npm/"
         vendor-dir "extension/vendor"
-        files [["scittle.js" (str base-url version "/dist/scittle.js")]
-               ["scittle.nrepl.js" (str base-url version "/dist/scittle.nrepl.js")]]]
+        ;; Scittle core and plugins
+        scittle-files ["scittle.js"
+                       "scittle.nrepl.js"
+                       "scittle.pprint.js"
+                       "scittle.promesa.js"
+                       "scittle.replicant.js"
+                       "scittle.js-interop.js"
+                       "scittle.reagent.js"
+                       "scittle.re-frame.js"
+                       "scittle.cljs-ajax.js"]
+        ;; React dependencies for Reagent
+        react-files [["react.production.min.js"
+                      (str react-base "react@" react-version "/umd/react.production.min.js")]
+                     ["react-dom.production.min.js"
+                      (str react-base "react-dom@" react-version "/umd/react-dom.production.min.js")]]]
     (fs/create-dirs vendor-dir)
-    (doseq [[filename url] files]
-      (println "Downloading" filename "...")
+    ;; Download Scittle files
+    (println (str "Downloading Scittle " scittle-version " ecosystem..."))
+    (doseq [filename scittle-files]
+      (println "  Downloading" filename "...")
+      (let [url (str scittle-base filename)
+            response (http/get url)]
+        (spit (str vendor-dir "/" filename) (:body response))))
+    ;; Download React files
+    (println (str "Downloading React " react-version " (for Reagent)..."))
+    (doseq [[filename url] react-files]
+      (println "  Downloading" filename "...")
       (let [response (http/get url)]
         (spit (str vendor-dir "/" filename) (:body response))))
+    ;; Patch scittle.js for CSP (only core needs patching)
     (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
-    (println "✓ Scittle" version "bundled to" vendor-dir)))
+    (println (str "✓ Scittle " scittle-version " ecosystem bundled to " vendor-dir))))
 
 (defn compile-squint
   "Compile ClojureScript files with Squint and bundle with esbuild.
