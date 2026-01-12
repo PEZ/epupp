@@ -79,3 +79,15 @@
                 :title (or (:ws/tab-title conn-info) "Unknown")
                 :favicon (:ws/tab-favicon conn-info)}))
        (sort-by :port)))
+
+(defn tab-in-history?
+  "Check if a tab-id is in the connected tabs history.
+   Pure function - takes history map and tab-id."
+  [connected-tabs-history tab-id]
+  (contains? connected-tabs-history tab-id))
+
+(defn get-history-port
+  "Get the saved WebSocket port for a tab from history.
+   Pure function - takes history map and tab-id."
+  [connected-tabs-history tab-id]
+  (get-in connected-tabs-history [tab-id :port]))

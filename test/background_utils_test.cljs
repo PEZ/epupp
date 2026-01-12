@@ -272,3 +272,53 @@
                           result (bg/connections->display-list connections)]
                       (-> (expect (:favicon (first result)))
                           (.toBeUndefined)))))))
+
+(describe "tab-in-history?"
+          (fn []
+            (let [history {"123" {:port 1340}
+                           "456" {:port 1341}}]
+
+              (test "returns true when tab-id is in history"
+                    (fn []
+                      (-> (expect (bg/tab-in-history? history "123"))
+                          (.toBe true))))
+
+              (test "returns false when tab-id is not in history"
+                    (fn []
+                      (-> (expect (bg/tab-in-history? history "789"))
+                          (.toBe false))))
+
+              (test "returns false for empty history"
+                    (fn []
+                      (-> (expect (bg/tab-in-history? {} "123"))
+                          (.toBe false))))
+
+              (test "returns false for nil history"
+                    (fn []
+                      (-> (expect (bg/tab-in-history? nil "123"))
+                          (.toBe false)))))))
+
+(describe "get-history-port"
+          (fn []
+            (let [history {"123" {:port 1340}
+                           "456" {:port 1341}}]
+
+              (test "returns port for existing tab"
+                    (fn []
+                      (-> (expect (bg/get-history-port history "123"))
+                          (.toBe 1340))))
+
+              (test "returns port for another existing tab"
+                    (fn []
+                      (-> (expect (bg/get-history-port history "456"))
+                          (.toBe 1341))))
+
+              (test "returns nil for non-existent tab"
+                    (fn []
+                      (-> (expect (bg/get-history-port history "789"))
+                          (.toBeUndefined))))
+
+              (test "returns nil for empty history"
+                    (fn []
+                      (-> (expect (bg/get-history-port {} "123"))
+                          (.toBeUndefined)))))))

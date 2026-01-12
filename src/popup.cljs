@@ -33,6 +33,7 @@
          :settings/new-origin ""      ; Input field for new origin
          :settings/default-origins [] ; Config origins (read-only)
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
+         :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/error nil
          :repl/connections []}))          ; Validation error message
 
@@ -288,6 +289,19 @@
     :popup/fx.save-auto-connect-setting
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:autoConnectRepl enabled}))
+
+    :popup/fx.load-auto-reconnect-setting
+    (js/chrome.storage.local.get
+     #js ["autoReconnectRepl"]
+     (fn [result]
+       (let [enabled (if (some? (.-autoReconnectRepl result))
+                       (.-autoReconnectRepl result)
+                       true)]  ; Default to true
+         (dispatch [[:db/ax.assoc :settings/auto-reconnect-repl enabled]]))))
+
+    :popup/fx.save-auto-reconnect-setting
+    (let [[enabled] args]
+      (js/chrome.storage.local.set #js {:autoReconnectRepl enabled}))
 
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
@@ -601,19 +615,28 @@
    (when error
      [:div.add-origin-error error])])
 
-(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl]}]
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl settings/auto-reconnect-repl]}]
   [:div.settings-content
    [:div.settings-section
-    [:h3.settings-section-title "REPL Auto-Connect"]
+    [:h3.settings-section-title "REPL Connection"]
     [:div.auto-connect-setting
+     [:label.checkbox-label
+      [:input#auto-reconnect-repl {:type "checkbox"
+                                   :checked auto-reconnect-repl
+                                   :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
+      "Auto-reconnect to previously connected tabs"]
+     [:p.auto-connect-description
+      "When a connected tab navigates to a new page, automatically reconnect. "
+      "REPL state will be lost but connection will be restored."]]
+    [:div.auto-connect-setting.auto-connect-all
      [:label.checkbox-label
       [:input#auto-connect-repl {:type "checkbox"
                                  :checked auto-connect-repl
                                  :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
-      "Auto-connect REPL on every page"]
+      "Auto-connect REPL to all pages"]
      [:p.auto-connect-warning
-      "Warning: Enabling this will inject the Scittle REPL on every page you visit. "
-      "Only enable if you understand the implications."]]]
+      "Warning: Enabling this will inject the Scittle REPL on every page you visit, "
+      "even tabs never connected before. Only enable if you understand the implications."]]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description
@@ -773,6 +796,7 @@
               [:popup/ax.load-current-url]
               [:popup/ax.load-user-origins]
               [:popup/ax.load-auto-connect-setting]
+              [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-connections]]))
 
 ;; Start the app when DOM is ready

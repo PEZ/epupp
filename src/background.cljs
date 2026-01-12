@@ -70,7 +70,8 @@
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
-                   :icon/states {}}))  ; tab-id -> :disconnected | :injected | :connected
+                   :icon/states {}      ; tab-id -> :disconnected | :injected | :connected
+                   :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
 (defn get-ws
   "Get WebSocket for a tab"
@@ -144,6 +145,8 @@
                    :ws/port port
                    :ws/tab-title tab-title
                    :ws/tab-favicon tab-favicon})
+           ;; Track this tab in connection history for auto-reconnect
+           (swap! !state assoc-in [:connected-tabs/history tab-id] {:port port})
 
            (set! (.-onopen ws)
                  (fn []
@@ -669,6 +672,19 @@
         (let [enabled (.-autoConnectRepl result)]
           (resolve {:enabled? (boolean enabled)})))))))
 
+(defn ^:async get-auto-reconnect-setting
+  "Get auto-reconnect REPL setting from storage.
+   Returns true if enabled (defaults to true if not set)."
+  []
+  (js/Promise.
+   (fn [resolve]
+     (js/chrome.storage.local.get
+      #js ["autoReconnectRepl"]
+      (fn [result]
+        (let [value (.-autoReconnectRepl result)]
+          ;; Default to true if not set
+          (resolve (if (some? value) value true))))))))
+
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
   [tab-id]
@@ -964,7 +980,13 @@
 (defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
    Never drops navigation events - always waits for readiness.
-   If auto-connect REPL is enabled, also connects the Scittle nREPL."
+   
+   Connection priority:
+   1. Auto-connect-all (supersedes everything) - connects to ALL pages
+   2. Auto-reconnect (for previously connected tabs only) - uses saved port
+   3. Otherwise, no automatic REPL connection
+   
+   Then processes userscripts as usual."
   [tab-id url]
   (try
     ;; Log test event for E2E debugging
@@ -974,16 +996,36 @@
     ;; Reset icon state on navigation (Scittle is not injected on new page)
     (js-await (update-icon-for-tab! tab-id :disconnected))
 
-    ;; Check auto-connect setting
-    (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))]
-      (when enabled?
-        (log/info "Background" "AutoConnect" "REPL auto-connect enabled, connecting to tab:" tab-id)
-        (let [ws-port (js-await (get-saved-ws-port tab-id))]
+    ;; Check auto-connect settings - order matters!
+    (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))
+          auto-reconnect? (js-await (get-auto-reconnect-setting))
+          history (:connected-tabs/history @!state)
+          in-history? (bg-utils/tab-in-history? history tab-id)
+          history-port (when in-history? (bg-utils/get-history-port history tab-id))]
+      (cond
+        ;; Auto-connect-all supersedes everything
+        enabled?
+        (do
+          (log/info "Background" "AutoConnect" "REPL auto-connect-all enabled, connecting to tab:" tab-id)
+          (let [ws-port (js-await (get-saved-ws-port tab-id))]
+            (try
+              (js-await (connect-tab! tab-id ws-port))
+              (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
+              (catch :default err
+                (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err))))))
+
+        ;; Auto-reconnect for previously connected tabs only
+        (and auto-reconnect? in-history? history-port)
+        (do
+          (log/info "Background" "AutoReconnect" "Reconnecting tab" tab-id "using saved port:" history-port)
           (try
-            (js-await (connect-tab! tab-id ws-port))
-            (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
+            (js-await (connect-tab! tab-id history-port))
+            (log/info "Background" "AutoReconnect" "Successfully reconnected REPL to tab:" tab-id)
             (catch :default err
-              (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err)))))))
+              (log/warn "Background" "AutoReconnect" "Failed to reconnect REPL:" (.-message err)))))
+
+        ;; No automatic connection
+        :else nil))
 
     ;; Continue with normal userscript processing
     (js-await (process-navigation! tab-id url))
@@ -996,7 +1038,9 @@
                 (log/info "Background" nil "Tab closed, cleaning up:" tab-id)
                 (when (get-ws tab-id)
                   (close-ws! tab-id))
-                (clear-icon-state! tab-id)))
+                (clear-icon-state! tab-id)
+                ;; Remove from connection history - no point reconnecting a closed tab
+                (swap! !state update :connected-tabs/history dissoc tab-id)))
 
 (.addListener js/chrome.tabs.onActivated
               (fn [active-info]

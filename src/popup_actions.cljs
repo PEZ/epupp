@@ -125,6 +125,14 @@
       {:uf/db (assoc state :settings/auto-connect-repl new-value)
        :uf/fxs [[:popup/fx.save-auto-connect-setting new-value]]})
 
+    :popup/ax.load-auto-reconnect-setting
+    {:uf/fxs [[:popup/fx.load-auto-reconnect-setting]]}
+
+    :popup/ax.toggle-auto-reconnect-repl
+    (let [new-value (not (:settings/auto-reconnect-repl state))]
+      {:uf/db (assoc state :settings/auto-reconnect-repl new-value)
+       :uf/fxs [[:popup/fx.save-auto-reconnect-setting new-value]]})
+
     :popup/ax.toggle-section
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})
