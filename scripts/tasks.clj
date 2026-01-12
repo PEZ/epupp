@@ -393,8 +393,12 @@
 ;; ============================================================
 
 (def ^:private test-server-port 18080)
-(def ^:private browser-nrepl-port 12345)
-(def ^:private browser-ws-port 12346)
+
+;; Two browser-nrepl servers for multi-tab testing
+(def ^:private browser-nrepl-port-1 12345)
+(def ^:private browser-ws-port-1 12346)
+(def ^:private browser-nrepl-port-2 12347)
+(def ^:private browser-ws-port-2 12348)
 
 (defn- wait-for-port
   "Wait for a port to become available, with timeout."
@@ -426,29 +430,38 @@
         (stop-fn)
         (println "Test server stopped")))))
 
-(defn with-browser-nrepl
-  "Execute f with browser-nrepl relay server running.
-   Server is started before f and stopped after (even on exception)."
+(defn- start-browser-nrepl-process
+  "Start a browser-nrepl process on given ports. Returns the process."
+  [nrepl-port ws-port]
+  (p/process ["bb" "browser-nrepl"
+              "--nrepl-port" (str nrepl-port)
+              "--websocket-port" (str ws-port)]
+             {:out :inherit :err :inherit}))
+
+(defn with-browser-nrepls
+  "Execute f with two browser-nrepl relay servers running.
+   Enables multi-tab testing with different ports."
   [f]
-  (println "Starting browser-nrepl server...")
-  (let [proc (p/process ["bb" "browser-nrepl"
-                         "--nrepl-port" (str browser-nrepl-port)
-                         "--websocket-port" (str browser-ws-port)]
-                        {:out :inherit :err :inherit})]
+  (println "Starting browser-nrepl servers...")
+  (let [proc1 (start-browser-nrepl-process browser-nrepl-port-1 browser-ws-port-1)
+        proc2 (start-browser-nrepl-process browser-nrepl-port-2 browser-ws-port-2)]
     (try
-      (if (wait-for-port browser-nrepl-port 5000)
+      (if (and (wait-for-port browser-nrepl-port-1 5000)
+               (wait-for-port browser-nrepl-port-2 5000))
         (do
-          (println (format "browser-nrepl ready on ports %d / %d" browser-nrepl-port browser-ws-port))
+          (println (format "browser-nrepl #1 ready on ports %d / %d" browser-nrepl-port-1 browser-ws-port-1))
+          (println (format "browser-nrepl #2 ready on ports %d / %d" browser-nrepl-port-2 browser-ws-port-2))
           (f))
-        (throw (ex-info "browser-nrepl failed to start" {:port browser-nrepl-port})))
+        (throw (ex-info "browser-nrepl servers failed to start" {})))
       (finally
-        (p/destroy-tree proc)
+        (p/destroy-tree proc1)
+        (p/destroy-tree proc2)
         (Thread/sleep 300)
-        (println "browser-nrepl stopped")))))
+        (println "browser-nrepl servers stopped")))))
 
 (defn run-e2e-tests!
-  "Run Playwright E2E tests with test server and browser-nrepl. Pass command-line args to Playwright."
+  "Run Playwright E2E tests with test server and two browser-nrepls."
   [args]
   (with-test-server
-    #(with-browser-nrepl
+    #(with-browser-nrepls
        (fn [] (apply p/shell "npx playwright test" args)))))
