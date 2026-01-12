@@ -7,7 +7,7 @@ Analysis of `bb test:e2e` output revealed opportunities for performance improvem
 
 ## Phase 1C Results: Output Cleanup
 
-Redirected subprocess output (browser-nrepl) to temp file, added line reporter for cleaner console output.
+Redirected subprocess output (browser-nrepl) to temp file for cleaner console. Also suppressed Babashka stack traces on test failures - Playwright's output already shows all the useful diagnostic info.
 
 **Before:**
 ```
@@ -27,19 +27,22 @@ Client closed connection.
 browser-nrepl #1 ready on ports 12345 / 12346
 browser-nrepl #2 ready on ports 12347 / 12348
 
-Running 46 tests using 1 worker
-[1/46] build/e2e/integration_test.mjs:26:1 › Integration: script lifecycle...
-  46 passed (38.0s)
+✓ build/e2e/log_powered_test.mjs:27:1 › Log-powered: extension starts... (429ms)
 ```
+
+**Failure output cleanup:** Babashka's verbose stack traces (showing process exit info twice) are now suppressed. On test failure, only Playwright's diagnostic output is shown - test name, assertion failure, call log, and code snippet.
 
 **Benefits:**
 - browser-nrepl noise removed from console (7+ lines per test run)
-- Line reporter shows concise progress `[1/46]` format
 - Full subprocess output available in temp file for debugging
-- HTML report still generated for detailed analysis
+- Default Playwright reporter preserved (includes per-test timing)
+- Clean failure output - just the useful diagnostic info
+
+**Reverted:** Line reporter (`--reporter=line`) was tried but reverted - lost per-test timing info which is valuable for monitoring test performance.
 
 Files modified:
-- `scripts/tasks.clj` - Added `e2e-log-file`, `log-writer`, updated `start-browser-nrepl-process` and `run-e2e-tests!`
+- `scripts/tasks.clj` - Added `e2e-log-file`, `log-writer`, updated `start-browser-nrepl-process`, suppress exit exception
+- `bb.edn` - Suppress exit exception for Docker task
 
 ## Phase 1B Results: Event-Driven Connection Waits
 
@@ -310,11 +313,11 @@ Replaced "nothing happens" sleeps with `assert-no-new-event-within`:
 - ✅ Updated `start-browser-nrepl-process` to write to log file
 - ✅ Print log file path at start of `run-e2e-tests!`
 
-### 4. Add line reporter to Playwright ✅
+### 4. Add line reporter to Playwright ❌ REVERTED
 
 **File:** `scripts/tasks.clj`
 
-- ✅ Updated `run-e2e-tests!` to pass `--reporter=line,html` to Playwright
+Tried `--reporter=line,html` but reverted - lost per-test timing info which is valuable for monitoring performance regressions.
 
 ## Post-Phase 1A Notes
 

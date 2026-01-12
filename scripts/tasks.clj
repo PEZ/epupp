@@ -475,9 +475,12 @@
 
 (defn run-e2e-tests!
   "Run Playwright E2E tests with test server and two browser-nrepls.
-   Subprocess output goes to temp file for clean console output."
+   Subprocess output goes to temp file for clean console output.
+   Exits with Playwright's exit code without Babashka stack trace noise."
   [args]
   (println (str "📝 E2E log file: " e2e-log-file))
   (with-test-server
     #(with-browser-nrepls
-       (fn [] (apply p/shell "npx playwright test" args)))))
+       (fn []
+         (let [result (apply p/shell {:continue true} "npx playwright test" args)]
+           (System/exit (:exit result)))))))
