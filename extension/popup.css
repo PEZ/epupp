@@ -991,3 +991,34 @@ button#connect:active {
   border-top: 1px solid var(--border-light);
   background: var(--bg-subtle);
 }
+
+/* ============================================================
+   Blank Slate Hints - Contextual guidance for empty states
+   ============================================================ */
+
+.no-scripts-hint,
+.no-connections-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.no-scripts-hint code,
+.no-connections-hint code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  background: var(--code-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.blank-slate-link {
+  color: var(--clojure-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.blank-slate-link:hover {
+  text-decoration: underline;
+}

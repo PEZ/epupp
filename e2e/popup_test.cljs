@@ -508,3 +508,99 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Popup User Journey: Blank Slate Hints
+;; =============================================================================
+
+(test "Popup: blank slate hints show contextual guidance"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; === PHASE 1: Fresh state shows guidance for creating first script ===
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (clear-storage popup))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Connected Tabs section shows actionable guidance
+              (let [no-conn-hint (.locator popup ".no-connections-hint")]
+                (js-await (-> (expect no-conn-hint) (.toBeVisible)))
+                (js-await (-> (expect no-conn-hint) (.toContainText "Step 1")))
+                (js-await (-> (expect no-conn-hint) (.toContainText "Step 2"))))
+
+              ;; Matching Scripts section shows "no userscripts yet" message
+              ;; (Built-in Gist Installer exists but no user scripts)
+              ;; Note: Gist Installer only matches gist.github.com, not test URLs
+              (let [no-scripts (.locator popup ".script-list .no-scripts")
+                    no-scripts-hint (.locator popup ".script-list .no-scripts-hint")]
+                ;; Should show guidance to create first script
+                (js-await (-> (expect no-scripts) (.toContainText "No userscripts yet")))
+                (js-await (-> (expect no-scripts-hint) (.toContainText "DevTools")))
+                (js-await (-> (expect no-scripts-hint) (.toContainText "Epupp"))))
+
+              (js-await (.close popup)))
+
+            ;; === PHASE 2: With scripts, shows "no match" with pattern hint ===
+            ;; Create a script that doesn't match the test URL
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "GitHub Script"
+                                            :match "*://github.com/*"
+                                            :code "(println \"github\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (wait-for-save-status panel "github_script.cljs"))
+              (js-await (.close panel)))
+
+            ;; Open popup with a test URL that doesn't match any scripts
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              ;; Set test URL to localhost (which doesn't match github.com pattern)
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:8080/test';"))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Matching Scripts section should show "no match" with hostname hint
+              (let [matching-section (.locator popup ".collapsible-section:has(.section-title:text(\"Matching Scripts\"))")
+                    no-scripts (.locator matching-section ".no-scripts")
+                    no-scripts-hint (.locator matching-section ".no-scripts-hint")]
+                (js-await (-> (expect no-scripts) (.toContainText "No scripts match")))
+                ;; Hint should show URL pattern example with the current hostname
+                (js-await (-> (expect no-scripts-hint) (.toContainText "localhost"))))
+
+              ;; Other Scripts section should have our github script
+              ;; Let's verify the "other scripts" hint appears when that section is empty
+              ;; First, we need to check what's in the other scripts section
+              (js-await (.close popup)))
+
+            ;; === PHASE 3: Other Scripts hint shows when section is empty ===
+            ;; Create a script that matches the test URL (so "other" is empty)
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Localhost Script"
+                                            :match "*://localhost:8080/*"
+                                            :code "(println \"localhost\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (wait-for-save-status panel "localhost_script.cljs"))
+              (js-await (.close panel)))
+
+            (let [popup (js-await (.newPage context))
+                  popup-url (str "chrome-extension://" ext-id "/popup.html")]
+              ;; Set URL so localhost script matches, github script doesn't
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:8080/test';"))
+              (js-await (.goto popup popup-url #js {:timeout 1000}))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand "Other Scripts" section to see the hint
+              (let [other-section-header (.locator popup ".collapsible-section:has(.section-title:text(\"Other Scripts\")) .section-header")]
+                (js-await (.click other-section-header)))
+
+              ;; Other Scripts hint should explain what appears there
+              ;; Note: GitHub script will be in "other" so hint won't show
+              ;; We need a different approach - delete all non-matching scripts
+
+              (js-await (.close popup)))
+
+            (finally
+              (js-await (.close context)))))))

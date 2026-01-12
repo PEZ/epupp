@@ -789,3 +789,43 @@
               (js-await (.close context)))))))
 
 
+
+;; =============================================================================
+;; Panel User Journey: Blank Slate Hints
+;; =============================================================================
+
+(test "Panel: empty results shows keyboard shortcut hint"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [panel (js-await (create-panel-page context ext-id))
+                  results (.locator panel ".results-area")]
+              ;; Clear storage for clean state
+              (js-await (clear-storage panel))
+              (js-await (.reload panel))
+              (js-await (wait-for-panel-ready panel))
+
+              ;; Empty results area should show helpful hints
+              (let [empty-results (.locator results ".empty-results")
+                    shortcut-hint (.locator results ".empty-results-shortcut")]
+
+                ;; Main message
+                (js-await (-> (expect empty-results) (.toContainText "Evaluate ClojureScript")))
+
+                ;; Keyboard shortcut with kbd elements
+                (js-await (-> (expect shortcut-hint) (.toBeVisible)))
+                (js-await (-> (expect shortcut-hint) (.toContainText "Ctrl")))
+                (js-await (-> (expect shortcut-hint) (.toContainText "Enter"))))
+
+              ;; After evaluating code, hints should disappear
+              (let [textarea (.locator panel "#code-area")
+                    eval-btn (.locator panel "button.btn-eval")]
+                (js-await (.fill textarea "(+ 1 2)"))
+                (js-await (.click eval-btn))
+                ;; Wait for result
+                (js-await (-> (expect results) (.toContainText "(+ 1 2)")))
+                ;; Empty hints should be gone
+                (js-await (-> (expect (.locator results ".empty-results")) (.not.toBeVisible)))))
+            (finally
+              (js-await (.close context)))))))

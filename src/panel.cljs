@@ -247,7 +247,9 @@
        [result-item result])
      [:div.empty-results
       [:div.empty-results-text
-       "Evaluate ClojureScript code above"]])])
+       "Evaluate ClojureScript code above"]
+      [:div.empty-results-shortcut
+       [:kbd "Ctrl"] "+" [:kbd "Enter"] " to evaluate"]])])
 
 (defn code-input [{:keys [panel/code panel/evaluating? panel/scittle-status]}]
   (let [loading? (= :loading scittle-status)

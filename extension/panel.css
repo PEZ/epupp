@@ -653,3 +653,39 @@ body {
   background: var(--bg-primary);
   flex-shrink: 0;
 }
+
+/* ============================================================
+   Enhanced Empty Results State
+   ============================================================ */
+
+.empty-results-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.empty-results-shortcut {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.empty-results-shortcut kbd {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+}
+
+.blank-slate-link {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.blank-slate-link:hover {
+  text-decoration: underline;
+}

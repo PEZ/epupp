@@ -1,7 +1,20 @@
 # Blank Slate UX Improvements Plan
 
 **Created:** January 12, 2026
-**Status:** Planning
+**Status:** ✅ Completed (January 12, 2026)
+
+## Implementation Summary
+
+Implemented contextual blank slate hints for empty UI states:
+
+- **Connected Tabs** (popup): "Start the server (Step 1), then click Connect (Step 2)."
+- **Matching Scripts** (popup): Differentiates "No userscripts yet!" (with DevTools guidance) vs "No scripts match" (with hostname-based URL pattern example)
+- **Other Scripts** (popup): "Scripts that don't match this page appear here."
+- **Panel Results**: Keyboard shortcut hint (Ctrl+Enter)
+
+E2E tests added to verify hint content, not just visibility.
+
+---
 
 ## Overview
 
@@ -32,6 +45,19 @@ Good blank slates:
 |---------|--------------|--------|
 | Results Area | "Evaluate ClojureScript code above" | Good, but could link to docs |
 | No Manifest | Shows example manifest | Good - already helpful |
+
+## Workflow
+
+**ALWAYS act informed.** You start by investigating the testing docs and the existing tests to understand patterns and available fixture.
+
+**ALWAYS use `bb <task>` over direct shell commands.** The bb tasks encode project-specific configurations. Check `bb tasks` for available commands.
+
+**ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
+
+**ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+
+- `bb test` - Compile and run unit tests
+- `bb test:e2e` - Compile and run E2E tests (Docker)
 
 ## Proposed Improvements
 

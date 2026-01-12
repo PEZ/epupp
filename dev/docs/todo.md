@@ -31,4 +31,5 @@
 * [x] E2E test the script installer
 * [x] E2E test multiple tabs REPL connected and disconnected
 * [x] E2E performance tuning
-* [ ] Blank slates for different sections of the UI
+* [x] Blank slates for different sections of the UI
+* [ ] Unify css between panel and popup
