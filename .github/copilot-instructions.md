@@ -165,7 +165,14 @@ E2E tasks accept all Playwright options, so you should not need to resort to usi
 2. **Check problem report** - review any existing lint errors
 3. **Verify Squint REPL** - use `clojure_list_sessions` to confirm connection
 
-If the environment is not ready, ask the user to start it (default build task + Squint REPL).
+**CRITICAL: Watcher verification is mandatory.** Use `get_task_output` with these task IDs:
+- `shell: Squint Watch` - compilation status
+- `shell: Unit Test Watch` - test status
+
+If `get_task_output` returns "Terminal not found", **STOP and tell the user**:
+> "I cannot find the watcher task outputs. This happens when VS Code's terminal tracking gets out of sync. Please restart the default build task (Cmd/Ctrl+Shift+B) to restore the watchers, then ask me to continue."
+
+Do NOT proceed without watcher feedback - it's essential for verifying compilation and test results.
 
 **While working:**
 - Use the Squint REPL to test pure functions before editing files
