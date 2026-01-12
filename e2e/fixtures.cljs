@@ -282,6 +282,7 @@
       (js-await (.click dev-log-btn)))
     ;; Wait for the result
     (js-await result-promise)))
+
 (defn ^:async wait-for-event
   "Poll storage until event appears or timeout.
    ext-page: popup or panel page for storage access
@@ -299,6 +300,28 @@
                                    ". Events so far: " (js/JSON.stringify (clj->js (map #(.-event %) events))))))
             (do
               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+              (recur))))))))
+
+(defn ^:async assert-no-new-event-within
+  "Assert that no NEW event with given name occurs within timeout-ms.
+   Polls rapidly (every 50ms) and fails immediately if count increases.
+
+   initial-count: The number of events of this type that existed before the action
+   Use for tests that verify something should NOT happen."
+  [ext-page event-name initial-count timeout-ms]
+  (let [start (.now js/Date)
+        poll-interval 50]
+    (loop []
+      (let [events (js-await (get-test-events ext-page))
+            current-count (.-length (.filter events (fn [e] (= (.-event e) event-name))))]
+        (if (> current-count initial-count)
+          (throw (js/Error. (str "Unexpected new event occurred: " event-name
+                                 " (count went from " initial-count " to " current-count ")"
+                                 " after " (- (.now js/Date) start) "ms")))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            true  ; Success - no new events
+            (do
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve poll-interval))))
               (recur))))))))
 
 ;; =============================================================================

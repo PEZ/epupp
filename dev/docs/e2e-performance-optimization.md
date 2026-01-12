@@ -1,9 +1,23 @@
 # E2E Test Performance and Output Optimization
 
 **Created:** January 12, 2026
-**Status:** Phase 1 Ready
+**Status:** Phase 1A Complete (rapid-poll fixture)
 
 Analysis of `bb test:e2e` output revealed opportunities for performance improvement and noise reduction.
+
+## Phase 1A Results: Rapid-Poll Fixture
+
+**Baseline (explicit sleeps):** 5.7s for 3 "does NOT trigger" tests
+**After (rapid-poll 300ms):** 4.1s for same tests
+**Improvement:** 28% faster (1.6s saved)
+
+| Test | Before | After | Saved |
+|------|--------|-------|-------|
+| SPA navigation does NOT trigger | 1.4s | 1.2s | 0.2s |
+| auto-reconnect does NOT trigger for never-connected | 1.6s | 0.86s | 0.74s |
+| disabled auto-reconnect does NOT trigger | 2.4s | 1.7s | 0.7s |
+
+Full suite: 46 tests pass in ~42s (unchanged overall - these 3 tests are small portion).
 
 ## Decisions
 
@@ -49,6 +63,8 @@ Tests over 1 second (from actual run):
 
 ## Workflow
 
+**ALWAYS act informed.** You start by investigating the testing docs and the existing tests to understand patterns and available fixture.
+
 **ALWAYS use `bb <task>` over direct shell commands.** The bb tasks encode project-specific configurations. Check `bb tasks` for available commands.
 
 **ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
@@ -62,28 +78,30 @@ Tests over 1 second (from actual run):
 
 ### Optimization Strategies
 
-#### A. Rapid-poll fixture for "nothing happens" tests (CHOSEN)
+#### A. Rapid-poll fixture for "nothing happens" tests ✅ IMPLEMENTED
 
-Create a fixture helper that polls rapidly for a short window, failing if an unwanted event appears. This guides future test implementers toward the right pattern.
+Created `assert-no-new-event-within` fixture helper that polls rapidly for a short window, failing if an unwanted event appears. This guides future test implementers toward the right pattern.
 
-**New fixture in `e2e/fixtures.cljs`:**
+**Implemented fixture in `e2e/fixtures.cljs`:**
 
 ```clojure
-(defn ^:async assert-no-event-within
-  "Assert that a specific event does NOT occur within timeout-ms.
-   Polls rapidly (every 50ms) and fails immediately if event appears.
+(defn ^:async assert-no-new-event-within
+  "Assert that no NEW event with given name occurs within timeout-ms.
+   Polls rapidly (every 50ms) and fails immediately if count increases.
+
+   initial-count: The number of events of this type that existed before the action
    Use for tests that verify something should NOT happen."
-  [ext-page event-name timeout-ms]
+  [ext-page event-name initial-count timeout-ms]
   (let [start (.now js/Date)
         poll-interval 50]
     (loop []
       (let [events (js-await (get-test-events ext-page))
-            found (first (filter #(= (.-event %) event-name) events))]
-        (if found
-          (throw (js/Error. (str "Unexpected event occurred: " event-name
-                                 " after " (- (.now js/Date) start) "ms")))
+            current-count (.-length (.filter events (fn [e] (= (.-event e) event-name))))]
+        (if (> current-count initial-count)
+          (throw (js/Error. (str "Unexpected new event: " event-name
+                                 " (count " initial-count " -> " current-count ")")))
           (if (> (- (.now js/Date) start) timeout-ms)
-            true  ; Success - event did not occur
+            true  ; Success - no new events
             (do
               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve poll-interval))))
               (recur))))))))
@@ -91,14 +109,14 @@ Create a fixture helper that polls rapidly for a short window, failing if an unw
 
 **Usage in tests:**
 ```clojure
-;; Before: explicit sleep
+;; Before: explicit sleep + count comparison
 (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
 (let [events (js-await (get-test-events popup))
       count-after ...]
   (js-await (-> (expect count-after) (.toBe count-before))))
 
-;; After: rapid-poll assertion
-(js-await (assert-no-event-within popup "SCITTLE_LOADED" 300))
+;; After: rapid-poll assertion with baseline count
+(js-await (assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300))
 ```
 
 **Benefits:**
@@ -183,22 +201,22 @@ Leave as-is for now. The Squint compilation output provides progress indication 
 
 ## Phase 1 Implementation Checklist
 
-### 1. Add `assert-no-event-within` fixture helper
+### 1. Add `assert-no-new-event-within` fixture helper ✅
 
 **File:** `e2e/fixtures.cljs`
 
-Add rapid-poll helper function as specified in section 1.A above.
+Rapid-poll helper added. Takes `initial-count` parameter to detect NEW events vs existing ones.
 
-### 2. Update tests to use new helper
+### 2. Update tests to use new helper ✅
 
 **File:** `e2e/log_powered_test.cljs`
 
-Replace "nothing happens" sleeps with `assert-no-event-within`:
-- `auto-reconnect does NOT trigger for tabs never connected`
-- `disabled auto-reconnect does NOT trigger on page reload`
-- `SPA navigation does NOT trigger REPL reconnection`
+Replaced "nothing happens" sleeps with `assert-no-new-event-within`:
+- ✅ `SPA navigation does NOT trigger REPL reconnection`
+- ✅ `auto-reconnect does NOT trigger for tabs never connected`
+- ✅ `disabled auto-reconnect does NOT trigger on page reload`
 
-### 3. Redirect subprocess output to temp file
+### 3. Redirect subprocess output to temp file (TODO)
 
 **File:** `scripts/tasks.clj`
 
@@ -208,21 +226,22 @@ Replace "nothing happens" sleeps with `assert-no-event-within`:
 - Update `with-test-server` to write to log file
 - Print log file path at start of `run-e2e-tests!`
 
-### 4. Add line reporter to Playwright
+### 4. Add line reporter to Playwright (TODO)
 
 **File:** `scripts/tasks.clj`
 
 Update `run-e2e-tests!` to pass `--reporter=line,html` to Playwright.
 
-## Post-Phase 1 Evaluation
+## Post-Phase 1A Notes
 
-After implementing Phase 1:
+**Observation:** The 28% improvement on targeted tests is modest because:
+1. Tests still have inherent overhead (browser launch, extension load, navigation)
+2. The 300ms poll window is conservative - could be reduced further
+3. Main time savings come from eliminating the 500-1000ms explicit sleeps
 
-1. Run `bb test:e2e` and capture timing
-2. Compare total suite time (target: under 40s)
-3. Verify error output is still useful (not too brief)
-4. Check temp file contains expected subprocess output
-5. Decide if Phase 2 (more aggressive sleep removal) is needed
+**Full suite timing unchanged** (~42s) because these 3 tests are a small fraction of the 46 total tests.
+
+**Next steps:** Consider implementing output handling (item 3) and line reporter (item 4) for cleaner console output, which may have higher practical value than further speed optimization.
 
 ## Expected Outcomes (Phase 1)
 

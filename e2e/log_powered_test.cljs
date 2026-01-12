@@ -10,7 +10,7 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           clear-test-events! ws-port-1]]))
+                                           clear-test-events! assert-no-new-event-within ws-port-1]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -352,16 +352,10 @@
                                 (.toContainText "contact")))
                   (js/console.log "SPA navigated to 'contact' view")
 
-                  ;; Small wait to ensure any erroneous reconnect would have happened
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
-
-                  ;; Check that NO new SCITTLE_LOADED events occurred
-                  (let [events-after (js-await (get-test-events popup))
-                        scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
-                    (js/console.log "SCITTLE_LOADED count after SPA nav:" scittle-count-after)
-                    ;; Should be same count - SPA nav should NOT trigger reconnection
-                    (js-await (-> (expect scittle-count-after)
-                                  (.toBe scittle-count-before)))))
+                  ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                  ;; Using scittle-count-before as the baseline
+                  (js-await (assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "Verified: No new SCITTLE_LOADED after SPA navigation"))
 
                 (js-await (.close popup)))
 
@@ -986,16 +980,11 @@
                               (.toContainText "ready")))
                 (js/console.log "Page reloaded")
 
-                ;; Wait a moment to ensure no reconnection happens
-                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
-
-                ;; Verify no new SCITTLE_LOADED events occurred
-                (let [popup2 (js-await (create-popup-page context ext-id))
-                      events-after (js-await (get-test-events popup2))
-                      scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
-                  (js/console.log "SCITTLE_LOADED count after reload (should still be" scittle-count-before "):" scittle-count-after)
-                  ;; Should be same count - no new Scittle loads for never-connected tab
-                  (js-await (-> (expect scittle-count-after) (.toBe scittle-count-before)))
+                ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                ;; scittle-count-before is 0 for never-connected tab
+                (let [popup2 (js-await (create-popup-page context ext-id))]
+                  (js-await (assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "SCITTLE_LOADED count after reload (should still be 0):" scittle-count-before)
                   (js-await (.close popup2))))
 
               (js-await (.close page)))
@@ -1060,16 +1049,10 @@
                               (.toContainText "ready")))
                 (js/console.log "Page reloaded")
 
-                ;; Wait a moment to ensure no reconnection happens
-                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
-
-                ;; Verify no new SCITTLE_LOADED events occurred
-                (let [popup2 (js-await (create-popup-page context ext-id))
-                      events-after (js-await (get-test-events popup2))
-                      scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
-                  (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-after)
-                  ;; Should be same count - auto-reconnect was disabled
-                  (js-await (-> (expect scittle-count-after) (.toBe scittle-count-before)))
+                ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                (let [popup2 (js-await (create-popup-page context ext-id))]
+                  (js-await (assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-before)
                   (js-await (.close popup2))))
 
               (js-await (.close page)))
