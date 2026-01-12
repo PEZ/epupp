@@ -38,6 +38,52 @@ bb test:e2e --grep "popup"      # Run only popup tests
 bb test:e2e --grep "rename"     # Run only rename-related tests
 ```
 
+## Infrastructure Overview
+
+### Server Dependencies
+
+E2E and REPL tests rely on two servers started automatically by the bb tasks:
+
+| Server | Port | Purpose | Started By |
+|--------|------|---------|------------|
+| HTTP test server | 18080 | Serves test pages from `test-data/pages/` | `run-e2e-tests!` wrapper |
+| browser-nrepl | 12345 (nREPL), 12346 (WS) | REPL relay between editor and browser | `run-e2e-tests!` wrapper |
+
+The `tasks.clj` file provides `with-test-server` and `with-browser-nrepl` wrappers that manage server lifecycle:
+
+```clojure
+;; tasks.clj - automatic server management
+(defn run-e2e-tests! [args]
+  (with-test-server
+    #(with-browser-nrepl
+       (fn [] (apply p/shell "npx playwright test" args)))))
+```
+
+### Docker vs Headed Mode
+
+| Mode | Command | Servers | Browser |
+|------|---------|---------|---------|
+| Docker (default) | `bb test:e2e` | Inside container | Headless via Xvfb |
+| Headed | `bb test:e2e:headed` | On host | Visible on host |
+| CI | `bb test:e2e:ci` | On host (with xvfb-run) | Headless |
+
+Docker builds use `Dockerfile.e2e` which includes:
+- Playwright base image with Chromium
+- Babashka for task orchestration
+- Java (required for bb deps resolution)
+- Xvfb for virtual display
+
+### Test Data Pages
+
+Static HTML pages in `test-data/pages/` serve as test targets:
+
+| File | Purpose |
+|------|---------|
+| `basic.html` | Simple page with `#test-marker` element for basic E2E tests |
+| `manual-test.html` | Manual testing harness |
+| `spa-test.html` | SPA navigation testing |
+| `timing-test.html` | Script timing verification |
+
 ## Writing Reliable E2E Tests: No Sleep Patterns
 
 **Critical: Never use `sleep()` or arbitrary timeouts in E2E tests.**
@@ -115,10 +161,11 @@ Prefer fewer, comprehensive workflow tests over many small isolated tests.
 
 | File | Purpose |
 |------|---------|
+| `e2e/popup_test.cljs` | Popup UI: REPL setup, script management, settings, approvals, connection tracking |
 | `e2e/panel_test.cljs` | Panel: evaluation and save workflow |
-| `e2e/popup_test.cljs` | Popup UI workflows (REPL setup, script management, settings) |
 | `e2e/integration_test.cljs` | Cross-component script lifecycle (panel -> popup -> panel) |
 | `e2e/log_powered_test.cljs` | Internal behavior via event logging (injection, timing) |
+| `e2e/z_final_error_check_test.cljs` | Final validation - catches any uncaught errors |
 
 ### UI Tests vs Log-Powered Tests
 
@@ -173,12 +220,23 @@ Events are only logged when built with test config (`bb build:test`). Each event
 ### Fixtures and helpers
 
 Most tests use helpers in `e2e/fixtures.cljs`:
-- `launch-browser` - launch Chromium with the extension loaded
+- `launch-browser` / `create-extension-context` - launch Chromium with the extension loaded
 - `get-extension-id` - resolve the installed extension ID
-- `create-popup-page` - open `popup.html`
+- `create-popup-page` - open `popup.html` and wait for initialization
 - `create-panel-page` - open `panel.html` with mocked `chrome.devtools` environment
 - `clear-storage` - ensure a clean test baseline
 - `wait-for-*` helpers - domain-specific waiting (save status, script count, etc.)
+
+**Runtime message helpers** for background worker communication:
+- `send-runtime-message` - Send messages to background via `chrome.runtime.sendMessage`
+- `find-tab-id` - Find tab matching URL pattern (requires dev build)
+- `connect-tab` - Connect REPL to specific tab
+- `get-connections` - Get active REPL connections from background worker
+
+**Test event helpers** for log-powered tests:
+- `clear-test-events!` - Clear events in storage before test
+- `get-test-events` - Read events via dev log button (workaround for Playwright limitation)
+- `wait-for-event` - Poll until specific event appears
 
 ### Known limitations and required patterns
 
@@ -212,6 +270,13 @@ Userscript injection happens asynchronously after `webNavigation.onCompleted`. W
 - Keep the target page open while waiting for the `SCRIPT_INJECTED` event
 - Use `wait-for-event` to poll for the event before closing pages
 
+**4. REPL integration tests require real servers**
+
+The REPL E2E tests connect to actual browser-nrepl and HTTP servers. These are started automatically by the bb tasks but require:
+- Ports 12345/12346 available for browser-nrepl
+- Port 18080 for UI tests / 8765 for REPL tests HTTP server
+- A test build with dev config (`bb build:test`)
+
 ## REPL integration E2E tests
 
 These tests validate the full REPL pipeline:
@@ -219,29 +284,75 @@ These tests validate the full REPL pipeline:
 `nREPL client -> browser-nrepl (relay server) -> extension background worker -> content bridge -> ws bridge -> Scittle REPL -> page`
 
 **Where**
-- Orchestration (Babashka): `e2e/repl_test.clj`
-- Playwright helper: `e2e/connect_helper.cljs`
-- Squint specs: `e2e/repl_ui_spec.cljs`
+- Orchestration (Babashka): `e2e/repl_test.clj` - Clojure test namespace with setup/teardown
+- Playwright helper: `e2e/connect_helper.cljs` - Node script for browser automation
+- Squint specs: `e2e/repl_ui_spec.cljs` - Playwright tests for UI mode
 
 **Run**
 - `bb test:repl-e2e` (headless in Docker - default)
 - `bb test:repl-e2e:headed` (visible browser on host)
 - `bb test:repl-e2e:ui:headed` (Playwright UI for debugging)
 
-**Default headless mode** (`bb test:repl-e2e`):
-- Runs tests in Docker container with virtual display
-- Starts browser-nrepl and HTTP server inside Docker
-- Runs the full REPL integration test suite
+### Architecture
+
+The REPL integration tests have a more complex setup than UI tests because they require:
+
+1. **browser-nrepl server** - Babashka relay on ports 12345/12346
+2. **HTTP test server** - Serves test page on port 8765 (separate from UI tests' 18080)
+3. **Playwright browser** - Launches Chrome with extension, connects to test page
+4. **nREPL client** - Babashka's nrepl-client sends eval requests
+
+```
+┌─────────────┐    ┌───────────────┐    ┌────────────┐    ┌──────────────┐
+│ repl_test   │───>│ browser-nrepl │<──>│ Extension  │<──>│ Test Page    │
+│ (Babashka)  │    │ (relay)       │    │ Background │    │ (Scittle)    │
+└─────────────┘    └───────────────┘    └────────────┘    └──────────────┘
+     ↓ nREPL                               ↑ WS              ↑ inject
+     └───────────────────────────────────────────────────────┘
+```
+
+### Execution modes
+
+**Babashka-orchestrated** (`bb test:repl-e2e:headed`):
+1. `repl_test/run-integration-tests` starts servers
+2. `connect_helper.mjs` launches browser and connects via background APIs
+3. Babashka tests send nREPL eval requests and assert on results
+4. Cleanup destroys all processes
+
+**Playwright UI mode** (`bb test:repl-e2e:ui:headed`):
+1. `repl_test/start-servers!` starts only browser-nrepl + HTTP server
+2. Playwright's `--ui` runner manages browser lifecycle
+3. `repl_ui_spec.cljs` tests run in interactive Playwright UI
+4. Useful for debugging - can step through tests visually
+
+### Test coverage
+
+| Test | Purpose |
+|------|---------|
+| `simple-eval-test` | Basic arithmetic `(+ 1 2 3)` |
+| `string-eval-test` | String operations |
+| `dom-access-test` | Access page DOM via `js/document` |
+| `multi-form-test` | Multiple form evaluation |
+| `get-connections-test` | Verify connection tracking API |
+
+### Default headless mode
+
+`bb test:repl-e2e` runs in Docker:
+- Starts browser-nrepl and HTTP server inside container
+- Uses Xvfb for virtual display
+- Full isolation from host environment
 
 **Ports and build mode**
-- The relay uses ports 12345 (nREPL) and 12346 (WebSocket).
-- REPL integration tests require dev config because they use a dev-only message handler (for example `e2e/find-tab-id`).
-- Use `bb build:test` when you need a dev build without bumping the manifest version.
+- The relay uses ports 12345 (nREPL) and 12346 (WebSocket)
+- REPL integration tests require dev/test config for the `e2e/find-tab-id` message handler
+- Use `bb build:test` for dev config without version bump
 
 **CI**
 On Linux in CI, headed Chromium often requires Xvfb:
-- `xvfb-run --auto-servernum bb test:e2e:ci`
-- `xvfb-run --auto-servernum bb test:repl-e2e:ci`
+```bash
+xvfb-run --auto-servernum bb test:e2e:ci
+xvfb-run --auto-servernum bb test:repl-e2e:ci
+```
 
 ## Troubleshooting
 
