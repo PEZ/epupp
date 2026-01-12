@@ -5,11 +5,8 @@
    They run as part of the unified E2E test suite with shared infrastructure."
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["net" :as net]
-            ["path" :as path]))
-
-(def nrepl-port 12345)
-(def ws-port 12346)
-(def http-port 18080)  ; Unified test server port (test-data/pages)
+            ["path" :as path]
+            [fixtures :refer [http-port nrepl-port-1 ws-port-1 nrepl-port-2 ws-port-2]]))
 
 (def !context (atom nil))
 
@@ -17,11 +14,11 @@
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
 (defn ^:async eval-in-browser
-  "Evaluate code via nREPL. Returns {:success bool :values [...] :error str}"
+  "Evaluate code via nREPL on server 1. Returns {:success bool :values [...] :error str}"
   [code]
   (js/Promise.
    (fn [resolve]
-     (let [client (.createConnection net #js {:port nrepl-port :host "localhost"})
+     (let [client (.createConnection net #js {:port nrepl-port-1 :host "localhost"})
            !response (atom "")]
        (.on client "data"
             (fn [data]
@@ -102,11 +99,11 @@
                                      #js {:urlPattern "http://localhost:*/*"}))]
           (when-not (and find-result (.-success find-result))
             (throw (js/Error. (str "Could not find test tab: " (.-error find-result)))))
-          ;; Connect to test page
+          ;; Connect to test page using server 1
           (let [connect-result (js-await (send-runtime-message
                                           bg-page "connect-tab"
                                           #js {:tabId (.-tabId find-result)
-                                               :wsPort ws-port}))]
+                                               :wsPort ws-port-1}))]
             (when-not (and connect-result (.-success connect-result))
               (throw (js/Error. (str "Connection failed: " (.-error connect-result)))))
             (js-await (.close bg-page))
@@ -168,7 +165,7 @@
                            ;; First connection should have the expected port (returned as string)
                            ;; Use bracket notation for hyphenated keys (Squint converts .- to underscore)
                            (let [conn (aget connections 0)]
-                             (-> (expect (aget conn "port")) (.toBe (str ws-port)))
+                             (-> (expect (aget conn "port")) (.toBe (str ws-port-1)))
                              (-> (expect (aget conn "title")) (.toBeDefined))
                              (-> (expect (aget conn "tab-id")) (.toBeDefined)))))
                        (js-await (.close popup)))))))

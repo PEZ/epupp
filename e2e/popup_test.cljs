@@ -9,7 +9,8 @@
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
                                            create-panel-page clear-storage wait-for-popup-ready
                                            wait-for-save-status wait-for-script-count
-                                           wait-for-checkbox-state wait-for-panel-ready]]))
+                                           wait-for-checkbox-state wait-for-panel-ready
+                                           ws-port-1]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -384,8 +385,6 @@
 ;; =============================================================================
 
 
-(def ws-port 12346)  ;; Must match browser-nrepl port in tasks.clj
-
 (test "Popup: connection tracking displays connected tabs with reveal buttons"
       (^:async fn []
         (let [context (js-await (launch-browser))
@@ -408,7 +407,7 @@
 
                 ;; Find and connect the page
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
                   ;; Wait for connection then reload popup
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
@@ -492,7 +491,7 @@
 
                 ;; Connect via direct API (bypasses UI button permission issues)
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
                   ;; Wait for connection then reload popup
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))

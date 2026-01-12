@@ -10,7 +10,7 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           clear-test-events!]]))
+                                           clear-test-events! ws-port-1]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -544,8 +544,6 @@
 ;; Connection Tracking Test - Verify get-connections returns connection data
 ;; =============================================================================
 
-(def ws-port 12346)  ;; Must match browser-nrepl port in tasks.clj
-
 (test "Log-powered: get-connections returns active REPL connections"
       (^:async fn []
         (let [context (js-await (launch-browser))
@@ -571,8 +569,8 @@
                 ;; Find the test page tab and connect
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
                   (js/console.log "Found test page tab ID:" tab-id)
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
-                  (js/console.log "Connected to tab via WebSocket port" ws-port)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+                  (js/console.log "Connected to tab via WebSocket port" ws-port-1)
 
                   ;; Wait a moment for connection to be fully established
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
@@ -623,7 +621,7 @@
 
                 ;; Find and connect to the test page
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
                   ;; Wait for connection then reload popup to show updated state
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
@@ -674,7 +672,7 @@
 
                 ;; Connect to the test page while popup is still open
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js/console.log "Connected to tab" tab-id)
 
                   ;; Wait briefly for any async updates
@@ -727,7 +725,7 @@
                 (js-await (wait-for-popup-ready popup))
 
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js/console.log "Connected to tab" tab-id)
 
                   ;; Wait for connection and verify it shows
@@ -907,8 +905,8 @@
               (let [popup (js-await (create-popup-page context ext-id))]
                 (js-await (wait-for-popup-ready popup))
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
-                  (js/console.log "Connecting to tab" tab-id "on port" ws-port)
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
 
                   ;; Wait for connection to establish and Scittle to load
                   (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))
@@ -1042,8 +1040,8 @@
               (let [popup (js-await (create-popup-page context ext-id))]
                 (js-await (wait-for-popup-ready popup))
                 (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
-                  (js/console.log "Connecting to tab" tab-id "on port" ws-port)
-                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
                   (js/console.log "REPL connected"))
                 (js-await (.close popup)))
