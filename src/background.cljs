@@ -136,6 +136,8 @@
                        (or (.-title tab) "Unknown"))
            tab-favicon (when-not js/chrome.runtime.lastError
                          (.-favIconUrl tab))
+           tab-url (when-not js/chrome.runtime.lastError
+                     (.-url tab))
            ws-url (str "ws://localhost:" port "/_nrepl")]
        (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
        (try
@@ -144,7 +146,8 @@
                   {:ws/socket ws
                    :ws/port port
                    :ws/tab-title tab-title
-                   :ws/tab-favicon tab-favicon})
+                   :ws/tab-favicon tab-favicon
+                   :ws/tab-url tab-url})
            ;; Track this tab in connection history for auto-reconnect
            (swap! !state assoc-in [:connected-tabs/history tab-id] {:port port})
 

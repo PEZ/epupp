@@ -677,12 +677,13 @@
 ;; Connected Tabs Section
 ;; ============================================================
 
-(defn connected-tab-item [{:keys [tab-id port title favicon is-current-tab]}]
-  [:div.connected-tab-item {:class (when is-current-tab "current-tab")}
-   [:span.connected-tab-port (str ":" port)]
+(defn connected-tab-item [{:keys [tab-id port title url favicon is-current-tab]}]
+  [:div.connected-tab-item {:class (when is-current-tab "current-tab")
+                            :title (str title (when url (str "\n" url)))}
    (when favicon
      [:img.connected-tab-favicon {:src favicon :width 16 :height 16}])
    [:span.connected-tab-title (or title "Unknown")]
+   [:span.connected-tab-port (str ":" port)]
    (if is-current-tab
      [:button.disconnect-tab-btn
       {:on-click #(dispatch! [[:popup/ax.disconnect-tab tab-id]])
