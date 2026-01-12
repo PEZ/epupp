@@ -13,8 +13,10 @@
 * [x] Popup UI footer with info and sponsor link and such
 * [ ] Update README screenshot
 * [x] Installing scripts from script installer should add them as not approved
-* [ ] Script installer not adding button with Firefox and Safari
+* [x] Script installer not adding button with Firefox and Safari
 * [ ] Gist installer not working in Firefox and Safari
+  - Firefox: [Gist Installer] Install failed: NetworkError when attempting to fetch resource. scittle.js:315:382
+  - Safari: [Gist Installer] Install failed:"Load failed"
 * [x] Add setting for re-establishing the repl/websocket connection after reload
 * [ ] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab
