@@ -169,3 +169,129 @@
                              (-> (expect (aget conn "title")) (.toBeDefined))
                              (-> (expect (aget conn "tab-id")) (.toBeDefined)))))
                        (js-await (.close popup)))))))
+
+;; =============================================================================
+;; Multi-Tab Multi-Server Tests
+;; =============================================================================
+
+(defn ^:async eval-on-port
+  "Evaluate code via nREPL on specified port. Returns {:success bool :values [...] :error str}"
+  [nrepl-port code]
+  (js/Promise.
+   (fn [resolve]
+     (let [client (.createConnection net #js {:port nrepl-port :host "localhost"})
+           !response (atom "")]
+       (.on client "data"
+            (fn [data]
+              (swap! !response str (.toString data))
+              (when (.includes @!response "4:done")
+                (.destroy client)
+                (let [response @!response
+                      values (atom [])
+                      value-regex (js/RegExp. "5:value(\\d+):" "g")]
+                  (loop [match (.exec value-regex response)]
+                    (when match
+                      (let [len (js/parseInt (aget match 1))
+                            start-idx (+ (.-index match) (.-length (aget match 0)))
+                            value (.substring response start-idx (+ start-idx len))]
+                        (swap! values conj value))
+                      (recur (.exec value-regex response))))
+                  (let [success (not (or (.includes response "2:ex")
+                                         (.includes response "3:err")))]
+                    (resolve #js {:success success :values @values}))))))
+       (.on client "error"
+            (fn [err]
+              (resolve #js {:success false :error (.-message err)})))
+       (let [msg (str "d2:op4:eval4:code" (.-length code) ":" code "e")]
+         (.write client msg))))))
+
+(.describe test "Multi-Tab REPL"
+           (fn []
+             (test "two tabs connected to different servers evaluate independently"
+                   (^:async fn []
+                     (let [extension-path (.resolve path "dist/chrome")
+                           ctx (js-await (.launchPersistentContext
+                                          chromium ""
+                                          #js {:headless false
+                                               :args #js ["--no-sandbox"
+                                                          "--allow-file-access-from-files"
+                                                          (str "--disable-extensions-except=" extension-path)
+                                                          (str "--load-extension=" extension-path)]}))]
+                       (try
+                         (let [ext-id (js-await (get-extension-id ctx))
+                               ;; Open two test pages
+                               page1 (js-await (.newPage ctx))
+                               page2 (js-await (.newPage ctx))]
+                           (js-await (.goto page1 (str "http://localhost:" http-port "/basic.html")))
+                           (js-await (.goto page2 (str "http://localhost:" http-port "/timing-test.html")))
+                           (js-await (sleep 500))
+
+                           ;; Open popup to connect tabs
+                           (let [popup (js-await (.newPage ctx))]
+                             (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
+                                              #js {:waitUntil "networkidle"}))
+                             (js-await (sleep 1000))
+
+                             ;; Find both tabs (use Chrome match patterns, not globs)
+                             (let [find1 (js-await (send-runtime-message popup "e2e/find-tab-id"
+                                                                         #js {:urlPattern "*://*/basic.html"}))
+                                   find2 (js-await (send-runtime-message popup "e2e/find-tab-id"
+                                                                         #js {:urlPattern "*://*/timing-test.html"}))]
+                               (-> (expect (.-success find1)) (.toBe true))
+                               (-> (expect (.-success find2)) (.toBe true))
+                               (js/console.log "Tab 1 ID:" (.-tabId find1) "Tab 2 ID:" (.-tabId find2))
+
+                               ;; Connect tab 1 to server 1 (port 12346)
+                               (let [conn1 (js-await (send-runtime-message popup "connect-tab"
+                                                                           #js {:tabId (.-tabId find1)
+                                                                                :wsPort ws-port-1}))]
+                                 (-> (expect (.-success conn1)) (.toBe true))
+                                 (js/console.log "Tab 1 connected to server 1 (port" ws-port-1 ")"))
+
+                               ;; Connect tab 2 to server 2 (port 12348)
+                               (let [conn2 (js-await (send-runtime-message popup "connect-tab"
+                                                                           #js {:tabId (.-tabId find2)
+                                                                                :wsPort ws-port-2}))]
+                                 (-> (expect (.-success conn2)) (.toBe true))
+                                 (js/console.log "Tab 2 connected to server 2 (port" ws-port-2 ")"))
+
+                               (js-await (sleep 2000))
+
+                               ;; Verify both connections exist
+                               (let [conns (js-await (send-runtime-message popup "get-connections" #js {}))]
+                                 (-> (expect (.-success conns)) (.toBe true))
+                                 (-> (expect (.-length (.-connections conns))) (.toBe 2))
+                                 (js/console.log "Active connections:" (.-length (.-connections conns))))
+
+                               ;; Evaluate on server 1 - should execute in page 1 (basic.html)
+                               (let [result1 (js-await (eval-on-port nrepl-port-1 "(.-title js/document)"))]
+                                 (-> (expect (.-success result1)) (.toBe true))
+                                 (-> (expect (.some (.-values result1)
+                                                    (fn [v] (.includes v "Basic"))))
+                                     (.toBe true))
+                                 (js/console.log "Server 1 eval result:" (.-values result1)))
+
+                               ;; Evaluate on server 2 - should execute in page 2 (timing-test.html)
+                               (let [result2 (js-await (eval-on-port nrepl-port-2 "(.-title js/document)"))]
+                                 (-> (expect (.-success result2)) (.toBe true))
+                                 (-> (expect (.some (.-values result2)
+                                                    (fn [v] (.includes v "Timing"))))
+                                     (.toBe true))
+                                 (js/console.log "Server 2 eval result:" (.-values result2)))
+
+                               ;; Verify evaluations are truly independent by defining different vars
+                               (let [def1 (js-await (eval-on-port nrepl-port-1 "(def my-tab :tab-one)"))
+                                     def2 (js-await (eval-on-port nrepl-port-2 "(def my-tab :tab-two)"))
+                                     read1 (js-await (eval-on-port nrepl-port-1 "my-tab"))
+                                     read2 (js-await (eval-on-port nrepl-port-2 "my-tab"))]
+                                 (-> (expect (.-success def1)) (.toBe true))
+                                 (-> (expect (.-success def2)) (.toBe true))
+                                 ;; Each server maintains separate state
+                                 (-> (expect (.-values read1)) (.toContain ":tab-one"))
+                                 (-> (expect (.-values read2)) (.toContain ":tab-two"))
+                                 (js/console.log "Independent state verified: tab1=" (.-values read1)
+                                                 "tab2=" (.-values read2))))
+
+                             (js-await (.close popup))))
+                         (finally
+                           (js-await (.close ctx)))))))))
