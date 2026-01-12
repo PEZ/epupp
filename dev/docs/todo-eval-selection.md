@@ -35,6 +35,19 @@ Add "Eval Selection" functionality to the DevTools panel - evaluate only selecte
 
 The actual Scittle evaluation happens in browser context via `chrome.devtools.inspectedWindow.eval` - that's inherently E2E territory.
 
+## Workflow
+
+**ALWAYS act informed.** You start by investigating the testing docs and the existing tests to understand patterns and available fixture.
+
+**ALWAYS use `bb <task>` over direct shell commands.** The bb tasks encode project-specific configurations. Check `bb tasks` for available commands.
+
+**ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
+
+**ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+
+- `bb test` - Compile and run unit tests
+- `bb test:e2e` - Compile and run E2E tests (Docker)
+
 ## TDD Implementation Plan
 
 ### Phase 1: Unit Tests for New Action Handler
