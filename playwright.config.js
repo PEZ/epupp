@@ -3,8 +3,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './build/e2e',
   testMatch: '**/*_{test,spec}.mjs',
-  testIgnore: '**/repl_ui_spec.mjs',  // REPL tests need infrastructure, run via test:repl-e2e
-  timeout: 30000,
+  // REPL integration tests now run with main suite - both need browser-nrepl
+  timeout: 60000,  // Increased for REPL tests which need more setup time
   use: {
     // Use Chrome channel for extension support
     channel: 'chromium',
