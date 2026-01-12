@@ -1,9 +1,45 @@
 # E2E Test Performance and Output Optimization
 
 **Created:** January 12, 2026
-**Status:** Phase 1B Complete (wait-for-connection fixture)
+**Status:** Phase 1C Complete (output cleanup)
 
 Analysis of `bb test:e2e` output revealed opportunities for performance improvement and noise reduction.
+
+## Phase 1C Results: Output Cleanup
+
+Redirected subprocess output (browser-nrepl) to temp file, added line reporter for cleaner console output.
+
+**Before:**
+```
+nREPL server started on port 12347...
+nREPL server started on port 12345...
+Websocket server started on 12348...
+Websocket server started on 12346...
+Client closed connection.
+...
+✓ build/e2e/log_powered_test.mjs:27:1 › Log-powered: extension starts... (429ms)
+```
+
+**After:**
+```
+📝 E2E log file: /tmp/epupp-e2e-1768223820934.log
+...
+browser-nrepl #1 ready on ports 12345 / 12346
+browser-nrepl #2 ready on ports 12347 / 12348
+
+Running 46 tests using 1 worker
+[1/46] build/e2e/integration_test.mjs:26:1 › Integration: script lifecycle...
+  46 passed (38.0s)
+```
+
+**Benefits:**
+- browser-nrepl noise removed from console (7+ lines per test run)
+- Line reporter shows concise progress `[1/46]` format
+- Full subprocess output available in temp file for debugging
+- HTML report still generated for detailed analysis
+
+Files modified:
+- `scripts/tasks.clj` - Added `e2e-log-file`, `log-writer`, updated `start-browser-nrepl-process` and `run-e2e-tests!`
 
 ## Phase 1B Results: Event-Driven Connection Waits
 
@@ -265,21 +301,20 @@ Replaced "nothing happens" sleeps with `assert-no-new-event-within`:
 - ✅ `auto-reconnect does NOT trigger for tabs never connected`
 - ✅ `disabled auto-reconnect does NOT trigger on page reload`
 
-### 3. Redirect subprocess output to temp file (TODO)
+### 3. Redirect subprocess output to temp file ✅
 
 **File:** `scripts/tasks.clj`
 
-- Add `e2e-log-file` def with timestamped path
-- Add `log-writer` helper
-- Update `start-browser-nrepl-process` to write to log file
-- Update `with-test-server` to write to log file
-- Print log file path at start of `run-e2e-tests!`
+- ✅ Added `e2e-log-file` def with timestamped path
+- ✅ Added `log-writer` helper
+- ✅ Updated `start-browser-nrepl-process` to write to log file
+- ✅ Print log file path at start of `run-e2e-tests!`
 
-### 4. Add line reporter to Playwright (TODO)
+### 4. Add line reporter to Playwright ✅
 
 **File:** `scripts/tasks.clj`
 
-Update `run-e2e-tests!` to pass `--reporter=line,html` to Playwright.
+- ✅ Updated `run-e2e-tests!` to pass `--reporter=line,html` to Playwright
 
 ## Post-Phase 1A Notes
 

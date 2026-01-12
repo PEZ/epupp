@@ -5,6 +5,7 @@
             [babashka.process :as p]
             [clojure.data.json :as json]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]))
 
 (defn- patch-scittle-for-csp
@@ -400,6 +401,15 @@
 (def ^:private browser-nrepl-port-2 12347)
 (def ^:private browser-ws-port-2 12348)
 
+;; E2E log file for subprocess output (timestamped to prevent conflicts)
+(def ^:private e2e-log-file
+  (str "/tmp/epupp-e2e-" (System/currentTimeMillis) ".log"))
+
+(defn- log-writer
+  "Create an appending writer to the E2E log file."
+  []
+  (io/writer e2e-log-file :append true))
+
 (defn- wait-for-port
   "Wait for a port to become available, with timeout."
   [port timeout-ms]
@@ -431,12 +441,16 @@
         (println "Test server stopped")))))
 
 (defn- start-browser-nrepl-process
-  "Start a browser-nrepl process on given ports. Returns the process."
+  "Start a browser-nrepl process on given ports.
+   Output goes to e2e-log-file for clean console. Returns the process."
   [nrepl-port ws-port]
-  (p/process ["bb" "browser-nrepl"
-              "--nrepl-port" (str nrepl-port)
-              "--websocket-port" (str ws-port)]
-             {:out :inherit :err :inherit}))
+  (let [writer (log-writer)]
+    (.write writer (str "\n=== browser-nrepl " nrepl-port "/" ws-port " ===\n"))
+    (.flush writer)
+    (p/process ["bb" "browser-nrepl"
+                "--nrepl-port" (str nrepl-port)
+                "--websocket-port" (str ws-port)]
+               {:out writer :err writer})))
 
 (defn with-browser-nrepls
   "Execute f with two browser-nrepl relay servers running.
@@ -460,8 +474,10 @@
         (println "browser-nrepl servers stopped")))))
 
 (defn run-e2e-tests!
-  "Run Playwright E2E tests with test server and two browser-nrepls."
+  "Run Playwright E2E tests with test server and two browser-nrepls.
+   Subprocess output goes to temp file for clean console output."
   [args]
+  (println (str "📝 E2E log file: " e2e-log-file))
   (with-test-server
     #(with-browser-nrepls
        (fn [] (apply p/shell "npx playwright test" args)))))
