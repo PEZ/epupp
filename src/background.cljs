@@ -126,13 +126,15 @@
     ;; Update icon for the disconnected tab
     (update-icon-for-tab! other-tab-id :injected))
 
-  ;; Fetch tab title for display
+  ;; Fetch tab title and favicon for display
   (js/chrome.tabs.get
    tab-id
    (fn [tab]
      (let [tab-title (if js/chrome.runtime.lastError
                        "Unknown"
                        (or (.-title tab) "Unknown"))
+           tab-favicon (when-not js/chrome.runtime.lastError
+                         (.-favIconUrl tab))
            ws-url (str "ws://localhost:" port "/_nrepl")]
        (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
        (try
@@ -140,7 +142,8 @@
            (swap! !state assoc-in [:ws/connections tab-id]
                   {:ws/socket ws
                    :ws/port port
-                   :ws/tab-title tab-title})
+                   :ws/tab-title tab-title
+                   :ws/tab-favicon tab-favicon})
 
            (set! (.-onopen ws)
                  (fn []

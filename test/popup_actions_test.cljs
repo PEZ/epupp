@@ -81,11 +81,10 @@
 
 (describe "popup connect action"
           (fn []
-            (test ":popup/ax.connect sets status and triggers connect effect"
+            (test ":popup/ax.connect triggers connect effect (status handled by effect)"
                   (fn []
                     (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.connect])]
-                      (-> (expect (:ui/status (:uf/db result)))
-                          (.toBe "Checking..."))
+                      ;; Action only triggers effect - status is set by the effect itself
                       (-> (expect (first (first (:uf/fxs result))))
                           (.toBe :popup/fx.connect)))))
 
@@ -105,7 +104,7 @@
 
             (test ":popup/ax.connect returns nil for out-of-range port"
                   (fn []
-                    (let [state (assoc initial-state :ports/ws "99999")
+                    (let [state (assoc initial-state :ports/ws "70000")
                           result (popup-actions/handle-action state uf-data [:popup/ax.connect])]
                       (-> (expect result)
                           (.toBeUndefined)))))))

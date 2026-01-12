@@ -70,11 +70,12 @@
 
 (defn connections->display-list
   "Transform connections map to list for popup display.
-   Returns [{:tab-id n :port n :title s}]"
+   Returns [{:tab-id n :port n :title s :favicon s}]"
   [connections]
   (->> connections
        (mapv (fn [[tab-id conn-info]]
                {:tab-id tab-id
                 :port (:ws/port conn-info)
-                :title (or (:ws/tab-title conn-info) "Unknown")}))
+                :title (or (:ws/tab-title conn-info) "Unknown")
+                :favicon (:ws/tab-favicon conn-info)}))
        (sort-by :port)))

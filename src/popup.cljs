@@ -19,6 +19,7 @@
   (atom {:ports/nrepl "1339"
          :ports/ws "1340"
          :ui/copy-feedback nil
+         :ui/connect-status nil ; Connection progress/error status
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
@@ -120,6 +121,7 @@
     :popup/fx.connect
     (let [[port] args
           tab (js-await (get-active-tab))]
+      (dispatch [[:db/ax.assoc :ui/connect-status "Connecting..."]])
       (try
         (let [resp (js-await
                     (js/Promise.
@@ -132,12 +134,16 @@
                           (if js/chrome.runtime.lastError
                             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
                             (resolve response)))))))]
-          (when-not (and resp (.-success resp))
-            ;; Show error feedback if connection failed
+          (if (and resp (.-success resp))
+            ;; Success - clear status after brief display
+            (do
+              (dispatch [[:db/ax.assoc :ui/connect-status "Connected!"]])
+              (js/setTimeout #(dispatch [[:db/ax.assoc :ui/connect-status nil]]) 2000))
+            ;; Failure from background worker
             (dispatch [[:db/ax.assoc
-                        :ui/copy-feedback (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
+                        :ui/connect-status (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
         (catch :default err
-          (dispatch [[:db/ax.assoc :ui/copy-feedback (str "Failed: " (.-message err))]]))))
+          (dispatch [[:db/ax.assoc :ui/connect-status (str "Failed: " (.-message err))]]))))
 
     :popup/fx.check-status
     (let [[_ws-port] args
@@ -615,9 +621,11 @@
 ;; ============================================================;; Connected Tabs Section
 ;; ============================================================
 
-(defn connected-tab-item [{:keys [tab-id port title is-current-tab]}]
+(defn connected-tab-item [{:keys [tab-id port title favicon is-current-tab]}]
   [:div.connected-tab-item {:class (when is-current-tab "current-tab")}
    [:span.connected-tab-port (str ":" port)]
+   (when favicon
+     [:img.connected-tab-favicon {:src favicon :width 16 :height 16}])
    [:span.connected-tab-title (or title "Unknown")]
    (if is-current-tab
      [:button.disconnect-tab-btn
@@ -653,7 +661,7 @@
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback] :as state}]
+(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback ui/connect-status] :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
      [:div.step
@@ -675,7 +683,9 @@
       [:div.connect-row
        [:span.connect-target (str "ws://localhost:" ws)]
        [:button#connect {:on-click #(dispatch! [[:popup/ax.connect]])}
-        (if is-connected "Reconnect" "Connect")]]]
+        (if is-connected "Reconnect" "Connect")]]
+      (when connect-status
+        [:div.connect-status {:class (popup-utils/status-class connect-status)} connect-status])]
      [:div.step
       [:div.step-header "3. Connect editor to browser (via server)"]
       [:div.connect-row

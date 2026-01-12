@@ -435,3 +435,77 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Popup User Journey: Connection Status Feedback
+;; =============================================================================
+
+(test "Popup: connection failure shows error status near Connect button"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Click Connect - will fail (permissions issue with UI-based connect)
+                (let [connect-btn (.locator popup "#connect")]
+                  (js-await (.click connect-btn)))
+
+                ;; Should show failure status with appropriate styling
+                (let [status-elem (.locator popup ".connect-status")]
+                  (js-await (-> (expect status-elem)
+                                (.toBeVisible)))
+                  (js-await (-> (expect status-elem)
+                                (.toContainText "Failed")))
+                  ;; Failed status should have failed class
+                  (js-await (-> (expect status-elem)
+                                (.toHaveClass #"status-failed"))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: successful connection via API updates UI correctly"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Initially no connections
+                (let [no-conn-msg (.locator popup ".no-connections")]
+                  (js-await (-> (expect no-conn-msg)
+                                (.toBeVisible))))
+
+                ;; Connect via direct API (bypasses UI button permission issues)
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+
+                  ;; Wait for connection then reload popup
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js-await (.reload popup))
+                  (js-await (wait-for-popup-ready popup))
+
+                  ;; Should now show connection in UI
+                  (let [connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1)))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))

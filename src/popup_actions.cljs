@@ -36,8 +36,7 @@
     :popup/ax.connect
     (let [port (js/parseInt (:ports/ws state) 10)]
       (when (and (not (js/isNaN port)) (<= 1 port 65535))
-        {:uf/db (assoc state :ui/status "Checking...")
-         :uf/fxs [[:popup/fx.connect port]]}))
+        {:uf/fxs [[:popup/fx.connect port]]}))
 
     :popup/ax.check-status
     {:uf/fxs [[:popup/fx.check-status (:ports/ws state)]]}

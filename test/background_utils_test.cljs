@@ -255,4 +255,20 @@
                     (let [connections {1 {:ws/port 1340}}
                           result (bg/connections->display-list connections)]
                       (-> (expect (:title (first result)))
-                          (.toBe "Unknown")))))))
+                          (.toBe "Unknown")))))
+
+            (test "includes favicon when present"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340
+                                          :ws/tab-title "GitHub"
+                                          :ws/tab-favicon "https://github.com/favicon.ico"}}
+                          result (bg/connections->display-list connections)]
+                      (-> (expect (:favicon (first result)))
+                          (.toBe "https://github.com/favicon.ico")))))
+
+            (test "favicon is nil when missing"
+                  (fn []
+                    (let [connections {1 {:ws/port 1340 :ws/tab-title "Test"}}
+                          result (bg/connections->display-list connections)]
+                      (-> (expect (:favicon (first result)))
+                          (.toBeUndefined)))))))
