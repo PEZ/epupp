@@ -9,7 +9,8 @@
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
-                                           generate-timing-report print-timing-report]]))
+                                           generate-timing-report print-timing-report
+                                           clear-test-events!]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -692,11 +693,29 @@
             (finally
               (js-await (.close context)))))))
 
-(test "Log-powered: popup UI updates when connected page is reloaded"
+(test "Log-powered: popup UI updates when connected page is reloaded (auto-reconnect disabled)"
       (^:async fn []
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
+            ;; Clear storage and DISABLE auto-reconnect for this test
+            ;; With auto-reconnect enabled (default), the connection would persist after reload
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings and disable auto-reconnect
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                ;; It's checked by default, uncheck it
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+                (js-await (.click auto-reconnect-checkbox))
+                (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked)))
+                (js/console.log "Auto-reconnect disabled for this test"))
+              (js-await (.close popup)))
+
             ;; Navigate to a test page
             (let [page (js-await (.newPage context))]
               (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
@@ -722,10 +741,11 @@
                     (js/console.log "Connection shown in UI"))
 
                   ;; Now reload the connected page - this disconnects WebSocket
+                  ;; With auto-reconnect DISABLED, connection should not come back
                   (js-await (.reload page))
                   (js-await (-> (expect (.locator page "#test-marker"))
                                 (.toContainText "ready")))
-                  (js/console.log "Page reloaded")
+                  (js/console.log "Page reloaded (auto-reconnect disabled)")
 
                   ;; Wait for WebSocket close to propagate
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
@@ -734,8 +754,7 @@
                   (js-await (.reload popup))
                   (js-await (wait-for-popup-ready popup))
 
-                  ;; The connection should now be gone
-                  ;; BUG: Currently shows stale connection data
+                  ;; The connection should now be gone (no auto-reconnect)
                   (let [no-conn-msg (.locator popup ".no-connections")
                         connected-items (.locator popup ".connected-tab-item")]
                     (js-await (-> (expect connected-items)
@@ -842,6 +861,218 @@
                 ;; Check for any errors
                 (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Auto-Reconnect REPL Tests
+;; =============================================================================
+
+(test "Log-powered: auto-reconnect triggers Scittle injection on page reload of previously connected tab"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage for clean state, ensure auto-reconnect is enabled (default)
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Verify auto-reconnect is enabled by default
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+                (js/console.log "Auto-reconnect is enabled (default)"))
+
+              ;; Ensure auto-connect-all is OFF (so auto-reconnect logic is tested)
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked)))
+                (js/console.log "Auto-connect-all is disabled"))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Manually connect REPL to this tab
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+
+                  ;; Wait for connection to establish and Scittle to load
+                  (js-await (wait-for-event popup "SCITTLE_LOADED" 10000))
+                  (js/console.log "REPL connected and Scittle loaded")
+
+                  ;; Verify connection exists
+                  (let [connections (js-await (fixtures/get-connections popup))]
+                    (js-await (-> (expect (.-length connections)) (.toBe 1)))
+                    (js/console.log "Connection verified:" (.-length connections) "active")))
+
+                ;; Clear test events RIGHT BEFORE reload to get clean slate
+                (js-await (clear-test-events! popup))
+                (js/console.log "Cleared test events before reload")
+                (js-await (.close popup)))
+
+              ;; Reload the page - this disconnects WebSocket, triggers auto-reconnect
+              (js/console.log "Reloading page - should trigger auto-reconnect...")
+              (js-await (.reload page))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Page reloaded")
+
+              ;; Wait for auto-reconnect to trigger Scittle injection
+              ;; This is the key assertion: after reload, auto-reconnect should load Scittle again
+              (let [popup2 (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for SCITTLE_LOADED event from auto-reconnect...")
+                    event (js-await (wait-for-event popup2 "SCITTLE_LOADED" 10000))]
+                (js/console.log "Auto-reconnect triggered! SCITTLE_LOADED event:" (js/JSON.stringify event))
+                ;; The presence of SCITTLE_LOADED event after clearing events proves auto-reconnect worked
+                (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (.close popup2)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Log-powered: auto-reconnect does NOT trigger for tabs never connected"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage for clean state
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Verify auto-reconnect is enabled but auto-connect-all is OFF
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked))))
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+              (js/console.log "Auto-reconnect ON, auto-connect-all OFF")
+              (js-await (.close popup)))
+
+            ;; Navigate to test page WITHOUT connecting REPL first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded (never connected)")
+
+              ;; Get initial SCITTLE_LOADED count
+              (let [popup (js-await (create-popup-page context ext-id))
+                    events-before (js-await (get-test-events popup))
+                    scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                (js/console.log "SCITTLE_LOADED count before reload (should be 0):" scittle-count-before)
+                (js-await (.close popup))
+
+                ;; Reload the page - should NOT trigger auto-reconnect (never connected)
+                (js/console.log "Reloading page - should NOT trigger any connection...")
+                (js-await (.reload page))
+                (js-await (-> (expect (.locator page "#test-marker"))
+                              (.toContainText "ready")))
+                (js/console.log "Page reloaded")
+
+                ;; Wait a moment to ensure no reconnection happens
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
+
+                ;; Verify no new SCITTLE_LOADED events occurred
+                (let [popup2 (js-await (create-popup-page context ext-id))
+                      events-after (js-await (get-test-events popup2))
+                      scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                  (js/console.log "SCITTLE_LOADED count after reload (should still be" scittle-count-before "):" scittle-count-after)
+                  ;; Should be same count - no new Scittle loads for never-connected tab
+                  (js-await (-> (expect scittle-count-after) (.toBe scittle-count-before)))
+                  (js-await (.close popup2))))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Log-powered: disabled auto-reconnect does NOT trigger on page reload"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage and DISABLE auto-reconnect
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings and disable auto-reconnect
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                ;; It's checked by default, uncheck it
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+                (js-await (.click auto-reconnect-checkbox))
+                (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked)))
+                (js/console.log "Auto-reconnect disabled"))
+
+              ;; Ensure auto-connect-all is also OFF
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+              (js-await (.close popup)))
+
+            ;; Navigate to test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Manually connect REPL to this tab
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+                  (js/console.log "REPL connected"))
+                (js-await (.close popup)))
+
+              ;; Get SCITTLE_LOADED count before reload
+              (let [popup (js-await (create-popup-page context ext-id))
+                    events-before (js-await (get-test-events popup))
+                    scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                (js/console.log "SCITTLE_LOADED count before reload:" scittle-count-before)
+                (js-await (.close popup))
+
+                ;; Reload the page - should NOT trigger reconnect (setting disabled)
+                (js/console.log "Reloading page with auto-reconnect DISABLED...")
+                (js-await (.reload page))
+                (js-await (-> (expect (.locator page "#test-marker"))
+                              (.toContainText "ready")))
+                (js/console.log "Page reloaded")
+
+                ;; Wait a moment to ensure no reconnection happens
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
+
+                ;; Verify no new SCITTLE_LOADED events occurred
+                (let [popup2 (js-await (create-popup-page context ext-id))
+                      events-after (js-await (get-test-events popup2))
+                      scittle-count-after (.-length (.filter events-after (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                  (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-after)
+                  ;; Should be same count - auto-reconnect was disabled
+                  (js-await (-> (expect scittle-count-after) (.toBe scittle-count-before)))
+                  (js-await (.close popup2))))
 
               (js-await (.close page)))
 
