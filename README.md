@@ -25,10 +25,24 @@ By default, scripts run after the page has loaded (`document-idle`). For scripts
   (set! js/window.myGlobal "intercepted"))
 ```
 
-Available timing values:
-- `document-start`: Runs before any page scripts (useful for blocking/intercepting)
-- `document-end`: Runs at DOMContentLoaded
-- `document-idle`: Runs after page load (default)
+#### When to Use Each Timing
+
+| Timing | DOM Available? | Use Case |
+|--------|----------------|----------|
+| `document-start` | ❌ No (`document.body` is null) | Intercept globals, block scripts, polyfills |
+| `document-end` | ✅ Yes | DOM manipulation before images/iframes load |
+| `document-idle` | ✅ Yes | Most scripts (default) |
+
+> [!WARNING]
+> Scripts using `document-start` cannot access DOM elements like `document.body` - they don't exist yet! If you need early timing but also need DOM access, wait for `DOMContentLoaded`:
+> ```clojure
+> {:epupp/run-at "document-start"}
+> ;; Intercept something early...
+> (set! js/window.myGlobal "intercepted")
+> ;; ...then wait for DOM when needed
+> (js/document.addEventListener "DOMContentLoaded"
+>   (fn [] (js/console.log "Now document.body exists!")))
+> ```
 
 > [!NOTE]
 > **Safari limitation:** Script timing (`document-start`/`document-end`) is not supported in Safari due to API limitations. Scripts will run at `document-idle` regardless of the timing annotation. Chrome and Firefox support all timing values.
@@ -38,7 +52,7 @@ Available timing values:
 Epupp bundles the Scittle ecosystem libraries. Add them to your scripts using the `:epupp/require` manifest key:
 
 ```clojure
-{:epupp/script-name "Reagent Test"
+{:epupp/script-name "reagent_test.cljs"
  :epupp/site-match "*"
  :epupp/require ["scittle://reagent.js"]}
 

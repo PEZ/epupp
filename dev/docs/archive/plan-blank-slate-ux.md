@@ -165,8 +165,8 @@ Powered by Scittle • Full DOM access
 Add a "Use template" button that inserts a starter template:
 
 ```clojure
-{:epupp/script-name "My Script"
- :epupp/site-match "*://example.com/*"
+{:epupp/script-name "my_script.cljs"
+ :epupp/site-match "https://example.com/*"
  :epupp/description "What this script does"}
 
 (ns my-script)
