@@ -1,18 +1,15 @@
 (ns e2e.repl-ui-spec
   "REPL Integration Tests for Playwright UI
 
-   These tests mirror the Babashka tests in repl_test.clj but run through
-   Playwright's test framework, enabling the --ui interactive runner.
-
-   Run with: bb test:repl-e2e:ui
-   (This task starts browser-nrepl and HTTP server automatically)"
+   These tests verify the full nREPL pipeline: editor -> browser-nrepl -> extension -> page
+   They run as part of the unified E2E test suite with shared infrastructure."
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["net" :as net]
             ["path" :as path]))
 
 (def nrepl-port 12345)
 (def ws-port 12346)
-(def http-port 8765)
+(def http-port 18080)  ; Unified test server port (test-data/pages)
 
 (def !context (atom nil))
 
@@ -90,8 +87,8 @@
     (reset! !context ctx)
     (let [ext-id (js-await (get-extension-id ctx))
           test-page (js-await (.newPage ctx))]
-      ;; Load test page
-      (js-await (.goto test-page (str "http://localhost:" http-port "/")))
+      ;; Load test page (basic.html has title "Epupp Test Page - Basic")
+      (js-await (.goto test-page (str "http://localhost:" http-port "/basic.html")))
       (js-await (sleep 500))
       ;; Open popup to send messages to background worker
       (let [bg-page (js-await (.newPage ctx))]
@@ -168,9 +165,10 @@
                          (let [connections (.-connections result)]
                            ;; Should have at least one connection
                            (-> (expect (.-length connections)) (.toBeGreaterThan 0))
-                           ;; First connection should have the expected port
+                           ;; First connection should have the expected port (returned as string)
+                           ;; Use bracket notation for hyphenated keys (Squint converts .- to underscore)
                            (let [conn (aget connections 0)]
-                             (-> (expect (.-port conn)) (.toBe ws-port))
-                             (-> (expect (.-title conn)) (.toBeDefined))
-                             (-> (expect (.-tab-id conn)) (.toBeDefined)))))
+                             (-> (expect (aget conn "port")) (.toBe (str ws-port)))
+                             (-> (expect (aget conn "title")) (.toBeDefined))
+                             (-> (expect (aget conn "tab-id")) (.toBeDefined)))))
                        (js-await (.close popup)))))))
