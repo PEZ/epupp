@@ -443,6 +443,19 @@
     ;; document-idle (default) - no badge
     nil))
 
+(defn- safe-pattern-display
+  "Safely extract a displayable string from a pattern value.
+   Handles malformed data (nested arrays, nil) defensively."
+  [pattern]
+  (cond
+    (nil? pattern) nil
+    (string? pattern) pattern
+    ;; Vector/array - extract first element recursively
+    (or (vector? pattern) (array? pattern))
+    (safe-pattern-display (first pattern))
+    ;; Fallback for unexpected types
+    :else (str pattern)))
+
 (defn script-item [{:keys [script/name script/match script/enabled script/description script/run-at]
                     script-id :script/id
                     :as script}
@@ -453,7 +466,8 @@
         needs-approval (and matches-current
                             enabled
                             (not (script-utils/pattern-approved? script matching-pattern)))
-        pattern-display (or matching-pattern (first match))
+        ;; Safely extract pattern for display, handling malformed data
+        pattern-display (safe-pattern-display (or matching-pattern (first match)))
         show-edit-hint (= script-id editing-hint-script-id)
         truncated-desc (when (seq description)
                          (if (> (count description) 60)

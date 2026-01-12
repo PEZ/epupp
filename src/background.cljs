@@ -743,7 +743,7 @@
       (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
     (let [script (cond-> {:script/id normalized-name
                           :script/name normalized-name
-                          :script/match [site-match]
+                          :script/match (script-utils/normalize-match-patterns site-match)
                           :script/code code
                           :script/run-at run-at
                           :script/enabled true
