@@ -428,12 +428,13 @@ Update `bundle-scittle` task to also copy the new libraries:
 - [x] `scittle://pprint.js` works in userscripts
 - [x] `scittle://reagent.js` loads React automatically
 - [x] `scittle://re-frame.js` loads Reagent + React
+- [ ] Panel evaluation injects requires from manifest
+- [ ] Popup "Run" button injects requires before execution
 - [x] Panel shows require status
 - [x] Works on CSP-strict sites
 - [x] All unit tests pass
-- [x] E2E test for require feature
-- [ ] **NEW**: Panel evaluation injects requires from manifest
-- [ ] **NEW**: Popup "Run" button injects requires before execution
+- [ ] Gist Installer Script uses Replicant
+- [ ] E2E test for require feature (started)
 
 ## Completed Implementation Details
 
