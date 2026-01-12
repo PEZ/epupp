@@ -33,14 +33,15 @@ bb test:e2e --grep "REPL"
 | Server | Port | Purpose |
 |--------|------|---------|
 | HTTP test server | 18080 | Serves `test-data/pages/` |
-| browser-nrepl | 12345 (nREPL), 12346 (WS) | REPL relay |
+| browser-nrepl #1 | 12345 (nREPL), 12346 (WS) | Primary REPL relay |
+| browser-nrepl #2 | 12347 (nREPL), 12348 (WS) | Multi-tab testing |
 
 Servers start automatically via `tasks.clj` wrappers:
 
 ```clojure
 (defn run-e2e-tests! [args]
   (with-test-server
-    #(with-browser-nrepl
+    #(with-browser-nrepls
        (fn [] (apply p/shell "npx playwright test" args)))))
 ```
 
