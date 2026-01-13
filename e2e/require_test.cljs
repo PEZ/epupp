@@ -190,8 +190,23 @@
               (js-await (-> (expect (.locator page "#test-marker"))
                             (.toContainText "ready")))
 
-              ;; Wait a bit for injection to complete
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 2000))))
+              ;; Wait for Reagent script tag to appear (poll instead of fixed 2s sleep)
+              (let [wait-for-script (fn wait-for []
+                                      (js/Promise.
+                                       (fn [resolve reject]
+                                         (let [check (fn check [attempts]
+                                                       (-> (.evaluate page
+                                                                      (fn []
+                                                                        (let [scripts (js/document.querySelectorAll "script[src*='reagent']")]
+                                                                          (pos? (.-length scripts)))))
+                                                           (.then (fn [found]
+                                                                    (if found
+                                                                      (resolve true)
+                                                                      (if (>= attempts 50) ;; 5 second max
+                                                                        (reject (js/Error. "Timeout waiting for reagent script"))
+                                                                        (js/setTimeout #(check (inc attempts)) 100)))))))]
+                                           (check 0)))))]
+                (js-await (wait-for-script)))
 
               ;; Check for Reagent script tags in DOM
               (let [script-tags (js-await (.evaluate page

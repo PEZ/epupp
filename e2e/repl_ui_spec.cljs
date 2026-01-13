@@ -13,6 +13,8 @@
 (defn ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
+
+
 (defn ^:async eval-in-browser
   "Evaluate code via nREPL on server 1. Returns {:success bool :values [...] :error str}"
   [code]
@@ -54,6 +56,29 @@
        (let [msg (str "d2:op4:eval4:code" (.-length code) ":" code "e")]
          (.write client msg))))))
 
+(defn ^:async wait-for-script-tag
+  "Poll the page via nREPL until a script tag matching the pattern appears.
+   Much faster than fixed sleeps - returns as soon as injection completes.
+   Returns true when found, throws on timeout."
+  [pattern timeout-ms]
+  (let [start (.now js/Date)
+        poll-interval 100
+        check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
+        check-fn (fn check []
+                   (js/Promise.
+                    (fn [resolve reject]
+                      (-> (eval-in-browser check-code)
+                          (.then (fn [result]
+                                   (if (and (.-success result)
+                                            (= (first (.-values result)) "true"))
+                                     (resolve true)
+                                     (if (> (- (.now js/Date) start) timeout-ms)
+                                       (reject (js/Error. (str "Timeout waiting for script: " pattern)))
+                                       (-> (sleep poll-interval)
+                                           (.then #(resolve (check))))))))
+                          (.catch reject)))))]
+    (js-await (check-fn))))
+
 (defn ^:async get-extension-id [context]
   (let [workers (.serviceWorkers context)]
     (if (pos? (.-length workers))
@@ -84,15 +109,16 @@
     (reset! !context ctx)
     (let [ext-id (js-await (get-extension-id ctx))
           test-page (js-await (.newPage ctx))]
-      ;; Load test page (basic.html has title "Epupp Test Page - Basic")
+      ;; Load test page - wait for load state instead of fixed sleep
       (js-await (.goto test-page (str "http://localhost:" http-port "/basic.html")))
-      (js-await (sleep 500))
+      (js-await (.waitForLoadState test-page "domcontentloaded"))
       ;; Open popup to send messages to background worker
       (let [bg-page (js-await (.newPage ctx))]
         (js-await (.goto bg-page
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
-        (js-await (sleep 2000))
+        ;; Short stabilization wait - networkidle should handle most of it
+        (js-await (sleep 300))
         ;; Find test page tab ID
         (let [find-result (js-await (send-runtime-message
                                      bg-page "e2e/find-tab-id"
@@ -107,7 +133,8 @@
             (when-not (and connect-result (.-success connect-result))
               (throw (js/Error. (str "Connection failed: " (.-error connect-result)))))
             (js-await (.close bg-page))
-            (js-await (sleep 2000))))))))
+            ;; Wait for Scittle to be available after connect (poll instead of 2s sleep)
+            (js-await (wait-for-script-tag "scittle" 5000))))))))
 
 (.describe test "REPL Integration"
            (fn []
@@ -186,8 +213,8 @@
                        (js/console.log "=== manifest-result ===" (js/JSON.stringify manifest-result))
                        (-> (expect (.-success manifest-result)) (.toBe true)))
 
-                     ;; Step 3: Wait for injection to complete (the promise will resolve async)
-                     (js-await (sleep 2000))
+                     ;; Step 3: Wait for replicant script tag to appear (poll instead of fixed sleep)
+                     (js-await (wait-for-script-tag "replicant" 5000))
 
                      ;; Step 4: Verify Replicant is now available
                      (let [replicant-check (js-await (eval-in-browser "(boolean (resolve 'replicant.dom/render))"))]
@@ -221,8 +248,8 @@
                                                  "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                        (-> (expect (.-success first-load)) (.toBe true)))
 
-                     ;; Wait for injection
-                     (js-await (sleep 2000))
+                     ;; Wait for replicant script tag to appear (poll instead of fixed sleep)
+                     (js-await (wait-for-script-tag "replicant" 5000))
 
                      ;; Count replicant script tags after first load (should be 1)
                      (let [count-after-first (js-await (eval-in-browser
@@ -237,8 +264,8 @@
                                                     "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                          (-> (expect (.-success second-load)) (.toBe true)))
 
-                       ;; Wait for injection
-                       (js-await (sleep 2000))
+                       ;; Short wait for idempotent check - script already exists, just needs to settle
+                       (js-await (sleep 200))
 
                        ;; Count replicant script tags after second load
                        (let [count-after-second (js-await (eval-in-browser
@@ -303,13 +330,16 @@
                                page2 (js-await (.newPage ctx))]
                            (js-await (.goto page1 (str "http://localhost:" http-port "/basic.html")))
                            (js-await (.goto page2 (str "http://localhost:" http-port "/timing-test.html")))
-                           (js-await (sleep 500))
+                           ;; Wait for both pages to be loaded (faster than fixed sleep)
+                           (js-await (.waitForLoadState page1 "domcontentloaded"))
+                           (js-await (.waitForLoadState page2 "domcontentloaded"))
 
                            ;; Open popup to connect tabs
                            (let [popup (js-await (.newPage ctx))]
                              (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
                                               #js {:waitUntil "networkidle"}))
-                             (js-await (sleep 1000))
+                             ;; Short stabilization - networkidle handles most of it
+                             (js-await (sleep 200))
 
                              ;; Find both tabs (use Chrome match patterns, not globs)
                              (let [find1 (js-await (send-runtime-message popup "e2e/find-tab-id"
@@ -334,7 +364,9 @@
                                  (-> (expect (.-success conn2)) (.toBe true))
                                  (js/console.log "Tab 2 connected to server 2 (port" ws-port-2 ")"))
 
-                               (js-await (sleep 2000))
+                               ;; Allow connections and Scittle injection to complete
+                               ;; Both tabs connected in parallel, so 500ms should suffice
+                               (js-await (sleep 500))
 
                                ;; Verify both connections exist
                                (let [conns (js-await (send-runtime-message popup "get-connections" #js {}))]

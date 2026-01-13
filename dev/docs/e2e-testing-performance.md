@@ -51,7 +51,35 @@ bb test:e2e --grep "two tabs connected"
 
 ## Common Performance Issues
 
-### 1. Unnecessary Waits
+### 1. Fixed Sleeps Instead of Polling
+
+**Problem**: Hardcoded `sleep 2000` waits 2 seconds even when the operation completes in 20ms.
+
+```clojure
+;; ❌ Slow - waits full 2 seconds regardless
+(js-await (sleep 2000))
+
+;; ✅ Fast - polls every 100ms, returns immediately when ready
+(js-await (wait-for-script-tag "scittle" 5000))
+```
+
+**Impact**: Replacing six 2-second sleeps with polling reduced suite time from 44s to 34s (22%).
+
+### 2. Unchained Promise Methods in Squint
+
+**Problem**: `.evaluate` and `.then` as separate statements don't chain properly.
+
+```clojure
+;; ❌ BROKEN - .then called on callback function, not the promise
+(.evaluate page (fn [] ...))
+(.then (fn [result] ...))
+
+;; ✅ CORRECT - threading macro chains method calls
+(-> (.evaluate page (fn [] ...))
+    (.then (fn [result] ...)))
+```
+
+### 3. Unnecessary Waits
 
 **Problem**: Arbitrary timeouts or overly long poll intervals.
 

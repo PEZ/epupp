@@ -43,6 +43,11 @@
     project-specific configurations, output paths, and workflow decisions. Running tools directly
     bypasses these and often produces incorrect results (wrong output directories, missing flags).
     Check `bb tasks` for available commands before resorting to direct tool invocation.
+
+    **E2E tests and Docker**: Use `bb test:e2e` exclusively. Never use direct `docker build` or
+    `docker run` commands. The Dockerfile uses `COPY . .` which invalidates layers when source
+    files change - Docker caching is NOT a problem. If tests fail after code changes, the issue
+    is in your code, not in Docker caching. Do not waste time with `--no-cache` rebuilds.
   </bb-tasks>
 
   <babashka-utilities>
