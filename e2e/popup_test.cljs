@@ -604,3 +604,585 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Popup User Journey: Auto-Connect and Auto-Reconnect REPL
+;; =============================================================================
+
+(test "Popup: auto-connect REPL triggers Scittle injection on page load"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Enable auto-connect setting via popup
+            (let [popup (js-await (create-popup-page context ext-id))]
+              ;; Clear storage for clean state
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings section
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+
+              ;; Enable auto-connect
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.toBeVisible)))
+                (js-await (.click auto-connect-checkbox))
+                ;; Wait for checkbox to be checked
+                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to a page - should trigger auto-connect (WS_CONNECTED event)
+            (let [page (js-await (.newPage context))]
+              (js/console.log "Navigating to localhost:18080/basic.html with auto-connect enabled...")
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Page loaded")
+
+              ;; Wait for SCITTLE_LOADED event - indicates auto-connect triggered
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for SCITTLE_LOADED event...")
+                    event (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))]
+                (js/console.log "SCITTLE_LOADED event:" (js/JSON.stringify event))
+                (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: SPA navigation does NOT trigger REPL reconnection"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Enable auto-connect via popup
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings section
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+
+              ;; Enable auto-connect
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (.click auto-connect-checkbox))
+                (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to SPA test page - should trigger initial auto-connect
+            (let [page (js-await (.newPage context))]
+              (js/console.log "Navigating to SPA test page with auto-connect enabled...")
+              (js-await (.goto page "http://localhost:18080/spa-test.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "SPA page loaded")
+
+              ;; Wait for initial SCITTLE_LOADED event
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for initial SCITTLE_LOADED...")
+                    event (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))]
+                (js/console.log "Initial SCITTLE_LOADED:" (js/JSON.stringify event))
+
+                ;; Get current event count
+                (let [events-before (js-await (fixtures/get-test-events popup))
+                      scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                  (js/console.log "SCITTLE_LOADED count before SPA nav:" scittle-count-before)
+
+                  ;; Perform SPA navigation (client-side, no page reload)
+                  (js/console.log "Performing SPA navigation (should NOT trigger reconnect)...")
+                  (js-await (.click (.locator page "#nav-about")))
+                  (js-await (-> (expect (.locator page "#current-view"))
+                                (.toContainText "about")))
+                  (js/console.log "SPA navigated to 'about' view")
+
+                  ;; Do another SPA navigation
+                  (js-await (.click (.locator page "#nav-contact")))
+                  (js-await (-> (expect (.locator page "#current-view"))
+                                (.toContainText "contact")))
+                  (js/console.log "SPA navigated to 'contact' view")
+
+                  ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                  ;; Using scittle-count-before as the baseline
+                  (js-await (fixtures/assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "Verified: No new SCITTLE_LOADED after SPA navigation"))
+
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: auto-reconnect triggers Scittle injection on page reload of previously connected tab"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage for clean state, ensure auto-reconnect is enabled (default)
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Verify auto-reconnect is enabled by default
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+                (js/console.log "Auto-reconnect is enabled (default)"))
+
+              ;; Ensure auto-connect-all is OFF (so auto-reconnect logic is tested)
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked)))
+                (js/console.log "Auto-connect-all is disabled"))
+
+              (js-await (.close popup)))
+
+            ;; Navigate to test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Manually connect REPL to this tab
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+
+                  ;; Wait for connection to establish and Scittle to load
+                  (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))
+                  (js/console.log "REPL connected and Scittle loaded")
+
+                  ;; Verify connection exists
+                  (let [connections (js-await (fixtures/get-connections popup))]
+                    (js-await (-> (expect (.-length connections)) (.toBe 1)))
+                    (js/console.log "Connection verified:" (.-length connections) "active")))
+
+                ;; Clear test events RIGHT BEFORE reload to get clean slate
+                (js-await (fixtures/clear-test-events! popup))
+                (js/console.log "Cleared test events before reload")
+                (js-await (.close popup)))
+
+              ;; Reload the page - this disconnects WebSocket, triggers auto-reconnect
+              (js/console.log "Reloading page - should trigger auto-reconnect...")
+              (js-await (.reload page))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Page reloaded")
+
+              ;; Wait for auto-reconnect to trigger Scittle injection
+              ;; This is the key assertion: after reload, auto-reconnect should load Scittle again
+              (let [popup2 (js-await (create-popup-page context ext-id))
+                    _ (js/console.log "Waiting for SCITTLE_LOADED event from auto-reconnect...")
+                    event (js-await (fixtures/wait-for-event popup2 "SCITTLE_LOADED" 10000))]
+                (js/console.log "Auto-reconnect triggered! SCITTLE_LOADED event:" (js/JSON.stringify event))
+                ;; The presence of SCITTLE_LOADED event after clearing events proves auto-reconnect worked
+                (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (.close popup2)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: auto-reconnect does NOT trigger for tabs never connected"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage for clean state
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Verify auto-reconnect is enabled but auto-connect-all is OFF
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked))))
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+              (js/console.log "Auto-reconnect ON, auto-connect-all OFF")
+              (js-await (.close popup)))
+
+            ;; Navigate to test page WITHOUT connecting REPL first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded (never connected)")
+
+              ;; Get initial SCITTLE_LOADED count
+              (let [popup (js-await (create-popup-page context ext-id))
+                    events-before (js-await (fixtures/get-test-events popup))
+                    scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                (js/console.log "SCITTLE_LOADED count before reload (should be 0):" scittle-count-before)
+                (js-await (.close popup))
+
+                ;; Reload the page - should NOT trigger auto-reconnect (never connected)
+                (js/console.log "Reloading page - should NOT trigger any connection...")
+                (js-await (.reload page))
+                (js-await (-> (expect (.locator page "#test-marker"))
+                              (.toContainText "ready")))
+                (js/console.log "Page reloaded")
+
+                ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                ;; scittle-count-before is 0 for never-connected tab
+                (let [popup2 (js-await (create-popup-page context ext-id))]
+                  (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "SCITTLE_LOADED count after reload (should still be 0):" scittle-count-before)
+                  (js-await (.close popup2))))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: disabled auto-reconnect does NOT trigger on page reload"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Clear storage and DISABLE auto-reconnect
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              ;; Expand settings and disable auto-reconnect
+              (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                (js-await (.click settings-header)))
+              (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+                ;; It's checked by default, uncheck it
+                (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+                (js-await (.click auto-reconnect-checkbox))
+                (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked)))
+                (js/console.log "Auto-reconnect disabled"))
+
+              ;; Ensure auto-connect-all is also OFF
+              (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+              (js-await (.close popup)))
+
+            ;; Navigate to test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Manually connect REPL to this tab
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+                  (js-await (wait-for-connection popup 5000))
+                  (js/console.log "REPL connected"))
+                (js-await (.close popup)))
+
+              ;; Get SCITTLE_LOADED count before reload
+              (let [popup (js-await (create-popup-page context ext-id))
+                    events-before (js-await (fixtures/get-test-events popup))
+                    scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+                (js/console.log "SCITTLE_LOADED count before reload:" scittle-count-before)
+                (js-await (.close popup))
+
+                ;; Reload the page - should NOT trigger reconnect (setting disabled)
+                (js/console.log "Reloading page with auto-reconnect DISABLED...")
+                (js-await (.reload page))
+                (js-await (-> (expect (.locator page "#test-marker"))
+                              (.toContainText "ready")))
+                (js/console.log "Page reloaded")
+
+                ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+                (let [popup2 (js-await (create-popup-page context ext-id))]
+                  (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+                  (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-before)
+                  (js-await (.close popup2))))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Popup User Journey: Toolbar Icon State
+;; =============================================================================
+
+(test "Popup: toolbar icon reflects REPL connection state"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Check initial icon state - should be "disconnected" (white bolt)
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (wait-for-popup-ready popup))
+                    events-initial (js-await (fixtures/get-test-events popup))
+                    icon-events (.filter events-initial (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
+                (js/console.log "Initial icon events:" (js/JSON.stringify icon-events))
+                ;; Initial state should be "disconnected"
+                (when (pos? (.-length icon-events))
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))]
+                    (js-await (-> (expect (.. last-event -data -state))
+                                  (.toBe "disconnected")))))
+                (js-await (.close popup)))
+
+              ;; Enable auto-connect via popup
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+                (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
+                  (js-await (.click settings-header)))
+                (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
+                  (js-await (.click auto-connect-checkbox))
+                  (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+                (js-await (.close popup)))
+
+              ;; Navigate to trigger auto-connect (Scittle injection)
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for Scittle to be loaded
+              (let [popup (js-await (create-popup-page context ext-id))
+                    _ (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))]
+
+                ;; Check icon state after Scittle injection - should be "injected" (yellow) or "connected" (green)
+                (let [events (js-await (fixtures/get-test-events popup))
+                      icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
+                  (js/console.log "Icon events after Scittle load:" (js/JSON.stringify icon-events))
+                  ;; Should have icon state events
+                  (js-await (-> (expect (.-length icon-events))
+                                (.toBeGreaterThan 0)))
+                  ;; Last event should be "injected" or "connected"
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))
+                        state (.. last-event -data -state)]
+                    (js/console.log "Final icon state:" state)
+                    (js-await (-> (expect (or (= state "injected") (= state "connected")))
+                                  (.toBeTruthy)))))
+                (js-await (.close popup)))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: injected state is tab-local, connected state is global"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Create a userscript that ONLY targets basic.html
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "tab-local-test"
+                                            :match "*://localhost:*/basic.html"
+                                            :code "(js/console.log \"Tab A script loaded\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
+              (js-await (.click (.locator panel "button:text(\"Save Script\")")))
+              (js-await (wait-for-save-status panel "Created"))
+              (js-await (.close panel)))
+
+            ;; Approve the script using test URL override
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+              (let [script-item (.locator popup ".script-item:has-text(\"tab_local_test.cljs\")")]
+                (js-await (-> (expect script-item) (.toBeVisible)))
+                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+                  (when (pos? (js-await (.count allow-btn)))
+                    (js-await (.click allow-btn))
+                    (js-await (-> (expect allow-btn) (.not.toBeVisible)))))
+                (js-await (.close popup))))
+
+            ;; Navigate Tab A - script is pre-approved, should inject
+            (let [tab-a (js-await (.newPage context))]
+              (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator tab-a "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for Scittle injection, capture Tab A's Chrome tab-id
+              (let [popup (js-await (create-popup-page context ext-id))
+                    scittle-loaded-event (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))
+                    tab-a-id (aget (.-data scittle-loaded-event) "tab-id")]
+                (js-await (.close popup))
+
+                ;; Assert Tab A shows injected/connected based on its tab-id
+                (let [popup (js-await (create-popup-page context ext-id))
+                      events (js-await (fixtures/get-test-events popup))
+                      icon-events (.filter events
+                                           (fn [e]
+                                             (and (= (.-event e) "ICON_STATE_CHANGED")
+                                                  (= (aget (.-data e) "tab-id") tab-a-id))))]
+                  (js-await (-> (expect (.-length icon-events))
+                                (.toBeGreaterThan 0)))
+                  (let [last-event (aget icon-events (dec (.-length icon-events)))
+                        last-state (.. last-event -data -state)]
+                    (js-await (-> (expect (or (= last-state "injected")
+                                              (= last-state "connected")))
+                                  (.toBeTruthy))))
+                  (js-await (.close popup)))
+
+                ;; Open Tab B (spa-test.html - does NOT match our script)
+                (let [tab-b (js-await (.newPage context))]
+                  (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 1000}))
+                  (js-await (-> (expect (.locator tab-b "#test-marker"))
+                                (.toContainText "ready")))
+
+                  ;; Bring Tab B to focus
+                  (js-await (.bringToFront tab-b))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
+                  ;; Tab B should show disconnected, and the icon event should be for Tab B
+                  ;; (i.e. not Tab A's Chrome tab-id)
+                  (let [popup (js-await (create-popup-page context ext-id))
+                        events (js-await (fixtures/get-test-events popup))
+                        icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
+                        last-event (aget icon-events (dec (.-length icon-events)))
+                        last-tab-id (aget (.-data last-event) "tab-id")
+                        last-state (.. last-event -data -state)]
+                    (js-await (-> (expect last-tab-id) (.toBeTruthy)))
+                    (js-await (-> (expect (not (= last-tab-id tab-a-id)))
+                                  (.toBeTruthy)))
+                    (js-await (-> (expect (= last-state "disconnected"))
+                                  (.toBeTruthy)))
+                    (js-await (.close popup)))
+
+                  ;; Bring Tab A back to focus
+                  (js-await (.bringToFront tab-a))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
+                  ;; Tab A should STILL show injected/connected
+                  (let [popup (js-await (create-popup-page context ext-id))
+                        events (js-await (fixtures/get-test-events popup))
+                        icon-events (.filter events
+                                             (fn [e]
+                                               (and (= (.-event e) "ICON_STATE_CHANGED")
+                                                    (= (aget (.-data e) "tab-id") tab-a-id))))]
+                    (js-await (-> (expect (.-length icon-events))
+                                  (.toBeGreaterThan 0)))
+                    (let [last-event (aget icon-events (dec (.-length icon-events)))
+                          last-state (.. last-event -data -state)]
+                      (js-await (-> (expect (or (= last-state "injected")
+                                                (= last-state "connected")))
+                                    (.toBeTruthy))))
+                    (js-await (.close popup)))
+
+                  (js-await (.close tab-b))))
+              (js-await (.close tab-a)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: get-connections API returns active REPL connections"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page first
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+              (js/console.log "Test page loaded")
+
+              ;; Open popup
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Check initial state - no connections yet
+                (let [initial-conns (js-await (fixtures/get-connections popup))]
+                  (js/console.log "Initial connections:" (.-length initial-conns))
+                  (js-await (-> (expect (.-length initial-conns))
+                                (.toBe 0))))
+
+                ;; Find the test page tab and connect
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js/console.log "Found test page tab ID:" tab-id)
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+                  (js/console.log "Connected to tab via WebSocket port" ws-port-1)
+
+                  ;; Wait for connection event
+                  (js-await (wait-for-connection popup 5000))
+
+                  ;; Now get-connections should return the connection
+                  (let [connections (js-await (fixtures/get-connections popup))
+                        conn-count (.-length connections)]
+                    (js/console.log "Connections after connect:" conn-count)
+                    (js/console.log "Connection data:" (js/JSON.stringify connections))
+
+                    ;; Should have exactly 1 connection now
+                    (js-await (-> (expect conn-count)
+                                  (.toBe 1)))
+
+                    ;; Verify the connection has the tab-id
+                    (when (> conn-count 0)
+                      (let [conn (aget connections 0)
+                            conn-tab-id (aget conn "tab-id")]
+                        (js/console.log "Connected tab ID:" conn-tab-id "expected:" tab-id)
+                        (js-await (-> (expect (str conn-tab-id))
+                                      (.toBe (str tab-id))))))))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+(test "Popup: UI updates immediately after connecting (no tab switch needed)"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Navigate to a test page
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Open popup - keep it open throughout the test
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-popup-ready popup))
+
+                ;; Initially should show no connections
+                (let [no-conn-msg (.locator popup ".no-connections")]
+                  (js-await (-> (expect no-conn-msg)
+                                (.toBeVisible)))
+                  (js/console.log "Initial state: no connections shown"))
+
+                ;; Connect to the test page while popup is still open
+                (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+                  (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+                  (js/console.log "Connected to tab" tab-id)
+
+                  ;; Wait for connection event
+                  (js-await (wait-for-connection popup 5000))
+
+                  ;; WITHOUT reloading or switching tabs, the UI should update
+                  ;; BUG: Currently requires popup reload or tab switch
+                  (let [connected-items (.locator popup ".connected-tab-item")]
+                    (js-await (-> (expect connected-items)
+                                  (.toHaveCount 1 #js {:timeout 2000})))
+                    (js/console.log "UI updated with connected tab")))
+
+                (js-await (.close popup)))
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))

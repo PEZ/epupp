@@ -68,10 +68,12 @@ Static HTML in `test-data/pages/`:
 
 | File | Purpose |
 |------|---------|
-| `e2e/popup_test.cljs` | Popup UI: REPL setup, scripts, settings, approvals, connections |
+| `e2e/popup_test.cljs` | Popup UI: REPL setup, scripts, settings, approvals, connections, auto-connect/reconnect, toolbar icon |
 | `e2e/panel_test.cljs` | Panel: evaluation and save workflow |
+| `e2e/extension_test.cljs` | Extension infrastructure: startup, test infrastructure, error checking |
+| `e2e/userscript_test.cljs` | Userscript functionality: injection, timing, performance, gist installer |
 | `e2e/integration_test.cljs` | Cross-component script lifecycle |
-| `e2e/log_powered_test.cljs` | Internal behavior via event logging |
+| `e2e/require_test.cljs` | Scittle library require functionality |
 | `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
 | `e2e/z_final_error_check_test.cljs` | Final validation for uncaught errors |
 
@@ -196,22 +198,24 @@ For approval workflow tests, override the "current URL":
 Assert on visible DOM elements. Test what users see and click.
 
 ### Log-Powered Tests
-Observe internal behavior invisible to UI assertions.
+Some tests observe internal behavior invisible to UI assertions using event logging. These tests are distributed across feature-specific files (popup_test.cljs, extension_test.cljs, userscript_test.cljs) rather than isolated in a single file.
+
 **CRITICAL: Do NOT clear storage logs during test runs.** The error checking test (`z_final_error_check_test.cljs`) runs last and scans ALL accumulated events for `UNCAUGHT_ERROR` and `UNHANDLED_REJECTION`. Clearing storage mid-run would hide errors from earlier tests.
 
 The `z_` prefix ensures it runs last alphabetically.
 
-**Pattern:**1. Extension emits events to `chrome.storage.local` via `test-logger.cljs`
+**Pattern:**
+1. Extension emits events to `chrome.storage.local` via `test-logger.cljs`
 2. Tests trigger actions
 3. Tests click dev log button (dumps events to console)
 4. Playwright captures console output
 5. Assertions run on captured events
 
 **Use log-powered tests for:**
-- Userscript injection verification
-- Timing tests (document-start vs page scripts)
-- Internal state transitions
-- Performance measurement
+- Userscript injection verification (userscript_test.cljs)
+- Timing tests (userscript_test.cljs)
+- Internal state transitions (popup_test.cljs, extension_test.cljs)
+- Performance measurement (userscript_test.cljs)
 
 **Instrumented events:**
 | Event | Purpose |
