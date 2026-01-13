@@ -7,7 +7,7 @@
 * [x] Popup UI can be with collapsible sections for scripts, built-in scripts, and repl connect
 * [x] Popup UI Sticky header
 * [ ] Figure out how to specify dependencies
-  * [ ] Scittle dependencie (replicant, etc)
+  * [x] Scittle dependencie (replicant, etc)
   * [ ] Code files ("src"-ish)
   * [ ] Urls?
 * [x] Popup UI footer with info and sponsor link and such
@@ -18,7 +18,7 @@
   - Firefox: [Gist Installer] Install failed: NetworkError when attempting to fetch resource. scittle.js:315:382
   - Safari: [Gist Installer] Install failed:"Load failed"
 * [x] Add setting for re-establishing the repl/websocket connection after reload
-* [ ] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
+* [x] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab
 * [ ] Badge counter not reliable enough
 * [x] Editing array matches doesn't work/is unclear
