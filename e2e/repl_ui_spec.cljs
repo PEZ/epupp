@@ -13,6 +13,32 @@
 (defn ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
+(defn ^:async wait-for-connection-count
+  "Poll get-connections until we have expected-count connections, or timeout.
+   Much faster than fixed sleep when connections establish quickly."
+  [popup expected-count timeout-ms]
+  (let [start (.now js/Date)
+        poll-interval 50]
+    (loop []
+      (let [result (js-await
+                    (.evaluate popup
+                               (fn []
+                                 (js/Promise.
+                                  (fn [res]
+                                    (js/chrome.runtime.sendMessage
+                                     #js {:type "get-connections"}
+                                     res))))))
+            count (if (and result (.-success result))
+                    (.-length (.-connections result))
+                    0)]
+        (if (>= count expected-count)
+          count
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. (str "Timeout waiting for " expected-count " connections. Got: " count)))
+            (do
+              (js-await (sleep poll-interval))
+              (recur))))))))
+
 
 
 (defn ^:async eval-in-browser
@@ -181,7 +207,8 @@
                        (js-await (.goto popup
                                         (str "chrome-extension://" ext-id "/popup.html")
                                         #js {:waitUntil "networkidle"}))
-                       (js-await (sleep 500))
+                       ;; Poll until connection exists (faster than fixed 500ms sleep)
+                       (js-await (wait-for-connection-count popup 1 5000))
                        (let [result (js-await (send-runtime-message popup "get-connections" #js {}))]
                          (js/console.log "get-connections result:" (js/JSON.stringify result))
                          (-> (expect (.-success result)) (.toBe true))
@@ -364,15 +391,9 @@
                                  (-> (expect (.-success conn2)) (.toBe true))
                                  (js/console.log "Tab 2 connected to server 2 (port" ws-port-2 ")"))
 
-                               ;; Allow connections and Scittle injection to complete
-                               ;; Both tabs connected in parallel, so 500ms should suffice
-                               (js-await (sleep 500))
-
-                               ;; Verify both connections exist
-                               (let [conns (js-await (send-runtime-message popup "get-connections" #js {}))]
-                                 (-> (expect (.-success conns)) (.toBe true))
-                                 (-> (expect (.-length (.-connections conns))) (.toBe 2))
-                                 (js/console.log "Active connections:" (.-length (.-connections conns))))
+                               ;; Poll until both connections are established (faster than fixed 500ms sleep)
+                               (let [conn-count (js-await (wait-for-connection-count popup 2 5000))]
+                                 (js/console.log "Active connections:" conn-count))
 
                                ;; Evaluate on server 1 - should execute in page 1 (basic.html)
                                (let [result1 (js-await (eval-on-port nrepl-port-1 "(.-title js/document)"))]

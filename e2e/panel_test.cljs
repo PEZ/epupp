@@ -575,8 +575,9 @@
               ;; Wait for panel to fully initialize
               (js-await (wait-for-panel-ready panel))
 
-              ;; Give restore a moment to complete
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
+              ;; Poll for restore to complete by waiting for textarea to have expected content
+              ;; Much faster than fixed 1000ms sleep when restore happens quickly
+              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "Persisted Script") #js {:timeout 2000})))
 
               ;; Read debug info from visible element
               (let [debug-info (.locator panel "#debug-info")]
@@ -599,9 +600,7 @@
                 (println (subs textarea-value 0 100))
                 (println "=== END DEBUG ==="))
 
-              ;; Code should be restored (use toHaveValue for textarea)
-              ;; Check for the manifest content - the original script-name, not the normalized version
-              (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "Persisted Script") #js {:timeout 500})))
+              ;; Verify additional code content is restored
               (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(println \"persisted\"\\)"))))
 
               ;; CRITICAL: Manifest should be parsed and metadata displayed
