@@ -200,7 +200,7 @@
           (if (> (- (.now js/Date) start) (or timeout-ms 5000))
             (throw (js/Error. (str "Timeout waiting for connection. Count: " current-count)))
             (do
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
               (recur))))))))
 
 ;; =============================================================================
@@ -315,7 +315,7 @@
             (throw (js/Error. (str "Timeout waiting for event: " event-name
                                    ". Events so far: " (js/JSON.stringify (clj->js (map #(.-event %) events))))))
             (do
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
               (recur))))))))
 
 (defn ^:async assert-no-new-event-within

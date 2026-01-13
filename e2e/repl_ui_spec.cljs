@@ -143,8 +143,6 @@
         (js-await (.goto bg-page
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
-        ;; Short stabilization wait - networkidle should handle most of it
-        (js-await (sleep 100))
         ;; Find test page tab ID
         (let [find-result (js-await (send-runtime-message
                                      bg-page "e2e/find-tab-id"
@@ -286,13 +284,10 @@
                        ;; nREPL returns values as strings
                        (-> (expect (first (.-values count-after-first))) (.toBe "1"))
 
-                       ;; Call manifest! again
+                       ;; Call manifest! again - should be idempotent (no new script added)
                        (let [second-load (js-await (eval-in-browser
                                                     "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                          (-> (expect (.-success second-load)) (.toBe true)))
-
-                       ;; Short wait for idempotent check - script already exists, just needs to settle
-                       (js-await (sleep 200))
 
                        ;; Count replicant script tags after second load
                        (let [count-after-second (js-await (eval-in-browser
@@ -365,8 +360,6 @@
                            (let [popup (js-await (.newPage ctx))]
                              (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
                                               #js {:waitUntil "networkidle"}))
-                             ;; Short stabilization - networkidle handles most of it
-                             (js-await (sleep 100))
 
                              ;; Find both tabs (use Chrome match patterns, not globs)
                              (let [find1 (js-await (send-runtime-message popup "e2e/find-tab-id"

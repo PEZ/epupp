@@ -101,8 +101,6 @@
                 (js-await (.close popup))
                 (let [popup2 (js-await (create-popup-page context ext-id))]
                   (js-await (wait-for-popup-ready popup2))
-                  ;; Give async operations a brief moment (100ms max)
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
                   (js-await (assert-no-errors! popup2))
                   (js-await (.close popup2)))
 

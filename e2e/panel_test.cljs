@@ -768,22 +768,16 @@
                 (js-await (.press (.-keyboard panel) "End"))
                 (js-await (.type (.-keyboard panel) "X"))
 
-                ;; Small delay to let state update propagate
-                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+                ;; Wait for value to change (poll instead of fixed sleep)
+                (js-await (-> (expect textarea)
+                              (.toHaveValue (js/RegExp. "X$") #js {:timeout 500})))
 
-                ;; Verify value changed
-                (let [after-typing (js-await (.inputValue textarea))]
-                  (js-await (-> (expect after-typing) (.not.toEqual initial-value)))
+                ;; Undo (platform-appropriate: Cmd+Z on Mac, Ctrl+Z on Win/Linux)
+                (js-await (.press (.-keyboard panel) "ControlOrMeta+z"))
 
-                  ;; Undo (platform-appropriate: Cmd+Z on Mac, Ctrl+Z on Win/Linux)
-                  (js-await (.press (.-keyboard panel) "ControlOrMeta+z"))
-
-                  ;; Small delay for undo to process
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
-
-                  ;; After undo, value should be back to initial
-                  (let [after-undo (js-await (.inputValue textarea))]
-                    (js-await (-> (expect after-undo) (.toEqual initial-value)))))))
+                ;; Wait for undo to restore original value (poll instead of fixed sleep)
+                (js-await (-> (expect textarea)
+                              (.toHaveValue initial-value #js {:timeout 500})))))
             (finally
               (js-await (.close context)))))))
 
@@ -874,10 +868,8 @@
               ;; Trigger selection tracking by dispatching a select event
               (js-await (.dispatchEvent textarea "select"))
 
-              ;; Small delay to let selection state update
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
-
               ;; Press Ctrl+Enter to evaluate selection
+              ;; Selection state should be ready by the time keypress is processed
               (js-await (.press (.-keyboard panel) "ControlOrMeta+Enter"))
 
               ;; Result should show only the selected expression "(* 3 4)" as input
@@ -913,9 +905,6 @@
               ;; Focus textarea without selecting anything
               (js-await (.focus textarea))
               (js-await (.press (.-keyboard panel) "End"))  ; Just position cursor
-
-              ;; Small delay
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
 
               ;; Ctrl+Enter should evaluate full script (no selection)
               (js-await (.press (.-keyboard panel) "ControlOrMeta+Enter"))
