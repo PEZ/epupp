@@ -168,7 +168,51 @@
                              (-> (expect (aget conn "port")) (.toBe (str ws-port-1)))
                              (-> (expect (aget conn "title")) (.toBeDefined))
                              (-> (expect (aget conn "tab-id")) (.toBeDefined)))))
-                       (js-await (.close popup)))))))
+                       (js-await (.close popup)))))
+
+             (test "epupp/manifest! loads Replicant for REPL evaluation"
+                   (^:async fn []
+                     ;; Step 1: Verify epupp namespace was injected at connect time
+                     (let [ns-check (js-await (eval-in-browser "(fn? epupp/manifest!)"))]
+                       (js/console.log "=== ns-check result ===" (js/JSON.stringify ns-check))
+                       (-> (expect (.-success ns-check)) (.toBe true))
+                       (-> (expect (.-values ns-check)) (.toContain "true")))
+
+                     ;; Step 2: Load Replicant via manifest
+                     ;; Call manifest! - it returns a promise but we can't wait for it in nREPL
+                     ;; Just verify it doesn't error and returns a promise
+                     (let [manifest-result (js-await (eval-in-browser
+                                                      "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                       (js/console.log "=== manifest-result ===" (js/JSON.stringify manifest-result))
+                       (-> (expect (.-success manifest-result)) (.toBe true)))
+
+                     ;; Step 3: Wait for injection to complete (the promise will resolve async)
+                     (js-await (sleep 2000))
+
+                     ;; Step 4: Verify Replicant is now available
+                     (let [replicant-check (js-await (eval-in-browser "(boolean (resolve 'replicant.dom/render))"))]
+                       (js/console.log "=== replicant-check ===" (js/JSON.stringify replicant-check))
+                       (-> (expect (.-success replicant-check)) (.toBe true)))
+
+                     ;; Step 4: Use Replicant to render Epupp-themed UI
+                     (let [render-result (js-await (eval-in-browser
+                                                    "(require '[replicant.dom :as r])
+                                                     (let [container (js/document.createElement \"div\")]
+                                                       (set! (.-id container) \"epupp-repl-test\")
+                                                       (.appendChild js/document.body container)
+                                                       (r/render container
+                                                         [:div.epupp-banner
+                                                          [:h2 \"Epupp REPL\"]
+                                                          [:p \"Live tampering your web!\"]]))
+                                                     :rendered"))]
+                       (-> (expect (.-success render-result)) (.toBe true))
+                       (-> (expect (.-values render-result)) (.toContain ":rendered")))
+
+                     ;; Step 5: Verify DOM was actually modified
+                     (let [dom-check (js-await (eval-in-browser
+                                                "(boolean (js/document.getElementById \"epupp-repl-test\"))"))]
+                       (-> (expect (.-success dom-check)) (.toBe true))
+                       (-> (expect (.-values dom-check)) (.toContain "true")))))))
 
 ;; =============================================================================
 ;; Multi-Tab Multi-Server Tests
