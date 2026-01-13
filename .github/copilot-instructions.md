@@ -12,7 +12,7 @@
 **Start work setup:**
 1. Read [testing.md](../dev/docs/testing.md) for test strategy
 2. Read [architecture.md](../dev/docs/architecture.md) for system design
-3. Check `clojure_list_sessions` to verify Squint REPL availability
+3. Check `clojure_list_sessions` to verify REPL availability (look for both `squint` and `scittle-dev-repl` sessions)
 
 <principles>
 
@@ -163,11 +163,14 @@ E2E tasks accept all Playwright options, so you should not need to resort to usi
 **Before starting work:**
 1. **Verify watchers are running** - check watcher task output for compilation/test status
 2. **Check problem report** - review any existing lint errors
-3. **Verify Squint REPL** - use `clojure_list_sessions` to confirm connection
+3. **Verify REPLs** - use `clojure_list_sessions` to confirm available sessions:
+   - `squint` - Squint nREPL (port 1337) for testing pure functions in Node.js
+   - `scittle-dev-repl` - Scittle Dev REPL (port 31337) for testing Scittle code in browser-like environment
 
 **CRITICAL: Watcher verification is mandatory.** Use `get_task_output` with these task IDs:
 - `shell: Squint Watch` - compilation status
 - `shell: Unit Test Watch` - test status
+- `shell: Scittle Dev REPL` - browser-nrepl relay status
 
 If `get_task_output` returns "Terminal not found", **STOP and tell the user**:
 > "I cannot find the watcher task outputs. This happens when VS Code's terminal tracking gets out of sync. Please restart the default build task (Cmd/Ctrl+Shift+B) to restore the watchers, then ask me to continue."
@@ -175,8 +178,9 @@ If `get_task_output` returns "Terminal not found", **STOP and tell the user**:
 Do NOT proceed without watcher feedback - it's essential for verifying compilation and test results.
 
 **While working:**
-- Use the Squint REPL to test pure functions before editing files
-- Develop solutions incrementally in the REPL
+- Use the **Squint REPL** (`squint` session) to test pure functions in Node.js
+- Use the **Scittle Dev REPL** (`scittle-dev-repl` session) to test Scittle-specific code in a browser-like environment
+- Develop solutions incrementally in the appropriate REPL
 
 **After editing files:**
 1. **Check watcher output** - verify compilation succeeded and tests pass

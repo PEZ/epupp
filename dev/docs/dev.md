@@ -17,13 +17,15 @@ Start the development environment:
 
 If you are using VS Code:
 
-1. **Run the default build task** (Cmd/Ctrl+Shift+B) - starts Squint watch + unit test watcher
+1. **Run the default build task** (Cmd/Ctrl+Shift+B) - starts Squint watch, unit test watcher, and Scittle Dev REPL
 2. **Start Squint nREPL**: `bb squint-nrepl` (or run the "Squint nREPL" VS Code task)
 3. **Connect your editor** to the Squint nREPL (port 1337)
    - Calva: "Connect to a running REPL" -> select "squint"
+
 **VS Code tasks** (defined in `.vscode/tasks.json`):
-- `Start Dev Environment` (default build) - runs watch + test:watch in parallel
-- `Squint nREPL` - starts the nREPL server on port 1337
+- `Start Dev Environment` (default build) - runs Squint watch, test:watch, and Scittle Dev REPL in parallel
+- `Squint nREPL` - starts the Squint nREPL server on port 1337
+- `Scittle Dev REPL` - starts the browser-nrepl relay (ports 31337/31338)
 
 **Manual alternative** (separate terminals):
 ```bash
@@ -33,6 +35,25 @@ bb squint-nrepl # Terminal 3: Squint nREPL
 ```
 
 The Squint REPL lets you evaluate code in a Node.js environment, useful for testing pure functions that do not need the browser execution environment. See [squint.instructions.md](../../.github/squint.instructions.md#testing-code-in-squint-nrepl) for details.
+
+#### Scittle Dev REPL
+
+For experimenting with Scittle code (the runtime used in browser pages), the project includes a Joyride-based setup for connecting a Scittle repl, named `scittle-dev-repl`:
+
+1. **Automatic setup**: The Joyride workspace activation script (`.joyride/scripts/workspace_activate.cljs`) automatically:
+   - Starts the browser-nrepl relay if not already running
+   - Opens a Calva Flare webview with Scittle + nREPL client
+   - Prompts to connect Calva
+
+2. **Manual setup**: Run the Joyride script directly:
+   - `Joyride: Run Workspace Script` -> `scittle_repl.cljs`
+   - Or connect Calva using "Scittle Dev REPL" sequence (port 31337)
+
+**Ports:**
+- nREPL: 31337
+- WebSocket: 31338
+
+The Scittle REPL runs in a VS Code webview, providing a browser-like environment for testing Scittle code before deploying to actual web pages.
 
 ### Testing
 
