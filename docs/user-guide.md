@@ -1,5 +1,7 @@
 # Epupp User Guide
 
+(Almost completely AI authored for now, will fix a proper guide later)
+
 Epupp is a browser extension for tampering with web pages; live, or with userscript (TamperMonkey style). You can evaluate code interactively, save scripts that run automatically on matching sites, or connect your editor via nREPL for full interactive development.
 
 ## Quick Start
