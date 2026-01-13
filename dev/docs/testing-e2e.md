@@ -67,9 +67,47 @@ There is an extensive library of helpers in `e2e/fixtures.cljs`, covering:
 
 ## Writing E2E Tests
 
-### No Sleep Patterns
+### Performance: No Fixed Sleeps
 
-**Critical**: Never use arbitrary timeouts. Use Playwright's auto-waiting. Follow the good patterns of this that you find. If auto-waiting is not available for something, there are fast polling wait helpers among the fixtures, use with short polling, like 50ms.
+**Critical**: Never use fixed-delay sleeps. They waste time and make tests flaky.
+
+| Pattern | Problem | Solution |
+|---------|---------|----------|
+| `(sleep 500)` after action | Wastes 500ms even if ready in 10ms | Poll with 30ms interval |
+| `(sleep 100)` post-networkidle | networkidle already ensures stability | Remove entirely |
+| `(sleep 200)` for "state to settle" | Sync operations are immediate | Remove or use assertion timeout |
+
+**Use Playwright's built-in polling assertions:**
+
+```clojure
+;; ❌ Bad - wastes time
+(js-await (.type (.-keyboard panel) "X"))
+(js-await (sleep 100))
+(let [value (js-await (.inputValue textarea))]
+  (js-await (-> (expect value) (.not.toEqual initial))))
+
+;; ✅ Good - returns immediately when ready
+(js-await (.type (.-keyboard panel) "X"))
+(js-await (-> (expect textarea)
+              (.toHaveValue (js/RegExp. "X$") #js {:timeout 500})))
+```
+
+**For custom conditions, use fast polling (30ms):**
+
+```clojure
+(defn ^:async wait-for-condition [timeout-ms]
+  (let [start (.now js/Date)]
+    (loop []
+      (if (check-condition)
+        true
+        (if (> (- (.now js/Date) start) timeout-ms)
+          (throw (js/Error. "Timeout"))
+          (do
+            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+            (recur)))))))
+```
+
+**The only legitimate sleeps are for negative assertions** - proving nothing happens requires waiting the full duration. Use `assert-no-new-event-within` for these.
 
 ### Testing "Nothing Happens"
 
