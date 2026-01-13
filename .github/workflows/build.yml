@@ -38,6 +38,12 @@ jobs:
           restore-keys: |
             bb-deps-${{ runner.os }}-
 
+      - name: Cache Scittle vendor files
+        uses: actions/cache@v4
+        with:
+          path: extension/vendor
+          key: scittle-vendor-${{ runner.os }}-0.7.30
+
       - name: Build release extensions
         run: bb build
 
@@ -81,6 +87,12 @@ jobs:
           key: bb-deps-${{ runner.os }}-${{ hashFiles('bb.edn') }}
           restore-keys: |
             bb-deps-${{ runner.os }}-
+
+      - name: Cache Scittle vendor files
+        uses: actions/cache@v4
+        with:
+          path: extension/vendor
+          key: scittle-vendor-${{ runner.os }}-0.7.30
 
       - name: Build extension for testing
         run: bb build:test

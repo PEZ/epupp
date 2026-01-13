@@ -48,7 +48,8 @@
     (str "--define:EXTENSION_CONFIG=" (json/write-str config))))
 
 (defn bundle-scittle
-  "Download Scittle ecosystem libraries to extension/vendor"
+  "Download Scittle ecosystem libraries to extension/vendor.
+   Skips download if all files already exist."
   []
   (let [scittle-version "0.7.30"
         react-version "18"
@@ -69,24 +70,29 @@
         react-files [["react.production.min.js"
                       (str react-base "react@" react-version "/umd/react.production.min.js")]
                      ["react-dom.production.min.js"
-                      (str react-base "react-dom@" react-version "/umd/react-dom.production.min.js")]]]
-    (fs/create-dirs vendor-dir)
-    ;; Download Scittle files
-    (println (str "Downloading Scittle " scittle-version " ecosystem..."))
-    (doseq [filename scittle-files]
-      (println "  Downloading" filename "...")
-      (let [url (str scittle-base filename)
-            response (http/get url)]
-        (spit (str vendor-dir "/" filename) (:body response))))
-    ;; Download React files
-    (println (str "Downloading React " react-version " (for Reagent)..."))
-    (doseq [[filename url] react-files]
-      (println "  Downloading" filename "...")
-      (let [response (http/get url)]
-        (spit (str vendor-dir "/" filename) (:body response))))
-    ;; Patch scittle.js for CSP (only core needs patching)
-    (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
-    (println (str "✓ Scittle " scittle-version " ecosystem bundled to " vendor-dir))))
+                      (str react-base "react-dom@" react-version "/umd/react-dom.production.min.js")]]
+        all-files (concat scittle-files (map first react-files))
+        all-exist? (every? #(fs/exists? (str vendor-dir "/" %)) all-files)]
+    (if all-exist?
+      (println "✓ Scittle ecosystem already present, skipping download")
+      (do
+        (fs/create-dirs vendor-dir)
+        ;; Download Scittle files
+        (println (str "Downloading Scittle " scittle-version " ecosystem..."))
+        (doseq [filename scittle-files]
+          (println "  Downloading" filename "...")
+          (let [url (str scittle-base filename)
+                response (http/get url)]
+            (spit (str vendor-dir "/" filename) (:body response))))
+        ;; Download React files
+        (println (str "Downloading React " react-version " (for Reagent)..."))
+        (doseq [[filename url] react-files]
+          (println "  Downloading" filename "...")
+          (let [response (http/get url)]
+            (spit (str vendor-dir "/" filename) (:body response))))
+        ;; Patch scittle.js for CSP (only core needs patching)
+        (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
+        (println (str "✓ Scittle " scittle-version " ecosystem bundled to " vendor-dir))))))
 
 (defn compile-squint
   "Compile ClojureScript files with Squint and bundle with esbuild.
@@ -198,6 +204,8 @@
     ;; Bump version only in --dev mode (not --test)
     (when bump-version?
       (bump-dev-version!))
+    ;; Ensure Scittle ecosystem is downloaded
+    (bundle-scittle)
     ;; Compile Squint + bundle with esbuild
     (compile-squint config-mode)
     (fs/create-dirs dist-dir)
