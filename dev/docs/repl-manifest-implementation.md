@@ -1,7 +1,7 @@
 # REPL Manifest Implementation Plan
 
 **Created**: January 13, 2026
-**Status**: Core functionality working, 2 open issues
+**Status**: Complete - all E2E tests pass (7/7)
 **Required reading**: [scittle-dependencies-implementation.md](scittle-dependencies-implementation.md)
 
 ## Current State (January 13, 2026)
@@ -10,14 +10,14 @@
 - `epupp/manifest!` function is injected at REPL connect time
 - Library injection via `load-manifest` message flow works
 - Replicant (and other Scittle libs) load and function correctly
-- E2E test for basic manifest loading passes (6/7 tests pass)
+- **All E2E tests pass (7/7)**
+- **Idempotency: Duplicate script tags are prevented** via URL tracking in content bridge
 
-### Open Issues
-1. **Idempotency** (HIGH): Calling `epupp/manifest!` twice adds duplicate script tags - see Issue 1
-2. **Trusted Types CSP** (INVESTIGATE): YouTube and similar sites need investigation - see Issue 2
+### Remaining Investigation
+- **Trusted Types CSP** (INVESTIGATE): YouTube and similar sites need investigation - see Issue 2
 
-### Immediate Next Step
-Fix Issue 1 (idempotency) - add tracking in `inject-script-tag!` to skip already-injected scripts.
+### Implementation Complete
+The core `epupp/manifest!` feature is complete and tested.
 
 ## Problem Statement
 
@@ -304,48 +304,28 @@ Add to content bridge security whitelist comment:
 - [x] Promise resolves after libraries injected
 - [x] `(require '[replicant.dom])` works after manifest call
 - [x] Works on CSP-strict sites (GitHub, GitLab)
-- [ ] **Idempotent** - calling twice doesn't add duplicate script tags
+- [x] **Idempotent** - calling twice doesn't add duplicate script tags
 - [x] E2E test passes: Replicant renders DOM element from REPL (test 6)
-- [ ] E2E test passes: Idempotency check (test 7 - currently failing)
+- [x] E2E test passes: Idempotency check (test 7)
 - [ ] Trusted Types CSP sites investigated (YouTube) - either fix or document as true limitation
 
-## Open Issues
+## Completed Issues
 
-### Issue 1: Duplicate Script Tags on Repeated Calls (Priority: HIGH)
+### Issue 1: Duplicate Script Tags on Repeated Calls - FIXED
 
-**Status**: Bug - E2E test failing
+**Status**: ✅ Fixed (January 13, 2026)
 
-Calling `epupp/manifest!` multiple times with the same libraries adds duplicate `<script>` tags to the DOM. The functionality still works (Scittle handles re-definition gracefully), but it's wasteful and the E2E test correctly catches this.
+**Solution implemented**: Added URL tracking in `content_bridge.cljs`:
+- `inject-script-tag!` now maintains a `window.__epuppInjectedScripts` Set
+- Before injecting, checks if URL already exists in the Set
+- If already injected, returns `{:success true :skipped true}` immediately
+- On injection error, removes URL from tracker to allow retry
 
-**Root cause analysis**:
-1. `epupp/manifest!` sends `load-manifest` to content bridge
-2. Content bridge forwards to background worker
-3. Background calls `inject-requires-sequentially!` which calls `send-tab-message` with `inject-script`
-4. Content bridge's `inject-script-tag!` creates a new `<script>` tag unconditionally
-5. No check exists for whether the script is already loaded
-
-**Fix approach - Track in page context**:
-
-Add a global Set in the page to track injected library files:
-
-```javascript
-// In content_bridge.cljs inject-script-tag!
-// Before creating script tag, check if already injected
-window.__epuppInjectedScripts = window.__epuppInjectedScripts || new Set();
-if (window.__epuppInjectedScripts.has(url)) {
-  // Already injected, skip and return success
-  send-response({success: true, skipped: true});
-  return;
-}
-window.__epuppInjectedScripts.add(url);
-// ... proceed with injection
-```
-
-Alternative: Check DOM directly with `document.querySelector("script[src='...']")` but this is slower and the URL matching can be tricky with extension URLs.
-
-**Done when**: E2E idempotency test passes
+**Files modified**: `src/content_bridge.cljs`
 
 ---
+
+## Open Issues
 
 ### Issue 2: Trusted Types CSP (YouTube, etc.) (Priority: INVESTIGATE)
 
