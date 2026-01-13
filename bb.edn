@@ -89,6 +89,9 @@
                       (let [result (apply babashka.process/shell {:continue true} "docker run --rm epupp-e2e" *command-line-args*)]
                         (System/exit (:exit result))))}
 
+  test:e2e:timing {:doc "Run E2E tests in Docker and print timing report sorted fastest-first. Tail for slowest tests."
+                   :task (tasks/e2e-timing-report! *command-line-args*)}
+
   test:e2e:ui:headed {:doc "Run Playwright E2E tests with interactive UI runner (headed). Pass extra args to Playwright."
                       :depends [build:test test:e2e:compile]
                       :task (tasks/run-e2e-tests! (cons "--ui" *command-line-args*))}

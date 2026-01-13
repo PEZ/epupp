@@ -509,3 +509,109 @@
        (fn []
          (let [result (apply p/shell {:continue true} "npx playwright test" args)]
            (System/exit (:exit result)))))))
+
+;; ============================================================
+;; E2E Timing Report
+;; ============================================================
+
+(defn- extract-specs-from-suite
+  "Recursively extract specs from a suite and its nested suites.
+   Returns seq of {:name string :duration-ms int :file string}"
+  [suite file]
+  (let [file (or (:file suite) file)
+        ;; Extract specs at this level
+        direct-specs (for [spec (:specs suite)
+                           test (:tests spec)
+                           result (:results test)]
+                       {:name (:title spec)
+                        :file (or (:file spec) file)
+                        :duration-ms (:duration result)})
+        ;; Recursively extract from nested suites
+        nested-specs (mapcat #(extract-specs-from-suite % file)
+                             (:suites suite))]
+    (concat direct-specs nested-specs)))
+
+(defn- extract-test-timings
+  "Extract test name and duration from Playwright JSON report structure.
+   Handles nested suites created by .describe blocks.
+   Returns seq of {:name string :duration-ms int :file string}"
+  [json-data]
+  (mapcat #(extract-specs-from-suite % nil) (:suites json-data)))
+
+(defn- format-duration
+  "Format milliseconds as human-readable string"
+  [ms]
+  (cond
+    (>= ms 1000) (format "%.2fs" (/ ms 1000.0))
+    :else (format "%dms" ms)))
+
+(defn- print-timing-report
+  "Print formatted timing report to stdout"
+  [timings]
+  (let [sorted (sort-by :duration-ms timings)
+        total-ms (reduce + (map :duration-ms timings))
+        test-count (count timings)
+        avg-ms (if (pos? test-count) (/ total-ms test-count) 0)]
+    (println)
+    (println "E2E Test Timing Report")
+    (println "======================")
+    (println (format "Tests: %d | Total: %s | Average: %s"
+                     test-count
+                     (format-duration total-ms)
+                     (format-duration (long avg-ms))))
+    (println)
+    (println "Tests sorted by duration (fastest first):")
+    (println (str (apply str (repeat 60 "-"))))
+    (doseq [{:keys [name file duration-ms]} sorted]
+      (println (format "%-7s  %s"
+                       (format-duration duration-ms)
+                       name)))
+    (println (str (apply str (repeat 60 "-"))))
+    (println)
+    (println "Slowest 10 tests:")
+    (doseq [{:keys [name file duration-ms]} (take-last 10 sorted)]
+      (println (format "  %-7s  %s (%s)"
+                       (format-duration duration-ms)
+                       name
+                       file)))))
+
+(defn e2e-timing-report!
+  "Run E2E tests in Docker with JSON reporter and print timing report.
+   Sorted fastest-first so you can tail for slowest tests."
+  [args]
+  (println "Building Docker image...")
+  (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
+  (println "Running E2E tests with JSON reporter in Docker...")
+  ;; Run playwright directly inside Docker with JSON reporter
+  ;; The bb test:e2e:ci task adds HTTP server and browser-nrepl,
+  ;; but JSON reporter output gets mixed with bb task output.
+  ;; For timing, we run a simpler setup - start servers in background,
+  ;; run playwright with clean JSON to stdout.
+  (let [cmd (str "Xvfb :99 -screen 0 1280x720x24 &>/dev/null & "
+                 "sleep 1; "
+                 "export DISPLAY=:99; "
+                 ;; Start HTTP server in background
+                 "bb -e '(require (quote [babashka.http-server :as s])) (s/serve {:port 18080 :dir \"test-data/pages\"})' &>/dev/null & "
+                 "sleep 0.5; "
+                 ;; Start two browser-nrepl servers for multi-tab tests
+                 "bb browser-nrepl --nrepl-port 12345 --websocket-port 12346 &>/dev/null & "
+                 "bb browser-nrepl --nrepl-port 12347 --websocket-port 12348 &>/dev/null & "
+                 "sleep 2; "
+                 ;; Run playwright with JSON reporter to stdout
+                 "npx playwright test --reporter=json")
+        result (p/shell {:out :string :err :inherit :continue true}
+                        "docker" "run" "--rm" "--entrypoint" "/bin/bash"
+                        "epupp-e2e" "-c" cmd)
+        exit-code (:exit result)
+        output (:out result)]
+    (if (and (zero? exit-code) (str/starts-with? (str/trim output) "{"))
+      (let [json-data (json/read-str output :key-fn keyword)
+            timings (extract-test-timings json-data)]
+        (print-timing-report timings))
+      (do
+        (println "Tests failed or no JSON output - cannot generate timing report")
+        (when-not (str/blank? output)
+          (println "Output preview:")
+          (println (subs output 0 (min 500 (count output)))))
+        (println "Run 'bb test:e2e' to see full test output")
+        (System/exit (if (zero? exit-code) 1 exit-code))))))
