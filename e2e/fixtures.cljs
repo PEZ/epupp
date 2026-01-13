@@ -326,7 +326,7 @@
    Use for tests that verify something should NOT happen."
   [ext-page event-name initial-count timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 50]
+        poll-interval 30]
     (loop []
       (let [events (js-await (get-test-events ext-page))
             current-count (.-length (.filter events (fn [e] (= (.-event e) event-name))))]
