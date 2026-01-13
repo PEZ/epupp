@@ -9,22 +9,16 @@ Detailed documentation for Playwright E2E tests. For overview, see [testing.md](
 bb test:e2e  # All E2E tests (headless in Docker), includes REPL integration
 ```
 
-**Human Developers (Visible Browser):**
+**Only for Human Developers (Visible Browser):**
 ```bash
 bb test:e2e:headed     # E2E tests
-bb test:e2e:ui:headed  # Playwright interactive UI
 ```
 
-**CI/CD Only:**
-```bash
-bb test:e2e:ci  # Assumes build artifacts exist
-```
+When you need help from the human's eyes, you can suggest to run the tests in UI mode: `bb test:e2e:ui:headed`
 
 **Filter tests:**
-```bash
-bb test:e2e --grep "popup"
-bb test:e2e --grep "REPL"
-```
+
+The test tasks take all Playwright options, including `--grep`.
 
 ## Infrastructure
 
@@ -36,14 +30,7 @@ bb test:e2e --grep "REPL"
 | browser-nrepl #1 | 12345 (nREPL), 12346 (WS) | Primary REPL relay |
 | browser-nrepl #2 | 12347 (nREPL), 12348 (WS) | Multi-tab testing |
 
-Servers start automatically via `tasks.clj` wrappers:
-
-```clojure
-(defn run-e2e-tests! [args]
-  (with-test-server
-    #(with-browser-nrepls
-       (fn [] (apply p/shell "npx playwright test" args)))))
-```
+Servers are started and available for all e2e test.
 
 ### Docker vs Headed
 
@@ -55,23 +42,15 @@ Servers start automatically via `tasks.clj` wrappers:
 
 ### Test Pages
 
-Static HTML in `test-data/pages/`:
-
-| File | Purpose |
-|------|---------|
-| `basic.html` | Simple page with `#test-marker` for basic tests |
-| `manual-test.html` | Manual testing harness |
-| `spa-test.html` | SPA navigation testing |
-| `timing-test.html` | Script timing verification |
+Look for available static HTML in `test-data/pages/`.
 
 ## Test Files
 
+All e2e test code is found in `e2e/`. Noting some, but not all, here:
+
 | File | Purpose |
 |------|---------|
-| `e2e/popup_test.cljs` | Popup UI: REPL setup, scripts, settings, approvals, connections, auto-connect/reconnect, toolbar icon |
-| `e2e/panel_test.cljs` | Panel: evaluation and save workflow |
 | `e2e/extension_test.cljs` | Extension infrastructure: startup, test infrastructure, error checking |
-| `e2e/userscript_test.cljs` | Userscript functionality: injection, timing, performance, gist installer |
 | `e2e/integration_test.cljs` | Cross-component script lifecycle |
 | `e2e/require_test.cljs` | Scittle library require functionality |
 | `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
@@ -79,72 +58,22 @@ Static HTML in `test-data/pages/`:
 
 ## Fixtures and Helpers
 
-All helpers in `e2e/fixtures.cljs`:
+There is an extensive library of helpers in `e2e/fixtures.cljs`, covering:
 
-### Browser Setup
-- `launch-browser` / `create-extension-context` - Launch Chrome with extension
-- `get-extension-id` - Extract extension ID from service worker URL
-- `create-popup-page` - Open popup.html, wait for initialization
-- `create-panel-page` - Open panel.html with mocked `chrome.devtools`
-- `clear-storage` - Reset extension storage
-
-### Wait Helpers (Use Instead of Sleep!)
-- `wait-for-save-status` - Wait for save status text
-- `wait-for-script-count` - Wait for N scripts in list
-- `wait-for-checkbox-state` - Wait for checked/unchecked
-- `wait-for-panel-ready` - Wait for panel initialization
-- `wait-for-popup-ready` - Wait for popup initialization
-- `wait-for-edit-hint` - Wait for edit hint visibility
-
-### Runtime Message Helpers
-- `send-runtime-message` - Send to background worker
-- `find-tab-id` - Find tab by URL pattern (requires dev build)
-- `connect-tab` - Connect REPL to tab
-- `get-connections` - Get active connections
-
-### Log-Powered Test Helpers
-- `clear-test-events!` - Clear events (use sparingly - see below)
-- `get-test-events` - Read events via dev log button
-- `wait-for-event` - Poll until event appears
-- `assert-no-new-event-within` - Rapid-poll for "nothing happens" tests
+* Browser Setup
+* Wait Helpers (Use Instead of Sleep!)
+* Runtime Message Helpers
+* Log-Powered Test Helpers
 
 ## Writing E2E Tests
 
 ### No Sleep Patterns
 
-**Critical**: Never use arbitrary timeouts. Use Playwright's auto-waiting:
-
-```clojure
-;; ✅ Good - Playwright waits automatically
-(js-await (.click (.locator page "button.save")))
-(js-await (-> (expect (.locator page ".status"))
-              (.toContainText "Saved")))
-
-;; ✅ Good - Custom wait helpers
-(js-await (wait-for-save-status panel "Created"))
-(js-await (wait-for-script-count popup 2))
-
-;; ❌ Bad - Never do this
-(js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
-```
+**Critical**: Never use arbitrary timeouts. Use Playwright's auto-waiting. Follow the good patterns of this that you find. If auto-waiting is not available for something, there are fast polling wait helpers among the fixtures, use with short polling, like 50ms.
 
 ### Testing "Nothing Happens"
 
-For tests that verify something should NOT happen (e.g., no reconnection on SPA navigation), use `assert-no-new-event-within` instead of sleeping then checking:
-
-```clojure
-;; ✅ Good - rapid-poll with baseline count
-(let [events (js-await (get-test-events popup))
-      scittle-count-before (.-length (.filter events (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
-  ;; ... perform action that should NOT trigger event ...
-  (js-await (assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300)))
-
-;; ❌ Bad - arbitrary sleep then check
-(js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 1000))))
-(let [events (js-await (get-test-events popup))
-      count-after ...]
-  (js-await (-> (expect count-after) (.toBe count-before))))
-```
+For tests that verify something should NOT happen (e.g., no reconnection on SPA navigation), use `assert-no-new-event-within` instead of sleeping then checking.
 
 The helper polls every 50ms for the specified timeout, failing immediately if a new event appears. This is both faster (fails fast if event occurs) and more reliable (shorter window = less false negatives).
 
