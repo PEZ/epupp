@@ -1,7 +1,7 @@
 # REPL Manifest Implementation Plan
 
 **Created**: January 13, 2026
-**Status**: Design complete, ready for implementation
+**Status**: ✅ Implementation complete
 **Required reading**: [scittle-dependencies-implementation.md](scittle-dependencies-implementation.md)
 
 ## Problem Statement
@@ -285,12 +285,40 @@ Add to content bridge security whitelist comment:
 
 ## Success Criteria
 
-- [ ] `(epupp/manifest! {:epupp/require ["scittle://replicant.js"]})` returns promise
-- [ ] Promise resolves after libraries injected
-- [ ] `(require '[replicant.dom])` works after manifest call
-- [ ] Works on CSP-strict sites (GitHub, YouTube)
-- [ ] Idempotent - calling twice doesn't break anything
-- [ ] E2E test passes: Replicant renders DOM element from REPL
+- [x] `(epupp/manifest! {:epupp/require ["scittle://replicant.js"]})` returns promise
+- [x] Promise resolves after libraries injected
+- [x] `(require '[replicant.dom])` works after manifest call
+- [x] Works on CSP-strict sites (GitHub ✅, GitLab ✅, YouTube partial - see below)
+- [x] Idempotent - calling twice doesn't break anything (but adds duplicate script tags - see Known Issues)
+- [x] E2E test passes: Replicant renders DOM element from REPL
+
+## Known Limitations
+
+### Duplicate Script Tags on Repeated Calls
+
+Calling `epupp/manifest!` multiple times with the same libraries adds duplicate `<script>` tags to the DOM. The functionality still works (Scittle handles re-definition gracefully), but it's wasteful.
+
+**Impact**: Low - no errors, just DOM clutter
+**Fix**: Add idempotency check in `inject-requires-sequentially!` to skip already-injected scripts
+
+### Trusted Types CSP (YouTube, etc.)
+
+Sites with Trusted Types CSP (like YouTube) block Replicant's `innerHTML` usage:
+
+```
+TypeError: Failed to set the 'innerHTML' property on 'Element': 
+This document requires 'TrustedHTML' assignment...
+```
+
+**This is a Scittle/Replicant limitation**, not an `epupp/manifest!` issue. The manifest loading and library injection work correctly - only DOM rendering fails.
+
+**Workaround**: Use direct DOM APIs instead of Replicant on Trusted Types sites:
+
+```clojure
+(let [el (js/document.createElement "div")]
+  (set! (.-textContent el) "Works on YouTube!")
+  (.appendChild js/document.body el))
+```
 
 ## Future Considerations
 

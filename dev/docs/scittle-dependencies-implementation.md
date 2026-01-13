@@ -32,7 +32,7 @@
 - **Safari DevTools panel**: No scripts work from panel - gets "tab not found" error. This is a pre-existing issue, not related to requires feature.
 - **Safari userscripts**: Auto-injection doesn't trigger on any site. Needs investigation.
 - **Safari popup on CSP sites**: Popup "Run" fails on GitHub, YouTube - likely CSP-related
-- **REPL evaluation**: Code evaluated via nREPL doesn't have access to libraries unless a matching userscript already loaded them (by design - REPL bypasses extension entirely)
+- **REPL evaluation**: ✅ SOLVED - `epupp/manifest!` now available. See [repl-manifest-implementation.md](repl-manifest-implementation.md)
 
 ### Completed
 **Phase 6**: ✅ Gist Installer uses Replicant - validates entire require pipeline end-to-end

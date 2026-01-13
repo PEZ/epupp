@@ -159,6 +159,23 @@ In ClojureScript, sets can be used as functions for membership testing. In Squin
 (contains? valid-values "a") ; ✅ Works - returns true
 ```
 
+### 7. Scittle clj->js Strips Namespace Prefixes
+
+**Critical for Squint ↔ Scittle interop**: When Scittle's `clj->js` converts maps with namespaced keywords, it strips the namespace prefix:
+
+```clojure
+;; In Scittle (SCI)
+(clj->js {:epupp/require ["scittle://reagent.js"]})
+;; => #js {:require #js ["scittle://reagent.js"]}
+;;         ^^^^^^^^ namespace stripped!
+
+;; So when reading in Squint background code:
+(aget manifest "epupp/require")  ; ❌ nil - key doesn't exist
+(aget manifest "require")        ; ✅ finds the value
+```
+
+This affects any code where Scittle sends data to Squint extension code via messages. Always check `(js/Object.keys obj)` to see actual keys.
+
 Always use `contains?` for set membership checks.
 
 ### 7. Hyphenated Property Access
