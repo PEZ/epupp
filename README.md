@@ -14,7 +14,39 @@ There is a script “editor” (a textarea) in the Development Tools tab named *
 
 Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
 
-For script timing, using Scittle libraries (Reagent, Re-frame, etc.), and more examples, see the [User Guide](docs/user-guide.md).
+### Using Scittle Libraries
+
+Userscripts can load bundled Scittle ecosystem libraries via `:epupp/require`:
+
+```clojure
+{:epupp/script-name "reagent_widget.cljs"
+ :epupp/site-match "*"
+ :epupp/require ["scittle://reagent.js"]}
+
+(ns reagent-widget
+  (:require [reagent.core :as r]
+            [reagent.dom :as rdom]))
+
+(rdom/render [:h1 "Hello from Reagent!"]
+             (doto (js/document.createElement "div")
+               (->> (.appendChild js/document.body))))
+```
+
+**Available libraries:**
+
+| Require URL | Provides |
+|-------------|----------|
+| `scittle://pprint.js` | `cljs.pprint` |
+| `scittle://promesa.js` | `promesa.core` |
+| `scittle://replicant.js` | Replicant UI library |
+| `scittle://js-interop.js` | `applied-science.js-interop` |
+| `scittle://reagent.js` | Reagent + React |
+| `scittle://re-frame.js` | Re-frame (includes Reagent) |
+| `scittle://cljs-ajax.js` | `cljs-http.client` |
+
+Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
+
+For script timing, more library details, and examples, see the [User Guide](docs/user-guide.md).
 
 ## REPL Usage
 

@@ -1,7 +1,7 @@
 # Scittle Dependencies Implementation Plan
 
 **Created**: January 12, 2026
-**Status**: Phase 6 complete - All phases done!
+**Status**: Complete - All phases done!
 **Related**: [require-feature-design.md](research/require-feature-design.md)
 
 ## Current Status
@@ -180,29 +180,22 @@ Panel shows "Requires: N libraries ✓" in the property table when manifest has 
 
 #### 4.2 Error Display
 
-### Phase 5: Documentation 🔲 TODO
+### Phase 5: Documentation ✅ COMPLETE
 
-Update README with usage examples and available libraries table.
+Updated README with usage examples and available libraries table. The User Guide already had comprehensive documentation.
 
-#### 5.1 Update README
+#### What was added
 
-Add section on using Scittle libraries:
+**README.md**: New "Using Scittle Libraries" section with:
+- Example userscript using Reagent
+- Table of available libraries
+- Note about automatic dependency resolution
 
-#### 5.2 Document Available Libraries
-
-```markdown
-### Available Libraries
-
-| Require URL | Provides |
-|-------------|----------|
-| `scittle://pprint.js` | `cljs.pprint` |
-| `scittle://promesa.js` | `promesa.core` |
-| `scittle://replicant.js` | Replicant UI library |
-| `scittle://js-interop.js` | `applied-science.js-interop` |
-| `scittle://reagent.js` | Reagent + React |
-| `scittle://re-frame.js` | Re-frame (includes Reagent) |
-| `scittle://cljs-ajax.js` | `cljs-http.client` |
-```
+**User Guide** (already complete): Full documentation including:
+- All available libraries with namespaces
+- Usage in userscripts via `:epupp/require`
+- Usage from REPL via `epupp/manifest!`
+- Multiple examples (Reagent counter, pprint debug helper, etc.)
 
 ## Implementation Order
 
@@ -215,17 +208,7 @@ Add section on using Scittle libraries:
 
 **Remaining work:**
 
-1. **E2E tests for Phase 3B**
-   - Test popup Run with requires
-   - Test panel eval with requires
-   - Run `bb test:e2e` to verify
-
-2. **Phase 5**: Documentation - user guidance
-   - Update README with usage examples
-   - Document available libraries
-   - Note Safari limitations
-
-3. **Safari investigation** (future)
+1. **Safari investigation** (future)
    - DevTools panel "tab not found" issue
    - Userscript auto-injection not triggering
    - CSP handling differences
@@ -290,9 +273,9 @@ Updated `bundle-scittle` task to also copy the new libraries:
 | Phase 3B-panel: Panel eval | ✅ M (1h) | Complete - new message handler + effect updates |
 | Phase 3B-tests: E2E tests | ✅ S (30 min) | Complete - covered by gist installer test |
 | Phase 4: Panel UI | ✅ S (1h) | Complete |
-| Phase 5: Documentation | 🔲 S (1h) | TODO: README updates |
+| Phase 5: Documentation | ✅ S (30 min) | Complete - README + User Guide |
 | Phase 6: Gist Installer | ✅ M (3h) | Complete - validates full require pipeline |
-| **Remaining** | **S (1h)** | README docs only |
+| **Total** | **~12h** | All phases complete |
 
 ## Success Criteria
 
@@ -306,9 +289,10 @@ Updated `bundle-scittle` task to also copy the new libraries:
 - [x] Works on CSP-strict sites (Chrome, Firefox)
 - [x] All unit tests pass (317)
 - [x] All E2E tests pass (56)
-- [x] **Gist Installer Script uses Replicant** (Phase 6) ✅
+- [x] **Gist Installer Script uses Replicant** (Phase 6)
+- [x] **Documentation updates** (Phase 5)
+- [ ] **A Connected REPL** can evaluate and run scripts that need requires
 - [ ] Safari support (limited - known issues with panel and userscripts)
-- [ ] Documentation updates (Phase 5)
 
 ## Completed Implementation Details
 
