@@ -212,7 +212,33 @@
                      (let [dom-check (js-await (eval-in-browser
                                                 "(boolean (js/document.getElementById \"epupp-repl-test\"))"))]
                        (-> (expect (.-success dom-check)) (.toBe true))
-                       (-> (expect (.-values dom-check)) (.toContain "true")))))))
+                       (-> (expect (.-values dom-check)) (.toContain "true")))))
+
+             (test "epupp/manifest! is idempotent - no duplicate script tags"
+                   (^:async fn []
+                     ;; Count replicant script tags before
+                     (let [count-before (js-await (eval-in-browser
+                                                   "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
+                       (-> (expect (.-success count-before)) (.toBe true))
+                       (js/console.log "=== replicant scripts before ===" (.-values count-before))
+
+                       ;; Call manifest! again (Replicant was already loaded by previous test)
+                       (let [manifest-result (js-await (eval-in-browser
+                                                        "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                         (-> (expect (.-success manifest-result)) (.toBe true)))
+
+                       ;; Wait for injection
+                       (js-await (sleep 2000))
+
+                       ;; Count replicant script tags after
+                       (let [count-after (js-await (eval-in-browser
+                                                    "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
+                         (-> (expect (.-success count-after)) (.toBe true))
+                         (js/console.log "=== replicant scripts after ===" (.-values count-after))
+
+                         ;; Should be same count - no duplicates added
+                         (-> (expect (first (.-values count-after)))
+                             (.toBe (first (.-values count-before))))))))))
 
 ;; =============================================================================
 ;; Multi-Tab Multi-Server Tests

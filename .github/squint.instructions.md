@@ -200,6 +200,26 @@ When accessing JavaScript object properties with hyphenated names, `(.-hyphenate
 
 Use `vector?` when you need to distinguish strings from actual collections. In Squint, `sequential?` returns `true` for strings because JavaScript strings are iterable. This differs from ClojureScript where `sequential?` is `false` for strings.
 
+### 9. JS Collections Need JS Methods
+
+Clojure sequence functions don't work on JavaScript collections like `NodeList`, `HTMLCollection`, etc.
+
+```clojure
+;; ❌ Fails - count doesn't work on NodeList
+(count (js/document.querySelectorAll "div"))
+
+;; ✅ Works - use JS property
+(.-length (js/document.querySelectorAll "div"))
+```
+
+## Validating Squint Syntax
+
+**Use `get_errors` (problem report)** to check bracket balance and syntax errors. Don't compile directly with `npx squint compile` for test files - it creates stray `.mjs` files in non-gitignored paths.
+
+- `get_errors` gives accurate line numbers for bracket issues
+- `bb test:e2e` compiles to `build/e2e/` (gitignored)
+- Direct compilation uses `squint.edn` output path (for source, not tests)
+
 ## Debugging Squint Issues
 
 1. **Check compiled `.mjs` output** - Look at the generated JavaScript to understand what's happening

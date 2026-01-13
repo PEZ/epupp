@@ -306,7 +306,7 @@ Calling `epupp/manifest!` multiple times with the same libraries adds duplicate 
 Sites with Trusted Types CSP (like YouTube) block Replicant's `innerHTML` usage:
 
 ```
-TypeError: Failed to set the 'innerHTML' property on 'Element': 
+TypeError: Failed to set the 'innerHTML' property on 'Element':
 This document requires 'TrustedHTML' assignment...
 ```
 
