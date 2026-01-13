@@ -118,7 +118,7 @@ dev/docs/architecture/
 **Length target:** ~130 lines
 
 **Cross-references:**
-- Link to `.github/uniflow.instructions.md` for framework docs
+- Link to `architecture/uniflow.md` for framework docs
 - Mention `event_handler.cljs` as the implementation
 
 **Notes for writer:**

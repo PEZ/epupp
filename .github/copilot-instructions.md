@@ -93,7 +93,7 @@ Mandatory reads:
 * [UI guide](../dev/docs/ui.md) - Script editor UX and ID behavior
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
 * [Reagami](reagami.instructions.md) - Lightweight Reagent-like UI patterns
-* [State and event management](uniflow.instructions.md) - Uniflow patterns
+* [Uniflow event system](../dev/docs/architecture/uniflow.md) - Unidirectional data flow
 
 **Architecture in brief:**
 `Editor/AI nREPL client` ↔ `Babashka browser-nrepl (ports 12345/12346)` ↔ `Extension background worker` ↔ `Content bridge script` ↔ `Page WebSocket bridge` ↔ `Scittle REPL` ↔ `DOM`
@@ -312,7 +312,7 @@ Actions dispatched as vectors of vectors (batched), using Uniflow pattern:
                                   [:popup/ax.check-status]])} "Reset"]
 ```
 
-See [uniflow.instructions.md](uniflow.instructions.md) for full event system documentation.
+See [architecture/uniflow.md](../dev/docs/architecture/uniflow.md) for full event system documentation.
 
 See [architecture/state-management.md](../dev/docs/architecture/state-management.md#uniflow-event-system) for complete lists of popup and panel actions/effects.
 

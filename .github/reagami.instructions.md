@@ -120,7 +120,7 @@ Combine static and dynamic classes:
 
 ## Event Handling
 
-Reagami components dispatch actions via Uniflow. See [uniflow.instructions.md](uniflow.instructions.md) for the full event system documentation.
+Reagami components dispatch actions via Uniflow. See [../dev/docs/architecture/uniflow.md](../dev/docs/architecture/uniflow.md) for the full event system documentation.
 
 ```clojure
 ;; In components, call the module's dispatch! function

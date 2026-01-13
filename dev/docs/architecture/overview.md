@@ -51,7 +51,8 @@ flowchart TB
 |------|-----------|
 | Source file map + dependencies | [components.md](components.md) |
 | Message types + payloads | [message-protocol.md](message-protocol.md) |
-| State atoms + Uniflow actions/effects | [state-management.md](state-management.md) |
+| State atoms + action/effect tables | [state-management.md](state-management.md) |
+| Uniflow event system | [uniflow.md](uniflow.md) |
 | REPL/userscripts/panel injection flows | [injection-flows.md](injection-flows.md) |
 | Trust boundaries + CSP strategy | [security.md](security.md) |
 | Build pipeline + configuration injection | [build-pipeline.md](build-pipeline.md) |
