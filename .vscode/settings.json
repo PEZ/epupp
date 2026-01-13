@@ -16,6 +16,24 @@
       "replSessionNames": {
         "primary": "scittle-dev-repl"
       },
+    },
+    {
+      "name": "Scittle GitLab REPL",
+      "projectType": "scittle",
+      // "projectRootPath": [".", "extension", "userscripts"],
+      "fallbackPort": 13397,
+      "replSessionNames": {
+        "primary": "scittle-gitlab"
+      },
+    },
+    {
+      "name": "Scittle Youtube REPL",
+      "projectType": "scittle",
+      // "projectRootPath": [".", "extension", "userscripts"],
+      "fallbackPort": 13399,
+      "replSessionNames": {
+        "primary": "scittle-youtube"
+      },
     }
   ],
   "search.exclude": {
