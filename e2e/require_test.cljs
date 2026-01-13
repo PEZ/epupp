@@ -275,3 +275,80 @@
 
             (finally
               (js-await (.close context)))))))
+
+;; =============================================================================
+;; Test: pprint library script tags injected into DOM
+;; =============================================================================
+
+(test "Require: pprint library script tags are injected into page DOM"
+      (^:async fn []
+        (let [context (js-await (launch-browser))
+              ext-id (js-await (get-extension-id context))]
+          (try
+            ;; Create a script requiring pprint
+            (let [panel (js-await (create-panel-page context ext-id))
+                  code (code-with-manifest {:name "Pprint DOM Test"
+                                            :match "http://localhost:18080/*"
+                                            :require ["scittle://pprint.js"]
+                                            :code "(js/console.log \"pprint loaded\")"})]
+              (js-await (.fill (.locator panel "#code-area") code))
+              (js-await (.click (.locator panel "button.btn-save")))
+              (js-await (wait-for-save-status panel "Created"))
+              (js-await (.close panel)))
+
+            ;; Approve the script
+            (let [popup (js-await (create-popup-page context ext-id))]
+              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+              (js-await (.reload popup))
+              (js-await (wait-for-popup-ready popup))
+
+              (let [script-item (.locator popup ".script-item:has-text(\"pprint_dom_test.cljs\")")]
+                (js-await (-> (expect script-item) (.toBeVisible)))
+                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+                  (when (pos? (js-await (.count allow-btn)))
+                    (js/console.log "Clicking Allow button...")
+                    (js-await (.click allow-btn))
+                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+              (js-await (.close popup)))
+
+            ;; Navigate to trigger injection
+            (let [page (js-await (.newPage context))]
+              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+              (js-await (-> (expect (.locator page "#test-marker"))
+                            (.toContainText "ready")))
+
+              ;; Wait for script injection to complete
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))
+                (js-await (.close popup)))
+
+              ;; Check for pprint script tag in DOM
+              (let [script-tags (js-await (.evaluate page
+                                                     (fn []
+                                                       (let [scripts (js/document.querySelectorAll "script[src]")
+                                                             urls (js/Array.from scripts (fn [s] (.-src s)))]
+                                                         urls))))]
+                (js/console.log "Script tags in DOM:" (js/JSON.stringify script-tags nil 2))
+
+                ;; Should have pprint script
+                (let [has-pprint (.some script-tags (fn [url] (.includes url "scittle.pprint")))]
+                  (js/console.log "Has pprint:" has-pprint)
+                  (js-await (-> (expect has-pprint) (.toBe true)))))
+
+              (js-await (.close page)))
+
+            (finally
+              (js-await (.close context)))))))
+
+;; =============================================================================
+;; Note: Additional test scenarios documented in scittle-dependencies-implementation.md:
+;; - Panel evaluation with :epupp/require (tests the inject-requires message path)
+;; - Popup Run button (uses mock tab ID in tests, requires different test approach)
+;;
+;; The current tests cover:
+;; 1. Storage persistence of :script/require field
+;; 2. INJECTING_REQUIRES event emission via auto-injection
+;; 3. Reagent (with React deps) script tags in DOM
+;; 4. Negative case: no INJECTING_REQUIRES for scripts without require
+;; 5. Pprint script tags in DOM (verifies non-React library loading)
+;; =============================================================================

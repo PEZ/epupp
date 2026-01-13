@@ -13,6 +13,9 @@
 ;; State
 ;; ============================================================
 
+;; Forward declaration for function defined later
+(declare ensure-gist-installer!)
+
 (def !db
   "In-memory mirror of chrome.storage.local for fast access.
    Synced via persist! and onChanged listener."
@@ -62,7 +65,10 @@
      (when (= area "local")
        (when-let [scripts-change (.-scripts changes)]
          (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change))]
-           (swap! !db assoc :storage/scripts new-scripts)))
+           (swap! !db assoc :storage/scripts new-scripts)
+           ;; Re-ensure built-in scripts if they were removed (e.g., by storage.clear())
+           (when-not (some #(= (:script/id %) "epupp-builtin-gist-installer") new-scripts)
+             (ensure-gist-installer!))))
        (when-let [origins-change (.-granted-origins changes)]
          (let [new-origins (if (.-newValue origins-change)
                              (vec (.-newValue origins-change))
@@ -260,12 +266,16 @@
 
 (defn ^:async ensure-gist-installer!
   "Ensure the gist installer built-in userscript exists in storage.
-   Loads it from userscripts/gist_installer.cljs and updates if code changed."
+   Loads it from userscripts/gist_installer.cljs and updates if code changed.
+   Parses manifest to extract :epupp/require for library dependencies."
   []
   (let [installer-id "epupp-builtin-gist-installer"]
     (try
       (let [response (js-await (js/fetch (js/chrome.runtime.getURL "userscripts/gist_installer.cljs")))
             code (js-await (.text response))
+            manifest (mp/extract-manifest code)
+            ;; manifest-parser returns string keys like "require", not :epupp/require
+            requires (or (get manifest "require") [])
             existing (get-script installer-id)]
         ;; Install if missing, or update if code changed
         (when (or (not existing)
@@ -276,6 +286,7 @@
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code
                          :script/enabled true
+                         :script/require requires
                          :script/approved-patterns ["https://gist.github.com/*"
                                                     "http://localhost:18080/mock-gist.html"]})
           (log/info "Storage" nil "Installed/updated built-in gist installer")))

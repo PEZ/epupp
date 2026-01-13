@@ -1,33 +1,19 @@
+{:epupp/script-name "Gist Installer"
+ :epupp/site-match "https://gist.github.com/*"
+ :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"
+ :epupp/require ["scittle://replicant.js"]}
+
 ;; Epupp Gist Installer - Runs in Scittle on GitHub gist pages
 ;;
 ;; This userscript scans gist code blocks for install manifests,
 ;; adds Install buttons, and sends parsed data to the extension.
 ;;
-;; MANIFEST FORMAT:
-;; For a gist to be installable, the first form must be a data map
-;; containing Epupp manifest keys:
-;;
-;;   {:epupp/script-name "My Cool Script"
-;;    :epupp/site-match "https://example.com/*"
-;;    :epupp/description "Optional description of what the script does"
-;;    :epupp/run-at "document-idle"}
-;;
-;;   (ns my-cool-script)
-;;
-;;   (println "Script code starts here...")
-;;
-;; Manifest keys (all namespaced under epupp/):
-;;   :epupp/script-name  - Required. Display name (normalized to filename format)
-;;   :epupp/site-match   - Required. URL pattern (glob format) where script runs
-;;   :epupp/description  - Optional. Brief description shown in popup
-;;   :epupp/run-at       - Optional. "document-start", "document-end", or "document-idle" (default)
-;;
-;; Names are normalized for consistency (e.g., "My Cool Script" -> "my_cool_script.cljs").
-;; The extension generates :script/id, :script/enabled, timestamps, and :script/approved-patterns.
+;; Uses Replicant for declarative UI rendering.
 
 (ns gist-installer
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [replicant.dom :as r]))
 
 ;; ============================================================
 ;; Script name normalization (mirrors script-utils logic)
@@ -39,11 +25,7 @@
 (def default-run-at "document-idle")
 
 (defn normalize-script-name
-  "Normalize a script name to a consistent format.
-   - Lowercase
-   - Replace spaces, dashes, and dots with underscores
-   - Remove invalid characters
-   - Append .cljs extension"
+  "Normalize a script name to a consistent format."
   [input-name]
   (let [base-name (if (str/ends-with? input-name ".cljs")
                     (subs input-name 0 (- (count input-name) 5))
@@ -55,17 +37,16 @@
         (str ".cljs"))))
 
 ;; ============================================================
-;; Manifest parsing (data map format)
+;; Manifest parsing
 ;; ============================================================
 
 (defn- get-first-form
-  "Read the first form from code text.
-   Returns the form if it's a map, nil otherwise."
+  "Read the first form from code text. Returns map or nil."
   [code-text]
   (try
     (let [form (edn/read-string code-text)]
       (when (map? form) form))
-    (catch js/Error e
+    (catch :default e
       (js/console.error "[Gist Installer] Parse error:" e)
       nil)))
 
@@ -77,8 +58,7 @@
       (get m :epupp/script-name))))
 
 (defn extract-manifest
-  "Extract manifest from the first form (must be a data map).
-   Returns map with normalized name, site-match, description, and run-at."
+  "Extract manifest from the first form (must be a data map)."
   [code-text]
   (when-let [m (get-first-form code-text)]
     (when-let [raw-name (get m :epupp/script-name)]
@@ -87,7 +67,6 @@
             run-at (if (contains? valid-run-at-values raw-run-at)
                      raw-run-at
                      default-run-at)
-            ;; site-match can be string or vector - normalize to string
             raw-site-match (get m :epupp/site-match)
             site-match (if (vector? raw-site-match)
                          (first raw-site-match)
@@ -102,94 +81,9 @@
          :run-at-invalid? (and raw-run-at
                                (not (contains? valid-run-at-values raw-run-at)))}))))
 
-(defn create-install-button []
-  (let [btn (js/document.createElement "button")]
-    (set! (.-textContent btn) "Install to Epupp")
-    (set! (.-className btn) "epupp-install-btn")
-    (set! (.. btn -style -cssText)
-          "margin: 8px 0; padding: 6px 12px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;")
-    btn))
-
-(defn- run-at-label
-  "Format run-at value for display, with indicator for non-default timing."
-  [run-at]
-  (case run-at
-    "document-start" "document-start (early)"
-    "document-end" "document-end"
-    "document-idle (default)"))
-
-(defn show-confirmation-modal
-  [manifest gist-url on-confirm on-cancel]
-  (let [overlay (js/document.createElement "div")
-        modal (js/document.createElement "div")
-        script-name (get manifest :script-name)
-        raw-name (get manifest :raw-script-name)
-        name-normalized? (get manifest :name-normalized?)
-        site-match (get manifest :site-match)
-        description (get manifest :description)
-        run-at (get manifest :run-at)
-        run-at-invalid? (get manifest :run-at-invalid?)
-        raw-run-at (get manifest :raw-run-at)]
-    ;; Overlay styles
-    (set! (.. overlay -style -cssText)
-          "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9998; display: flex; align-items: center; justify-content: center;")
-
-    ;; Modal styles
-    (set! (.. modal -style -cssText)
-          "background: white; padding: 24px; border-radius: 8px; max-width: 500px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 9999;")
-
-    ;; Modal content - property table style similar to panel
-    (set! (.-innerHTML modal)
-          (str "<h2 style='margin-top: 0;'>Install Userscript</h2>"
-               "<table style='width: 100%; border-collapse: collapse; margin-bottom: 16px;'>"
-               ;; Name row
-               "<tr><td style='padding: 6px 0; color: #666; width: 100px;'>Name</td>"
-               "<td style='padding: 6px 0;'><code>" (or script-name "Unknown") "</code>"
-               (when name-normalized?
-                 (str "<br><span style='color: #888; font-size: 12px;'>Normalized from: " raw-name "</span>"))
-               "</td></tr>"
-               ;; Site Pattern row
-               "<tr><td style='padding: 6px 0; color: #666;'>URL Pattern</td>"
-               "<td style='padding: 6px 0;'>" (or site-match "<em>None</em>") "</td></tr>"
-               ;; Description row
-               "<tr><td style='padding: 6px 0; color: #666;'>Description</td>"
-               "<td style='padding: 6px 0;'>" (or description "<em>Not specified</em>") "</td></tr>"
-               ;; Run At row
-               "<tr><td style='padding: 6px 0; color: #666;'>Run At</td>"
-               "<td style='padding: 6px 0;'>" (run-at-label run-at)
-               (when run-at-invalid?
-                 (str "<br><span style='color: #d97706; font-size: 12px;'>Invalid value \"" raw-run-at "\" - using default</span>"))
-               "</td></tr>"
-               "</table>"
-               "<p style='margin: 0 0 8px;'><strong>Source:</strong></p>"
-               "<p style='margin: 0 0 16px;'><code style='word-break: break-all;'>" gist-url "</code></p>"
-               "<p style='color: #666; font-size: 14px; margin-bottom: 16px;'>This will download and install the script from the gist above.</p>"
-               "<div style='display: flex; gap: 8px; justify-content: flex-end;'>"
-               "<button id='epupp-cancel' style='padding: 6px 16px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer;'>Cancel</button>"
-               "<button id='epupp-confirm' style='padding: 6px 16px; background: #2ea44f; color: white; border: 1px solid rgba(27,31,36,0.15); border-radius: 6px; cursor: pointer;'>Install</button>"
-               "</div>"))
-
-    (.appendChild overlay modal)
-    (.appendChild js/document.body overlay)
-
-    ;; Event handlers
-    (let [confirm-btn (.querySelector modal "#epupp-confirm")
-          cancel-btn (.querySelector modal "#epupp-cancel")
-          close-modal (fn []
-                        (.removeChild js/document.body overlay))]
-      (.addEventListener confirm-btn "click"
-                         (fn []
-                           (close-modal)
-                           (on-confirm)))
-      (.addEventListener cancel-btn "click"
-                         (fn []
-                           (close-modal)
-                           (on-cancel)))
-      (.addEventListener overlay "click"
-                         (fn [e]
-                           (when (= (.-target e) overlay)
-                             (close-modal)
-                             (on-cancel)))))))
+;; ============================================================
+;; DOM helpers
+;; ============================================================
 
 (defn get-gist-file-text
   "Get text content from a gist file"
@@ -198,27 +92,6 @@
         line-array (js/Array.from lines)]
     (str/join "\n" (map #(.-textContent %) line-array))))
 
-(defn- send-install-request
-  "Send install request to extension via postMessage (content bridge forwards it)"
-  [manifest script-url callback]
-  ;; Listen for response from content bridge
-  (let [listener (fn listener[event]
-                   (let [data (.-data event)]
-                     (when (and (= (.-source data) "epupp-bridge")
-                               (= (.-type data) "install-response"))
-                       (.removeEventListener js/window "message" listener)
-                       (callback #js {:success (.-success data)
-                                     :error (.-error data)}))))]
-    (.addEventListener js/window "message" listener)
-    ;; Send install request to content bridge
-    ;; Must use clj->js on manifest so postMessage serializes the actual keys
-    (.postMessage js/window
-                  #js {:source "epupp-userscript"
-                       :type "install-userscript"
-                       :manifest (clj->js manifest)
-                       :scriptUrl script-url}
-                  "*")))
-
 (defn get-gist-raw-url
   "Extract the raw gist URL from the Raw button link"
   [file-container]
@@ -226,64 +99,256 @@
     (when-let [raw-link (.querySelector file-actions "a[href*='/raw/']")]
       (.-href raw-link))))
 
-(defn attach-install-button
-  [file-container code-text]
-  (let [btn (create-install-button)
-        header (.querySelector file-container ".gist-blob-name")
-        gist-url (get-gist-raw-url file-container)]
-    (.addEventListener btn "click"
-                       (fn [e]
-                         (.preventDefault e)
-                         (if-let [manifest (extract-manifest code-text)]
-                           (if gist-url
-                             (show-confirmation-modal
-                              manifest
-                              gist-url
-                              ;; On confirm
-                              (fn []
-                                (send-install-request
-                                 manifest
-                                 gist-url
-                               (fn [response]
-                                 (if (and response (.-success response))
-                                   (do
-                                     (set! (.-textContent btn) "✓ Installed")
-                                     (set! (.-disabled btn) true)
-                                     (set! (.. btn -style -background) "#6c757d"))
-                                   (do
-                                     (js/console.error "[Gist Installer] Install failed:" (.-error response))
-                                     (set! (.-textContent btn) "Install Failed")
-                                     (set! (.. btn -style -background) "#dc3545"))))))
-                              ;; On cancel
-                              (fn []
-                                (js/console.log "[Gist Installer] User cancelled")))
-                             ;; No gist URL found
-                             (do
-                               (set! (.-textContent btn) "URL Error")
-                               (set! (.. btn -style -background) "#dc3545")))
-                           ;; Parse failed
-                           (do
-                             (set! (.-textContent btn) "Parse Error")
-                             (set! (.. btn -style -background) "#dc3545")))))
+;; ============================================================
+;; State management
+;; ============================================================
+
+(defonce !state
+  (atom {:gists []
+         :modal {:visible? false
+                 :gist-id nil}}))
+
+(defn find-gist-by-id [state gist-id]
+  (first (filter #(= (:id %) gist-id) (:gists state))))
+
+(defn update-gist-status [state gist-id new-status]
+  (update state :gists
+          (fn [gists]
+            (mapv (fn [g]
+                    (if (= (:id g) gist-id)
+                      (assoc g :status new-status)
+                      g))
+                  gists))))
+
+;; ============================================================
+;; Extension communication
+;; ============================================================
+
+(defn send-install-request!
+  "Send install request to extension via postMessage"
+  [manifest script-url callback]
+  (let [listener (fn listener [event]
+                   (let [data (.-data event)]
+                     (when (and (= (.-source data) "epupp-bridge")
+                                (= (.-type data) "install-response"))
+                       (.removeEventListener js/window "message" listener)
+                       (callback #js {:success (.-success data)
+                                      :error (.-error data)}))))]
+    (.addEventListener js/window "message" listener)
+    (.postMessage js/window
+                  #js {:source "epupp-userscript"
+                       :type "install-userscript"
+                       :manifest (clj->js manifest)
+                       :scriptUrl script-url}
+                  "*")))
+
+;; ============================================================
+;; UI Components (Replicant hiccup)
+;; ============================================================
+
+(defn run-at-label [run-at]
+  (case run-at
+    "document-start" "document-start (early)"
+    "document-end" "document-end"
+    "document-idle (default)"))
+
+(defn render-install-button [{:keys [id status]}]
+  [:button.epupp-install-btn
+   {:on {:click [:gist/show-confirm id]}
+    :disabled (not= status :ready)
+    :style {:margin "8px 0"
+            :padding "6px 12px"
+            :background (case status
+                          :installed "#6c757d"
+                          :error "#dc3545"
+                          "#2ea44f")
+            :color "white"
+            :border "1px solid rgba(27,31,36,0.15)"
+            :border-radius "6px"
+            :font-size "14px"
+            :font-weight "500"
+            :cursor (if (= status :ready) "pointer" "default")}}
+   (case status
+     :ready "Install to Epupp"
+     :installing "Installing..."
+     :installed "✓ Installed"
+     :error "Install Failed"
+     "Install")])
+
+(defn render-modal [{:keys [id manifest raw-url]}]
+  (let [{:keys [script-name raw-script-name name-normalized?
+                site-match description run-at run-at-invalid? raw-run-at]} manifest]
+    [:div.epupp-modal-overlay
+     {:on {:click [:gist/overlay-click]}
+      :style {:position "fixed" :top 0 :left 0 :right 0 :bottom 0
+              :background "rgba(0,0,0,0.5)" :z-index 9998
+              :display "flex" :align-items "center" :justify-content "center"}}
+     [:div.epupp-modal
+      {:on {:click [:gist/modal-click]}
+       :style {:background "white" :padding "24px" :border-radius "8px"
+               :max-width "500px" :box-shadow "0 8px 24px rgba(0,0,0,0.3)"
+               :z-index 9999}}
+      [:h2 {:style {:margin-top 0}} "Install Userscript"]
+      ;; Property table
+      [:table {:style {:width "100%" :border-collapse "collapse" :margin-bottom "16px"}}
+       [:tbody
+        [:tr
+         [:td {:style {:padding "6px 0" :color "#666" :width "100px"}} "Name"]
+         [:td {:style {:padding "6px 0"}}
+          [:code script-name]
+          (when name-normalized?
+            [:span
+             [:br]
+             [:span {:style {:color "#888" :font-size "12px"}}
+              "Normalized from: " raw-script-name]])]]
+        [:tr
+         [:td {:style {:padding "6px 0" :color "#666"}} "URL Pattern"]
+         [:td {:style {:padding "6px 0"}} (or site-match [:em "None"])]]
+        [:tr
+         [:td {:style {:padding "6px 0" :color "#666"}} "Description"]
+         [:td {:style {:padding "6px 0"}} (or description [:em "Not specified"])]]
+        [:tr
+         [:td {:style {:padding "6px 0" :color "#666"}} "Run At"]
+         [:td {:style {:padding "6px 0"}}
+          (run-at-label run-at)
+          (when run-at-invalid?
+            [:span
+             [:br]
+             [:span {:style {:color "#d97706" :font-size "12px"}}
+              "Invalid value \"" raw-run-at "\" - using default"]])]]]]
+      [:p {:style {:margin "0 0 8px"}} [:strong "Source:"]]
+      [:p {:style {:margin "0 0 16px"}}
+       [:code {:style {:word-break "break-all"}} raw-url]]
+      [:p {:style {:color "#666" :font-size "14px" :margin-bottom "16px"}}
+       "This will download and install the script from the gist above."]
+      [:div {:style {:display "flex" :gap "8px" :justify-content "flex-end"}}
+       [:button#epupp-cancel {:on {:click [:gist/cancel-install]}
+                              :style {:padding "6px 16px" :background "#f6f8fa"
+                                      :border "1px solid #d0d7de" :border-radius "6px"
+                                      :cursor "pointer"}}
+        "Cancel"]
+       [:button#epupp-confirm {:on {:click [:gist/confirm-install id manifest raw-url]}
+                               :style {:padding "6px 16px" :background "#2ea44f"
+                                       :color "white" :border "1px solid rgba(27,31,36,0.15)"
+                                       :border-radius "6px" :cursor "pointer"}}
+        "Install"]]]]))
+
+(defn render-app [state]
+  (let [{:keys [modal]} state
+        {:keys [visible? gist-id]} modal
+        current-gist (when visible? (find-gist-by-id state gist-id))]
+    [:div#epupp-gist-installer-ui
+     (when (and visible? current-gist)
+       (render-modal current-gist))]))
+
+;; ============================================================
+;; Event handling
+;; ============================================================
+
+(defn handle-event [_replicant-data action]
+  (let [[action-type & args] action]
+    (case action-type
+      :gist/show-confirm
+      (let [[gist-id] args]
+        (swap! !state assoc :modal {:visible? true :gist-id gist-id}))
+
+      :gist/overlay-click
+      (swap! !state assoc :modal {:visible? false :gist-id nil})
+
+      :gist/modal-click
+      nil  ;; Don't close when clicking inside modal
+
+      :gist/cancel-install
+      (swap! !state assoc :modal {:visible? false :gist-id nil})
+
+      :gist/confirm-install
+      (let [[gist-id manifest raw-url] args]
+        (swap! !state assoc :modal {:visible? false :gist-id nil})
+        (swap! !state update-gist-status gist-id :installing)
+        (send-install-request!
+         manifest
+         raw-url
+         (fn [response]
+           (swap! !state update-gist-status gist-id
+                  (if (.-success response) :installed :error)))))
+
+      ;; Default
+      (js/console.warn "[Gist Installer] Unknown action:" (pr-str action-type)))))
+
+;; ============================================================
+;; Rendering setup
+;; ============================================================
+
+(defonce !button-containers (atom {}))
+(defonce !ui-container (atom nil))
+
+(defn render-ui! []
+  (let [state @!state]
+    (when-let [container @!ui-container]
+      (r/render container (render-app state))))
+  ;; Also update buttons in their inline containers
+  (doseq [[gist-id btn-container] @!button-containers]
+    (when-let [gist (find-gist-by-id @!state gist-id)]
+      (r/render btn-container (render-install-button gist)))))
+
+(defn setup-ui! []
+  ;; Create main UI container for modal
+  (let [container (js/document.createElement "div")]
+    (set! (.-id container) "epupp-gist-installer")
+    (.appendChild js/document.body container)
+    (reset! !ui-container container))
+
+  ;; Set up Replicant dispatcher (once)
+  (r/set-dispatch! handle-event)
+
+  ;; Re-render on state changes
+  (add-watch !state ::render (fn [_ _ _ _] (render-ui!)))
+
+  ;; Initial render
+  (render-ui!))
+
+;; ============================================================
+;; Gist scanning and initialization
+;; ============================================================
+
+(defn attach-button-to-gist! [file-container gist-data]
+  (let [header (.querySelector file-container ".gist-blob-name")
+        btn-container (js/document.createElement "span")]
+    (set! (.-className btn-container) "epupp-btn-container")
     (when header
       (let [parent (.-parentElement header)]
-        (.insertBefore parent btn (.-nextSibling header))))))
+        (.insertBefore parent btn-container (.-nextSibling header))))
+    ;; Track container for re-renders
+    (swap! !button-containers assoc (:id gist-data) btn-container)
+    ;; Initial button render
+    (r/render btn-container (render-install-button gist-data))))
 
-(defn scan-gist-files []
+(defn scan-gist-files! []
   (let [file-containers (.querySelectorAll js/document ".file")
         container-array (js/Array.from file-containers)]
     (doseq [container container-array]
-      (let [code-text (get-gist-file-text container)]
-        (when (has-manifest? code-text)
-          (js/console.log "[Gist Installer] Found installable script")
-          (attach-install-button container code-text))))))
+      (let [code-text (get-gist-file-text container)
+            container-id (or (.-id container) (str "gist-" (random-uuid)))]
+        ;; Ensure container has an ID
+        (when-not (.-id container)
+          (set! (.-id container) container-id))
+        (when-let [manifest (extract-manifest code-text)]
+          (js/console.log "[Gist Installer] Found installable script:" (:script-name manifest))
+          (let [gist-data {:id container-id
+                          :manifest manifest
+                          :raw-url (get-gist-raw-url container)
+                          :status :ready}]
+            ;; Add to state
+            (swap! !state update :gists conj gist-data)
+            ;; Attach button
+            (attach-button-to-gist! container gist-data)))))))
 
-;; Main entry point
 (defn init! []
-  (js/console.log "[Gist Installer] Initializing...")
+  (js/console.log "[Gist Installer] Initializing with Replicant...")
+  (setup-ui!)
   (if (= js/document.readyState "loading")
-    (.addEventListener js/document "DOMContentLoaded" scan-gist-files)
-    (scan-gist-files))
+    (.addEventListener js/document "DOMContentLoaded" scan-gist-files!)
+    (scan-gist-files!))
   (js/console.log "[Gist Installer] Ready"))
 
 (init!)

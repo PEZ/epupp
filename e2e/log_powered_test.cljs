@@ -1070,11 +1070,36 @@
         (let [context (js-await (launch-browser))
               ext-id (js-await (get-extension-id context))]
           (try
-            ;; Clear storage first
+            ;; Clear storage and wait for built-in gist installer to be re-installed
             (let [popup (js-await (create-popup-page context ext-id))]
               (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
               (js-await (.reload popup))
               (js-await (wait-for-popup-ready popup))
+
+              ;; Wait for gist installer to be re-installed with require field
+              ;; Poll using .evaluate loop - same pattern as wait-for-event
+              (let [start (.now js/Date)
+                    timeout-ms 5000]
+                (loop []
+                  (let [storage-data (js-await (.evaluate popup
+                                                          (fn []
+                                                            (js/Promise. (fn [resolve]
+                                                                           (.get js/chrome.storage.local #js ["scripts"]
+                                                                                 (fn [result] (resolve result))))))))
+                        scripts (.-scripts storage-data)
+                        gist-installer (when scripts
+                                         (.find scripts (fn [s]
+                                                          (= (.-id s) "epupp-builtin-gist-installer"))))
+                        has-requires (and gist-installer
+                                          (.-require gist-installer)
+                                          (pos? (.-length (.-require gist-installer))))]
+                    (if has-requires
+                      (js/console.log "Gist installer re-installed with requires")
+                      (if (> (- (.now js/Date) start) timeout-ms)
+                        (throw (js/Error. "Timeout waiting for gist installer with requires"))
+                        (do
+                          (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
+                          (recur)))))))
               (js-await (.close popup)))
 
             ;; Navigate to mock gist page
