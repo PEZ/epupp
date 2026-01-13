@@ -1047,7 +1047,7 @@
 
                   ;; Bring Tab B to focus
                   (js-await (.bringToFront tab-b))
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
 
                   ;; Tab B should show disconnected, and the icon event should be for Tab B
                   ;; (i.e. not Tab A's Chrome tab-id)
@@ -1066,7 +1066,7 @@
 
                   ;; Bring Tab A back to focus
                   (js-await (.bringToFront tab-a))
-                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
 
                   ;; Tab A should STILL show injected/connected
                   (let [popup (js-await (create-popup-page context ext-id))
