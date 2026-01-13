@@ -14,78 +14,7 @@ There is a script “editor” (a textarea) in the Development Tools tab named *
 
 Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
 
-### Advanced: Script Timing
-
-By default, scripts run after the page has loaded (`document-idle`). For scripts that need to intercept page initialization or modify globals before page scripts run, you can specify early timing via metadata in your code:
-
-```clojure
-{:epupp/run-at "document-start"}
-(do
-  ;; This runs BEFORE page scripts
-  (set! js/window.myGlobal "intercepted"))
-```
-
-#### When to Use Each Timing
-
-| Timing | DOM Available? | Use Case |
-|--------|----------------|----------|
-| `document-start` | ❌ No (`document.body` is null) | Intercept globals, block scripts, polyfills |
-| `document-end` | ✅ Yes | DOM manipulation before images/iframes load |
-| `document-idle` | ✅ Yes | Most scripts (default) |
-
-> [!WARNING]
-> Scripts using `document-start` cannot access DOM elements like `document.body` - they don't exist yet! If you need early timing but also need DOM access, wait for `DOMContentLoaded`:
-> ```clojure
-> {:epupp/run-at "document-start"}
-> ;; Intercept something early...
-> (set! js/window.myGlobal "intercepted")
-> ;; ...then wait for DOM when needed
-> (js/document.addEventListener "DOMContentLoaded"
->   (fn [] (js/console.log "Now document.body exists!")))
-> ```
-
-> [!NOTE]
-> **Safari limitation:** Script timing (`document-start`/`document-end`) is not supported in Safari due to API limitations. Scripts will run at `document-idle` regardless of the timing annotation. Chrome and Firefox support all timing values.
-
-### Advanced: Using Scittle Libraries
-
-Epupp bundles the Scittle ecosystem libraries. Add them to your scripts using the `:epupp/require` manifest key:
-
-```clojure
-{:epupp/script-name "reagent_test.cljs"
- :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]}
-
-(ns reagent-test
-  (:require [reagent.core :as r]
-            [reagent.dom :as rdom]))
-
-;; Just test that Reagent is available
-(js/console.log "Reagent loaded!" (some? r/atom))
-
-;; Create our own container
-(let [container (js/document.createElement "div")]
-  (set! (.-id container) "epupp-reagent-test")
-  (set! (.. container -style -cssText) "position: fixed; top: 10px; right: 10px; padding: 10px; background: #2ea44f; color: white; border-radius: 8px; z-index: 99999;")
-  (.appendChild js/document.body container)
-  (rdom/render [:div "Hello from Reagent! 🎉"] container))
-```
-
-#### Available Libraries
-
-| Require URL | Provides |
-|-------------|----------|
-| `scittle://pprint.js` | `cljs.pprint` |
-| `scittle://promesa.js` | `promesa.core` |
-| `scittle://replicant.js` | Replicant UI library |
-| `scittle://js-interop.js` | `applied-science.js-interop` |
-| `scittle://reagent.js` | Reagent + React |
-| `scittle://re-frame.js` | Re-frame (includes Reagent) |
-| `scittle://cljs-ajax.js` | `cljs-http.client` |
-
-Dependencies are resolved automatically. For example, requiring `scittle://re-frame.js` will also load Reagent and React.
-
-I do not plan to build the code editor out much. Mostly because the preferred way to work with scripts is from your editor connected to the [REPL](#repl-usage) (or via your AI agent connected to the REPL). A thing I will probably add is to evaluate sub expressions (in addition to the whole script).
+For script timing, using Scittle libraries (Reagent, Re-frame, etc.), and more examples, see the [User Guide](docs/user-guide.md).
 
 ## REPL Usage
 
