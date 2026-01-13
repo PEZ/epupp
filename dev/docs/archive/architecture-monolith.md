@@ -1,11 +1,5 @@
 # Epupp Architecture
 
-> [!IMPORTANT]
-> This document has been split into smaller references under [architecture/](architecture/).
-> Start here: [architecture/overview.md](architecture/overview.md)
->
-> The old monolithic version is archived at: [archive/architecture-monolith.md](archive/architecture-monolith.md)
-
 This document describes the technical architecture of the Epupp browser extension, serving as the authoritative reference derived from the source code.
 
 ## Overview
@@ -392,7 +386,7 @@ sequenceDiagram
 | `document-start` | Chrome content script | Yes | Yes | Runs before page scripts |
 | `document-end` | Chrome content script | Yes | Yes | Runs at DOMContentLoaded |
 
-Early scripts bypass the background worker's injection orchestration entirely - the loader handles everything.
+Early scripts bypass the background worker's injection orchestration entirely - the loader handles everything synchronously at `document-start`, before page scripts run.
 
 ## Module Dependencies
 

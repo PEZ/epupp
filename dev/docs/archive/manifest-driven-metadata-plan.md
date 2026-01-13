@@ -251,7 +251,7 @@ The UI will show contextual hints:
 
 ## Related Documents
 
-- [architecture.md](architecture.md) - State management patterns
+- [architecture/state-management.md](../architecture/state-management.md) - State management patterns
 - [testing.md](testing.md) - Testing strategy and patterns
 - [ui.md](ui.md) - Current UI behavior documentation
 - [userscripts-architecture.md](userscripts-architecture.md) - Script lifecycle

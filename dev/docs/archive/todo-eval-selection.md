@@ -151,7 +151,7 @@ File: [e2e/panel_test.cljs](../../e2e/panel_test.cljs)
 ### Phase 5: Documentation Updates
 
 1. [dev/docs/ui.md](ui.md) - Update Script Editor section
-2. [dev/docs/architecture.md](architecture.md) - Add new action to Panel Actions table
+2. [dev/docs/architecture/state-management.md](../architecture/state-management.md) - Add new action to Panel Actions table
 
 ## Implementation Checklist
 

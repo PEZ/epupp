@@ -11,7 +11,7 @@
 
 **Start work setup:**
 1. Read [testing.md](../dev/docs/testing.md) for test strategy
-2. Read [architecture.md](../dev/docs/architecture.md) for system design
+2. Read [architecture/overview.md](../dev/docs/architecture/overview.md) for system design
 3. Check `clojure_list_sessions` to verify REPL availability (look for both `squint` and `scittle-dev-repl` sessions)
 
 <principles>
@@ -88,7 +88,7 @@ Mandatory reads:
 * [README.md](../README.md) - Usage and high-level architecture
 * [Developer docs](../dev/docs/dev.md)
 * [Testing](../dev/docs/testing.md) - Strategy, setup, and utilities
-* [Architecture reference](../dev/docs/architecture.md) - Message protocol, state management, injection flows
+* [Architecture reference](../dev/docs/architecture/overview.md) - Overview and navigation to the detailed docs
 * [Userscript architecture](../dev/docs/userscripts-architecture.md)
 * [UI guide](../dev/docs/ui.md) - Script editor UX and ID behavior
 * [Squint gotchas](squint.instructions.md) - Critical Squint-specific issues
@@ -220,11 +220,11 @@ bb build:test   # Rebuild extension (dev config)
 
 ## Architecture Deep Dive
 
-See [docs/architecture.md](../dev/docs/architecture.md) for the complete reference including:
-- Message protocol (all message types and flows)
-- State management (all atoms and their keys)
-- Injection flows (REPL, userscript, panel evaluation)
-- Module dependencies
+Start with [architecture/overview.md](../dev/docs/architecture/overview.md), then jump to:
+- [architecture/message-protocol.md](../dev/docs/architecture/message-protocol.md) - message types and payloads
+- [architecture/state-management.md](../dev/docs/architecture/state-management.md) - state atoms and Uniflow tables
+- [architecture/injection-flows.md](../dev/docs/architecture/injection-flows.md) - REPL/userscript/panel flows
+- [architecture/components.md](../dev/docs/architecture/components.md) - source files and module dependencies
 
 ### Quick Reference: Three-Layer Bridge
 
@@ -247,7 +247,7 @@ See [tasks.clj:adjust-manifest](scripts/tasks.clj). Key differences:
 
 ### State Management
 
-Prefer a single `!state` atom with namespaced keys over multiple separate atoms. See [docs/architecture.md](../dev/docs/architecture.md) for complete state schemas per module.
+Prefer a single `!state` atom with namespaced keys over multiple separate atoms. See [architecture/state-management.md](../dev/docs/architecture/state-management.md) for complete state schemas per module.
 
 ```clojure
 ;; Preferred: single !state atom with namespaced keys
@@ -269,7 +269,7 @@ Even when tracking just one thing, use `!state` with a namespaced key - it signa
 
 ### Message Protocol
 
-All cross-context messages use `#js {:type "..." ...}` objects. See [docs/architecture.md](../dev/docs/architecture.md) for the complete message protocol reference.
+All cross-context messages use `#js {:type "..." ...}` objects. See [architecture/message-protocol.md](../dev/docs/architecture/message-protocol.md) for the complete message protocol reference.
 
 ### Guard Against Multiple Injections
 
@@ -286,7 +286,7 @@ The popup UI ([popup.cljs](src/popup.cljs)) uses **Reagami** (a lightweight Reag
 
 ### State Management Pattern
 
-Single atom with namespaced keys, rendered via `add-watch`. See [architecture.md](../dev/docs/architecture.md#state-management) for complete state schemas per module.
+Single atom with namespaced keys, rendered via `add-watch`. See [architecture/state-management.md](../dev/docs/architecture/state-management.md) for complete state schemas per module.
 
 ```clojure
 ;; Re-render on any state change
@@ -314,7 +314,7 @@ Actions dispatched as vectors of vectors (batched), using Uniflow pattern:
 
 See [uniflow.instructions.md](uniflow.instructions.md) for full event system documentation.
 
-See [architecture.md](../dev/docs/architecture.md#uniflow-event-system) for complete lists of popup and panel actions/effects.
+See [architecture/state-management.md](../dev/docs/architecture/state-management.md#uniflow-event-system) for complete lists of popup and panel actions/effects.
 
 ### Page Script Injection Pattern
 

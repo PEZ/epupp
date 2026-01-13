@@ -267,5 +267,5 @@ Safari doesn't support:
 ## Related Documents
 
 - [testing.md](testing.md) - Test strategy overview
-- [architecture.md](architecture.md) - Extension architecture
+- [architecture/overview.md](../architecture/overview.md) - Extension architecture
 - [userscripts-architecture.md](userscripts-architecture.md) - Userscript design

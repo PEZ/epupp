@@ -3,7 +3,7 @@
 **Created:** January 2, 2026
 **Status:** Implemented
 
-This document captures design decisions and rationale for the userscript feature. For technical implementation details (message protocols, state schemas, injection flows), see [architecture.md](architecture.md).
+This document captures design decisions and rationale for the userscript feature. For technical implementation details (message protocols, state schemas, injection flows), see [architecture/overview.md](architecture/overview.md).
 
 ## Overview
 
@@ -34,7 +34,7 @@ A minimal DevTools panel serves as the **on-ramp**; jacking in an editor is the 
 
 ## Component Overview
 
-See [architecture.md](architecture.md) for the full component diagram and technical details. Key userscript-related components:
+See [architecture/overview.md](architecture/overview.md) for the full component diagram and technical details. Key userscript-related components:
 
 - **Background Worker** - Handles `webNavigation.onCompleted`, manages pending approvals
 - **Content Bridge** - Injects `<script type="application/x-scittle">` tags
@@ -45,7 +45,7 @@ See [architecture.md](architecture.md) for the full component diagram and techni
 
 ### Script Storage Schema
 
-See [architecture.md](architecture.md) for complete state schemas. Script fields:
+See [architecture/state-management.md](architecture/state-management.md) for complete state schemas. Script fields:
 
 ```clojure
 ;; Stored in chrome.storage.local under key "scripts"
@@ -83,7 +83,7 @@ Scripts specify timing via the `:epupp/run-at` annotation in the code's metadata
 (js/console.log "Intercepting page initialization!")
 ```
 
-The annotation is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at`. See [architecture.md](architecture.md#content-script-registration) for technical details.
+The annotation is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
 Per-pattern approval is handled via `:script/approved-patterns` on each script.
@@ -236,7 +236,7 @@ flowchart TD
 
 **Key difference:** Early scripts bypass the background worker's orchestration entirely. The loader handles everything synchronously at `document-start`, before page scripts run.
 
-For the detailed step-by-step implementation of injection flows, see [architecture.md](architecture.md#injection-flows).
+For the detailed step-by-step implementation of injection flows, see [architecture/injection-flows.md](architecture/injection-flows.md#injection-flows).
 
 ## UI Distribution
 
@@ -312,6 +312,6 @@ For scripts loaded from files or shared, support TamperMonkey-style header comme
 ## Related Documents
 
 - [README.md](../../README.md) - Project overview and usage
-- [architecture.md](architecture.md) - Technical reference (state, messages, flows)
+- [architecture/overview.md](architecture/overview.md) - Technical reference (state, messages, flows)
 - [dev.md](dev.md) - Development setup
 - [.github/copilot-instructions.md](../../.github/copilot-instructions.md) - AI agent instructions

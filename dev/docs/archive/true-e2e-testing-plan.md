@@ -476,5 +476,5 @@ With `performance.now` on all events, we can generate timing reports:
 ## Related Documents
 
 - [testing.md](testing.md) - Existing test strategy
-- [architecture.md](architecture.md) - Extension architecture
+- [architecture/overview.md](../architecture/overview.md) - Extension architecture
 - [userscripts-architecture.md](userscripts-architecture.md) - Userscript design

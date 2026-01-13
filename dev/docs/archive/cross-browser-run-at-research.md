@@ -322,7 +322,7 @@ Must test on all three browsers:
 ### Epupp Documentation
 
 - [run-at-injection-timing.md](run-at-injection-timing.md) - Original research document
-- [architecture.md](architecture.md) - Current Epupp architecture
+- [architecture/overview.md](../architecture/overview.md) - Architecture overview
 - [userscripts-architecture.md](userscripts-architecture.md) - Userscript design decisions
 
 ## Next Steps
