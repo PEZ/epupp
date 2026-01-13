@@ -583,6 +583,48 @@
     };
   }"))
 
+;; Evaluate ClojureScript code via Scittle's eval_string
+(def eval-scittle-fn
+  (js* "function(code) {
+    try {
+      var result = scittle.core.eval_string(code);
+      return {success: true, result: String(result)};
+    } catch(e) {
+      return {success: false, error: e.message};
+    }
+  }"))
+
+;; The epupp namespace code injected at REPL connect time.
+;; Provides epupp/manifest! for loading Scittle libraries on demand.
+;; Uses letfn instead of let for handler self-reference (required for SCI/Scittle).
+(def epupp-namespace-code
+  "(ns epupp)
+
+(defn manifest!
+  \"Load Epupp manifest. Injects required Scittle libraries.
+   Returns a promise that resolves when libraries are loaded.
+
+   Example: (epupp/manifest! {:epupp/require [\\\"scittle://reagent.js\\\"]})\"
+  [m]
+  (js/Promise.
+    (fn [resolve reject]
+      (letfn [(handler [e]
+                (when (= (.-source e) js/window)
+                  (let [msg (.-data e)]
+                    (when (and msg
+                               (= \"epupp-bridge\" (.-source msg))
+                               (= \"manifest-response\" (.-type msg)))
+                      (.removeEventListener js/window \"message\" handler)
+                      (if (.-success msg)
+                        (resolve true)
+                        (reject (js/Error. (.-error msg))))))))]
+        (.addEventListener js/window \"message\" handler)
+        (.postMessage js/window
+          #js {:source \"epupp-page\"
+               :type \"load-manifest\"
+               :manifest (clj->js m)}
+          \"*\")))))")
+
 (def close-websocket-fn
   (js* "function() {
     var ws = window.ws_nrepl;
@@ -671,9 +713,23 @@
     (js-await (poll-until-connection tab-id 3000))
     true))
 
+(defn ^:async inject-epupp-namespace!
+  "Inject the epupp namespace into the page via Scittle eval.
+   Provides epupp/manifest! for loading libraries from REPL."
+  [tab-id]
+  (let [result (js-await (execute-in-page tab-id eval-scittle-fn epupp-namespace-code))]
+    (if (and result (.-success result))
+      (do
+        (log/info "Background" "REPL" "Injected epupp namespace into tab:" tab-id)
+        true)
+      (do
+        (log/warn "Background" "REPL" "Failed to inject epupp namespace:" (when result (.-error result)))
+        false))))
+
 (defn ^:async connect-tab!
   "End-to-end connect flow for a specific tab.
-   Ensures bridge + Scittle + scittle.nrepl and waits for connection."
+   Ensures bridge + Scittle + scittle.nrepl and waits for connection.
+   Also injects the epupp namespace for manifest! support."
   [tab-id ws-port]
   (when-not (and tab-id ws-port)
     (throw (js/Error. "connect-tab: Missing tab-id or ws-port")))
@@ -682,6 +738,8 @@
     (js-await (ensure-scittle! tab-id))
     (let [status2 (js-await (execute-in-page tab-id check-status-fn))]
       (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
+    ;; Inject epupp namespace for manifest! support
+    (js-await (inject-epupp-namespace! tab-id))
     true))
 
 (defn ^:async get-auto-connect-settings
@@ -804,6 +862,24 @@
                     ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
+
+                    ;; Page context requests library injection via epupp/manifest!
+                    "load-manifest"
+                    (let [manifest (.-manifest message)
+                          ;; Note: clj->js in Scittle strips namespace, so :epupp/require becomes "require"
+                          requires (when manifest
+                                     (vec (aget manifest "require")))]
+                      ((^:async fn []
+                         (try
+                           (when (seq requires)
+                             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+                               (when (seq files)
+                                 (js-await (inject-requires-sequentially! tab-id files)))))
+                           (send-response #js {:success true})
+                           (catch :default err
+                             (log/error "Background" "Manifest" "load-manifest failed:" err)
+                             (send-response #js {:success false :error (.-message err)})))))
+                      true)
 
                     ;; Popup requests active connection info
                     "get-connections"

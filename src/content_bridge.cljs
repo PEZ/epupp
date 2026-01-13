@@ -11,6 +11,7 @@
 ;;
 ;; Current whitelist:
 ;; - epupp-page source: ws-connect, ws-send (WebSocket relay for REPL)
+;; - epupp-page source: load-manifest (library injection for REPL)
 ;; - epupp-userscript source: install-userscript (with origin validation in background)
 ;; ============================================================
 
@@ -88,6 +89,26 @@
             (send-message-safe!
              #js {:type "ws-send"
                   :data (.-data msg)}))
+
+          "load-manifest"
+          (do
+            (log/info "Bridge" nil "Forwarding manifest request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "load-manifest"
+                    :manifest (.-manifest msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "manifest-response"
+                                    :success (.-success response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
 
           nil))
 
