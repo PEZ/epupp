@@ -216,29 +216,38 @@
 
              (test "epupp/manifest! is idempotent - no duplicate script tags"
                    (^:async fn []
-                     ;; Count replicant script tags before
-                     (let [count-before (js-await (eval-in-browser
-                                                   "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
-                       (-> (expect (.-success count-before)) (.toBe true))
-                       (js/console.log "=== replicant scripts before ===" (.-values count-before))
+                     ;; First, load Replicant
+                     (let [first-load (js-await (eval-in-browser
+                                                 "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                       (-> (expect (.-success first-load)) (.toBe true)))
 
-                       ;; Call manifest! again (Replicant was already loaded by previous test)
-                       (let [manifest-result (js-await (eval-in-browser
-                                                        "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
-                         (-> (expect (.-success manifest-result)) (.toBe true)))
+                     ;; Wait for injection
+                     (js-await (sleep 2000))
+
+                     ;; Count replicant script tags after first load (should be 1)
+                     (let [count-after-first (js-await (eval-in-browser
+                                                        "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
+                       (-> (expect (.-success count-after-first)) (.toBe true))
+                       (js/console.log "=== replicant scripts after first load ===" (.-values count-after-first))
+                       ;; nREPL returns values as strings
+                       (-> (expect (first (.-values count-after-first))) (.toBe "1"))
+
+                       ;; Call manifest! again
+                       (let [second-load (js-await (eval-in-browser
+                                                    "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                         (-> (expect (.-success second-load)) (.toBe true)))
 
                        ;; Wait for injection
                        (js-await (sleep 2000))
 
-                       ;; Count replicant script tags after
-                       (let [count-after (js-await (eval-in-browser
-                                                    "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
-                         (-> (expect (.-success count-after)) (.toBe true))
-                         (js/console.log "=== replicant scripts after ===" (.-values count-after))
+                       ;; Count replicant script tags after second load
+                       (let [count-after-second (js-await (eval-in-browser
+                                                           "(.-length (js/document.querySelectorAll \"script[src*='replicant']\"))"))]
+                         (-> (expect (.-success count-after-second)) (.toBe true))
+                         (js/console.log "=== replicant scripts after second load ===" (.-values count-after-second))
 
-                         ;; Should be same count - no duplicates added
-                         (-> (expect (first (.-values count-after)))
-                             (.toBe (first (.-values count-before))))))))))
+                         ;; Should still be 1 - no duplicates added (nREPL returns strings)
+                         (-> (expect (first (.-values count-after-second))) (.toBe "1"))))))))
 
 ;; =============================================================================
 ;; Multi-Tab Multi-Server Tests

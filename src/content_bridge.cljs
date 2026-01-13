@@ -143,20 +143,34 @@
 ;; Script injection helpers
 (defn- inject-script-tag!
   "Inject a script tag with src URL into the page.
+   Tracks injected URLs to prevent duplicates.
    Returns a promise that resolves when the script has loaded."
   [url send-response]
-  (let [script (js/document.createElement "script")]
-    (set! (.-onload script)
-          (fn []
-            (log/info "Bridge" nil "Script loaded:" url)
-            (send-response #js {:success true})))
-    (set! (.-onerror script)
-          (fn [e]
-            (log/error "Bridge" nil "Script load error:" url e)
-            (send-response #js {:success false :error (str "Failed to load " url)})))
-    (set! (.-src script) url)
-    (.appendChild js/document.head script)
-    (log/info "Bridge" nil "Injecting script:" url)))
+  ;; Initialize tracker if needed (survives across content script re-injections)
+  (when-not js/window.__epuppInjectedScripts
+    (set! js/window.__epuppInjectedScripts (js/Set.)))
+  ;; Check for duplicate
+  (if (.has js/window.__epuppInjectedScripts url)
+    (do
+      (log/info "Bridge" nil "Script already injected, skipping:" url)
+      (send-response #js {:success true :skipped true}))
+    (do
+      ;; Track this URL
+      (.add js/window.__epuppInjectedScripts url)
+      (let [script (js/document.createElement "script")]
+        (set! (.-onload script)
+              (fn []
+                (log/info "Bridge" nil "Script loaded:" url)
+                (send-response #js {:success true})))
+        (set! (.-onerror script)
+              (fn [e]
+                (log/error "Bridge" nil "Script load error:" url e)
+                ;; Remove from tracker on error so retry is possible
+                (.delete js/window.__epuppInjectedScripts url)
+                (send-response #js {:success false :error (str "Failed to load " url)})))
+        (set! (.-src script) url)
+        (.appendChild js/document.head script)
+        (log/info "Bridge" nil "Injecting script:" url)))))
 
 (defn- clear-old-userscripts!
   "Remove previously injected userscript tags to prevent re-execution on navigation."
