@@ -275,27 +275,6 @@ kbd {
   padding: 20px;
 }
 
-.empty-results-logos {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.empty-results-logos a {
-  transition: opacity 0.15s;
-}
-
-.empty-results-logos a:hover {
-  opacity: 0.8;
-}
-
-.empty-results-logos img {
-  width: 32px;
-  height: 32px;
-}
-
 .empty-results-text {
   font-size: 13px;
   line-height: 1.6;
@@ -362,87 +341,6 @@ kbd {
   flex-wrap: wrap;
   gap: 10px;
   align-items: flex-start;
-}
-
-.save-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 150px;
-}
-
-.save-field.description-field {
-  flex-basis: 100%;
-  min-width: 100%;
-}
-
-.save-field label {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.save-field input {
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-}
-
-.save-field input:focus {
-  outline: none;
-  border-color: var(--clojure-blue);
-}
-
-.save-field input::placeholder {
-  color: var(--text-muted);
-}
-
-.save-field textarea {
-  padding: 6px 10px;
-  font-size: 12px;
-  font-family: inherit;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  resize: vertical;
-  min-height: 40px;
-}
-
-.save-field textarea:focus {
-  outline: none;
-  border-color: var(--clojure-blue);
-}
-
-.save-field textarea::placeholder {
-  color: var(--text-muted);
-}
-
-.match-input-group {
-  display: flex;
-  gap: 4px;
-}
-
-.match-input-group input {
-  flex: 1;
-}
-
-.btn-use-url {
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.btn-use-url:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
 }
 
 .save-actions {
@@ -687,21 +585,12 @@ kbd {
    Enhanced Empty Results State
    ============================================================ */
 
-.empty-results-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 12px;
-  line-height: 1.6;
-}
-
 .empty-results-shortcut {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
-
-/* kbd styling is now global */
 
 .blank-slate-link {
   color: var(--clojure-blue);
