@@ -30,16 +30,17 @@ The alert appears. That's ClojureScript running in the page context.
 
 The built-in **Gist Installer** lets you install scripts from GitHub Gists. A few examples to try:
 
-<!-- TODO: Create and link actual gists -->
-- Hello World Badge: `https://gist.github.com/...`
-- GitHub PR Enhancer: `https://gist.github.com/...`
-- YouTube Shortcuts: `https://gist.github.com/...`
+Very silly examples...
+
+- Document start timing test: https://gist.github.com/PEZ/282f263a6789ca4a502a82bbc27a1684
+- GitHub Party (don't use if you are epileptic): https://gist.github.com/PEZ/3f499d088a742386c5a42761c6c06c5a
+- Print elements and their selector to the console. Disable it in the extension popup, and then run it from the popup. It will toggle the inspecting at each run: https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e
+- ... TBD!
 
 To install:
-1. Click the Epupp extension icon to open the popup
-2. Find "Gist Installer" in the script list and click the play button
-3. A floating button appears on pages with gist URLs
-4. Click it, then confirm installation
+1. Visit the gist
+2. Click the **Install to Epupp** button (that should appear)
+3. Allow or Deny from the popup UI (on sites where the script matches)
 
 ### Save as Userscript
 
