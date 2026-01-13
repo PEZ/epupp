@@ -7,6 +7,15 @@
       "replSessionNames": {
         "primary": "squint"
       }
+    },
+    {
+      "name": "Scittle Dev REPL",
+      "projectType": "scittle",
+      // "projectRootPath": [".", "extension", "userscripts"],
+      "fallbackPort": 31337,
+      "replSessionNames": {
+        "primary": "scittle-dev-repl"
+      },
     }
   ],
   "search.exclude": {

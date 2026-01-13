@@ -34,10 +34,23 @@
       "problemMatcher": []
     },
     {
+      "label": "Scittle Dev REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 31337 --websocket-port 31338",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
+    },
+    {
       "label": "Start Dev Environment",
       "dependsOn": [
         "Squint Watch",
-        "Unit Test Watch"
+        "Unit Test Watch",
+        "Scittle Dev REPL"
       ],
       "group": {
         "kind": "build",
