@@ -144,7 +144,7 @@
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
         ;; Short stabilization wait - networkidle should handle most of it
-        (js-await (sleep 300))
+        (js-await (sleep 100))
         ;; Find test page tab ID
         (let [find-result (js-await (send-runtime-message
                                      bg-page "e2e/find-tab-id"
@@ -366,7 +366,7 @@
                              (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
                                               #js {:waitUntil "networkidle"}))
                              ;; Short stabilization - networkidle handles most of it
-                             (js-await (sleep 200))
+                             (js-await (sleep 100))
 
                              ;; Find both tabs (use Chrome match patterns, not globs)
                              (let [find1 (js-await (send-runtime-message popup "e2e/find-tab-id"
