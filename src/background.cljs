@@ -654,6 +654,14 @@
       (.then (fn [msg]
                {:success (.-success msg)
                 :name (.-name msg)
+                :error (.-error msg)}))))
+
+(defn mv!
+  \"Rename a script. Returns promise of result map.\"
+  [from-name to-name]
+  (-> (send-and-receive \"rename-script\" {:from from-name :to to-name} \"rename-script-response\")
+      (.then (fn [msg]
+               {:success (.-success msg)
                 :error (.-error msg)}))))")
 
 (def close-websocket-fn
@@ -929,6 +937,20 @@
                               (send-response #js {:success true :name normalized-name}))))
                         (catch :default err
                           (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
+                      false)
+
+                    ;; Page context renames script via epupp/mv!
+                    "rename-script"
+                    (let [from-name (.-from message)
+                          to-name (.-to message)
+                          script (storage/get-script-by-name from-name)]
+                      (if-not script
+                        (send-response #js {:success false :error (str "Script not found: " from-name)})
+                        (if (script-utils/builtin-script-id? (:script/id script))
+                          (send-response #js {:success false :error "Cannot rename built-in scripts"})
+                          (do
+                            (storage/rename-script! (:script/id script) to-name)
+                            (send-response #js {:success true}))))
                       false)
 
                     ;; Page context requests script code by name via epupp/cat
