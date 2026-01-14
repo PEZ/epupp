@@ -80,6 +80,9 @@
 | Doc | Why |
 |-----|-----|
 | [squint.instructions.md](squint.instructions.md) | Squint != ClojureScript - keywords, mutability, and other gotchas |
+| [dev/docs/architecture/overview.md](../dev/docs/architecture/overview.md) | System architecture - understanding how components interact |
+| [dev/docs/testing.md](../dev/docs/testing.md) | Testing philosophy and patterns |
+| [dev/docs/testing-e2e.md](../dev/docs/testing-e2e.md) | E2E test patterns - polling, assertions, performance |
 
 ### By Task Type (read before starting work)
 
@@ -87,8 +90,8 @@ These docs are **required reading** for their respective task types. Use `read_f
 
 | Task | Docs to Read |
 |------|--------------|
-| **Understanding the system** | `dev/docs/architecture/overview.md` - start here, links to detailed docs |
-| **Writing tests** | `dev/docs/testing.md` |
+| **Understanding the system** | Start with auto-loaded architecture overview, then navigation to detailed docs |
+| **Writing unit tests** | `dev/docs/testing-unit.md` |
 | **UI work (popup/panel)** | `.github/reagami.instructions.md`, `dev/docs/ui.md` |
 | **State/events** | `dev/docs/architecture/uniflow.md`, `dev/docs/architecture/state-management.md` |
 | **Messaging between contexts** | `dev/docs/architecture/message-protocol.md` |
