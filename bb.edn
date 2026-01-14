@@ -89,7 +89,7 @@
                       (let [result (apply babashka.process/shell {:continue true} "docker run --rm epupp-e2e" *command-line-args*)]
                         (System/exit (:exit result))))}
 
-  test:e2e:parallel {:doc "Run E2E tests in parallel Docker shards. Use --shards N (default 3)"
+  test:e2e:parallel {:doc "Run E2E tests in parallel Docker shards using Playwright's native sharding. Use --shards N (default 4)"
                      :task (tasks/run-e2e-parallel! *command-line-args*)}
 
   test:e2e:timing {:doc "Run E2E tests in Docker and print timing report sorted fastest-first. Tail for slowest tests."
