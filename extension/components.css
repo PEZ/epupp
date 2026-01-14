@@ -1,0 +1,216 @@
+/* ============================================================
+   Components - Reusable UI patterns shared across popup and panel
+   ============================================================ */
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+/* Base button - shared foundation for all button variants */
+.btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Primary - blue action buttons (Connect, Eval, Rename) */
+.btn-primary {
+  background: var(--clojure-blue);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #4a71c4;
+}
+
+.btn-primary:disabled {
+  background: var(--color-bg-input);
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Success - green action buttons (Save, Allow) */
+.btn-success {
+  background: var(--clojure-green);
+  color: #1e1e1e;
+  border: none;
+}
+
+.btn-success:hover {
+  background: #82cd3a;
+}
+
+.btn-success:disabled {
+  background: var(--color-bg-input);
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Secondary - ghost/outline buttons (Copy, Clear, New) */
+.btn-secondary {
+  background: var(--color-bg-btn);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg-btn-hover);
+  color: var(--color-text-primary);
+}
+
+/* Danger - destructive buttons (Deny, Delete) */
+.btn-danger {
+  background: var(--color-bg-btn);
+  color: var(--color-text-delete-hover);
+  border: 1px solid var(--color-border);
+}
+
+.btn-danger:hover {
+  background: var(--color-bg-delete-hover);
+  border-color: var(--color-text-delete-hover);
+}
+
+/* Size variants */
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.btn-lg {
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+/* ============================================================
+   Status Indicators
+   ============================================================ */
+
+/* Left-border status bar pattern */
+.status-bar {
+  padding: 10px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+.status-bar--success {
+  border-left-color: var(--color-success);
+}
+
+.status-bar--error {
+  border-left-color: var(--color-error);
+  background: var(--color-bg-status-failed);
+}
+
+.status-bar--warning {
+  border-left-color: var(--color-warning);
+  background: var(--color-bg-approval);
+}
+
+.status-bar--info {
+  border-left-color: var(--clojure-blue);
+}
+
+/* Inline status text */
+.status-text {
+  font-size: 11px;
+  animation: fadeIn 0.2s ease;
+}
+
+.status-text--success {
+  color: var(--color-success);
+}
+
+.status-text--error {
+  color: var(--color-error);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============================================================
+   Empty States
+   ============================================================ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-state-text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-state-text a {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.empty-state-text a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Cards / Containers
+   ============================================================ */
+
+.card {
+  padding: 12px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.card-dashed {
+  padding: 12px;
+  background: var(--color-bg-input);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   Section Headers
+   ============================================================ */
+
+.section-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Keyboard shortcuts
+   ============================================================ */
+
+kbd {
+  font-family: var(--font-mono);
+  background: var(--color-bg-input);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+}
