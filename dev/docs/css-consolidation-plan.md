@@ -354,27 +354,75 @@ Extract reusable patterns into `extension/components.css`.
 
 ## Migration Steps
 
-### Step 1: Create design tokens (non-breaking)
-1. Create `design-tokens.css`
-2. Import at top of popup.css and panel.css
-3. No visual changes yet
+**CRITICAL: Manual Visual Testing Required**
 
-### Step 2: Migrate popup.css to new variables
-1. Replace old variable references with new tokens
-2. Keep old variable declarations as aliases temporarily
-3. Test visually
+After each step that touches CSS, run `bb build:dev` and ask the human to:
+1. Open both popup and panel in light and dark themes
+2. Verify no visual regressions (backgrounds, borders, spacing, colors)
+3. E2E tests verify behavior, not appearance - human eyes are essential!
 
-### Step 3: Migrate panel.css to new variables
-1. Same process as popup
-2. Verify both views look consistent
+### Step 1a: Create design tokens (non-breaking) ✅ DONE
+1. ✅ Create `design-tokens.css`
+2. ✅ Import at top of popup.css and panel.css
+3. ✅ No visual changes yet
+4. ✅ **CHECKPOINT: Ask human to verify visually before proceeding**
 
-### Step 4: Extract scrollbar styles with stability pattern
-1. Move scrollbar CSS to shared.css (already imported by both)
-2. **Include popup's scrollbar-gutter stability pattern**
-3. Create `.scrollable-stable` utility class
-4. Apply to popup body and panel's scrollable container
-5. Test scrollbar appear/disappear doesn't cause layout shift
-6. Remove duplicates from popup.css and panel.css
+### Step 1b: Regression Analysis - Background Layering ✅ DONE
+
+**Problem discovered during Step 4 (scrollbar extraction):**
+
+When migrating to shared variables, naive substitution caused visual regressions because the design token system lacks sufficient background layers for nested UI contexts.
+
+**Current token layering (insufficient):**
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--color-bg-base` | #ffffff | #1e1e1e | Body, main content areas |
+| `--color-bg-elevated` | #f8f9fa | #252526 | Headers, footers, sections |
+| `--color-bg-input` | #ffffff | #2d2d2d | Form inputs, code areas |
+
+**The problem:** When a container uses `--bg-elevated` and items inside also use `--bg-elevated` or `--bg-input` (which equals base in light theme), items don't pop.
+
+**Specific regressions found:**
+1. `.panel-footer` was changed to `--bg-primary` (base) - lost muted appearance
+2. `.results-area` was changed to `--bg-secondary` (elevated) - result items blended in
+
+**Root cause:** The original CSS used context-specific values that created visual hierarchy through deliberate contrast. Consolidating to fewer tokens loses this nuance.
+
+**Solution: Add result-specific background tokens:**
+
+```css
+/* Result item backgrounds - ensure contrast against results-area */
+--color-bg-result-input: var(--color-bg-base);   /* Light: white, Dark: base */
+--color-bg-result-output: var(--color-bg-base);  /* Was --bg-secondary, needs contrast */
+```
+
+**Guiding principle for consolidation:**
+- **Containers** (results-area, footer, header) use elevated backgrounds
+- **Items within containers** (result-input, result-output) use base backgrounds to pop
+- **Interactive elements** (buttons, inputs) use their own contextual tokens
+
+**Action items:** ✅ DONE
+1. ✅ Add `--color-bg-result-input` and `--color-bg-result-output` to design-tokens.css
+2. ✅ Update panel.css result items to use these tokens
+3. ✅ Keep `.results-area` with elevated background for section distinction
+4. ✅ Verify visual hierarchy: base < elevated < items-pop-on-elevated
+
+### Step 2: Migrate popup.css to new variables ✅ DONE
+1. ✅ Replace old variable references with new tokens
+2. ✅ Keep old variable declarations as aliases temporarily
+3. ✅ Test visually
+
+### Step 3: Migrate panel.css to new variables ✅ DONE
+1. ✅ Same process as popup
+2. ✅ Verify both views look consistent
+
+### Step 4: Extract scrollbar styles with stability pattern ✅ DONE
+1. ✅ Move scrollbar CSS to shared.css (already imported by both)
+2. ✅ **Include popup's scrollbar-gutter stability pattern**
+3. ✅ Create `.scrollable-stable` utility class
+4. ✅ Apply to popup body and panel's scrollable container
+5. ✅ Test scrollbar appear/disappear doesn't cause layout shift
+6. ✅ Remove duplicates from popup.css and panel.css
 
 ### Step 5: Create components.css
 1. Extract button styles
