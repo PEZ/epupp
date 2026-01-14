@@ -25,6 +25,12 @@
       "replSessionNames": {
         "primary": "epupp-gitlab"
       },
+      "replSessionFilePatterns": {
+        "primary": [
+          "test-data/tampers/*.clj*",
+          "test-data/tampers/*.edn"
+        ],
+      }
     },
     {
       "name": "Epupp YouTube REPL",
@@ -34,6 +40,12 @@
       "replSessionNames": {
         "primary": "epupp-youtube"
       },
+      "replSessionFilePatterns": {
+        "primary": [
+          "test-data/tampers/*.clj*",
+          "test-data/tampers/*.edn"
+        ],
+      }
     }
   ],
   "search.exclude": {
