@@ -84,13 +84,8 @@
   test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist). Pass extra args to Playwright."
                :task (tasks/run-e2e-tests! *command-line-args*)}
 
-  test:e2e {:doc "Run Playwright E2E tests in Docker (headless, no browser popup). Pass extra args to Playwright: bb test:e2e --grep 'pattern'"
-            :task (do (babashka.process/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-                      (let [result (apply babashka.process/shell {:continue true} "docker run --rm epupp-e2e" *command-line-args*)]
-                        (System/exit (:exit result))))}
-
-  test:e2e:parallel {:doc "Run E2E tests in parallel Docker shards using Playwright's native sharding. Use --shards N (default 4)"
-                     :task (tasks/run-e2e-parallel! *command-line-args*)}
+  test:e2e {:doc "Run E2E tests in Docker. Parallel (6 shards) by default. --serial for detailed output, --shards N to customize. Use -- to pass args to Playwright: bb test:e2e --serial -- --grep 'popup'"
+            :task (tasks/run-e2e! *command-line-args*)}
 
   test:e2e:timing {:doc "Run E2E tests in Docker and print timing report sorted fastest-first. Tail for slowest tests."
                    :task (tasks/e2e-timing-report! *command-line-args*)}

@@ -4,26 +4,26 @@ Detailed documentation for Playwright E2E tests. For overview, see [testing.md](
 
 ## Commands
 
-**Default (AI Agents and Automated Testing):**
+**Default (parallel in Docker):**
 ```bash
-bb test:e2e  # All E2E tests (headless in Docker), includes REPL integration
+bb test:e2e          # All E2E tests, 6 parallel shards (~16s)
+bb test:e2e --shards 4  # Customize shard count
 ```
 
-**Parallel execution (faster, for humans with multi-core machines):**
+**Serial mode (detailed output for debugging):**
 ```bash
-bb test:e2e:parallel --shards 6  # ~16s vs ~32s sequential on a Mac M4 Max
+bb test:e2e --serial                    # All tests, detailed output
+bb test:e2e --serial -- --grep "popup"  # Filter with Playwright args
 ```
 
-**Only for Human Developers (Visible Browser):**
+Use `--` to separate task options from Playwright options.
+
+**Only for Human Developers (visible browser):**
 ```bash
-bb test:e2e:headed     # E2E tests
+bb test:e2e:headed     # E2E tests (visible browser, requires build first)
 ```
 
 When you need help from the human's eyes, you can suggest to run the tests in UI mode: `bb test:e2e:ui:headed`
-
-**Filter tests:**
-
-The test tasks take all Playwright options, including `--grep`.
 
 ## Infrastructure
 
