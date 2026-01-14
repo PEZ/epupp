@@ -10,7 +10,7 @@
 | `epupp/cat` | ✅ Done | Retrieves script code by name |
 | `epupp/ls` | ✅ Done | List all scripts with metadata |
 | `epupp/save!` | ✅ Done | Save code with manifest |
-| `epupp/mv!` | 🔲 Not started | Rename script |
+| `epupp/mv!` | ✅ Done | Rename script |
 | `epupp/rm!` | 🔲 Not started | Delete script |
 
 ## Problem Statement
