@@ -37,6 +37,45 @@ Human - AI - REPL
 
 **Fixtures are critical**: Always check e2e/fixtures.cljs for available helpers before writing new wait logic.
 
+## Available REPLs
+
+Use `clojure_list_sessions` to verify REPL availability. Four REPLs serve different purposes:
+
+| Session | Purpose | Use For |
+|---------|---------|---------|
+| `bb` | Babashka scripting | Build tasks, file operations, automation scripts |
+| `squint` | Squint REPL (Node.js) | Testing pure functions from src/*.cljs before editing |
+| `scittle-dev-repl` | Scittle in browser-like env | Testing Scittle-specific code, browser APIs |
+| `joyride` | VS Code scripting | Editor automation, workspace operations |
+
+### REPL-First Development
+
+**Act informed through the REPL.** Before editing implementation files:
+
+1. **Test pure functions in Squint REPL** - Verify logic works before committing to files
+2. **Explore data structures** - Understand the shape of data you're working with
+3. **Validate assumptions** - Don't guess, evaluate
+
+```clojure
+;; Example: Test a function before editing
+(require '[storage :as s])
+(s/get-script-by-name "test.cljs")
+;; => See actual return value, understand the data
+```
+
+### When to Use Which REPL
+
+- **squint** - Default for testing src/*.cljs pure functions (runs in Node.js)
+- **scittle-dev-repl** - When code uses browser globals or Scittle-specific features
+- **bb** - For build scripts, file manipulation, or testing bb.edn tasks
+- **joyride** - Rarely needed; for VS Code API interactions
+
+### REPL Workflow Integration
+
+1. **Before implementing**: Explore existing functions in REPL to understand current behavior
+2. **While implementing**: Test each new function in REPL before adding to file
+3. **After editing**: Reload namespace and verify behavior matches expectations
+
 ## Workflow
 
 ### 1. Investigate First
