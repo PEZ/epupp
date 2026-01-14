@@ -109,6 +109,27 @@
                   (stop-keepalive!)
                   (set-connected! false)))))
 
+          "save-script"
+          (do
+            (log/info "Bridge" nil "Forwarding save-script request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "save-script"
+                    :code (.-code msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "save-script-response"
+                                    :success (.-success response)
+                                    :name (.-name response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
           "get-script"
           (do
             (log/info "Bridge" nil "Forwarding get-script request to background")

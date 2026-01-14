@@ -644,7 +644,17 @@
       (.then (fn [msg]
                (if (.-success msg)
                  (js->clj (.-scripts msg) :keywordize-keys true)
-                 [])))))")
+                 [])))))
+
+(defn save!
+  \"Save code to Epupp. Parses manifest from code.
+   Returns promise of {:success true :name ...} or {:success false :error ...}\"
+  [code]
+  (-> (send-and-receive \"save-script\" {:code code} \"save-script-response\")
+      (.then (fn [msg]
+               {:success (.-success msg)
+                :name (.-name msg)
+                :error (.-error msg)}))))")
 
 (def close-websocket-fn
   (js* "function() {
@@ -893,6 +903,32 @@
                                                   :match (:script/match s)})
                                                scripts)]
                       (send-response (clj->js {:success true :scripts public-scripts}))
+                      false)
+
+                    ;; Page context saves script code via epupp/save!
+                    "save-script"
+                    (let [code (.-code message)]
+                      (try
+                        (let [manifest (manifest-parser/extract-manifest code)
+                              raw-name (get manifest "script-name")
+                              normalized-name (when raw-name
+                                                (script-utils/normalize-script-name raw-name))
+                              site-match (get manifest "site-match")
+                              requires (get manifest "require")]
+                          (if-not normalized-name
+                            (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+                            (let [existing (storage/get-script-by-name normalized-name)
+                                  script-id (or (:script/id existing)
+                                                (str "script-" (.now js/Date)))
+                                  script {:script/id script-id
+                                          :script/name normalized-name
+                                          :script/code code
+                                          :script/match (if (vector? site-match) site-match [site-match])
+                                          :script/require (or requires [])}]
+                              (storage/save-script! script)
+                              (send-response #js {:success true :name normalized-name}))))
+                        (catch :default err
+                          (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
                       false)
 
                     ;; Page context requests script code by name via epupp/cat

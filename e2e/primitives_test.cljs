@@ -246,6 +246,72 @@
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
+             (test "epupp/save! creates new script from code with manifest"
+                   (^:async fn []
+                     ;; First verify save! function exists
+                     (let [fn-check (js-await (eval-in-browser "(fn? epupp/save!)"))]
+                       (-> (expect (.-success fn-check)) (.toBe true))
+                       (-> (expect (.-values fn-check)) (.toContain "true")))
+
+                     ;; Save a new script
+                     (let [test-code "{:epupp/script-name \"test-script-from-repl\"
+                                       :epupp/site-match \"https://example.com/*\"}
+                                      (ns test-script)
+                                      (js/console.log \"Hello from test script!\")"
+                           ;; Use pr-str to properly escape the code string
+                           setup-result (js-await (eval-in-browser
+                                                   (str "(def !save-result (atom :pending))
+                                                         (-> (epupp/save! " (pr-str test-code) ")
+                                                             (.then (fn [r] (reset! !save-result r))))
+                                                         :setup-done")))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Poll until result available
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!save-result)"))]
+                           (js/console.log "=== save result ===" (js/JSON.stringify check-result))
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Result received - should have :success true
+                             (let [result-str (first (.-values check-result))]
+                               (js/console.log "=== result-str ===" result-str)
+                               (-> (expect (.includes result-str ":success true")) (.toBe true))
+                               (-> (expect (.includes result-str "test_script_from_repl.cljs")) (.toBe true)))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for epupp/save! result"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))
+
+                     ;; Verify script appears in ls
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !ls-after-save (atom :pending))
+                                                    (-> (epupp/ls)
+                                                        (.then (fn [scripts] (reset! !ls-after-save scripts))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!ls-after-save)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Should now include our test script
+                             (-> (expect (.includes (first (.-values check-result)) "test_script_from_repl.cljs"))
+                                 (.toBe true))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for ls after save"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))))
+
              ;; Final error check
              (test "no uncaught errors during primitives tests"
                    (^:async fn []
