@@ -498,15 +498,29 @@ Actually use the shared components throughout popup.cljs and panel.cljs. Until t
 - E2E compatibility: Added `:button/class` option to preserve original class names (`.btn-save`, etc.) for E2E selectors
 - Added `status-type` helper function to `popup_utils.cljs` for status classification
 
-### Step 7: View-specific refinement
-1. popup.css: Only popup-specific layout/sizing
-2. panel.css: Only panel-specific layout/sizing
-3. shared.css: All shared components
+### Step 7: View-specific refinement ✅ DONE
+1. ✅ popup.css: Only popup-specific layout/sizing (864 lines)
+2. ✅ panel.css: Only panel-specific layout/sizing (521 lines)
+3. ✅ shared.css: All shared components (191 lines)
 
-### Step 8: Cleanup
-1. Remove duplicate code
-2. Remove old variable aliases
-3. Document the design system
+**Consolidated to components.css:**
+- `.blank-slate-link` - shared link styling
+- `.run-at-badge` - timing badge styling
+- `kbd` - keyboard shortcut styling (was duplicated)
+
+**Consolidated to shared.css:**
+- `*, *::before, *::after { box-sizing: border-box }` - universal box model
+
+### Step 8: Cleanup ✅ DONE
+1. ✅ Remove duplicate code (kbd, blank-slate-link, run-at-badge, box-sizing)
+2. ⏳ Remove old variable aliases (kept for gradual migration - view-specific radius still needed)
+3. ✅ Document the design system (components.css has section headers)
+
+**Results:**
+- popup.css: 886 → 864 lines (-22)
+- panel.css: 550 → 521 lines (-29)
+- components.css: 216 → 240 lines (+24 for consolidated patterns)
+- Total: 1960 → 1938 lines (-22 net reduction)
 
 ---
 
