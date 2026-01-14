@@ -56,6 +56,7 @@ flowchart TB
 | REPL/userscripts/panel injection flows | [injection-flows.md](injection-flows.md) |
 | Trust boundaries + CSP strategy | [security.md](security.md) |
 | Build pipeline + configuration injection | [build-pipeline.md](build-pipeline.md) |
+| CSS architecture + design tokens | [css-architecture.md](css-architecture.md) |
 
 ## Related
 

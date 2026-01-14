@@ -20,6 +20,11 @@ This document is a map of where the architecture lives in code.
 | `manifest_parser.cljs` | Shared | Parse `:epupp/run-at` and other annotations from code |
 | `event_handler.cljs` | Shared | Uniflow event system |
 | `icons.cljs` | Shared | SVG icon components |
+| `view_elements.cljs` | Shared | Shared Hiccup components (buttons, status, empty states) |
+
+## Styling
+
+For CSS architecture, design tokens, and component styling, see [css-architecture.md](css-architecture.md).
 
 ## Naming Conventions
 

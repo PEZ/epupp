@@ -527,24 +527,20 @@ Actually use the shared components throughout popup.cljs and panel.cljs. Until t
 2. ✅ Update all HTML imports and build scripts
 3. ✅ Update this consolidation plan
 
-### Step 10: Developer Documentation
-Create permanent CSS architecture reference for developers.
+### Step 10: Developer Documentation ✅ DONE
+Created permanent CSS architecture reference for developers.
 
-**Gap identified:** The architecture docs (`dev/docs/architecture/`) have no CSS documentation. The consolidation plan is a migration log, not a reference doc.
+**Created:** `dev/docs/architecture/css-architecture.md`
+- File structure and layer responsibilities
+- Design token naming conventions
+- Component class reference
+- Shared Hiccup component API
+- Decision tree for adding new styles
+- Background layering guidelines
 
-**Need to create:** `dev/docs/architecture/css-architecture.md`
-
-**Content outline:**
-1. **File Structure** - The 4-layer system and import order
-2. **Design Tokens** - Variable naming conventions and theming
-3. **Components** - Available component classes and their variants
-4. **Adding New Styles** - Where to put what (decision tree)
-5. **Shared Hiccup Components** - `action-button`, `status-text`, `empty-state` API
-6. **Theme Support** - Light/dark mode handling pattern
-
-**Also update:**
-- `dev/docs/architecture/overview.md` - Add CSS architecture to navigation table
-- `dev/docs/architecture/components.md` - Link to CSS architecture for styling
+**Updated:**
+- `dev/docs/architecture/overview.md` - Added CSS to navigation table
+- `dev/docs/architecture/components.md` - Added view_elements.cljs, linked to CSS docs
 
 ---
 
