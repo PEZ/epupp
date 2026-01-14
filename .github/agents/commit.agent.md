@@ -59,3 +59,9 @@ Bad commit messages:
 - `fix` (too vague)
 - `Updated the CSS file to add support for light and dark themes` (too long, wrong tense)
 - `WIP` (not descriptive)
+
+## Final Step - Learnings
+
+1. Did you run into any issues while committing?
+2. How can you improve your commit execution next time?
+3. Update these instructions based on your learnings to enhance future commits. (If, indeed, needed.)
