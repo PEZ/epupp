@@ -635,7 +635,16 @@
   [script-name]
   (-> (send-and-receive \"get-script\" {:name script-name} \"get-script-response\")
       (.then (fn [msg]
-               (when (.-success msg) (.-code msg))))))")
+               (when (.-success msg) (.-code msg))))))
+
+(defn ls
+  \"List all scripts. Returns promise of vector with script info.\"
+  []
+  (-> (send-and-receive \"list-scripts\" {} \"list-scripts-response\")
+      (.then (fn [msg]
+               (if (.-success msg)
+                 (js->clj (.-scripts msg) :keywordize-keys true)
+                 [])))))")
 
 (def close-websocket-fn
   (js* "function() {
@@ -874,6 +883,17 @@
                     ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
+
+                    ;; Page context requests script list via epupp/ls
+                    "list-scripts"
+                    (let [scripts (storage/get-scripts)
+                          public-scripts (mapv (fn [s]
+                                                 {:name (:script/name s)
+                                                  :enabled (:script/enabled s)
+                                                  :match (:script/match s)})
+                                               scripts)]
+                      (send-response (clj->js {:success true :scripts public-scripts}))
+                      false)
 
                     ;; Page context requests script code by name via epupp/cat
                     "get-script"

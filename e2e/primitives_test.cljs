@@ -206,6 +206,46 @@
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
+             (test "epupp/ls lists all scripts with metadata"
+                   (^:async fn []
+                     ;; First verify ls function exists
+                     (let [fn-check (js-await (eval-in-browser "(fn? epupp/ls)"))]
+                       (-> (expect (.-success fn-check)) (.toBe true))
+                       (-> (expect (.-values fn-check)) (.toContain "true")))
+
+                     ;; Call ls and store promise result
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !ls-result (atom :pending))
+                                                    (-> (epupp/ls)
+                                                        (.then (fn [scripts] (reset! !ls-result scripts))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Poll until result available
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!ls-result)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Result received - should be a vector with at least the gist installer
+                             (let [result-str (first (.-values check-result))]
+                               ;; Should contain the built-in gist installer script
+                               (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe true))
+                               ;; Should have :name key
+                               (-> (expect (.includes result-str ":name")) (.toBe true))
+                               ;; Should have :enabled key
+                               (-> (expect (.includes result-str ":enabled")) (.toBe true))
+                               ;; Should have :match key
+                               (-> (expect (.includes result-str ":match")) (.toBe true)))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for epupp/ls result"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))))
+
              ;; Final error check
              (test "no uncaught errors during primitives tests"
                    (^:async fn []

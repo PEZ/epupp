@@ -90,6 +90,25 @@
              #js {:type "ws-send"
                   :data (.-data msg)}))
 
+          "list-scripts"
+          (do
+            (log/info "Bridge" nil "Forwarding list-scripts request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "list-scripts"}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "list-scripts-response"
+                                    :success (.-success response)
+                                    :scripts (.-scripts response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
           "get-script"
           (do
             (log/info "Bridge" nil "Forwarding get-script request to background")
