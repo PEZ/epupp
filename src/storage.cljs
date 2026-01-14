@@ -313,3 +313,10 @@
            :get_user_allowed_origins get-user-allowed-origins
            :add_user_allowed_origin_BANG_ add-user-allowed-origin!
            :remove_user_allowed_origin_BANG_ remove-user-allowed-origin!})
+
+(defn get-script-by-name
+  "Find script by name"
+  [script-name]
+  (->> (get-scripts)
+       (filter #(= (:script/name %) script-name))
+       first))

@@ -1,7 +1,17 @@
 # Epupp REPL File Sync Primitives API - Implementation Plan
 
 **Created:** January 14, 2026
-**Status:** Planning
+**Status:** In Progress
+
+## Implementation Progress
+
+| Primitive | Status | Notes |
+|-----------|--------|-------|
+| `epupp/cat` | ✅ Done | Retrieves script code by name |
+| `epupp/ls` | 🔲 Not started | List all scripts |
+| `epupp/save!` | 🔲 Not started | Save code with manifest |
+| `epupp/mv!` | 🔲 Not started | Rename script |
+| `epupp/rm!` | 🔲 Not started | Delete script |
 
 ## Problem Statement
 

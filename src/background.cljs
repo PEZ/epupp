@@ -600,12 +600,9 @@
 (def epupp-namespace-code
   "(ns epupp)
 
-(defn manifest!
-  \"Load Epupp manifest. Injects required Scittle libraries.
-   Returns a promise that resolves when libraries are loaded.
-
-   Example: (epupp/manifest! {:epupp/require [\\\"scittle://reagent.js\\\"]})\"
-  [m]
+(defn- send-and-receive
+  \"Helper: send message to bridge and return promise of response.\"
+  [msg-type payload response-type]
   (js/Promise.
     (fn [resolve reject]
       (letfn [(handler [e]
@@ -613,17 +610,32 @@
                   (let [msg (.-data e)]
                     (when (and msg
                                (= \"epupp-bridge\" (.-source msg))
-                               (= \"manifest-response\" (.-type msg)))
+                               (= response-type (.-type msg)))
                       (.removeEventListener js/window \"message\" handler)
-                      (if (.-success msg)
-                        (resolve true)
-                        (reject (js/Error. (.-error msg))))))))]
+                      (resolve msg)))))]
         (.addEventListener js/window \"message\" handler)
         (.postMessage js/window
-          #js {:source \"epupp-page\"
-               :type \"load-manifest\"
-               :manifest (clj->js m)}
-          \"*\")))))")
+          (clj->js (assoc payload :source \"epupp-page\" :type msg-type))
+          \"*\")))))
+
+(defn manifest!
+  \"Load Epupp manifest. Injects required Scittle libraries.
+   Returns a promise that resolves when libraries are loaded.
+
+   Example: (epupp/manifest! {:epupp/require [\\\"scittle://reagent.js\\\"]})\"
+  [m]
+  (-> (send-and-receive \"load-manifest\" {:manifest m} \"manifest-response\")
+      (.then (fn [msg]
+               (if (.-success msg)
+                 true
+                 (throw (js/Error. (.-error msg))))))))
+
+(defn cat
+  \"Get script code by name. Returns promise of code string or nil.\"
+  [script-name]
+  (-> (send-and-receive \"get-script\" {:name script-name} \"get-script-response\")
+      (.then (fn [msg]
+               (when (.-success msg) (.-code msg))))))")
 
 (def close-websocket-fn
   (js* "function() {
@@ -862,6 +874,15 @@
                     ;; Kept for potential future use if explicit close-from-page is needed.
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
+
+                    ;; Page context requests script code by name via epupp/cat
+                    "get-script"
+                    (let [script-name (.-name message)
+                          script (storage/get-script-by-name script-name)]
+                      (if script
+                        (send-response #js {:success true :code (:script/code script)})
+                        (send-response #js {:success false :error (str "Script not found: " script-name)}))
+                      false)
 
                     ;; Page context requests library injection via epupp/manifest!
                     "load-manifest"
