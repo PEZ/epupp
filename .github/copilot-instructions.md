@@ -66,18 +66,20 @@
 
 ## Documentation Index
 
-**Workflow**: Select docs based on task. Return here when your understanding evolves and you need different context.
+**How to use this index**: Before starting work, identify which task type applies and **read the listed docs using `read_file`**. These docs contain critical project-specific patterns that prevent common mistakes. Return here when your task scope changes.
 
-### Critical (read for any code change)
-| Doc | When to Read |
-|-----|--------------|
-| `.github/squint.instructions.md` | Editing ANY `.cljs` file - Squint gotchas will bite you |
+### Critical (auto-loaded, applies to all code changes)
+| Doc | Why |
+|-----|-----|
+| [squint.instructions.md](squint.instructions.md) | Squint != ClojureScript - keywords, mutability, and other gotchas |
 
-### By Task Type
+### By Task Type (read before starting work)
 
-| Task | Read These |
-|------|-----------|
-| **Understanding the system** | `dev/docs/architecture/overview.md` - has navigation to detailed docs |
+These docs are **required reading** for their respective task types. Use `read_file` to load them.
+
+| Task | Docs to Read |
+|------|--------------|
+| **Understanding the system** | `dev/docs/architecture/overview.md` - start here, links to detailed docs |
 | **Writing tests** | `dev/docs/testing.md` |
 | **UI work (popup/panel)** | `.github/reagami.instructions.md`, `dev/docs/ui.md` |
 | **State/events** | `dev/docs/architecture/uniflow.md`, `dev/docs/architecture/state-management.md` |
@@ -87,7 +89,7 @@
 | **Build/release** | `dev/docs/dev.md` |
 | **Finding source files** | `dev/docs/architecture/components.md` |
 
-### Reference (consult as needed)
+### Reference (consult when relevant)
 - `README.md` - User-facing overview
 - `dev/docs/architecture/security.md` - Trust boundaries, CSP
 - `dev/docs/architecture/build-pipeline.md` - Build config injection
