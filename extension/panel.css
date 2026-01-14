@@ -24,10 +24,6 @@
   --refresh-banner-strong: var(--color-text-refresh-banner-strong);
 }
 
-* {
-  box-sizing: border-box;
-}
-
 body {
   margin: 0;
   padding: 0;
@@ -36,15 +32,6 @@ body {
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
-}
-
-kbd {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  background: var(--bg-input);
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid var(--border-color);
-  font-size: 11px;
 }
 
 #app {
@@ -516,13 +503,6 @@ kbd {
   margin-top: 10px;
 }
 
-/* Run-at timing badge (reused from popup) */
-.run-at-badge {
-  /* font-size: 0.8em; */
-  margin-left: 4px;
-  opacity: 0.8;
-}
-
 /* Footer (view-specific overrides - shared styles in shared.css) */
 
 .panel-footer {
@@ -539,13 +519,4 @@ kbd {
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 8px;
-}
-
-.blank-slate-link {
-  color: var(--clojure-blue);
-  text-decoration: none;
-}
-
-.blank-slate-link:hover {
-  text-decoration: underline;
 }

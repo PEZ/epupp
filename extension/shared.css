@@ -2,6 +2,11 @@
    Shared CSS - Common styles used by popup and panel
    ============================================================ */
 
+/* Universal box-sizing for consistent width calculations */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 /* ============================================================
    Scrollbar styling - shared across all views
    ============================================================ */

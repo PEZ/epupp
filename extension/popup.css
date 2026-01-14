@@ -31,11 +31,6 @@
   --border-color: var(--color-border);
 }
 
-/* Universal box-sizing for consistent width calculations */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
 html {
   width: 380px;
   max-width: 380px;
@@ -812,13 +807,6 @@ button#connect:active {
   transform: translateY(1px);
 }
 
-/* Run-at timing badge */
-.run-at-badge {
-  font-size: 0.8em;
-  margin-left: 4px;
-  opacity: 0.8;
-}
-
 /* Dev log button - only visible in dev/test mode */
 .dev-log-section {
   padding: 8px 12px;
@@ -874,14 +862,4 @@ button#connect:active {
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 10px;
-}
-
-.blank-slate-link {
-  color: var(--clojure-blue);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.blank-slate-link:hover {
-  text-decoration: underline;
 }
