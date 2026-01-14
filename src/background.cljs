@@ -662,6 +662,14 @@
   (-> (send-and-receive \"rename-script\" {:from from-name :to to-name} \"rename-script-response\")
       (.then (fn [msg]
                {:success (.-success msg)
+                :error (.-error msg)}))))
+
+(defn rm!
+  \"Delete a script by name. Returns promise of result map.\"
+  [script-name]
+  (-> (send-and-receive \"delete-script\" {:name script-name} \"delete-script-response\")
+      (.then (fn [msg]
+               {:success (.-success msg)
                 :error (.-error msg)}))))")
 
 (def close-websocket-fn
@@ -950,6 +958,19 @@
                           (send-response #js {:success false :error "Cannot rename built-in scripts"})
                           (do
                             (storage/rename-script! (:script/id script) to-name)
+                            (send-response #js {:success true}))))
+                      false)
+
+                    ;; Page context deletes script via epupp/rm!
+                    "delete-script"
+                    (let [script-name (.-name message)
+                          script (storage/get-script-by-name script-name)]
+                      (if-not script
+                        (send-response #js {:success false :error (str "Script not found: " script-name)})
+                        (if (script-utils/builtin-script-id? (:script/id script))
+                          (send-response #js {:success false :error "Cannot delete built-in scripts"})
+                          (do
+                            (storage/delete-script! (:script/id script))
                             (send-response #js {:success true}))))
                       false)
 

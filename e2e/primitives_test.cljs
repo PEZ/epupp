@@ -395,6 +395,144 @@
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
+             (test "epupp/rm! deletes a script"
+                   (^:async fn []
+                     ;; First verify rm! function exists
+                     (let [fn-check (js-await (eval-in-browser "(fn? epupp/rm!)"))]
+                       (-> (expect (.-success fn-check)) (.toBe true))
+                       (-> (expect (.-values fn-check)) (.toContain "true")))
+
+                     ;; Create a script to delete
+                     (let [test-code "{:epupp/script-name \"delete-test-script\"
+                                       :epupp/site-match \"https://example.com/*\"}
+                                      (ns delete-test)"
+                           setup-result (js-await (eval-in-browser
+                                                   (str "(def !rm-setup (atom :pending))
+                                                         (-> (epupp/save! " (pr-str test-code) ")
+                                                             (.then (fn [r] (reset! !rm-setup r))))
+                                                         :setup-done")))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Wait for save to complete
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!rm-setup)"))]
+                           (when (or (not (.-success check-result))
+                                     (empty? (.-values check-result))
+                                     (= (first (.-values check-result)) ":pending"))
+                             (when (< (- (.now js/Date) start) timeout-ms)
+                               (js-await (sleep 50))
+                               (recur))))))
+
+                     ;; Verify script exists before delete
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !ls-before-rm (atom :pending))
+                                                    (-> (epupp/ls)
+                                                        (.then (fn [scripts] (reset! !ls-before-rm scripts))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!ls-before-rm)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Should have the script
+                             (-> (expect (.includes (first (.-values check-result)) "delete_test_script.cljs"))
+                                 (.toBe true))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for ls before rm"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))
+
+                     ;; Delete the script
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !rm-result (atom :pending))
+                                                    (-> (epupp/rm! \"delete_test_script.cljs\")
+                                                        (.then (fn [r] (reset! !rm-result r))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Poll for result
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!rm-result)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Should have success
+                             (-> (expect (.includes (first (.-values check-result)) ":success true"))
+                                 (.toBe true))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for epupp/rm! result"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))
+
+                     ;; Verify script no longer appears in ls
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !ls-after-rm (atom :pending))
+                                                    (-> (epupp/ls)
+                                                        (.then (fn [scripts] (reset! !ls-after-rm scripts))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!ls-after-rm)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Should NOT have the deleted script
+                             (-> (expect (.includes (first (.-values check-result)) "delete_test_script.cljs"))
+                                 (.toBe false))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for ls after rm"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))))
+
+             (test "epupp/rm! rejects deleting built-in scripts"
+                   (^:async fn []
+                     ;; Try to delete the built-in gist installer
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !rm-builtin-result (atom :pending))
+                                                    (-> (epupp/rm! \"GitHub Gist Installer (Built-in)\")
+                                                        (.then (fn [r] (reset! !rm-builtin-result r))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Poll for result
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!rm-builtin-result)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             (let [result-str (first (.-values check-result))]
+                               ;; Should have success false
+                               (-> (expect (.includes result-str ":success false"))
+                                   (.toBe true))
+                               ;; Should have error about built-in
+                               (-> (expect (.includes result-str "built-in"))
+                                   (.toBe true)))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for epupp/rm! built-in result"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))))
+
              ;; Final error check
              (test "no uncaught errors during primitives tests"
                    (^:async fn []

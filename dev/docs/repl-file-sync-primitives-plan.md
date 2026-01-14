@@ -11,7 +11,7 @@
 | `epupp/ls` | ✅ Done | List all scripts with metadata |
 | `epupp/save!` | ✅ Done | Save code with manifest |
 | `epupp/mv!` | ✅ Done | Rename script |
-| `epupp/rm!` | 🔲 Not started | Delete script |
+| `epupp/rm!` | ✅ Done | Delete script |
 
 ## Problem Statement
 

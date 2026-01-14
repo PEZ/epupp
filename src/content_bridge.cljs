@@ -151,6 +151,26 @@
                   (stop-keepalive!)
                   (set-connected! false)))))
 
+          "delete-script"
+          (do
+            (log/info "Bridge" nil "Forwarding delete-script request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "delete-script"
+                    :name (.-name msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "delete-script-response"
+                                    :success (.-success response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
           "get-script"
           (do
             (log/info "Bridge" nil "Forwarding get-script request to background")
