@@ -18,21 +18,21 @@
       },
     },
     {
-      "name": "Scittle GitLab REPL",
+      "name": "Epupp GitLab REPL",
       "projectType": "scittle",
       // "projectRootPath": [".", "extension", "userscripts"],
       "fallbackPort": 13397,
       "replSessionNames": {
-        "primary": "scittle-gitlab"
+        "primary": "epupp-gitlab"
       },
     },
     {
-      "name": "Scittle Youtube REPL",
+      "name": "Epupp YouTube REPL",
       "projectType": "scittle",
       // "projectRootPath": [".", "extension", "userscripts"],
       "fallbackPort": 13399,
       "replSessionNames": {
-        "primary": "scittle-youtube"
+        "primary": "epupp-youtube"
       },
     }
   ],

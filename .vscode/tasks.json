@@ -50,6 +50,30 @@
       }
     },
     {
+      "label": "Epupp Gitlab REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 13397 --websocket-port 13398",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "manual-testing"
+      }
+    },
+    {
+      "label": "Epupp YouTube REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 13399 --websocket-port 13400",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "manual-testing"
+      }
+    },
+    {
       "label": "Babashka REPL",
       "type": "shell",
       "command": "bb nrepl-server",
@@ -68,6 +92,8 @@
         "Unit Test Watch",
         "Squint REPL",
         "Scittle Dev REPL",
+        "Epupp Gitlab REPL",
+        "Epupp YouTube REPL",
         "Babashka REPL"
       ],
       "group": {
