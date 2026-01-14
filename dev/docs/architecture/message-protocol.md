@@ -12,6 +12,7 @@ Via `window.postMessage` with source identifiers.
 |------|---------|---------|
 | `ws-connect` | `{port}` | Request WebSocket connection |
 | `ws-send` | `{data}` | Send data through WebSocket |
+| `load-manifest` | `{manifest}` | Request library injection via `epupp/manifest!` |
 
 **Content Bridge → Page** (`source: "epupp-bridge"`):
 
@@ -22,6 +23,7 @@ Via `window.postMessage` with source identifiers.
 | `ws-message` | `{data}` | Incoming WebSocket message |
 | `ws-error` | `{error}` | WebSocket error |
 | `ws-close` | - | WebSocket closed |
+| `manifest-response` | `{success, error?}` | Library injection result |
 
 ## Content Bridge ↔ Background
 
@@ -34,6 +36,7 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `ws-connect` | `{port}` | Create WebSocket for tab |
 | `ws-send` | `{data}` | Send through tab's WebSocket |
 | `ping` | - | Keepalive (every 5s) |
+| `load-manifest` | `{manifest}` | Forward library injection request |
 
 **Background → Content Bridge**:
 

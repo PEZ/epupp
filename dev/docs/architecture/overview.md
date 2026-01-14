@@ -51,6 +51,7 @@ flowchart TB
 |------|-----------|
 | Source file map + dependencies | [components.md](components.md) |
 | Message types + payloads | [message-protocol.md](message-protocol.md) |
+| Connected REPL flow + `epupp/manifest!` | [connected-repl.md](connected-repl.md) |
 | State atoms + action/effect tables | [state-management.md](state-management.md) |
 | Uniflow event system | [uniflow.md](uniflow.md) |
 | REPL/userscripts/panel injection flows | [injection-flows.md](injection-flows.md) |

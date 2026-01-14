@@ -6,6 +6,8 @@ This document describes how code gets injected and evaluated across the three ma
 
 ### REPL Connection (from Popup)
 
+See [connected-repl.md](connected-repl.md) for full details including message flow diagrams.
+
 1. User clicks "Connect" in popup
 2. Popup sends `connect-tab` message to background worker with `tabId` and `wsPort`
 3. Background's `connect-tab!` orchestrates the connection:
@@ -16,6 +18,7 @@ This document describes how code gets injected and evaluated across the three ma
    - Ensure Scittle is loaded
    - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
    - Inject `vendor/scittle.nrepl.js` (auto-connects)
+   - **Inject `epupp` namespace** (provides `manifest!` for library loading)
 4. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
 5. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
 
