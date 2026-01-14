@@ -620,40 +620,40 @@
 
 (defn run-e2e-parallel!
   "Run E2E tests in parallel Docker containers with even test distribution.
-   
+
    1. Builds extension and Docker image once
    2. Gets test list and distributes evenly across shards (round-robin)
    3. Spawns N Docker containers, each with its assigned tests
    4. Each container runs in isolation (separate ports, browser instances)
    5. Fails if any shard fails
-   
+
    Options:
      --shards N  Number of parallel shards (default: 4)"
   [args]
   (let [opts (cli/parse-opts args {:coerce {:shards :int}})
         n-shards (or (:shards opts) 4)]
-    
+
     ;; Step 1: Build
     (println "Building extension and compiling E2E tests...")
     (p/shell "bb build:test")
     (p/shell "bb test:e2e:compile")
-    
+
     ;; Step 2: Build Docker image
     (println "Building Docker image...")
     (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-    
+
     ;; Step 3: Get test list and partition
     (println "Getting test list...")
     (let [all-tests (get-test-list)
           test-shards (partition-tests all-tests n-shards)
           _ (println (format "Distributing %d tests across %d shards" (count all-tests) n-shards))]
-      
+
       ;; Step 4: Run shards in parallel
       (println (str "Running " n-shards " parallel shards..."))
       (let [log-dir "/tmp/epupp-e2e-parallel"
             _ (fs/create-dirs log-dir)
             start-time (System/currentTimeMillis)
-            
+
             processes (doall
                        (for [idx (range n-shards)]
                          (let [log-file (str log-dir "/shard-" idx ".log")
@@ -666,7 +666,7 @@
                             :log-file log-file
                             :done? (atom false)
                             :exit-code (atom nil)})))
-          
+
           ;; Poll for completion - report as they finish
           _ (loop []
               (let [still-running (filter #(not @(:done? %)) processes)]
@@ -683,16 +683,16 @@
                                            (inc idx) n-shards elapsed-s exit))))))
                   (Thread/sleep 100)
                   (recur))))
-          
+
           results (map (fn [{:keys [idx exit-code log-file]}]
                          {:idx idx :exit @exit-code :log-file log-file})
                        processes)
           elapsed-ms (- (System/currentTimeMillis) start-time)
           failed (filter #(not= 0 (:exit %)) results)]
-        
+
         (println)
         (println (str "Completed " n-shards " shards in " (format "%.1fs" (/ elapsed-ms 1000.0))))
-        
+
         (if (seq failed)
           (do
             (println (str "❌ " (count failed) " shard(s) failed:"))

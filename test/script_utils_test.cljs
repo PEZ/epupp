@@ -244,16 +244,16 @@
                       (-> (expect (:script/approved-patterns script))
                           (.toEqual []))))))
 
-            (test "preserves normal flat match arrays"
-                  (fn []
-                    (let [js-script #js {:id "normal"
-                                         :name "Normal"
-                                         :match #js ["*://github.com/*" "*://gitlab.com/*"]
-                                         :code ""}
-                          result (script-utils/parse-scripts #js [js-script])
-                          script (first result)]
-                      (-> (expect (:script/match script))
-                          (.toEqual ["*://github.com/*" "*://gitlab.com/*"]))))))
+          (test "preserves normal flat match arrays"
+                (fn []
+                  (let [js-script #js {:id "normal"
+                                       :name "Normal"
+                                       :match #js ["*://github.com/*" "*://gitlab.com/*"]
+                                       :code ""}
+                        result (script-utils/parse-scripts #js [js-script])
+                        script (first result)]
+                    (-> (expect (:script/match script))
+                        (.toEqual ["*://github.com/*" "*://gitlab.com/*"]))))))
 
 (describe "script->js"
           (fn []

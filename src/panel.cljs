@@ -297,20 +297,20 @@
   (let [loading? (= :loading scittle-status)]
     [:div.code-input-area
      [:textarea#code-area {:value code
-                 :rows 10
-                 :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter evaluates selection"
-                 :disabled (or evaluating? loading?)
-                 :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
-                 :on-select (fn [e] (track-selection! (.-target e)))
-                 :on-click (fn [e] (track-selection! (.-target e)))
-                 :on-keyup (fn [e]
+                           :rows 10
+                           :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter evaluates selection"
+                           :disabled (or evaluating? loading?)
+                           :on-input (fn [e] (dispatch! [[:editor/ax.set-code (.. e -target -value)]]))
+                           :on-select (fn [e] (track-selection! (.-target e)))
+                           :on-click (fn [e] (track-selection! (.-target e)))
+                           :on-keyup (fn [e]
                              ;; Track selection on arrow keys etc
-                             (track-selection! (.-target e)))
-                 :on-keydown (fn [e]
-                               (when (and (or (.-ctrlKey e) (.-metaKey e))
-                                          (= "Enter" (.-key e)))
-                                 (.preventDefault e)
-                                 (dispatch! [[:editor/ax.eval-selection]])))}]
+                                       (track-selection! (.-target e)))
+                           :on-keydown (fn [e]
+                                         (when (and (or (.-ctrlKey e) (.-metaKey e))
+                                                    (= "Enter" (.-key e)))
+                                           (.preventDefault e)
+                                           (dispatch! [[:editor/ax.eval-selection]])))}]
      [:div.code-actions
       [:button.btn-eval {:on-click #(dispatch! [[:editor/ax.eval]])
                          :disabled (or evaluating? loading? (empty? code))}

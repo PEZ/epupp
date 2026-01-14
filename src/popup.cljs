@@ -397,13 +397,13 @@
           ;; Tab IDs from state are strings in Squint, convert to number for Chrome API
           numeric-tab-id (js/parseInt tab-id 10)]
       (js/chrome.tabs.update numeric-tab-id #js {:active true}
-        (fn [_tab]
-          (when-not js/chrome.runtime.lastError
+                             (fn [_tab]
+                               (when-not js/chrome.runtime.lastError
             ;; Also focus the window containing the tab
-            (js/chrome.tabs.get numeric-tab-id
-              (fn [tab]
-                (when-not js/chrome.runtime.lastError
-                  (js/chrome.windows.update (.-windowId tab) #js {:focused true}))))))))
+                                 (js/chrome.tabs.get numeric-tab-id
+                                                     (fn [tab]
+                                                       (when-not js/chrome.runtime.lastError
+                                                         (js/chrome.windows.update (.-windowId tab) #js {:focused true}))))))))
 
     :popup/fx.disconnect-tab
     (let [[tab-id] args
