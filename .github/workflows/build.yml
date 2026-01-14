@@ -137,6 +137,10 @@ jobs:
   e2e-tests:
     needs: [build-test]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
 
@@ -172,14 +176,14 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
-      - name: Run Playwright E2E tests
-        run: xvfb-run --auto-servernum bb test:e2e:ci
+      - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/2)
+        run: xvfb-run --auto-servernum bb test:e2e:ci --shard=${{ matrix.shard }}/2
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
+          name: playwright-report-${{ github.run_id }}-shard-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
