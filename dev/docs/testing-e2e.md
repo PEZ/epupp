@@ -9,6 +9,13 @@ Detailed documentation for Playwright E2E tests. For overview, see [testing.md](
 bb test:e2e  # All E2E tests (headless in Docker), includes REPL integration
 ```
 
+**Parallel execution (faster, for humans with multi-core machines):**
+```bash
+bb test:e2e:parallel --shards 6  # ~16s vs ~32s sequential
+```
+
+6 shards is the sweet spot - tests are distributed evenly (round-robin) across Docker containers, each running in isolation. More shards adds diminishing returns due to container startup overhead.
+
 **Only for Human Developers (Visible Browser):**
 ```bash
 bb test:e2e:headed     # E2E tests
@@ -54,7 +61,6 @@ All e2e test code is found in `e2e/`. Noting some, but not all, here:
 | `e2e/integration_test.cljs` | Cross-component script lifecycle |
 | `e2e/require_test.cljs` | Scittle library require functionality |
 | `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
-| `e2e/z_final_error_check_test.cljs` | Final validation for uncaught errors |
 
 ## Fixtures and Helpers
 
@@ -167,9 +173,7 @@ Assert on visible DOM elements. Test what users see and click.
 ### Log-Powered Tests
 Some tests observe internal behavior invisible to UI assertions using event logging. These tests are distributed across feature-specific files (popup_test.cljs, extension_test.cljs, userscript_test.cljs) rather than isolated in a single file.
 
-**CRITICAL: Do NOT clear storage logs during test runs.** The error checking test (`z_final_error_check_test.cljs`) runs last and scans ALL accumulated events for `UNCAUGHT_ERROR` and `UNHANDLED_REJECTION`. Clearing storage mid-run would hide errors from earlier tests.
-
-The `z_` prefix ensures it runs last alphabetically.
+**Error checking**: Each test calls `assert-no-errors!` before closing extension pages (popup/panel). This checks accumulated events for `UNCAUGHT_ERROR` and `UNHANDLED_REJECTION`, catching errors at the individual test level with good failure locality.
 
 **Pattern:**
 1. Extension emits events to `chrome.storage.local` via `test-logger.cljs`
