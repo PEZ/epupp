@@ -9,7 +9,7 @@ A step-by-step plan to unify popup and panel styling into a coherent design syst
 |------|-------|---------|
 | [popup.css](../../extension/popup.css) | ~650 | Popup-specific styles + duplicated base styles |
 | [panel.css](../../extension/panel.css) | ~380 | Panel-specific styles + duplicated base styles |
-| [shared.css](../../extension/shared.css) | ~90 | Header/footer components only |
+| [base.css](../../extension/base.css) | ~90 | Header/footer components only |
 
 ### Key Observations
 
@@ -148,7 +148,7 @@ The panel uses `overflow: hidden` on body and `overflow-y: auto` on `.panel-cont
 The scrollbar extraction should include the stability pattern:
 
 ```css
-/* shared.css - Scrollbar with stability */
+/* base.css - Scrollbar with stability */
 
 /* Base scrollbar appearance */
 ::-webkit-scrollbar {
@@ -429,7 +429,7 @@ When migrating to shared variables, naive substitution caused visual regressions
 2. ✅ Verify both views look consistent
 
 ### Step 4: Extract scrollbar styles with stability pattern ⏳ PARTIAL
-1. ✅ Move scrollbar CSS to shared.css (already imported by both)
+1. ✅ Move scrollbar CSS to base.css (already imported by both)
 2. ✅ **Include popup's scrollbar-gutter stability pattern**
 3. ✅ Create `.scrollable-stable` utility class
 4. 🔧 Apply to popup body and panel's scrollable container
@@ -501,14 +501,14 @@ Actually use the shared components throughout popup.cljs and panel.cljs. Until t
 ### Step 7: View-specific refinement ✅ DONE
 1. ✅ popup.css: Only popup-specific layout/sizing (864 lines)
 2. ✅ panel.css: Only panel-specific layout/sizing (521 lines)
-3. ✅ shared.css: All shared components (191 lines)
+3. ✅ base.css: All shared components (191 lines)
 
 **Consolidated to components.css:**
 - `.blank-slate-link` - shared link styling
 - `.run-at-badge` - timing badge styling
 - `kbd` - keyboard shortcut styling (was duplicated)
 
-**Consolidated to shared.css:**
+**Consolidated to base.css:**
 - `*, *::before, *::after { box-sizing: border-box }` - universal box model
 
 ### Step 8: Cleanup ✅ DONE
@@ -522,6 +522,11 @@ Actually use the shared components throughout popup.cljs and panel.cljs. Until t
 - components.css: 216 → 240 lines (+24 for consolidated patterns)
 - Total: 1960 → 1938 lines (-22 net reduction)
 
+### Step 9: Documentation ✅ DONE
+1. ✅ Rename shared.css → base.css (clearer semantic meaning)
+2. ✅ Update all HTML imports and build scripts
+3. ✅ Update this consolidation plan
+
 ---
 
 ## File Structure (Target)
@@ -531,7 +536,7 @@ extension/
 ├── design-tokens.css   # CSS variables / design tokens
 ├── components.css      # Reusable component styles
 ├── utilities.css       # Helper classes (optional)
-├── shared.css          # Header, footer, shared layout
+├── base.css            # Resets, scrollbars, header/footer layout
 ├── popup.css           # Popup-specific overrides only
 └── panel.css           # Panel-specific overrides only
 ```
@@ -541,13 +546,13 @@ extension/
 <!-- popup.html -->
 <link rel="stylesheet" href="design-tokens.css">
 <link rel="stylesheet" href="components.css">
-<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="popup.css">
 
 <!-- panel.html -->
 <link rel="stylesheet" href="design-tokens.css">
 <link rel="stylesheet" href="components.css">
-<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="panel.css">
 ```
 

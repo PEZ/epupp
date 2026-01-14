@@ -373,7 +373,7 @@ body {
   }
 }
 
-/* Scrollbar styling moved to shared.css */
+/* Scrollbar styling moved to base.css */
 
 /* Metadata property table */
 .metadata-table {
@@ -503,7 +503,7 @@ body {
   margin-top: 10px;
 }
 
-/* Footer (view-specific overrides - shared styles in shared.css) */
+/* Footer (view-specific overrides - shared styles in base.css) */
 
 .panel-footer {
   background: var(--bg-secondary);

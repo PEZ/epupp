@@ -423,7 +423,7 @@ button#connect:active {
   border-color: var(--delete-hover-color);
 }
 
-/* Scrollbar styling moved to shared.css */
+/* Scrollbar styling moved to base.css */
 
 /* Firefox-only fix: scrollbar-gutter doesn't work reliably in Firefox popups.
    Force scrollbar to always be present to reserve consistent space. */
@@ -834,7 +834,7 @@ button#connect:active {
 }
 
 /* ============================================================
-   Footer (view-specific overrides - shared styles in shared.css)
+   Footer (view-specific overrides - shared styles in base.css)
    ============================================================ */
 
 .popup-footer {

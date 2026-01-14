@@ -50,7 +50,7 @@
                      :task (babashka.process/shell "npx squint watch --paths src test --output-dir build/test")}
 
   test:watch:vitest {:doc "Run Vitest in watch mode"
-                     :task (babashka.process/shell "npx vitest")}
+                     :task (babashka.process/shell "npx vitest --changed=false")}
 
   -test:watch {:depends [test:watch:squint test:watch:vitest]}
 
