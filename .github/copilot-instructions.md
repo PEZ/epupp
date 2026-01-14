@@ -15,6 +15,8 @@
 
 <principles>
 
+  Failure to read docs is the #1 cause of mistakes.
+
   <epistemology>
     Assumptions are the enemy. Never guess numerical values - benchmark instead of estimating.
     When uncertain, measure. Say "this needs to be measured" rather than inventing statistics.
@@ -24,6 +26,12 @@
     Validate at small scale before scaling up. Run a sub-minute version first to verify the
     full pipeline works. When scaling, only the scale parameter should change.
   </scaling>
+
+  <documentation>
+    Always read the relevant documentation before starting work. The documentation index below
+    lists critical docs by task type. Use `read_file` to load them. Always return to the index when
+    your understanding of the task changes.
+  </documentation>
 
   <ground-truth-clarification>
     For non-trivial tasks, reach ground truth understanding before coding. Simple tasks execute
