@@ -361,6 +361,18 @@ After each step that touches CSS, run `bb build:dev` and ask the human to:
 2. Verify no visual regressions (backgrounds, borders, spacing, colors)
 3. E2E tests verify behavior, not appearance - human eyes are essential!
 
+**CRITICAL: Attempted ≠ Done**
+
+A step is only complete when the change has been **verified to work**, not merely applied. This distinction is especially important for:
+- Finicky CSS behaviors (scrollbar stability, layout shift prevention)
+- Cross-browser compatibility (Chrome vs Firefox quirks)
+- Theme-dependent styling (light/dark mode differences)
+
+When marking progress, distinguish between:
+- ✅ **Verified working** - Human confirmed the behavior
+- 🔧 **Applied but unverified** - Code changed, needs human verification
+- ⏳ **Partially working** - Works in some contexts (e.g., popup but not panel)
+
 ### Step 1a: Create design tokens (non-breaking) ✅ DONE
 1. ✅ Create `design-tokens.css`
 2. ✅ Import at top of popup.css and panel.css
@@ -416,19 +428,22 @@ When migrating to shared variables, naive substitution caused visual regressions
 1. ✅ Same process as popup
 2. ✅ Verify both views look consistent
 
-### Step 4: Extract scrollbar styles with stability pattern ✅ DONE
+### Step 4: Extract scrollbar styles with stability pattern ⏳ PARTIAL
 1. ✅ Move scrollbar CSS to shared.css (already imported by both)
 2. ✅ **Include popup's scrollbar-gutter stability pattern**
 3. ✅ Create `.scrollable-stable` utility class
-4. ✅ Apply to popup body and panel's scrollable container
-5. ✅ Test scrollbar appear/disappear doesn't cause layout shift
+4. 🔧 Apply to popup body and panel's scrollable container
+5. ⏳ Test scrollbar appear/disappear doesn't cause layout shift
+   - ✅ Popup: works fine
+   - ❌ Panel: NOT fixed - scrollbar stability is finicky and surprisingly hard
 6. ✅ Remove duplicates from popup.css and panel.css
 
-### Step 5: Create components.css
-1. Extract button styles
-2. Extract form elements
-3. Extract status indicators
-4. Update HTML classes as needed
+### Step 5: Create components.css ✅ DONE
+1. ✅ Extract button styles (.btn, .btn-primary, .btn-success, .btn-secondary, .btn-danger)
+2. ✅ Extract status indicators (.status-bar, .status-text)
+3. ✅ Extract cards/containers and section headers
+4. ✅ Update HTML imports and build pipeline
+5. ✅ **CHECKPOINT: Human verified no visual regressions**
 
 ### Step 6: Create shared Hiccup components
 1. Add `action-button` to view_elements.cljs
