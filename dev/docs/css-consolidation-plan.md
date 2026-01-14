@@ -445,12 +445,58 @@ When migrating to shared variables, naive substitution caused visual regressions
 4. ✅ Update HTML imports and build pipeline
 5. ✅ **CHECKPOINT: Human verified no visual regressions**
 
-### Step 6: Create shared Hiccup components
-1. Add `action-button` to view_elements.cljs
-2. Add `status-indicator` to view_elements.cljs
-3. Add `empty-state` to view_elements.cljs
-4. Migrate popup.cljs and panel.cljs to use shared components
-5. Ensure consistent prop naming (`:variant`, `:class`, etc.)
+### Step 6: Create shared Hiccup components ✅ DONE
+1. ✅ Add `action-button` to view_elements.cljs (with variant, size, icon support)
+2. ✅ Add `status-indicator` to view_elements.cljs (bar style with semantic types)
+3. ✅ Add `status-text` to view_elements.cljs (inline text with coloring)
+4. ✅ Add `empty-state` to view_elements.cljs
+5. ✅ Components are non-breaking additions - existing code keeps working
+6. ✅ E2E tests pass
+
+### Step 6b: Migrate to shared Hiccup components ✅ DONE
+Actually use the shared components throughout popup.cljs and panel.cljs. Until this is done, we don't know if the components work correctly.
+
+**Popup.cljs migrations:** ✅ DONE
+1. ✅ Buttons → `action-button`:
+   - `#connect` → `:button/variant :primary`
+   - `.copy-btn` → `:button/variant :secondary`
+   - `.approval-allow` → `:button/variant :success`
+   - `.approval-deny` → `:button/variant :danger`
+   - `.add-btn`, `.export-btn`, `.import-btn` → `:button/variant :secondary`
+   - Icon buttons (`.script-inspect`, `.script-run`, `.script-delete`) → with icons
+   - `.reveal-tab-btn`, `.disconnect-tab-btn` → with icons
+
+2. ✅ Status messages → `status-text`:
+   - `.connect-status` with success/error states
+
+3. ✅ Empty states → `empty-state`:
+   - `.no-connections`
+   - (`.no-scripts`, `.no-origins` have complex conditional structure - left as view-specific)
+
+**Panel.cljs migrations:** ✅ DONE
+1. ✅ Buttons → `action-button`:
+   - `.btn-eval` → `:button/variant :primary`
+   - `.btn-clear` → `:button/variant :secondary`
+   - `.btn-save` → `:button/variant :success`
+   - `.btn-rename` → `:button/variant :secondary`
+   - `.btn-new-script` → `:button/variant :secondary`
+
+2. ✅ Status messages → `status-text`:
+   - `.save-status` with success/error states
+
+3. ✅ Empty states → `empty-state`:
+   - `.empty-results`
+
+**Process:**
+1. ✅ Migrate one component type at a time
+2. ✅ Run E2E tests after each migration (57 tests passing)
+3. ⏳ Visual verification at checkpoints (human review pending)
+4. ✅ Update E2E selectors: Updated test to check for `status-text--error` instead of `status-failed`
+
+**Key implementation notes:**
+- Squint compatibility: Removed `keyword?` and `name` calls since keywords ARE strings in Squint
+- E2E compatibility: Added `:button/class` option to preserve original class names (`.btn-save`, etc.) for E2E selectors
+- Added `status-type` helper function to `popup_utils.cljs` for status classification
 
 ### Step 7: View-specific refinement
 1. popup.css: Only popup-specific layout/sizing

@@ -434,7 +434,10 @@
 (defn command-box [{:keys [command copy-feedback]}]
   [:div.command-box
    [:code command]
-   [:button.copy-btn {:on-click #(dispatch! [[:popup/ax.copy-command]])}
+   [view-elements/action-button
+    {:button/variant :secondary
+     :button/class "copy-btn"
+     :button/on-click #(dispatch! [[:popup/ax.copy-command]])}
     (or copy-feedback "Copy")]])
 
 (defn collapsible-section [{:keys [id title expanded? badge-count]} & children]
@@ -508,22 +511,43 @@
       [:div.script-actions
        ;; Show approval buttons when script matches current URL but pattern not approved
        (when needs-approval
-         [:button.approval-allow {:on-click #(dispatch! [[:popup/ax.approve-script script-id matching-pattern]])}
+         [view-elements/action-button
+          {:button/variant :success
+           :button/class "approval-allow"
+           :button/on-click #(dispatch! [[:popup/ax.approve-script script-id matching-pattern]])}
           "Allow"])
        (when needs-approval
-         [:button.approval-deny {:on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
+         [view-elements/action-button
+          {:button/variant :danger
+           :button/class "approval-deny"
+           :button/on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
           "Deny"])
-       [:button.script-inspect {:on-click #(dispatch! [[:popup/ax.inspect-script script-id]])
-                                :title "Inspect script"}
-        [icons/eye]]
-       [:button.script-run {:on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])
-                            :title "Run script"}
-        [icons/play]]
+       [view-elements/action-button
+        {:button/variant :secondary
+         :button/class "script-inspect"
+         :button/size :sm
+         :button/icon icons/eye
+         :button/title "Inspect script"
+         :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
+        nil]
+       [view-elements/action-button
+        {:button/variant :secondary
+         :button/class "script-run"
+         :button/size :sm
+         :button/icon icons/play
+         :button/title "Run script"
+         :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
+        nil]
        (when-not builtin?
-         [:button.script-delete {:on-click #(when (js/confirm "Delete this script?")
-                                              (dispatch! [[:popup/ax.delete-script script-id]]))
-                                 :title "Delete script"}
-          [icons/x]])]]
+         [view-elements/action-button
+          {:button/variant :danger
+           :button/class "script-delete"
+           :button/size :sm
+           :button/icon icons/x
+           :button/title "Delete script"
+           :button/on-click #(when (js/confirm "Delete this script?")
+                               (dispatch! [[:popup/ax.delete-script script-id]]))}
+          nil])]]
      (when show-edit-hint
        [:div.script-edit-hint
         "Open the Epupp panel in Developer Tools"])]))
@@ -568,8 +592,10 @@
    Playwright can capture console output via page.on('console')."
   []
   [:div.dev-log-section
-   [:button.dev-log-btn
-    {:on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
+   [view-elements/action-button
+    {:button/variant :secondary
+     :button/class "dev-log-btn"
+     :button/on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
     "Dump Dev Log"]])
 
 ;; ============================================================
@@ -594,9 +620,14 @@
   [:div.origin-item {:class (when-not editable "origin-item-default")}
    [:span.origin-url origin]
    (when editable
-     [:button.origin-delete {:on-click #(on-delete origin)
-                             :title "Remove origin"}
-      [icons/x]])])
+     [view-elements/action-button
+      {:button/variant :danger
+       :button/class "origin-delete"
+       :button/size :sm
+       :button/icon icons/x
+       :button/title "Remove origin"
+       :button/on-click #(on-delete origin)}
+      nil])])
 
 (defn default-origins-list [origins]
   (when (seq origins)
@@ -628,8 +659,11 @@
              :on-input #(dispatch! [[:popup/ax.set-new-origin (.. % -target -value)]])
              :on-key-down #(when (= "Enter" (.-key %))
                              (dispatch! [[:popup/ax.add-origin]]))}]
-    [:button.add-btn {:on-click #(dispatch! [[:popup/ax.add-origin]])
-                      :title "Add origin"}
+    [view-elements/action-button
+     {:button/variant :secondary
+      :button/class "add-btn"
+      :button/title "Add origin"
+      :button/on-click #(dispatch! [[:popup/ax.add-origin]])}
      "Add"]]
    (when error
      [:div.add-origin-error error])])
@@ -669,9 +703,15 @@
     [:p.section-description
      "Export your scripts to a JSON file for backup, or import scripts from a previously exported file."]
     [:div.export-import-buttons
-     [:button.export-btn {:on-click #(dispatch! [[:popup/ax.export-scripts]])}
+     [view-elements/action-button
+      {:button/variant :secondary
+       :button/class "export-btn"
+       :button/on-click #(dispatch! [[:popup/ax.export-scripts]])}
       "Export Scripts"]
-     [:button.import-btn {:on-click #(dispatch! [[:popup/ax.import-scripts]])}
+     [view-elements/action-button
+      {:button/variant :secondary
+       :button/class "import-btn"
+       :button/on-click #(dispatch! [[:popup/ax.import-scripts]])}
       "Import Scripts"]]]])
 
 ;; ============================================================
@@ -686,14 +726,22 @@
    [:span.connected-tab-title (or title "Unknown")]
    [:span.connected-tab-port (str ":" port)]
    (if is-current-tab
-     [:button.disconnect-tab-btn
-      {:on-click #(dispatch! [[:popup/ax.disconnect-tab tab-id]])
-       :title "Disconnect this tab"}
-      [icons/debug-disconnect {:size 14}]]
-     [:button.reveal-tab-btn
-      {:on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])
-       :title "Reveal this tab"}
-      [icons/link-external {:size 14}]])])
+     [view-elements/action-button
+      {:button/variant :danger
+       :button/class "disconnect-tab-btn"
+       :button/size :sm
+       :button/icon icons/debug-disconnect
+       :button/title "Disconnect this tab"
+       :button/on-click #(dispatch! [[:popup/ax.disconnect-tab tab-id]])}
+      nil]
+     [view-elements/action-button
+      {:button/variant :secondary
+       :button/class "reveal-tab-btn"
+       :button/size :sm
+       :button/icon icons/link-external
+       :button/title "Reveal this tab"
+       :button/on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])}
+      nil])])
 
 (defn connected-tabs-section [{:keys [repl/connections scripts/current-tab-id]}]
   [:div.connected-tabs-section
@@ -708,7 +756,7 @@
         (for [{:keys [tab-id] :as conn} sorted-connections]
           ^{:key tab-id}
           [connected-tab-item (assoc conn :is-current-tab (= tab-id current-tab-id-str))])])
-     [:div.no-connections
+     [view-elements/empty-state {:empty/class "no-connections"}
       "No REPL connections active"
       [:div.no-connections-hint
        "Start the server (Step 1), then click Connect (Step 2)."]])])
@@ -743,10 +791,16 @@
       [:div.step-header "2. Connect browser to server"]
       [:div.connect-row
        [:span.connect-target (str "ws://localhost:" ws)]
-       [:button#connect {:on-click #(dispatch! [[:popup/ax.connect]])}
+       [view-elements/action-button
+        {:button/variant :primary
+         :button/id "connect"
+         :button/on-click #(dispatch! [[:popup/ax.connect]])}
         (if is-connected "Reconnect" "Connect")]]
       (when connect-status
-        [:div.connect-status {:class (popup-utils/status-class connect-status)} connect-status])]
+        [view-elements/status-text
+         {:status/type (popup-utils/status-type connect-status)
+          :status/class "connect-status"}
+         connect-status])]
      [:div.step
       [:div.step-header "3. Connect editor to browser (via server)"]
       [:div.connect-row

@@ -15,6 +15,17 @@
       (or (.endsWith status "...") (.includes status "not connected")) "status status-pending"
       :else "status")))
 
+(defn status-type
+  "Map status string to semantic type for status-text component.
+   Returns :error, :success, or nil for neutral status."
+  [status]
+  (when status
+    (cond
+      (or (.startsWith status "Failed") (.startsWith status "Error")) :error
+      (or (.endsWith status "...") (.includes status "not connected")) nil ; pending - no special color
+      (.startsWith status "Connected") :success
+      :else nil)))
+
 (defn generate-server-cmd
   "Generate the bb browser-nrepl server command.
    Takes deps-string (from config) and port settings."

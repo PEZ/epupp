@@ -66,3 +66,75 @@
           :target "_blank"
           :title "https://github.com/sponsors/PEZ"}
       "Sponsor"]]]])
+
+;; ============================================================
+;; Shared UI Components
+;; ============================================================
+
+(defn action-button
+  "Reusable button component with consistent styling.
+   Options (namespaced under :button/):
+   - :variant - :primary (blue), :success (green), :secondary (ghost), :danger (red)
+   - :size - :sm, :md (default), :lg
+   - :disabled? - boolean
+   - :icon - optional icon component (rendered before label)
+   - :on-click - click handler
+   - :class - additional CSS classes
+   - :title - tooltip text
+   - :id - element id
+
+   Note: In Squint, keywords are strings so :primary becomes \"primary\""
+  [{:button/keys [variant size disabled? icon on-click class title id]} label]
+  (let [base-class "btn"
+        ;; In Squint, keywords are strings, so (str \"btn-\" :primary) => \"btn-primary\"
+        variant-class (when variant (str "btn-" variant))
+        size-class (case size
+                     :sm "btn-sm"
+                     :lg "btn-lg"
+                     nil)
+        classes (str base-class
+                     (when variant-class (str " " variant-class))
+                     (when size-class (str " " size-class))
+                     (when class (str " " class)))]
+    [:button {:class classes
+              :disabled disabled?
+              :on-click on-click
+              :title title
+              :id id}
+     (when icon [icon {:size (case size :sm 12 :lg 16 14)}])
+     (when (and icon label) " ")
+     label]))
+
+(defn status-indicator
+  "Status indicator with left border accent.
+   Options (namespaced under :status/):
+   - :type - :success, :error, :warning, :info (determines border color)
+   - :class - additional CSS classes
+
+   Note: In Squint, keywords are strings so :success becomes \"success\""
+  [{:status/keys [type class]} & children]
+  ;; In Squint, keywords are strings, so (str \"status-bar--\" :success) works
+  (let [type-class (when type (str "status-bar--" type))]
+    (into [:div {:class (str "status-bar " type-class (when class (str " " class)))}]
+          children)))
+
+(defn status-text
+  "Inline status text with semantic coloring.
+   Options (namespaced under :status/):
+   - :type - :success, :error (determines text color)
+   - :class - additional CSS classes
+
+   Note: In Squint, keywords are strings so :success becomes \"success\""
+  [{:status/keys [type class]} text]
+  ;; In Squint, keywords are strings, so (str \"status-text--\" :success) works
+  (let [type-class (when type (str "status-text--" type))]
+    [:span {:class (str "status-text " type-class (when class (str " " class)))}
+     text]))
+
+(defn empty-state
+  "Empty state placeholder with centered content.
+   Options (namespaced under :empty/):
+   - :class - additional CSS classes"
+  [{:empty/keys [class]} & children]
+  (into [:div {:class (str "empty-state " class)}]
+        children))

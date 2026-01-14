@@ -86,9 +86,9 @@
                                 (.toBeVisible)))
                   (js-await (-> (expect status-elem)
                                 (.toContainText "Failed")))
-                  ;; Failed status should have failed class
+                  ;; Failed status should have error status class (from shared status-text component)
                   (js-await (-> (expect status-elem)
-                                (.toHaveClass #"status-failed"))))
+                                (.toHaveClass #"status-text--error"))))
 
                 (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))

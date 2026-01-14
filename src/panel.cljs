@@ -277,7 +277,7 @@
      (for [[idx result] (map-indexed vector results)]
        ^{:key idx}
        [result-item result])
-     [:div.empty-results
+     [view-elements/empty-state {:empty/class "empty-results"}
       [:div.empty-results-text
        "Evaluate ClojureScript code above to see results here"]
       [:div.empty-results-shortcut
@@ -304,7 +304,7 @@
                            :on-select (fn [e] (track-selection! (.-target e)))
                            :on-click (fn [e] (track-selection! (.-target e)))
                            :on-keyup (fn [e]
-                             ;; Track selection on arrow keys etc
+                                       ;; Track selection on arrow keys etc
                                        (track-selection! (.-target e)))
                            :on-keydown (fn [e]
                                          (when (and (or (.-ctrlKey e) (.-metaKey e))
@@ -312,14 +312,20 @@
                                            (.preventDefault e)
                                            (dispatch! [[:editor/ax.eval-selection]])))}]
      [:div.code-actions
-      [:button.btn-eval {:on-click #(dispatch! [[:editor/ax.eval]])
-                         :disabled (or evaluating? loading? (empty? code))}
-       [icons/play {:size 14}]
+      [view-elements/action-button
+       {:button/variant :primary
+        :button/class "btn-eval"
+        :button/icon icons/play
+        :button/disabled? (or evaluating? loading? (empty? code))
+        :button/on-click #(dispatch! [[:editor/ax.eval]])}
        (cond
          loading? " Loading Scittle..."
          evaluating? " Evaluating..."
          :else " Eval script")]
-      [:button.btn-clear {:on-click #(dispatch! [[:editor/ax.clear-results]])}
+      [view-elements/action-button
+       {:button/variant :secondary
+        :button/class "btn-clear"
+        :button/on-click #(dispatch! [[:editor/ax.clear-results]])}
        "Clear Results"]
       [:span.shortcut-hint [:kbd "Ctrl"] "+" [:kbd "Enter"] " evals selection"]]]))
 
@@ -423,14 +429,16 @@
   [{:keys [panel/code]}]
   (let [has-changes? (and (seq code)
                           (not= code panel-actions/default-script))]
-    [:button.btn-new-script
-     {:on-click (fn [_e]
-                  (if has-changes?
-                    (when (js/confirm "Clear current script and start fresh?")
-                      (dispatch! [[:editor/ax.new-script]]))
-                    (dispatch! [[:editor/ax.new-script]])))
-      :title "Start a new script"}
-     [icons/plus {:size 14}]
+    [view-elements/action-button
+     {:button/variant :secondary
+      :button/class "btn-new-script"
+      :button/icon icons/plus
+      :button/title "Start a new script"
+      :button/on-click (fn [_e]
+                         (if has-changes?
+                           (when (js/confirm "Clear current script and start fresh?")
+                             (dispatch! [[:editor/ax.new-script]]))
+                           (dispatch! [[:editor/ax.new-script]])))}
      "New"]))
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
@@ -529,36 +537,47 @@
 
         ;; Save actions
         [:div.save-actions
-         [:button.btn-save {:on-click #(dispatch! [[:editor/ax.save-script]])
-                            :disabled save-disabled?
-                            :title (cond
-                                     (and editing-builtin? (not name-changed?))
-                                     "Cannot overwrite built-in script - change the name to create a copy"
-                                     (empty? script-name)
-                                     "Add :epupp/script-name to manifest"
-                                     (empty? script-match)
-                                     "Add :epupp/site-match to manifest"
-                                     :else nil)}
+         [view-elements/action-button
+          {:button/variant :success
+           :button/class "btn-save"
+           :button/disabled? save-disabled?
+           :button/on-click #(dispatch! [[:editor/ax.save-script]])
+           :button/title (cond
+                           (and editing-builtin? (not name-changed?))
+                           "Cannot overwrite built-in script - change the name to create a copy"
+                           (empty? script-name)
+                           "Add :epupp/script-name to manifest"
+                           (empty? script-match)
+                           "Add :epupp/site-match to manifest"
+                           :else nil)}
           save-button-text]
          ;; Rename button - appears after Save to keep layout stable
          (when show-rename?
-           [:button.btn-rename {:on-click #(dispatch! [[:editor/ax.rename-script]])
-                                :disabled rename-disabled?
-                                :title (if rename-disabled?
-                                         "Cannot rename built-in scripts"
-                                         (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
+           [view-elements/action-button
+            {:button/variant :primary
+             :button/class "btn-rename"
+             :button/disabled? rename-disabled?
+             :button/on-click #(dispatch! [[:editor/ax.rename-script]])
+             :button/title (if rename-disabled?
+                             "Cannot rename built-in scripts"
+                             (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
             "Rename"])
          ;; Status message
          (when save-status
-           [:span {:class (str "save-status save-status-" (:type save-status))}
+           [view-elements/status-text
+            {:status/type (:type save-status)
+             :status/class "save-status"}
             (:text save-status)])]]
 
        ;; No manifest: show guidance message
        [:div.save-script-form.no-manifest
         [no-manifest-message]
         [:div.save-actions
-         [:button.btn-save {:disabled true
-                            :title "Add manifest to code to enable saving"}
+         [view-elements/action-button
+          {:button/variant :success
+           :button/class "btn-save"
+           :button/disabled? true
+           :button/title "Add manifest to code to enable saving"}
           "Save Script"]]])]))
 
 (defn refresh-banner []
