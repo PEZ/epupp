@@ -2,6 +2,57 @@
    Shared CSS - Common styles used by popup and panel
    ============================================================ */
 
+/* ============================================================
+   Scrollbar styling - shared across all views
+   ============================================================ */
+
+/* WebKit scrollbar appearance */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Scrollbar stability utility - prevents layout shift when scrollbar appears/disappears */
+.scrollable-stable {
+  scrollbar-gutter: stable;
+  overflow-y: auto;
+}
+
+/* Firefox-specific fix for scrollbar stability */
+@supports (-moz-appearance: none) {
+  .scrollable-stable {
+    overflow-y: scroll;
+    scrollbar-width: auto;
+  }
+}
+
+/* ============================================================
+   Header and Footer Components
+   ============================================================ */
+
 /* Header wrapper - fixed positioning common to both views */
 .app-header-wrapper {
   position: fixed;

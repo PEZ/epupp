@@ -1,0 +1,122 @@
+/* ============================================================
+   Design Tokens - Single source of truth for the Epupp design system
+   ============================================================ */
+
+:root {
+  /* Brand colors */
+  --clojure-blue: #5881d8;
+  --clojure-blue-light: #99B5F9;
+  --clojure-green: #91dc47;
+
+  /* Semantic colors - light theme defaults */
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #666;
+  --color-text-muted: #999;
+
+  --color-bg-base: #ffffff;
+  --color-bg-elevated: #f8f9fa;
+  --color-bg-input: #ffffff;
+  --color-bg-accent: #707070;
+  --color-fg-accent: #fafafa;
+
+  --color-border: #e5e7eb;
+  --color-border-focus: var(--clojure-blue);
+
+  --color-success: #4ec9b0;
+  --color-error: #e53935;
+  --color-warning: #f59e0b;
+
+  /* Contextual backgrounds */
+  --color-bg-code: #f8f9fa;
+  --color-bg-btn: #ffffff;
+  --color-bg-btn-hover: #f8f9fa;
+  --color-bg-status-failed: #fff5f5;
+  --color-border-status-failed: #e53935;
+  --color-bg-approval: #fffbeb;
+  --color-border-approval: #fcd34d;
+  --color-text-approval-header: #b45309;
+  --color-bg-edit-hover: #dbeafe;
+  --color-bg-edit-hint: #eff6ff;
+  --color-bg-delete-hover: #fee2e2;
+  --color-text-delete-hover: #dc2626;
+  --color-bg-result-error: #fff5f5;
+  --color-bg-result-input: #ffffff;
+  --color-bg-result-output: #ffffff;
+
+  /* Refresh banner (panel) */
+  --color-bg-refresh-banner: #fffbeb;
+  --color-border-refresh-banner: #fcd34d;
+  --color-text-refresh-banner: #b45309;
+  --color-text-refresh-banner-strong: #92400e;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-base: 12px;
+  --font-size-md: 13px;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+  --scrollbar-track: var(--color-bg-base);
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-primary: #e8e8e8;
+    --color-text-secondary: #a0a0a0;
+    --color-text-muted: #707070;
+
+    --color-bg-base: #1e1e1e;
+    --color-bg-elevated: #252526;
+    --color-bg-input: #2d2d2d;
+    --color-bg-accent: #8f8f8f;
+    --color-fg-accent: #ffffff;
+
+    --color-border: #3c3c3c;
+
+    --color-success: #4ec9b0;
+    --color-error: #f14c4c;
+
+    /* Contextual backgrounds */
+    --color-bg-code: #2d2d2d;
+    --color-bg-btn: #2d2d2d;
+    --color-bg-btn-hover: #3c3c3c;
+    --color-bg-status-failed: #2d1f1f;
+    --color-border-status-failed: #f14c4c;
+    --color-bg-approval: #3d3520;
+    --color-border-approval: #5c4d1f;
+    --color-text-approval-header: #fcd34d;
+    --color-bg-edit-hover: #1e3a5f;
+    --color-bg-edit-hint: #1e3a5f;
+    --color-bg-delete-hover: #3d1f1f;
+    --color-text-delete-hover: #f14c4c;
+    --color-bg-result-error: #2d1f1f;
+    --color-bg-result-input: #1e1e1e;
+    --color-bg-result-output: #1e1e1e;
+
+    /* Refresh banner (panel) */
+    --color-bg-refresh-banner: #3d3520;
+    --color-border-refresh-banner: #5c4d1f;
+    --color-text-refresh-banner: #f0c674;
+    --color-text-refresh-banner-strong: #ffd866;
+
+    --scrollbar-thumb: #5a5a5a;
+    --scrollbar-thumb-hover: #6a6a6a;
+    --scrollbar-track: var(--color-bg-base);
+  }
+}

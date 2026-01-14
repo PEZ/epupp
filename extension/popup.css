@@ -1,69 +1,39 @@
+/* ============================================================
+   Popup-specific styles
+   Design tokens imported from design-tokens.css
+   ============================================================ */
+
 :root {
-  --clojure-blue: #5881d8;
-  --clojure-blue-light: #99B5F9;
-  --clojure-green: #91dc47;
-  --radius: 6px;
+  /* Legacy aliases - mapped to design tokens for gradual migration */
+  --radius: var(--radius-md);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --bg-body: var(--color-bg-base);
+  --bg-subtle: var(--color-bg-elevated);
+  --bg-accent: var(--color-bg-accent);
+  --fg-accent: var(--color-fg-accent);
+  --border-light: var(--color-border);
+  --code-bg: var(--color-bg-code);
+  --btn-bg: var(--color-bg-btn);
+  --btn-hover-bg: var(--color-bg-btn-hover);
+  --status-failed-bg: var(--color-bg-status-failed);
+  --status-failed-border: var(--color-border-status-failed);
+  --approval-bg: var(--color-bg-approval);
+  --approval-border: var(--color-border-approval);
+  --edit-hover-bg: var(--color-bg-edit-hover);
+  --edit-hint-bg: var(--color-bg-edit-hint);
+  --delete-hover-bg: var(--color-bg-delete-hover);
+  --delete-hover-color: var(--color-text-delete-hover);
+  --approval-header-color: var(--color-text-approval-header);
+  --success: var(--color-success);
+  --error: var(--color-error);
+  --border-color: var(--color-border);
 }
 
 /* Universal box-sizing for consistent width calculations */
 *, *::before, *::after {
   box-sizing: border-box;
-}
-
-/* Light theme (default for popup) */
-:root {
-  --text-primary: #1a1a1a;
-  --text-secondary: #666;
-  --text-muted: #999;
-  --bg-body: #ffffff;
-  --bg-subtle: #f8f9fa;
-  --bg-accent: #707070;
-  --fg-accent: #fafafa;
-  --border-light: #e5e7eb;
-  --code-bg: #f8f9fa;
-  --btn-bg: #ffffff;
-  --btn-hover-bg: #f8f9fa;
-  --status-failed-bg: #fff5f5;
-  --status-failed-border: #e53935;
-  --approval-bg: #fffbeb;
-  --approval-border: #fcd34d;
-  --edit-hover-bg: #dbeafe;
-  --edit-hint-bg: #eff6ff;
-  --delete-hover-bg: #fee2e2;
-  --delete-hover-color: #dc2626;
-  --approval-header-color: #b45309;
-  --scrollbar-thumb: #c0c0c0;
-  --scrollbar-thumb-hover: #a0a0a0;
-  --scrollbar-track: var(--bg-body);
-}
-
-/* Dark theme */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text-primary: #e8e8e8;
-    --text-secondary: #a0a0a0;
-    --text-muted: #707070;
-    --bg-body: #1e1e1e;
-    --bg-subtle: #252526;
-    --bg-accent: #8f8f8f;
-    --fg-accent: #ffffff;
-    --border-light: #3c3c3c;
-    --code-bg: #2d2d2d;
-    --btn-bg: #2d2d2d;
-    --btn-hover-bg: #3c3c3c;
-    --status-failed-bg: #2d1f1f;
-    --status-failed-border: #f14c4c;
-    --approval-bg: #3d3520;
-    --approval-border: #5c4d1f;
-    --edit-hover-bg: #1e3a5f;
-    --edit-hint-bg: #1e3a5f;
-    --delete-hover-bg: #3d1f1f;
-    --delete-hover-color: #f14c4c;
-    --approval-header-color: #fcd34d;
-    --scrollbar-thumb: #5a5a5a;
-    --scrollbar-thumb-hover: #6a6a6a;
-    --scrollbar-track: var(--bg-body);
-  }
 }
 
 html {
@@ -458,34 +428,7 @@ button#connect:active {
   border-color: var(--delete-hover-color);
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
-
-::-webkit-scrollbar-corner {
-  background: var(--scrollbar-track);
-}
-
-/* Firefox scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
+/* Scrollbar styling moved to shared.css */
 
 /* Firefox-only fix: scrollbar-gutter doesn't work reliably in Firefox popups.
    Force scrollbar to always be present to reserve consistent space. */
