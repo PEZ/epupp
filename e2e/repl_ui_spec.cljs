@@ -6,7 +6,8 @@
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["net" :as net]
             ["path" :as path]
-            [fixtures :refer [http-port nrepl-port-1 ws-port-1 nrepl-port-2 ws-port-2]]))
+            [fixtures :refer [http-port nrepl-port-1 ws-port-1 nrepl-port-2 ws-port-2
+                              assert-no-errors!]]))
 
 (def !context (atom nil))
 
@@ -296,7 +297,17 @@
                          (js/console.log "=== replicant scripts after second load ===" (.-values count-after-second))
 
                          ;; Should still be 1 - no duplicates added (nREPL returns strings)
-                         (-> (expect (first (.-values count-after-second))) (.toBe "1"))))))))
+                         (-> (expect (first (.-values count-after-second))) (.toBe "1"))))))
+
+             ;; Final error check for the REPL Integration suite
+             (test "no uncaught errors during REPL integration tests"
+                   (^:async fn []
+                     (let [ext-id (js-await (get-extension-id @!context))
+                           popup (js-await (.newPage @!context))]
+                       (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
+                                        #js {:waitUntil "networkidle"}))
+                       (js-await (assert-no-errors! popup))
+                       (js-await (.close popup)))))))
 
 ;; =============================================================================
 ;; Multi-Tab Multi-Server Tests
@@ -417,6 +428,8 @@
                                  (js/console.log "Independent state verified: tab1=" (.-values read1)
                                                  "tab2=" (.-values read2))))
 
+                             ;; Check for errors before closing
+                             (js-await (assert-no-errors! popup))
                              (js-await (.close popup))))
                          (finally
                            (js-await (.close ctx)))))))))

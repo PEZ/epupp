@@ -71,26 +71,26 @@
 ### Critical (read for any code change)
 | Doc | When to Read |
 |-----|--------------|
-| [squint.instructions.md](squint.instructions.md) | Editing ANY `.cljs` file - Squint gotchas will bite you |
+| `.github/squint.instructions.md` | Editing ANY `.cljs` file - Squint gotchas will bite you |
 
 ### By Task Type
 
 | Task | Read These |
 |------|-----------|
-| **Understanding the system** | [architecture/overview.md](../dev/docs/architecture/overview.md) - has navigation to detailed docs |
-| **Writing tests** | [testing.md](../dev/docs/testing.md) |
-| **UI work (popup/panel)** | [reagami.instructions.md](reagami.instructions.md), [ui.md](../dev/docs/ui.md) |
-| **State/events** | [architecture/uniflow.md](../dev/docs/architecture/uniflow.md), [architecture/state-management.md](../dev/docs/architecture/state-management.md) |
-| **Messaging between contexts** | [architecture/message-protocol.md](../dev/docs/architecture/message-protocol.md) |
-| **Injection/REPL flow** | [architecture/injection-flows.md](../dev/docs/architecture/injection-flows.md) |
-| **Userscript features** | [userscripts-architecture.md](../dev/docs/userscripts-architecture.md) |
-| **Build/release** | [dev.md](../dev/docs/dev.md) |
-| **Finding source files** | [architecture/components.md](../dev/docs/architecture/components.md) |
+| **Understanding the system** | `dev/docs/architecture/overview.md` - has navigation to detailed docs |
+| **Writing tests** | `dev/docs/testing.md` |
+| **UI work (popup/panel)** | `.github/reagami.instructions.md`, `dev/docs/ui.md` |
+| **State/events** | `dev/docs/architecture/uniflow.md`, `dev/docs/architecture/state-management.md` |
+| **Messaging between contexts** | `dev/docs/architecture/message-protocol.md` |
+| **Injection/REPL flow** | `dev/docs/architecture/injection-flows.md` |
+| **Userscript features** | `dev/docs/userscripts-architecture.md` |
+| **Build/release** | `dev/docs/dev.md` |
+| **Finding source files** | `dev/docs/architecture/components.md` |
 
 ### Reference (consult as needed)
-- [README.md](../README.md) - User-facing overview
-- [architecture/security.md](../dev/docs/architecture/security.md) - Trust boundaries, CSP
-- [architecture/build-pipeline.md](../dev/docs/architecture/build-pipeline.md) - Build config injection
+- `README.md` - User-facing overview
+- `dev/docs/architecture/security.md` - Trust boundaries, CSP
+- `dev/docs/architecture/build-pipeline.md` - Build config injection
 
 ## Subagents
 
@@ -127,7 +127,7 @@ This project uses **[Squint](https://github.com/squint-cljs/squint)** to compile
 
 - **Source:** `src/*.cljs` files are compiled to `extension/*.mjs` (ES modules)
 - **Bundling:** esbuild bundles `extension/*.mjs` → `build/*.js` (IIFE format)
-- **Config:** [squint.edn](squint.edn) specifies paths and `.mjs` extension
+- **Config:** `squint.edn` specifies paths and `.mjs` extension
 
 **Build flow:**
 ```bash
@@ -139,13 +139,13 @@ npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 
 ### Scittle CSP Patching
 
-Scittle is patched to remove `eval()` for CSP compatibility. See [dev.md](../dev/docs/dev.md#patching-scittle-for-csp-compatibility) for details. **Always run `bb bundle-scittle` after updating Scittle version.**
+Scittle is patched to remove `eval()` for CSP compatibility. See `dev/docs/dev.md` (section: Patching Scittle for CSP Compatibility) for details. **Always run `bb bundle-scittle` after updating Scittle version.**
 
 ## Key Developer Workflows
 
-See [dev.md](../dev/docs/dev.md) for build commands, loading extension locally, and release process. Note that the instructions there for setting up for local development are meant for the human.
+See `dev/docs/dev.md` for build commands, loading extension locally, and release process. Note that the instructions there for setting up for local development are meant for the human.
 
-The Squint REPL is useful for testing code and pure functions interactively before editing files. See [squint.instructions.md](squint.instructions.md#testing-code-in-squint-nrepl).
+The Squint REPL is useful for testing code and pure functions interactively before editing files. See `.github/squint.instructions.md` (section: Testing Code in Squint nREPL).
 
 ### Quick Command Reference
 
@@ -198,10 +198,10 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
 ## Common Pitfalls
 
 1. **Treat `.mjs` as binary** - These are Squint-compiled output. Never edit, and only read when debugging compilation. Edit `.cljs` source in `src/`.
-2. **Squint != ClojureScript** - see [squint.instructions.md](squint.instructions.md) for gotchas (keywords are strings, missing `name` function, mutable data).
+2. **Squint != ClojureScript** - see `.github/squint.instructions.md` for gotchas (keywords are strings, missing `name` function, mutable data).
 3. **Run `bb bundle-scittle`** after Scittle version updates - the CSP patch is critical.
 4. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle patch works.
-5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler ([ws_bridge.cljs](src/ws_bridge.cljs)) to prevent reconnection loops.
+5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler (`src/ws_bridge.cljs`) to prevent reconnection loops.
 6. **Firefox CSP** - `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
 
 ## Use Subagents to protect your contect window and ensure quality

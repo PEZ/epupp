@@ -12,7 +12,7 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           clear-test-events!]]))
+                                           clear-test-events! assert-no-errors!]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -83,6 +83,7 @@
                 (js/console.log "SCRIPT_INJECTED event:" (js/JSON.stringify event))
                 ;; Verify event has expected data
                 (js-await (-> (expect (.-event event)) (.toBe "SCRIPT_INJECTED")))
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -144,6 +145,11 @@
                   (js-await (-> (expect (aget timings "epuppPerf"))
                                 (.toBeLessThan (aget timings "pagePerf"))))))
 
+              ;; Check for errors before closing
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (assert-no-errors! popup))
+                (js-await (.close popup)))
+
               (js-await (.close page)))
 
             (finally
@@ -203,6 +209,7 @@
               ;; Verify report has expected structure
               (js-await (-> (expect (:all-events report))
                             (.toBeDefined)))
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -211,23 +218,6 @@
 ;; =============================================================================
 ;; Error Checking
 ;; =============================================================================
-
-(defn ^:async assert-no-errors!
-  "Check that no UNCAUGHT_ERROR or UNHANDLED_REJECTION events were logged.
-   Call this at the end of tests to catch extension errors."
-  [popup]
-  (let [events (js-await (get-test-events popup))
-        error-events (.filter events
-                              (fn [e]
-                                (or (= (.-event e) "UNCAUGHT_ERROR")
-                                    (= (.-event e) "UNHANDLED_REJECTION"))))]
-    (when (pos? (.-length error-events))
-      (js/console.error "Unexpected errors captured:")
-      (.forEach error-events
-                (fn [e]
-                  (js/console.error (js/JSON.stringify e nil 2)))))
-    (js-await (-> (expect (.-length error-events))
-                  (.toBe 0)))))
 
 (test "Userscript: injection produces no uncaught errors"
       (^:async fn []
@@ -362,6 +352,7 @@
                               (.toBeVisible #js {:timeout 5000})))
                 (js/console.log "Installed script visible in popup"))
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally

@@ -10,7 +10,7 @@
             [fixtures :refer [launch-browser get-extension-id create-popup-page
                               create-panel-page wait-for-event
                               get-test-events wait-for-save-status wait-for-popup-ready
-                              clear-test-events!]]))
+                              clear-test-events! assert-no-errors!]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata including require."
@@ -73,6 +73,7 @@
                 (js-await (-> (expect (.-require our-script)) (.toBeTruthy)))
                 (js-await (-> (expect (aget (.-require our-script) 0)) (.toBe "scittle://reagent.js"))))
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -142,6 +143,7 @@
                     (js/console.log "Injected files:" (js/JSON.stringify files))
                     (js-await (-> (expect (.some files (fn [f] (.includes f "pprint")))) (.toBe true)))))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -226,6 +228,11 @@
                   (js/console.log "Has Reagent:" has-reagent)
                   (js-await (-> (expect has-reagent) (.toBe true)))))
 
+              ;; Check for errors before closing
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (assert-no-errors! popup))
+                (js-await (.close popup)))
+
               (js-await (.close page)))
 
             (finally
@@ -284,6 +291,7 @@
                 ;; Should have NO INJECTING_REQUIRES events (script has no require)
                 (js-await (-> (expect (.-length require-events)) (.toBe 0)))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -349,6 +357,11 @@
                 (let [has-pprint (.some script-tags (fn [url] (.includes url "scittle.pprint")))]
                   (js/console.log "Has pprint:" has-pprint)
                   (js-await (-> (expect has-pprint) (.toBe true)))))
+
+              ;; Check for errors before closing
+              (let [popup (js-await (create-popup-page context ext-id))]
+                (js-await (assert-no-errors! popup))
+                (js-await (.close popup)))
 
               (js-await (.close page)))
 

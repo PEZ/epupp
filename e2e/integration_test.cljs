@@ -9,7 +9,8 @@
                               wait-for-save-status
                               wait-for-checkbox-state
                               wait-for-edit-hint
-                              wait-for-panel-ready]]))
+                              wait-for-panel-ready
+                              assert-no-errors!]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -120,6 +121,7 @@
               ;; Wait for script to disappear (Playwright auto-waits for count to match)
               (js-await (-> (expect script-item) (.toHaveCount 0)))
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
             (finally
               (js-await (.close context)))))))
@@ -193,6 +195,7 @@
               (let [badge (.locator normal-item ".run-at-badge")]
                 (js-await (-> (expect badge) (.toHaveCount 0))))
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
