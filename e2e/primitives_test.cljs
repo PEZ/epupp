@@ -312,6 +312,89 @@
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
+             (test "epupp/mv! renames a script"
+                   (^:async fn []
+                     ;; First verify mv! function exists
+                     (let [fn-check (js-await (eval-in-browser "(fn? epupp/mv!)"))]
+                       (-> (expect (.-success fn-check)) (.toBe true))
+                       (-> (expect (.-values fn-check)) (.toContain "true")))
+
+                     ;; Create a script to rename
+                     (let [test-code "{:epupp/script-name \"rename-test-original\"
+                                       :epupp/site-match \"https://example.com/*\"}
+                                      (ns rename-test)"
+                           setup-result (js-await (eval-in-browser
+                                                   (str "(def !mv-setup (atom :pending))
+                                                         (-> (epupp/save! " (pr-str test-code) ")
+                                                             (.then (fn [r] (reset! !mv-setup r))))
+                                                         :setup-done")))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Wait for save to complete
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!mv-setup)"))]
+                           (when (or (not (.-success check-result))
+                                     (empty? (.-values check-result))
+                                     (= (first (.-values check-result)) ":pending"))
+                             (when (< (- (.now js/Date) start) timeout-ms)
+                               (js-await (sleep 50))
+                               (recur))))))
+
+                     ;; Now rename the script
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !mv-result (atom :pending))
+                                                    (-> (epupp/mv! \"rename_test_original.cljs\" \"renamed_script.cljs\")
+                                                        (.then (fn [r] (reset! !mv-result r))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     ;; Poll for result
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!mv-result)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             ;; Should have success
+                             (-> (expect (.includes (first (.-values check-result)) ":success true"))
+                                 (.toBe true))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for epupp/mv! result"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))
+
+                     ;; Verify new name appears in ls and old doesn't
+                     (let [setup-result (js-await (eval-in-browser
+                                                   "(def !ls-after-mv (atom :pending))
+                                                    (-> (epupp/ls)
+                                                        (.then (fn [scripts] (reset! !ls-after-mv scripts))))
+                                                    :setup-done"))]
+                       (-> (expect (.-success setup-result)) (.toBe true)))
+
+                     (let [start (.now js/Date)
+                           timeout-ms 3000]
+                       (loop []
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!ls-after-mv)"))]
+                           (if (and (.-success check-result)
+                                    (seq (.-values check-result))
+                                    (not= (first (.-values check-result)) ":pending"))
+                             (let [result-str (first (.-values check-result))]
+                               ;; Should have new name
+                               (-> (expect (.includes result-str "renamed_script.cljs")) (.toBe true))
+                               ;; Should NOT have old name
+                               (-> (expect (.includes result-str "rename_test_original.cljs")) (.toBe false)))
+                             ;; Not ready yet
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for ls after mv"))
+                               (do
+                                 (js-await (sleep 50))
+                                 (recur)))))))))
+
              ;; Final error check
              (test "no uncaught errors during primitives tests"
                    (^:async fn []
