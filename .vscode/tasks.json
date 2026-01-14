@@ -31,7 +31,11 @@
       "command": "bb squint-nrepl",
       "group": "build",
       "isBackground": true,
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
     },
     {
       "label": "Scittle Dev REPL",
@@ -46,11 +50,25 @@
       }
     },
     {
+      "label": "Babashka REPL",
+      "type": "shell",
+      "command": "bb nrepl-server",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
+    },
+    {
       "label": "Start Dev Environment",
       "dependsOn": [
         "Squint Watch",
         "Unit Test Watch",
-        "Scittle Dev REPL"
+        "Squint REPL",
+        "Scittle Dev REPL",
+        "Babashka REPL"
       ],
       "group": {
         "kind": "build",

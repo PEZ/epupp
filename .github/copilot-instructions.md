@@ -10,7 +10,7 @@
 - **Watchers:** Usually already running - check task output before building
 
 **Start work setup:**
-1. Check `clojure_list_sessions` to verify REPL availability (look for both `squint` and `scittle-dev-repl` sessions)
+1. Check `clojure_list_sessions` to verify REPL availability (look for `bb`, `squint` and `scittle-dev-repl` sessions)
 2. Consult the **Documentation Index** below based on your task
 
 <principles>
@@ -177,8 +177,9 @@ Use `--` to separate task options from Playwright options.
 1. **Verify watchers are running** - check watcher task output for compilation/test status
 2. **Check problem report** - review any existing lint errors
 3. **Verify REPLs** - use `clojure_list_sessions` to confirm available sessions:
-   - `squint` - Squint nREPL (port 1337) for testing pure functions in Node.js
-   - `scittle-dev-repl` - Scittle Dev REPL (port 31337) for testing Scittle code in browser-like environment
+   - `bb` - Babashka REPL for scripting and automation
+   - `squint` - Squint REPL for testing pure functions in Node.js
+   - `scittle-dev-repl` - Scittle Dev REPL for testing Scittle code in browser-like environment
 
 **CRITICAL: Watcher verification is mandatory.** Use `get_task_output` with these task IDs:
 - `shell: Squint Watch` - compilation status

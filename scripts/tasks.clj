@@ -681,7 +681,7 @@
    Options:
      --shards N  Number of parallel shards (default: 6)
      --serial    Run sequentially for detailed output
-   
+
    Use -- to separate bb options from Playwright options:
      bb test:e2e --serial -- --grep \"popup\""
   [args]
@@ -693,33 +693,30 @@
       (run-e2e-serial! args)
       (run-e2e-parallel! n-shards))))
 
+(defn- extract-json-from-output
+  "Extract JSON object from mixed output that may have log prefixes.
+   Finds the first { and parses from there."
+  [output]
+  (when-let [json-start (str/index-of output "{")]
+    (subs output json-start)))
+
 (defn e2e-timing-report!
   "Run E2E tests in Docker with JSON reporter and print timing report.
    Sorted fastest-first so you can tail for slowest tests."
-  [args]
+  [_args]
   (println "Building Docker image...")
   (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
   (println "Running E2E tests with JSON reporter in Docker...")
-  ;; Start servers in background, run playwright with JSON to stdout.
-  (let [cmd (str "Xvfb :99 -screen 0 1280x720x24 &>/dev/null & "
-                 "sleep 1; "
-                 "export DISPLAY=:99; "
-                 ;; Start HTTP server in background
-                 "bb -e '(require (quote [babashka.http-server :as s])) (s/serve {:port 18080 :dir \"test-data/pages\"})' &>/dev/null & "
-                 "sleep 0.5; "
-                 ;; Start two browser-nrepl servers for multi-tab tests
-                 "bb browser-nrepl --nrepl-port 12345 --websocket-port 12346 &>/dev/null & "
-                 "bb browser-nrepl --nrepl-port 12347 --websocket-port 12348 &>/dev/null & "
-                 "sleep 2; "
-                 ;; Run playwright with JSON reporter to stdout
-                 "npx playwright test --reporter=json")
-        result (p/shell {:out :string :err :inherit :continue true}
-                        "docker" "run" "--rm" "--entrypoint" "/bin/bash"
-                        "epupp-e2e" "-c" cmd)
+  ;; Use the standard entrypoint which handles server setup,
+  ;; just override the reporter to get JSON output
+  (let [result (p/shell {:out :string :err :inherit :continue true}
+                        "docker" "run" "--rm" "epupp-e2e"
+                        "--reporter=json")
         exit-code (:exit result)
-        output (:out result)]
-    (if (and (zero? exit-code) (str/starts-with? (str/trim output) "{"))
-      (let [json-data (json/read-str output :key-fn keyword)
+        output (:out result)
+        json-str (extract-json-from-output output)]
+    (if (and (zero? exit-code) json-str)
+      (let [json-data (json/read-str json-str :key-fn keyword)
             timings (extract-test-timings json-data)]
         (print-timing-report timings))
       (do

@@ -42,5 +42,8 @@
     "build/**": true,
     "dist/**": true,
     "node_modules/**": true
+  },
+  "chat.tools.terminal.autoApprove": {
+    "bb": true
   }
 }
