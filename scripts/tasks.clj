@@ -1,5 +1,6 @@
 (ns tasks
-  (:require [babashka.fs :as fs]
+  (:require [babashka.cli :as cli]
+            [babashka.fs :as fs]
             [babashka.http-client :as http]
             [babashka.http-server :as server]
             [babashka.process :as p]
@@ -582,6 +583,86 @@
                        (format-duration duration-ms)
                        name
                        file)))))
+
+;; ============================================================
+;; Parallel E2E Testing
+;; ============================================================
+
+(defn- run-docker-shard
+  "Run a single Docker shard using Playwright's native --shard option.
+   Returns process for monitoring."
+  [shard-idx total-shards log-file]
+  (let [writer (io/writer log-file)]
+    (.write writer (str "\n=== Shard " (inc shard-idx) "/" total-shards " ===\n\n"))
+    (.flush writer)
+    (p/process ["docker" "run" "--rm" "epupp-e2e"
+                "--shard" (str (inc shard-idx) "/" total-shards)]
+               {:out writer :err writer})))
+
+(defn run-e2e-parallel!
+  "Run E2E tests in parallel Docker containers using Playwright's native sharding.
+   
+   Playwright distributes tests evenly across shards at the test level,
+   providing better load balancing than file-based sharding.
+   
+   1. Builds extension and Docker image once
+   2. Spawns N Docker containers with --shard i/N
+   3. Each container runs in isolation (separate ports, browser instances)
+   4. Fails if any shard fails
+   
+   Options:
+     --shards N  Number of parallel shards (default: 4)"
+  [args]
+  (let [opts (cli/parse-opts args {:coerce {:shards :int}})
+        n-shards (or (:shards opts) 4)]
+    
+    ;; Step 1: Build
+    (println "Building extension and compiling E2E tests...")
+    (p/shell "bb build:test")
+    (p/shell "bb test:e2e:compile")
+    
+    ;; Step 2: Build Docker image
+    (println "Building Docker image...")
+    (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
+    
+    ;; Step 3: Run shards in parallel
+    (println (str "Running " n-shards " parallel shards..."))
+    (let [log-dir "/tmp/epupp-e2e-parallel"
+          _ (fs/create-dirs log-dir)
+          start-time (System/currentTimeMillis)
+          
+          processes (doall
+                     (for [idx (range n-shards)]
+                       (let [log-file (str log-dir "/shard-" idx ".log")]
+                         (println (str "  Starting shard " (inc idx) "/" n-shards "..."))
+                         {:idx idx
+                          :process (run-docker-shard idx n-shards log-file)
+                          :log-file log-file})))
+          
+          ;; Wait for all and collect results
+          results (doall
+                   (for [{:keys [idx process log-file]} processes]
+                     (let [exit-code (:exit @process)]
+                       (println (str "  Shard " (inc idx) "/" n-shards " finished with exit code " exit-code))
+                       {:idx idx :exit exit-code :log-file log-file})))
+          
+          elapsed-ms (- (System/currentTimeMillis) start-time)
+          failed (filter #(not= 0 (:exit %)) results)]
+      
+      (println)
+      (println (str "Completed " n-shards " shards in " (format "%.1fs" (/ elapsed-ms 1000.0))))
+      
+      (if (seq failed)
+        (do
+          (println (str "❌ " (count failed) " shard(s) failed:"))
+          (doseq [{:keys [idx log-file]} failed]
+            (println (str "  Shard " (inc idx) " - see " log-file)))
+          (println "\nFailed shard output:")
+          (doseq [{:keys [idx log-file]} failed]
+            (println (str "\n=== Shard " (inc idx) " ==="))
+            (println (slurp log-file)))
+          (System/exit 1))
+        (println "✅ All shards passed!")))))
 
 (defn e2e-timing-report!
   "Run E2E tests in Docker with JSON reporter and print timing report.

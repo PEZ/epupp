@@ -12,7 +12,7 @@
             [fixtures :refer [launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count wait-for-edit-hint
-                              wait-for-panel-state-saved get-test-events]]))
+                              wait-for-panel-state-saved get-test-events assert-no-errors!]]))
 
 
 ;; =============================================================================
@@ -98,7 +98,10 @@
               (js-await (wait-for-save-status panel "Created"))
 
               ;; 10. Name field still shows normalized name after save
-              (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs"))))
+              (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs")))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -211,6 +214,8 @@
                             (.toBeVisible)))
               (js-await (-> (expect (.locator popup ".script-item:has-text(\"new_script_name.cljs\")"))
                             (.toBeVisible)))
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -284,6 +289,8 @@
               ;; Old name should NOT be present
               (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
                             (.not.toBeVisible)))
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -385,6 +392,8 @@
                 (js-await (-> (expect (some #(= % "first_script.cljs") script-names)) (.toBeFalsy))))
               ;; CRITICAL: No approval buttons should appear (other scripts should be unaffected)
               (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -487,6 +496,8 @@
                             (.not.toBeVisible)))
               (js-await (-> (expect (.locator popup ".script-item:has-text(\"original_script.cljs\")"))
                             (.not.toBeVisible)))
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -523,7 +534,10 @@
               (js-await (-> (expect match-field) (.toContainText "https://example.com/*")))
 
               ;; Save button should be enabled (valid manifest)
-              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled))))
+              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled)))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -610,7 +624,10 @@
               (js-await (-> (expect description-field) (.toContainText "Test persistence")))
 
               ;; Save button should be enabled
-              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled))))
+              (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled)))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -665,7 +682,10 @@
               ;; Script-id should be cleared (we're creating a new script now)
               ;; Verify by checking the header says "Save as Userscript" not "Edit Userscript"
               (let [header (.locator panel ".save-script-header .header-title")]
-                (js-await (-> (expect header) (.toContainText "Save as Userscript")))))
+                (js-await (-> (expect header) (.toContainText "Save as Userscript"))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -703,7 +723,10 @@
               (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs") #js {:timeout 500})))
 
               ;; BUT results should still show the previous evaluation
-              (js-await (-> (expect results) (.toContainText "(+ 1 2 3)"))))
+              (js-await (-> (expect results) (.toContainText "(+ 1 2 3)")))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -740,7 +763,10 @@
                 ;; Note: In Squint, we can't easily test this but we can verify
                 ;; the textarea still has default content
                 (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs"))))
-                (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))))
+                (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
+
+                ;; Assert no errors before closing
+                (js-await (assert-no-errors! panel))))
             (finally
               (js-await (.close context)))))))
 
@@ -777,7 +803,10 @@
 
                 ;; Wait for undo to restore original value (poll instead of fixed sleep)
                 (js-await (-> (expect textarea)
-                              (.toHaveValue initial-value #js {:timeout 500})))))
+                              (.toHaveValue initial-value #js {:timeout 500}))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -819,7 +848,10 @@
                 ;; Wait for result
                 (js-await (-> (expect results) (.toContainText "(+ 1 2)")))
                 ;; Empty hints should be gone
-                (js-await (-> (expect (.locator results ".empty-results")) (.not.toBeVisible)))))
+                (js-await (-> (expect (.locator results ".empty-results")) (.not.toBeVisible))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -882,7 +914,10 @@
                 ;; Should have exactly one input (the selection)
                 (js-await (-> (expect input-items) (.toHaveCount 1)))
                 ;; That input should be the selected code
-                (js-await (-> (expect (.first input-items)) (.toContainText "(* 3 4)")))))
+                (js-await (-> (expect (.first input-items)) (.toContainText "(* 3 4)"))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -910,7 +945,10 @@
               (js-await (.press (.-keyboard panel) "ControlOrMeta+Enter"))
 
               ;; Result should show full script
-              (js-await (-> (expect results) (.toContainText "(+ 100 200)" #js {:timeout 2000}))))
+              (js-await (-> (expect results) (.toContainText "(+ 100 200)" #js {:timeout 2000})))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -931,7 +969,10 @@
 
               ;; Button should have a play icon (SVG)
               (let [svg (.locator eval-btn "svg")]
-                (js-await (-> (expect svg) (.toBeVisible)))))
+                (js-await (-> (expect svg) (.toBeVisible))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))
 
@@ -948,6 +989,9 @@
               (js-await (wait-for-panel-ready panel))
 
               ;; Hint should mention selection
-              (js-await (-> (expect hint) (.toContainText "evals selection"))))
+              (js-await (-> (expect hint) (.toContainText "evals selection")))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! panel)))
             (finally
               (js-await (.close context)))))))

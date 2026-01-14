@@ -7,7 +7,7 @@
    - Error checking during normal operation"
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              get-test-events wait-for-popup-ready]]))
+                              get-test-events wait-for-popup-ready assert-no-errors!]]))
 
 ;; =============================================================================
 ;; Extension Startup
@@ -32,6 +32,9 @@
                   ;; Should have at least one EXTENSION_STARTED event
                   (js-await (-> (expect (.-length started-events))
                                 (.toBeGreaterThanOrEqual 1)))))
+
+              ;; Assert no errors before closing
+              (js-await (assert-no-errors! popup))
               (finally
                 (js-await (.close context))))))))
 
@@ -64,22 +67,6 @@
 ;; =============================================================================
 ;; Error Checking
 ;; =============================================================================
-
-(defn ^:async assert-no-errors!
-  "Check that no UNCAUGHT_ERROR or UNHANDLED_REJECTION events were logged."
-  [popup]
-  (let [events (js-await (get-test-events popup))
-        error-events (.filter events
-                              (fn [e]
-                                (or (= (.-event e) "UNCAUGHT_ERROR")
-                                    (= (.-event e) "UNHANDLED_REJECTION"))))]
-    (when (pos? (.-length error-events))
-      (js/console.error "Unexpected errors captured:")
-      (.forEach error-events
-                (fn [e]
-                  (js/console.error (js/JSON.stringify e nil 2)))))
-    (js-await (-> (expect (.-length error-events))
-                  (.toBe 0)))))
 
 (test "Extension: startup produces no uncaught errors"
       (^:async fn []

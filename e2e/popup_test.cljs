@@ -10,7 +10,7 @@
                                            create-panel-page clear-storage wait-for-popup-ready
                                            wait-for-save-status wait-for-script-count
                                            wait-for-checkbox-state wait-for-panel-ready
-                                           wait-for-connection ws-port-1]]))
+                                           wait-for-connection ws-port-1 assert-no-errors!]]))
 
 (defn code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -54,6 +54,7 @@
                 (js-await (-> (expect cmd-box) (.toContainText "9999")))
                 (js-await (-> (expect cmd-box) (.toContainText "8888"))))
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
             (finally
               (js-await (.close context)))))))
@@ -429,6 +430,7 @@
                     (js-await (-> (expect action-btns)
                                   (.toBeVisible)))))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
               (js-await (.close page)))
 
@@ -465,6 +467,7 @@
                   (js-await (-> (expect status-elem)
                                 (.toHaveClass #"status-failed"))))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
               (js-await (.close page)))
 
@@ -503,6 +506,7 @@
                     (js-await (-> (expect connected-items)
                                   (.toHaveCount 1)))))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
               (js-await (.close page)))
 
@@ -600,6 +604,7 @@
               ;; Note: GitHub script will be in "other" so hint won't show
               ;; We need a different approach - delete all non-matching scripts
 
+              (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 
             (finally
@@ -648,6 +653,7 @@
                     event (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))]
                 (js/console.log "SCITTLE_LOADED event:" (js/JSON.stringify event))
                 (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -712,6 +718,7 @@
                   (js-await (fixtures/assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300))
                   (js/console.log "Verified: No new SCITTLE_LOADED after SPA navigation"))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -787,6 +794,7 @@
                 (js/console.log "Auto-reconnect triggered! SCITTLE_LOADED event:" (js/JSON.stringify event))
                 ;; The presence of SCITTLE_LOADED event after clearing events proves auto-reconnect worked
                 (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+                (js-await (assert-no-errors! popup2))
                 (js-await (.close popup2)))
 
               (js-await (.close page)))
@@ -841,6 +849,7 @@
                 (let [popup2 (js-await (create-popup-page context ext-id))]
                   (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
                   (js/console.log "SCITTLE_LOADED count after reload (should still be 0):" scittle-count-before)
+                  (js-await (assert-no-errors! popup2))
                   (js-await (.close popup2))))
 
               (js-await (.close page)))
@@ -909,6 +918,7 @@
                 (let [popup2 (js-await (create-popup-page context ext-id))]
                   (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
                   (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-before)
+                  (js-await (assert-no-errors! popup2))
                   (js-await (.close popup2))))
 
               (js-await (.close page)))
@@ -976,6 +986,7 @@
                     (js/console.log "Final icon state:" state)
                     (js-await (-> (expect (or (= state "injected") (= state "connected")))
                                   (.toBeTruthy)))))
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
 
               (js-await (.close page)))
@@ -1082,6 +1093,7 @@
                       (js-await (-> (expect (or (= last-state "injected")
                                                 (= last-state "connected")))
                                     (.toBeTruthy))))
+                    (js-await (assert-no-errors! popup))
                     (js-await (.close popup)))
 
                   (js-await (.close tab-b))))
@@ -1139,6 +1151,7 @@
                         (js-await (-> (expect (str conn-tab-id))
                                       (.toBe (str tab-id))))))))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
               (js-await (.close page)))
 
@@ -1181,6 +1194,7 @@
                                   (.toHaveCount 1 #js {:timeout 2000})))
                     (js/console.log "UI updated with connected tab")))
 
+                (js-await (assert-no-errors! popup))
                 (js-await (.close popup)))
               (js-await (.close page)))
 

@@ -946,6 +946,17 @@
                         (send-response #js {:success false :error "Not available"})
                         false))
 
+                    "e2e/get-test-events"
+                    (if (.-dev config)
+                      (do
+                        ((^:async fn []
+                           (let [events (js-await (test-logger/get-test-events))]
+                             (send-response #js {:success true :events events}))))
+                        true)
+                      (do
+                        (send-response #js {:success false :error "Not available"})
+                        false))
+
                     "pattern-approved"
                     ;; Clear this script from pending and execute it
                     (let [script-id (.-scriptId message)

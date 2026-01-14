@@ -207,6 +207,16 @@
 ;; Wait Helpers - Use these instead of sleep for reliable tests
 ;; =============================================================================
 
+(defn ^:async get-test-events-via-message
+  "Read test events from storage via background worker message.
+   Works from any extension page (popup, panel, or background page).
+   Returns JS array of event objects."
+  [ext-page]
+  (let [result (js-await (send-runtime-message ext-page "e2e/get-test-events" nil))]
+    (if (and result (.-success result))
+      (.-events result)
+      (array))))
+
 (defn ^:async wait-for-script-count
   "Wait for the script list to have exactly n items.
    Use after save/delete operations instead of sleep."
@@ -423,3 +433,22 @@
     (js-await (.evaluate panel check-fn))))
 
 
+
+;; =============================================================================
+;; Error Assertion Helper - Call at end of each test
+;; =============================================================================
+
+(defn ^:async assert-no-errors!
+  "Assert that no UNCAUGHT_ERROR or UNHANDLED_REJECTION events were logged.
+   Call this at the end of each test before closing the context.
+   Uses message API so works from any extension page (popup/panel)."
+  [ext-page]
+  (let [events (js-await (get-test-events-via-message ext-page))
+        errors (.filter events
+                        (fn [e]
+                          (or (= (.-event e) "UNCAUGHT_ERROR")
+                              (= (.-event e) "UNHANDLED_REJECTION"))))]
+    (when (pos? (.-length errors))
+      (js/console.error "Found errors:" (js/JSON.stringify errors nil 2)))
+    (js-await (-> (expect (.-length errors))
+                  (.toBe 0)))))
