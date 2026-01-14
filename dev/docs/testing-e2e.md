@@ -11,10 +11,8 @@ bb test:e2e  # All E2E tests (headless in Docker), includes REPL integration
 
 **Parallel execution (faster, for humans with multi-core machines):**
 ```bash
-bb test:e2e:parallel --shards 6  # ~16s vs ~32s sequential
+bb test:e2e:parallel --shards 6  # ~16s vs ~32s sequential on a Mac M4 Max
 ```
-
-6 shards is the sweet spot - tests are distributed evenly (round-robin) across Docker containers, each running in isolation. More shards adds diminishing returns due to container startup overhead.
 
 **Only for Human Developers (Visible Browser):**
 ```bash
@@ -53,14 +51,22 @@ Look for available static HTML in `test-data/pages/`.
 
 ## Test Files
 
-All e2e test code is found in `e2e/`. Noting some, but not all, here:
+All e2e test code is found in `e2e/`. Test files are split for better parallel distribution:
 
 | File | Purpose |
 |------|---------|
 | `e2e/extension_test.cljs` | Extension infrastructure: startup, test infrastructure, error checking |
 | `e2e/integration_test.cljs` | Cross-component script lifecycle |
+| `e2e/popup_core_test.cljs` | REPL setup, scripts, settings, hints |
+| `e2e/popup_autoconnect_test.cljs` | Auto-connect and reconnect behavior |
+| `e2e/popup_connection_test.cljs` | Connection tracking and status |
+| `e2e/popup_icon_test.cljs` | Toolbar icon state |
+| `e2e/panel_eval_test.cljs` | Evaluation, selection eval, hints |
+| `e2e/panel_save_test.cljs` | Save/create and rename |
+| `e2e/panel_state_test.cljs` | Initialization, new button, undo |
 | `e2e/require_test.cljs` | Scittle library require functionality |
 | `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
+| `e2e/userscript_test.cljs` | Userscript injection and lifecycle |
 
 ## Fixtures and Helpers
 
