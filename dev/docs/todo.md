@@ -34,3 +34,8 @@
 * [x] Blank slates for different sections of the UI
 * [ ] Unify css between panel and popup
 * [ ] Consider if a version of Uniflow could be included as an Epupp library
+* [ ] Solve download of files from the repl
+* [ ] Solve upload of files from the repl
+* [ ] Create a template Epupp REPL project
+* [ ] Fix fallback port scittle behaviour in Calva
+* [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
