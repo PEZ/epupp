@@ -681,11 +681,7 @@
   (println "Building Docker image...")
   (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
   (println "Running E2E tests with JSON reporter in Docker...")
-  ;; Run playwright directly inside Docker with JSON reporter
-  ;; The bb test:e2e:ci task adds HTTP server and browser-nrepl,
-  ;; but JSON reporter output gets mixed with bb task output.
-  ;; For timing, we run a simpler setup - start servers in background,
-  ;; run playwright with clean JSON to stdout.
+  ;; Start servers in background, run playwright with JSON to stdout.
   (let [cmd (str "Xvfb :99 -screen 0 1280x720x24 &>/dev/null & "
                  "sleep 1; "
                  "export DISPLAY=:99; "
