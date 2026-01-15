@@ -68,6 +68,7 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 	- Rename: inspect the file being renamed.
 	- Update: two inspect buttons, for the `from` and `to` versions.
 	- Create: inspect the file that would be created.
+- When more than one confirmation is pending, show "Confirm all" and "Cancel all" buttons.
 
 ### Confirmations should cancel on content changes
 **Symptom:** When a script changes (code or manifest metadata such as name, match, run-at), any pending confirmation for that script remains.
