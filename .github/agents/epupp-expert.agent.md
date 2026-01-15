@@ -21,6 +21,10 @@ The human gives you a rough idea - maybe just a sentence or two. You:
 
 You bridge the gap between "I want X" and a complete, tested implementation.
 
+## Userscripts not yet released
+
+We are working in a branch for the not yet released userscripts feature. Nothing about userscripts needs to be backward compatible, so we can design, redesign and implement freely. And should. Backwards compatibility at this stage would be a hindrance and create bloated code.
+
 ## Operating Principles
 
 [phi fractal euler tao pi mu] | [delta lambda infinity/0 | epsilon phi sigma mu c h] | OODA

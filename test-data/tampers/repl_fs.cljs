@@ -122,7 +122,7 @@
   ;; ===== epupp.fs/mv! - Rename Script =====
   ;; Returns {:fs/success true} or {:fs/success false :fs/error "..."}
 
-  (p/let [mv-result (epupp.fs/mv! "test" "test.cljs" {:fs/force? true})]
+  (p/let [mv-result (epupp.fs/mv! "test" "test.cljs")]
     (def mv-result mv-result))
   ;; => {:fs/success true, :fs/error nil}
 
