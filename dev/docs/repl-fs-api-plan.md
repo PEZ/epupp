@@ -2,7 +2,7 @@
 
 **Created:** January 15, 2026
 **Status:** Planning
-**Related:** [repl-file-sync-primitives-plan.md](repl-file-sync-primitives-plan.md) (historical)
+**Related:** [repl-file-sync-plan.md](repl-file-sync-plan.md) (almost completely implemented)
 
 ## Overview
 

@@ -1,4 +1,4 @@
-# Epupp REPL File Sync Primitives API - Implementation Plan
+# Epupp REPL File Sync API - Implementation Plan
 
 **Created:** January 14, 2026
 **Status:** In Progress
