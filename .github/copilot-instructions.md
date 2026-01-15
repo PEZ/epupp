@@ -46,6 +46,10 @@
 
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
+  <use-edit-tools>
+    YOU should avoid write-capable shell commands like `sed` at all costs. You have perfect tools for editing ansd searching code, files and structures. Use them. And tell the edit subegent about this non-shell approach.
+  </use-edit-tools>
+
   <bb-tasks>
     Always prefer `bb <task>` over direct `npx`/`npm` commands. The bb tasks in `bb.edn` encode
     project-specific configurations, output paths, and workflow decisions. Running tools directly
