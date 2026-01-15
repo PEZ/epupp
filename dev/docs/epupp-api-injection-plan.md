@@ -32,7 +32,7 @@ Success criteria:
 2. Content bridge is injected into page (`inject-content-script`)
 3. Bridge readiness is confirmed via ping (`wait-for-bridge-ready`)
 4. Required Scittle libraries are injected via `inject-script` message
-5. Userscript code is injected via `inject-userscript` message (creates `<script type="application/x-scittle">` tag)
+5. Userscript code is injected via `inject-userscript` message (creates inline `<script type="application/x-scittle">` tags)
 6. `trigger-scittle.js` is injected to evaluate all pending Scittle scripts
 
 ### How REPL Connect Currently Works (before this change)
@@ -74,7 +74,7 @@ Success criteria:
 
 **Note**: `web_accessible_resources` is only needed if web pages need direct access to these URLs. Since we fetch in background and pass content via message, this may not be required.
 
-**Verification**: Test that `fetch(chrome.runtime.getURL('bundled/epupp/repl.cljs'))` works in background context.
+**Verification**: Confirm `fetch(chrome.runtime.getURL('bundled/epupp/repl.cljs'))` works in background context (can be validated in a temporary REPL evaluation or a small test helper).
 
 ### Phase 2: Design - Fetch and Inject Pattern
 
@@ -101,7 +101,7 @@ Success criteria:
 **Steps**:
 1. Create `inject-epupp-api!` function in `background.cljs`
 2. Function fetches each bundled file via `chrome.runtime.getURL` + `fetch`
-3. Sends fetched code to content bridge via `inject-userscript` message
+3. Sends fetched code to content bridge via `inject-userscript` message with stable ids (e.g., `epupp-repl`, `epupp-fs`)
 4. Triggers Scittle evaluation with `trigger-scittle.js` after all files injected (same mechanism used for userscripts)
 5. Replace call to `inject-epupp-namespace!` with `inject-epupp-api!` in `connect-tab!`
 6. Remove dead code: `epupp-namespace-code`, `inject-epupp-namespace!`
@@ -111,7 +111,7 @@ Success criteria:
 2. `bundled/epupp/fs.cljs` - File system operations
 
 **E2E verification**:
-- Add test event logging for `EPUPP_API_INJECTED` with file list
+- Add test event logging via `test-logger/log-event!` for `EPUPP_API_INJECTED` with file list
 - Verify in existing manifest test that files were injected via logged events
 - Could add dedicated injection test: connect, check events for both repl.cljs and fs.cljs injection
 
@@ -149,12 +149,13 @@ bb test:e2e
 | Build config (if needed) | Ensure `bundled/epupp/*.cljs` files are copied to dist |
 
 Note: No changes needed to `content_bridge.cljs` - we reuse the existing `inject-userscript` message handler.
-Note: `manifest.json` changes are likely unnecessary since background fetches files directly.
+Note: `manifest.json` changes are likely unnecessary since background fetches files directly, and the page never fetches these URLs.
 
 ## Risk Mitigation
 
 1. **Scittle evaluation timing**: After injecting script tags, we trigger evaluation with `trigger-scittle.js` - same proven pattern as userscripts
 2. **Idempotency**: Namespace redefinition in Scittle should be safe for these namespaces (overwrites definitions). For performance, could track injected files, but not critical for correctness
+	- Note: `inject-userscript` does not dedupe, so use stable ids if you want to reason about duplicates
 3. **Load order**: Inject `repl.cljs` before `fs.cljs` (fs may depend on repl utilities in future)
 4. **Fetch failures**: Extension resources should always be available, but add error handling for robustness
 
