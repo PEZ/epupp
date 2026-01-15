@@ -185,7 +185,7 @@
                            ;; Wait for save to complete
                            (let [save-result (js-await (wait-for-eval-promise "!ui-save-result" 3000))]
                              (js/console.log "=== Save result ===" save-result)
-                             (-> (expect (.includes save-result ":fs/success true")) (.toBe true))))
+                             (-> (expect (.includes save-result ":success true")) (.toBe true))))
 
                          ;; Popup should automatically refresh and show the new script
                          ;; Use Playwright's auto-waiting to poll for the new element
