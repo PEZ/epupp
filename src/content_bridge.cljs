@@ -216,7 +216,7 @@
                                     :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :name (.-name response)
-                                    :pending-confirmation (.-pending-confirmation response)
+                                     :pending-confirmation (aget response "pending-confirmation")
                                     :error (.-error response)}
                                "*")))
               (catch :default e
@@ -239,7 +239,7 @@
                                     :type "queue-rename-script-response"
                                     :requestId (.-requestId msg)
                                     :success (.-success response)
-                                    :pending-confirmation (.-pending-confirmation response)
+                                     :pending-confirmation (aget response "pending-confirmation")
                                     :from-name (.-from-name response)
                                     :to-name (.-to-name response)
                                     :error (.-error response)}
@@ -264,7 +264,7 @@
                                     :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :name (.-name response)
-                                    :pending-confirmation (.-pending-confirmation response)
+                                     :pending-confirmation (aget response "pending-confirmation")
                                     :error (.-error response)}
                                "*")))
               (catch :default e

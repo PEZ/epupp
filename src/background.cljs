@@ -19,16 +19,13 @@
 ;; Install global error handlers early so we catch all errors in test mode
 (test-logger/install-global-error-handlers! "background" js/self)
 
-;; DEBUG: Write directly to storage at module load to confirm service worker is running
-(.set js/chrome.storage.local #js {:bg-started true :ts (.now js/Date)})
-
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
 ;; ============================================================
 
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
 ;; The init-promise ensures all operations wait for storage to load.
-(declare prune-icon-states!)
+(declare prune-icon-states! load-pending-fs-confirmations!)
 
 (def !init-promise (atom nil))
 
@@ -42,6 +39,7 @@
               ;; Set test-mode flag in storage for non-bundled scripts (userscript-loader.js)
               (js-await (test-logger/init-test-mode!))
               (js-await (storage/init!))
+              (js-await (load-pending-fs-confirmations!))
               ;; Ensure built-in userscripts are installed
               (js-await (storage/ensure-gist-installer!))
               ;; Sync content script registrations for early-timing scripts
@@ -110,9 +108,14 @@
 
 (defn send-to-tab
   "Send message to content script in a tab.
-   Returns the promise - callers should handle errors as appropriate."
+   Fire-and-forget: ignores errors when the content bridge isn't present."
   [tab-id message]
-  (js/chrome.tabs.sendMessage tab-id (clj->js message)))
+  (js/chrome.tabs.sendMessage
+   tab-id
+   (clj->js message)
+   (fn [_response]
+     ;; Ignore errors - expected when no content bridge/content script is present.
+     (when js/chrome.runtime.lastError nil))))
 
 (defn- get-icon-paths
   "Get icon paths for a given state. Delegates to tested pure function."
@@ -304,6 +307,29 @@
 ;; Pending FS Confirmation Management
 ;; ============================================================
 
+(def ^:private pending-fs-confirmations-storage-key "pendingFsConfirmations")
+
+(defn persist-pending-fs-confirmations!
+  "Persist pending filesystem confirmations to chrome.storage.local.
+   Best-effort - ignores errors."
+  []
+  (let [confirmations (:pending/fs-confirmations @!state)
+        payload #js {}]
+    (aset payload pending-fs-confirmations-storage-key confirmations)
+    (js/chrome.storage.local.set
+     payload
+     (fn []
+       ;; Ignore errors - if storage isn't available we'll just lose pending confirmations
+       (when js/chrome.runtime.lastError nil)))))
+
+(defn ^:async load-pending-fs-confirmations!
+  "Load persisted pending filesystem confirmations from chrome.storage.local.
+   Always sets :pending/fs-confirmations to an object (possibly empty)."
+  []
+  (let [result (js-await (js/chrome.storage.local.get #js [pending-fs-confirmations-storage-key]))
+        loaded (aget result pending-fs-confirmations-storage-key)]
+    (swap! !state assoc :pending/fs-confirmations (or loaded #js {}))))
+
 (defn add-fs-confirmation!
   "Add a pending filesystem operation confirmation.
    Keyed by script-name - subsequent ops on same script replace existing."
@@ -312,12 +338,14 @@
          (merge {:confirm/script-name script-name
                  :confirm/operation operation-type
                  :confirm/timestamp (.now js/Date)}
-                details)))
+                details))
+  (persist-pending-fs-confirmations!))
 
 (defn remove-fs-confirmation!
   "Remove a pending filesystem confirmation by script name."
   [script-name]
-  (swap! !state update :pending/fs-confirmations dissoc script-name))
+  (swap! !state update :pending/fs-confirmations dissoc script-name)
+  (persist-pending-fs-confirmations!))
 
 (defn get-fs-confirmations
   "Get all pending filesystem confirmations."
@@ -325,12 +353,16 @@
   (vals (:pending/fs-confirmations @!state)))
 
 (defn broadcast-fs-confirmations-changed!
-  "Notify popup/panel that pending confirmations have changed."
+  "Notify popup/panel that pending confirmations have changed.
+   Fire-and-forget: popup/panel may not be open."
   []
   (let [confirmations (get-fs-confirmations)]
     (js/chrome.runtime.sendMessage
      (clj->js {:type "fs-confirmations-changed"
-               :confirmations confirmations}))))
+               :confirmations confirmations})
+     (fn [_response]
+       ;; Ignore errors - expected when no popup/panel is open
+       (when js/chrome.runtime.lastError nil)))))
 
 ;; ============================================================
 ;; Toolbar Icon State Management
@@ -1060,10 +1092,13 @@
 
                     ;; Popup/Panel requests current pending confirmations
                     "get-fs-confirmations"
-                    (let [confirmations (get-fs-confirmations)]
-                      (send-response (clj->js {:success true
-                                               :confirmations confirmations}))
-                      false)
+                    (do
+                      ((^:async fn []
+                         (js-await (ensure-initialized!))
+                         (let [confirmations (get-fs-confirmations)]
+                           (send-response (clj->js {:success true
+                                                    :confirmations confirmations})))))
+                      true)
 
                     ;; Page context requests script code by name via epupp/cat
                     "get-script"

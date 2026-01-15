@@ -12,6 +12,17 @@
 (def ^:private !context (atom nil))
 (def ^:private !ext-id (atom nil))
 
+(defn unique-basename [prefix]
+  (let [ts (.now js/Date)
+        rnd (js/Math.floor (* (js/Math.random) 1000000))
+        raw (str prefix "_" ts "_" rnd)]
+    (-> raw
+        (.toLowerCase)
+        (.replace (js/RegExp. "[^a-z0-9_]" "g") "_"))))
+
+(defn script-file [base]
+  (str base ".cljs"))
+
 (defn ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
 
@@ -242,6 +253,207 @@
 
                        (js-await (assert-no-errors! popup))
                        (js-await (.close popup)))))
+
+             (test "popup shows confirmation UI for non-force epupp.fs/save!"
+                   (^:async fn []
+                     ;; Trigger a save without {:fs/force? true} so we get a pending confirmation
+                     (let [test-code "{:epupp/script-name \"fs-confirmation-ui-test\"\n                                      :epupp/site-match \"https://confirmation-test.com/*\"}\n                                     (ns fs-confirmation-ui-test)"
+                           save-code (str "(def !fs-confirmation-ui-result (atom :pending))\n"
+                                          "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
+                                          "  (.then (fn [r] (reset! !fs-confirmation-ui-result r))))\n"
+                                          ":setup-done")]
+                       (let [setup-result (js-await (eval-in-browser save-code))]
+                         (-> (expect (.-success setup-result)) (.toBe true)))
+
+                       (let [save-result (js-await (wait-for-eval-promise "!fs-confirmation-ui-result" 3000))]
+                         (-> (expect (.includes save-result "pending-confirmation true")) (.toBe true))))
+
+                     ;; Open popup and verify confirmation UI is visible
+                     (let [popup (js-await (.newPage @!context))]
+                       (js-await (.goto popup
+                                        (str "chrome-extension://" @!ext-id "/popup.html")
+                                        #js {:waitUntil "networkidle"}))
+                       (js-await (wait-for-popup-ready popup))
+
+                       ;; Debug: confirm background returns pending confirmations
+                       (let [resp (js-await (send-runtime-message popup "get-fs-confirmations" nil))
+                             count-confirmations (when resp (.-confirmations resp))]
+                         (-> (expect (and resp (.-success resp))) (.toBe true))
+                         (-> (expect (and count-confirmations (> (.-length count-confirmations) 0))) (.toBe true)))
+
+                       (js-await (-> (expect (.locator popup ".fs-confirmations-section"))
+                                     (.toBeVisible #js {:timeout 2000})))
+
+                       (js-await (-> (expect (.locator popup ".confirmation-item:has-text(\"fs_confirmation_ui_test.cljs\")"))
+                                     (.toBeVisible #js {:timeout 2000})))
+
+                       (js-await (-> (expect (.locator popup ".confirmation-confirm"))
+                                     (.toBeVisible #js {:timeout 2000})))
+                       (js-await (-> (expect (.locator popup ".confirmation-cancel"))
+                                     (.toBeVisible #js {:timeout 2000})))
+
+                       ;; Confirm and verify script shows up in list
+                       (js-await (.click (.locator popup ".confirmation-confirm")))
+                       (js-await (-> (expect (.locator popup ".script-item:has-text(\"fs_confirmation_ui_test.cljs\")"))
+                                     (.toBeVisible #js {:timeout 2000})))
+
+                       (js-await (assert-no-errors! popup))
+                       (js-await (.close popup)))))
+
+             (test "popup updates pending confirmation to latest"
+                   (^:async fn []
+                     (let [from-base (unique-basename "fs_overwrite_src")
+                           from-name (script-file from-base)
+                           to1 (script-file (unique-basename "fs_overwrite_to1"))
+                           to2 (script-file (unique-basename "fs_overwrite_to2"))]
+                       ;; Force-save script using manifest :epupp/script-name set to from-base and (ns <from-base>)
+                       (let [test-code (str "{:epupp/script-name \"" from-base "\"\n"
+                                            "                                      :epupp/site-match \"https://overwrite-test.com/*\"}\n"
+                                            "                                     (ns " from-base ")")
+                             save-code (str "(def !fs-pending-latest-setup (atom :pending))\n"
+                                            "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
+                                            "  (.then (fn [r] (reset! !fs-pending-latest-setup r))))\n"
+                                            ":setup-done")]
+                         (let [setup-result (js-await (eval-in-browser save-code))]
+                           (-> (expect (.-success setup-result)) (.toBe true)))
+                         (js-await (wait-for-eval-promise "!fs-pending-latest-setup" 3000)))
+
+                       ;; Trigger non-force mv from from-name -> to1, should produce a pending confirmation
+                       (let [mv-code (str "(def !fs-pending-latest-mv-1 (atom :pending))\n"
+                                          "(-> (epupp.fs/mv! " (pr-str from-name) " " (pr-str to1) ")\n"
+                                          "  (.then (fn [r] (reset! !fs-pending-latest-mv-1 r))))\n"
+                                          ":setup-done")]
+                         (let [mv-result (js-await (eval-in-browser mv-code))]
+                           (-> (expect (.-success mv-result)) (.toBe true)))
+                         (let [mv-out (js-await (wait-for-eval-promise "!fs-pending-latest-mv-1" 3000))]
+                           (-> (expect (.includes mv-out "pending-confirmation true")) (.toBe true))))
+
+                       ;; Open popup and verify confirmation UI
+                       (let [popup (js-await (.newPage @!context))]
+                         (js-await (.goto popup
+                                          (str "chrome-extension://" @!ext-id "/popup.html")
+                                          #js {:waitUntil "networkidle"}))
+                         (js-await (wait-for-popup-ready popup))
+
+                         (js-await (-> (expect (.locator popup ".fs-confirmations-section"))
+                                       (.toBeVisible #js {:timeout 2000})))
+
+                         ;; Confirmation item shows source and destination
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name "\"):has-text(\"" to1 "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+
+                         ;; Trigger another non-force mv updating destination to to2
+                         (let [mv-code (str "(def !fs-pending-latest-mv-2 (atom :pending))\n"
+                                            "(-> (epupp.fs/mv! " (pr-str from-name) " " (pr-str to2) ")\n"
+                                            "  (.then (fn [r] (reset! !fs-pending-latest-mv-2 r))))\n"
+                                            ":setup-done")]
+                           (let [mv-result (js-await (eval-in-browser mv-code))]
+                             (-> (expect (.-success mv-result)) (.toBe true)))
+                           (let [mv-out (js-await (wait-for-eval-promise "!fs-pending-latest-mv-2" 3000))]
+                             (-> (expect (.includes mv-out "pending-confirmation true")) (.toBe true))))
+
+                         ;; Popup should update via broadcast: destination becomes to2 (and no longer to1)
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name "\"):has-text(\"" to2 "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name "\"):has-text(\"" to1 "\")")))
+                                       (.not.toBeVisible #js {:timeout 2000})))
+
+                         ;; Click confirm within the specific confirmation item
+                         (let [item (.locator popup (str ".confirmation-item:has-text(\"" from-name "\")"))]
+                           (js-await (.click (.locator item ".confirmation-confirm"))))
+
+                         ;; Verify script list shows to2 and does NOT show from-name
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to2 "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name "\")")))
+                                       (.not.toBeVisible #js {:timeout 2000})))
+
+                         (js-await (assert-no-errors! popup))
+                         (js-await (.close popup))))))
+
+             (test "popup shows multiple pending confirmations"
+                   (^:async fn []
+                     (let [from-base-a (unique-basename "fs_multi_src_a")
+                           from-name-a (script-file from-base-a)
+                           to-a (script-file (unique-basename "fs_multi_to_a"))
+                           from-base-b (unique-basename "fs_multi_src_b")
+                           from-name-b (script-file from-base-b)
+                           to-b (script-file (unique-basename "fs_multi_to_b"))]
+                       ;; Create two scripts (force-save) so they exist before mv!
+                       (let [test-code-a (str "{:epupp/script-name \"" from-base-a "\"\n"
+                                              "                                      :epupp/site-match \"https://multi-confirmation-test.com/*\"}\n"
+                                              "                                     (ns " from-base-a ")")
+                             save-code-a (str "(def !fs-multi-setup-a (atom :pending))\n"
+                                              "(-> (epupp.fs/save! " (pr-str test-code-a) " {:fs/force? true})\n"
+                                              "  (.then (fn [r] (reset! !fs-multi-setup-a r))))\n"
+                                              ":setup-done")
+                             test-code-b (str "{:epupp/script-name \"" from-base-b "\"\n"
+                                              "                                      :epupp/site-match \"https://multi-confirmation-test.com/*\"}\n"
+                                              "                                     (ns " from-base-b ")")
+                             save-code-b (str "(def !fs-multi-setup-b (atom :pending))\n"
+                                              "(-> (epupp.fs/save! " (pr-str test-code-b) " {:fs/force? true})\n"
+                                              "  (.then (fn [r] (reset! !fs-multi-setup-b r))))\n"
+                                              ":setup-done")]
+                         (let [setup-a (js-await (eval-in-browser save-code-a))]
+                           (-> (expect (.-success setup-a)) (.toBe true)))
+                         (js-await (wait-for-eval-promise "!fs-multi-setup-a" 3000))
+                         (let [setup-b (js-await (eval-in-browser save-code-b))]
+                           (-> (expect (.-success setup-b)) (.toBe true)))
+                         (js-await (wait-for-eval-promise "!fs-multi-setup-b" 3000)))
+
+                       ;; Trigger two non-force mv confirmations
+                       (let [mv-code-a (str "(def !fs-multi-mv-a (atom :pending))\n"
+                                            "(-> (epupp.fs/mv! " (pr-str from-name-a) " " (pr-str to-a) ")\n"
+                                            "  (.then (fn [r] (reset! !fs-multi-mv-a r))))\n"
+                                            ":setup-done")
+                             mv-code-b (str "(def !fs-multi-mv-b (atom :pending))\n"
+                                            "(-> (epupp.fs/mv! " (pr-str from-name-b) " " (pr-str to-b) ")\n"
+                                            "  (.then (fn [r] (reset! !fs-multi-mv-b r))))\n"
+                                            ":setup-done")]
+                         (let [mv-a (js-await (eval-in-browser mv-code-a))]
+                           (-> (expect (.-success mv-a)) (.toBe true)))
+                         (let [mv-out-a (js-await (wait-for-eval-promise "!fs-multi-mv-a" 3000))]
+                           (-> (expect (.includes mv-out-a "pending-confirmation true")) (.toBe true)))
+                         (let [mv-b (js-await (eval-in-browser mv-code-b))]
+                           (-> (expect (.-success mv-b)) (.toBe true)))
+                         (let [mv-out-b (js-await (wait-for-eval-promise "!fs-multi-mv-b" 3000))]
+                           (-> (expect (.includes mv-out-b "pending-confirmation true")) (.toBe true))))
+
+                       ;; Open popup and verify both confirmations are shown
+                       (let [popup (js-await (.newPage @!context))]
+                         (js-await (.goto popup
+                                          (str "chrome-extension://" @!ext-id "/popup.html")
+                                          #js {:waitUntil "networkidle"}))
+                         (js-await (wait-for-popup-ready popup))
+
+                         (js-await (-> (expect (.locator popup ".fs-confirmations-section"))
+                                       (.toBeVisible #js {:timeout 2000})))
+
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-a "\"):has-text(\"" to-a "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\"):has-text(\"" to-b "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+
+                         ;; Confirm both by clicking confirm within each item
+                         (let [item-a (.locator popup (str ".confirmation-item:has-text(\"" from-name-a "\")"))
+                               item-b (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\")"))]
+                           (js-await (.click (.locator item-a ".confirmation-confirm")))
+                           (js-await (.click (.locator item-b ".confirmation-confirm"))))
+
+                         ;; Verify renamed scripts show up and old names do not
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to-a "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to-b "\")")))
+                                       (.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name-a "\")")))
+                                       (.not.toBeVisible #js {:timeout 2000})))
+                         (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name-b "\")")))
+                                       (.not.toBeVisible #js {:timeout 2000})))
+
+                         (js-await (assert-no-errors! popup))
+                         (js-await (.close popup))))))
 
              (test "popup refreshes after epupp.fs/mv!"
                    (^:async fn []

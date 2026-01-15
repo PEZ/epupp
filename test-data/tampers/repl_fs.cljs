@@ -1,4 +1,6 @@
-(ns tampers.repl-fs)
+(ns tampers.repl-fs
+  (:require
+    [promesa.core :as p]))
 ;;
 ;; Prerequisites:
 ;; 1. Build extension: bb build:dev
@@ -112,6 +114,10 @@
     (def save-result save-result))
   ;; => {:fs/success true, :fs/name "repl_test_script.cljs", :fs/error nil}
 
+  (p/let [save-result-multi (epupp.fs/save! ["{:epupp/script-name \"1\"}"
+                                       "{:epupp/script-name \"2\"}"])]
+    (def save-result-multi save-result))
+
   ;; Verify script appears in ls
   (p/let [ls-after-save (epupp.fs/ls)]
     (def ls-after-save ls-after-save))
@@ -122,8 +128,13 @@
   ;; ===== epupp.fs/mv! - Rename Script =====
   ;; Returns {:fs/success true} or {:fs/success false :fs/error "..."}
 
-  (p/let [mv-result (epupp.fs/mv! "test" "test.cljs")]
-    (def mv-result mv-result))
+  (p/let [mv-result (epupp.fs/mv! "test3.cljs" "test4.cljs")]
+    (def mv-result mv-result)
+    #_(-> mv-result
+        (p/then (fn [r]
+                  (js/alert r)))
+        (p/catch (fn [e]
+                   (js/alert (str "Error" e))))))
   ;; => {:fs/success true, :fs/error nil}
 
   ;; Verify rename: new name exists, old name gone
@@ -138,7 +149,7 @@
   ;; Returns {:fs/success true} or {:fs/success false :fs/error "..."}
   ;; Built-in scripts cannot be deleted.
 
-  (p/let [rm-result (epupp.fs/rm! "repl_renamed_script.cljs")]
+  (p/let [rm-result (epupp.fs/rm! "test3.cljs")]
     (def rm-result rm-result))
 
   rm-result

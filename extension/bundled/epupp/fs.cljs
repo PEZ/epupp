@@ -98,7 +98,7 @@
                                   (-> (send-and-receive "queue-save-script" {:code code :enabled enabled} "queue-save-script-response")
                                       (.then (fn [msg]
                                                [idx {:fs/success (.-success msg)
-                                                     :fs/pending-confirmation (.-pending-confirmation msg)
+                                                     :fs/pending-confirmation (aget msg "pending-confirmation")
                                                      :fs/name (.-name msg)
                                                      :fs/error (.-error msg)}])))))
                               codes)))
@@ -114,7 +114,7 @@
          (-> (send-and-receive "queue-save-script" {:code code-or-codes :enabled enabled} "queue-save-script-response")
              (.then (fn [msg]
                       {:fs/success (.-success msg)
-                       :fs/pending-confirmation (.-pending-confirmation msg)
+                       :fs/pending-confirmation (aget msg "pending-confirmation")
                        :fs/name (.-name msg)
                        :fs/error (.-error msg)}))))))))
 
@@ -142,7 +142,7 @@
        (-> (send-and-receive "queue-rename-script" {:from from-name :to to-name} "queue-rename-script-response")
            (.then (fn [msg]
                     {:fs/success (.-success msg)
-                     :fs/pending-confirmation (.-pending-confirmation msg)
+                     :fs/pending-confirmation (aget msg "pending-confirmation")
                      :fs/from-name from-name
                      :fs/to-name to-name
                      :fs/error (.-error msg)})))))))
@@ -176,7 +176,7 @@
                           (-> (send-and-receive "queue-delete-script" {:name n} "queue-delete-script-response")
                               (.then (fn [msg]
                                        [n {:fs/success (.-success msg)
-                                           :fs/pending-confirmation (.-pending-confirmation msg)
+                                           :fs/pending-confirmation (aget msg "pending-confirmation")
                                            :fs/error (.-error msg)}])))))
                       names)))
              (.then (fn [results]
@@ -193,6 +193,6 @@
          (-> (send-and-receive "queue-delete-script" {:name name-or-names} "queue-delete-script-response")
              (.then (fn [msg]
                       {:fs/success (.-success msg)
-                       :fs/pending-confirmation (.-pending-confirmation msg)
+                      :fs/pending-confirmation (aget msg "pending-confirmation")
                        :fs/name name-or-names
                        :fs/error (.-error msg)}))))))))

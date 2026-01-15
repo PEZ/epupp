@@ -398,7 +398,7 @@
      #js {:type "get-fs-confirmations"}
      (fn [response]
        (when (and response (.-success response))
-         (let [confirmations (js->clj (.-confirmations response) :keywordize-keys true)]
+         (let [confirmations (.-confirmations response)]
            (dispatch [[:db/ax.assoc :pending/fs-confirmations confirmations]])))))
 
     :popup/fx.confirm-fs-operation
@@ -838,21 +838,29 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-(defn confirmation-item [{:keys [confirm/script-name confirm/operation confirm/to-name]}]
-  (let [key script-name]
+(defn confirmation-item [confirmation]
+  (let [script-name (aget confirmation "confirm/script-name")
+        operation (aget confirmation "confirm/operation")
+        to-name (aget confirmation "confirm/to-name")
+        key script-name]
     [:div.confirmation-item
      [:div.confirmation-info
       [:span.confirmation-op
        (case operation
-         :delete [:<> [icons/trash] " Delete"]
-         :rename [:<> [icons/edit] " Rename"]
-         [:<> "Unknown op"])]
+         :delete [:span [icons/trash] " Delete"]
+         :rename [:span [icons/edit] " Rename"]
+         :save-create [:span [icons/plus] " Create"]
+         :save-update [:span [icons/edit] " Update"]
+         [:span "Unknown op"])]
       [:span.confirmation-details
        (case operation
          :delete [:span.script-name script-name]
-         :rename [:<> [:span.script-name script-name]
+         :rename [:span
+                  [:span.script-name script-name]
                   " → "
                   [:span.script-name to-name]]
+         :save-create [:span.script-name script-name]
+         :save-update [:span.script-name script-name]
          script-name)]]
      [:div.confirmation-actions
       [view-elements/action-button
@@ -866,16 +874,17 @@
         :button/on-click #(dispatch! [[:popup/ax.cancel-fs-operation key]])}
        "Cancel"]]]))
 
-(defn fs-confirmations-section [{:keys [pending/fs-confirmations]}]
-  (when (seq fs-confirmations)
-    [:div.fs-confirmations-section
-     [:div.fs-confirmations-header
-      [icons/alert {:class "warning-icon"}]
-      [:span "Pending Confirmations"]]
-     [:div.fs-confirmations-list
-      (for [confirmation fs-confirmations]
-        ^{:key (:confirm/script-name confirmation)}
-        [confirmation-item confirmation])]]))
+(defn fs-confirmations-section [state]
+  (let [fs-confirmations (:pending/fs-confirmations state)]
+    (when (seq fs-confirmations)
+      [:div.fs-confirmations-section
+       [:div.fs-confirmations-header
+        [icons/alert {:class "warning-icon"}]
+        [:span "Pending Confirmations"]]
+       [:div.fs-confirmations-list
+        (for [confirmation fs-confirmations]
+          ^{:key (aget confirmation "confirm/script-name")}
+          [confirmation-item confirmation])]])))
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
@@ -942,7 +951,7 @@
   (js/chrome.runtime.onMessage.addListener
    (fn [message _sender _send-response]
      (when (= "fs-confirmations-changed" (.-type message))
-       (let [confirmations (js->clj (.-confirmations message) :keywordize-keys true)]
+       (let [confirmations (.-confirmations message)]
          (dispatch! [[:db/ax.assoc :pending/fs-confirmations confirmations]])))
      false))
 
