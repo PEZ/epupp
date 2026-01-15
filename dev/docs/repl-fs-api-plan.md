@@ -18,12 +18,12 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | `modified` timestamp in manifest | ✅ Done | Added to `ls` output |
 | UI reactivity for fs operations | ✅ Done | Popup listens to storage changes |
 | Confirmation UI placement | 🔲 Not started | Inline confirmation cards with ghost items for new files |
-| Confirmation for `rm!` | 🔲 Not started | Default on, `:fs/force? true` to skip |
-| Confirmation for `mv!` | 🔲 Not started | Default on |
+| Confirmation for `rm!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
+| Confirmation for `mv!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
 | Confirmation for `save!` (update) | 🔲 Not started | Requires background queue handler |
 | Confirmation for `save!` (create) | 🔲 Not started | Requires background queue handler |
 | Options for `save!` | ⚠️ Partial | `:fs/enabled` implemented, docs/tests still mention `:enabled` |
-| Bulk operations | 🔲 Not started | `cat`, `save!`, `rm!`, `mv!` |
+| Bulk operations | ⚠️ Partial | `cat` and `rm!` bulk implemented; `save!` bulk blocked by missing queue handler; `mv!` bulk not implemented |
 | Promesa in example tamper | ✅ Done | Updated repl_fs.cljs with epupp.fs/* |
 | Document "not-approved" behavior | ✅ Done | Added to user-guide.md REPL FS API section |
 
@@ -48,7 +48,7 @@ epupp.repl/   - REPL session utilities
 Use `cljs.pprint/print-table` with `with-out-str` for formatted script listings:
 
 ```clojure
-(epupp/manifest! {:epupp/require ["scittle://pprint.js"]})
+(epupp.repl/manifest! {:epupp/require ["scittle://pprint.js"]})
 (require '[cljs.pprint :refer [print-table]])
 
 ;; Full table (wrap with-out-str to capture in REPL)
@@ -82,11 +82,9 @@ All maps use `:fs/` namespaced keywords (tests/docs still contain `:success` in 
 
 Operations requiring confirmation return immediately with `:fs/pending-confirmation true`. The UI shows inline confirmation cards in the script list, with ghost items representing new files.
 
-- Operating on the same file while pending updates the existing confirmation
-- Badge indicates pending confirmations when popup/panel closed
+- Badge indicates pending confirmations when popup/panel closed (planned UX item, not implemented yet)
 - User confirms/denies in UI
-- Ghost items show pending create actions with confirm/cancel inline
-- Promise resolves when confirmed or denied
+- Promise resolves immediately when queued; later confirm/cancel only affects state, no second resolution
 
 ```clojure
 ;; Confirmation flow
@@ -104,9 +102,9 @@ Operations requiring confirmation return immediately with `:fs/pending-confirmat
 | Function | Single | Bulk input | Bulk output |
 |----------|--------|-----------|-------------|
 | `cat` | `(cat "name")` → string | `(cat ["a" "b"])` → `{"a" "code" "b" nil}` |
-| `save!` | `(save! code)` | `(save! [code1 code2])` → `{"name1" result "name2" result}` |
+| `save!` | `(save! code)` | `(save! [code1 code2])` → `{0 result 1 result}` |
 | `rm!` | `(rm! "name")` | `(rm! ["a" "b"])` → `{"a" result "b" result}` |
-| `mv!` | `(mv! "old" "new")` | `(mv! {"old1" "new1" "old2" "new2"})` → per-item results |
+| `mv!` | `(mv! "old" "new")` | `(mv! {"old1" "new1" "old2" "new2"})` → per-item results (map form not implemented yet - planned) |
 
 ### Default Behaviors
 
@@ -154,7 +152,7 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 5. **Confirmation UI pattern**
    - Inline confirmation cards in list
    - Ghost items for new files
-   - Badge for pending when closed
+   - Badge for pending when closed (planned)
 
 6. **Implement confirmations**
    - `rm!` confirmation
@@ -172,13 +170,13 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 ### Phase 5: Documentation
 
-11. **Update example tamper** - Use promesa patterns
+10. **Update example tamper** - Use promesa patterns (done)
 
-12. **Document features**
-    - "Not-approved" behavior for new scripts
+11. **Document features**
+   - "Not-approved" behavior for new scripts
    - Inline confirmation cards and ghost items
-    - Full API reference
-    - User guide section
+   - Full API reference
+   - User guide section
 
 ## Testing Strategy
 
@@ -208,7 +206,7 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 1. **`save!` confirmation not implemented in background** - No `queue-save-script` handler, so `save!` never queues confirmation
 2. **Wrong option names in tests/docs** - Tests still send `:confirm false` and `:enabled`; current API uses `:fs/force?` and `:fs/enabled`
 3. **Return keys mismatch in tests/docs** - Tests still assert `:success`, but code returns `:fs/success`
-4. **UI confirmation placement mismatch** - Plan says inline/ghost, but docs still mention top-level confirmation section
+4. **UI confirmation placement mismatch** - Implementation uses a top-level confirmation section and must move to inline cards with ghost items
 5. **Bulk confirmation behavior undefined for `save!`** - Needs explicit queue semantics and return format
 6. **Force mode should clear pending** - Using `:fs/force? true` should clear any pending confirmation for that file
 
