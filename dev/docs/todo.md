@@ -43,3 +43,6 @@
 * [ ] Fix fallback port scittle behaviour in Calva
 * [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
 * [ ] Scittle nrepl injected twice
+* [ ] Enable allow process also for non-matching
+* [ ] Consider a separate leading section for items that need confirmation of any sort
+* [ ] Have a repl file sync mode that can be enabled and which skips confirmation requirements
