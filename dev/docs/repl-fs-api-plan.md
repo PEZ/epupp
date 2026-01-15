@@ -17,7 +17,7 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Namespaced keywords in returns | ✅ Done | `:fs/name`, `:fs/enabled`, etc. |
 | `modified` timestamp in manifest | ✅ Done | Added to `ls` output |
 | UI reactivity for fs operations | ✅ Done | Popup listens to storage changes |
-| Confirmation UI placement | 🔲 Not started | Inline confirmation cards with ghost items for new files |
+| Confirmation UI placement | ⚠️ Partial | Top-level confirmation section exists; inline/ghost items pending |
 | Confirmation for `rm!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
 | Confirmation for `mv!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
 | Confirmation for `save!` (update) | 🔲 Not started | Requires background queue handler |
@@ -213,8 +213,10 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 ### Current Failing Tests
 
 - [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs) - expects `:success`, `:confirm`, `:enabled` semantics
+   - Assumes immediate execution; update to use `:fs/force?` or trigger the UI confirmation flow.
 - [e2e/fs_ui_reactivity_test.cljs](e2e/fs_ui_reactivity_test.cljs) - expects `:success` results from `save!`/`rm!`/`mv!`
-- [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) - expects `:name`/`:enabled` keys instead of `:fs/*`
+   - Assumes immediate execution; update to use `:fs/force?` or trigger the UI confirmation flow.
+- [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) - expects `:name`/`:enabled` in `ls` output instead of `:fs/name`/`:fs/enabled`
 
 ### Correct Semantics
 
