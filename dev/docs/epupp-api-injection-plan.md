@@ -35,13 +35,13 @@ Success criteria:
 5. Userscript code is injected via `inject-userscript` message (creates `<script type="application/x-scittle">` tag)
 6. `trigger-scittle.js` is injected to evaluate all pending Scittle scripts
 
-### How REPL Connect Currently Works
+### How REPL Connect Currently Works (before this change)
 
 1. `connect-tab!` orchestrates the connection
 2. `ensure-bridge!` injects content bridge
 3. `ensure-scittle!` loads Scittle core
 4. `ensure-scittle-nrepl!` loads scittle.nrepl
-5. `inject-epupp-namespace!` evaluates `epupp-namespace-code` string via `eval_scittle_fn`
+5. `inject-epupp-namespace!` evaluates `epupp-namespace-code` string via `eval_scittle_fn` ← **this is what we're replacing**
 
 ### Current Files
 
@@ -54,49 +54,45 @@ Success criteria:
 
 ## Implementation Plan
 
-### Phase 0: Convert Bundled Files to Plain Clojure ;pez: the notebook format is lie, they were previous defined as a plain string.
+### Phase 0: Extract Bundled Files to Plain Clojure - DONE
 
-**Goal**: Strip VS Code Notebook XML wrappers so Scittle can parse the files.
+**Goal**: Create proper Scittle source files from the inline string definitions.
 
-**Problem**: The extracted files use VS Code's notebook format with XML cell wrappers:
-```xml
-<VSCode.Cell id="#VSC-..." language="clojure">
-(ns epupp.repl ...)
-</VSCode.Cell>
-```
+**Status**: Complete. Files are now plain Clojure at:
+- `extension/bundled/epupp/repl.cljs`
+- `extension/bundled/epupp/fs.cljs`
 
-Scittle expects plain Clojure source.
+### Phase 1: Verify Bundled Files Are Accessible
 
-**Steps**:
-1. Convert `extension/bundled/epupp/repl.cljs` to plain Clojure ;pez: this is done
-2. Convert `extension/bundled/epupp/fs.cljs` to plain Clojure   :pez: this is done
-3. Verify files are syntactically correct ;pez: this is done
+**Goal**: Ensure the bundled epupp files can be fetched by the background script.
 
-**Verification**: Files should be parseable by any Clojure reader. ;pez: this is done
-
-### Phase 1: Make Bundled Files Web-Accessible
-
-**Goal**: Ensure the bundled epupp files can be served by the extension.
+**Analysis**: The background script will fetch file content using `fetch(chrome.runtime.getURL(...))`. Background scripts have full access to extension resources, so files in `extension/bundled/` should be accessible without adding them to `web_accessible_resources`.
 
 **Steps**:
-1. Update `extension/manifest.json` to include `bundled/epupp/*.cljs` in `web_accessible_resources`
+1. Verify files are included in the build output (check `dist/chrome/bundled/epupp/`)
+2. If not, update build script to copy bundled files
 
-**Verification**: Manual check that files are accessible at `chrome-extension://<id>/bundled/epupp/repl.cljs`
+**Note**: `web_accessible_resources` is only needed if web pages need direct access to these URLs. Since we fetch in background and pass content via message, this may not be required.
 
-### Phase 2: Add Bundled File Loading to Content Bridge
+**Verification**: Test that `fetch(chrome.runtime.getURL('bundled/epupp/repl.cljs'))` works in background context.
 
-**Goal**: Content bridge can inject Scittle code from extension URLs (not just vendor scripts).
+### Phase 2: Design - Fetch and Inject Pattern
 
-**Analysis**: The existing `inject-script` message injects `<script src="...">` tags, which is for JavaScript. For Scittle code files, we need `inject-scittle-src` that creates `<script type="application/x-scittle" src="...">` tags.
+**Goal**: Determine how to load Scittle code from bundled files.
 
-**Steps**:
-1. Add new message handler `inject-scittle-src` to `content_bridge.cljs`
-2. Handler creates `<script type="application/x-scittle" src="url">` and waits for load
-3. Include idempotency tracking (similar to `inject-script-tag!`)
+**Analysis**: Scittle evaluates inline script content in `<script type="application/x-scittle">` tags - it does NOT support `src` attributes for external Scittle files. The existing `inject-userscript` message already handles inline Scittle injection. We have two options:
 
-**Unit test**: Not applicable (Chrome API dependent)
+**Option A - Fetch in background, inject inline**: Background fetches file content via `chrome.runtime.getURL` + fetch, sends code to bridge via existing `inject-userscript` message.
 
-**E2E verification**: Will be verified by Phase 4 test ;pez: if there is any way we can unit test parts of it  that should be done, and same for e2e, we could at least verify that we are injecting things as we expect.
+**Option B - New message to fetch and inject**: Add `inject-scittle-url` handler to content bridge that fetches the URL and creates inline script tag.
+
+**Chosen: Option A** - Simpler, reuses existing `inject-userscript` infrastructure, keeps fetch logic in background where we have full access to extension URLs.
+
+**Result**: No code changes in this phase - just design decision documented above.
+
+**Unit test**: Not applicable - this is a design phase.
+
+**E2E verification**: Covered in Phase 3 implementation.
 
 ### Phase 3: Implement Epupp API Injection
 
@@ -104,14 +100,20 @@ Scittle expects plain Clojure source.
 
 **Steps**:
 1. Create `inject-epupp-api!` function in `background.cljs`
-2. Function sends `inject-scittle-src` for each bundled epupp file
-3. Triggers Scittle evaluation after injection
-4. Replace call to `inject-epupp-namespace!` with `inject-epupp-api!` in `connect-tab!`
-5. Remove dead code: `epupp-namespace-code`, `inject-epupp-namespace!`
+2. Function fetches each bundled file via `chrome.runtime.getURL` + `fetch`
+3. Sends fetched code to content bridge via `inject-userscript` message
+4. Triggers Scittle evaluation with `trigger-scittle.js` after all files injected
+5. Replace call to `inject-epupp-namespace!` with `inject-epupp-api!` in `connect-tab!`
+6. Remove dead code: `epupp-namespace-code`, `inject-epupp-namespace!`
 
 **Order of injection**:
 1. `bundled/epupp/repl.cljs` - REPL utilities (manifest!)
 2. `bundled/epupp/fs.cljs` - File system operations
+
+**E2E verification**:
+- Add test event logging for `EPUPP_API_INJECTED` with file list
+- Verify in existing manifest test that files were injected via logged events
+- Could add dedicated injection test: connect, check events for both repl.cljs and fs.cljs injection
 
 ### Phase 4: Run TDD Target Test
 
@@ -135,30 +137,32 @@ bb test:e2e
 ### Phase 6: Cleanup
 
 **Steps**:
-1. Remove the placeholder `epupp-namespace-code` def
-2. Rename `*_xtest.cljs` files back to `*_test.cljs` for FS tests (if they pass)
-3. Update documentation if needed
+1. Rename `*_xtest.cljs` files back to `*_test.cljs` for FS tests (if they pass)
+2. Update documentation if needed
+3. Move this plan document to archive
 
 ## File Changes Summary
 
 | File | Change |
 |------|--------|
-| `extension/manifest.json` | Add `bundled/epupp/*.cljs` to web_accessible_resources |
-| `src/content_bridge.cljs` | Add `inject-scittle-src` message handler |
-| `src/background.cljs` | Replace `inject-epupp-namespace!` with `inject-epupp-api!` |
+| `src/background.cljs` | Replace `inject-epupp-namespace!` with `inject-epupp-api!` (fetch + inject pattern) |
+| Build config (if needed) | Ensure `bundled/epupp/*.cljs` files are copied to dist |
+
+Note: No changes needed to `content_bridge.cljs` - we reuse the existing `inject-userscript` message handler.
+Note: `manifest.json` changes likely not required since background fetches files directly.
 
 ## Risk Mitigation
 
-1. **Scittle evaluation timing**: The `trigger-scittle.js` approach is proven for userscripts - we reuse the same pattern
-2. **Idempotency**: Track injected URLs to prevent duplicate injection on reconnect
+1. **Scittle evaluation timing**: After injecting script tags, we trigger evaluation with `trigger-scittle.js` - same proven pattern as userscripts
+2. **Idempotency**: Namespace redefinition in Scittle is safe (just overwrites). For performance, could track injected files, but not critical for correctness
 3. **Load order**: Inject `repl.cljs` before `fs.cljs` (fs may depend on repl utilities in future)
-4. **VS Code Notebook format**: Files must be plain Clojure - strip XML cell wrappers before use
+4. **Fetch failures**: Extension resources should always be available, but add error handling for robustness
 
 ## Execution Sequence
 
-1. [x] Phase 0: Convert bundled files from strings to plain Clojure
-2. [ ] Phase 1: Update manifest.json
-3. [ ] Phase 2: Add `inject-scittle-src` handler to content bridge
+1. [x] Phase 0: Extract bundled files to plain Clojure - DONE
+2. [ ] Phase 1: Verify bundled files are accessible from background + build includes them
+3. [ ] Phase 2: Design fetch + inject pattern (no content bridge changes needed)
 4. [ ] Phase 3: Implement `inject-epupp-api!` in background.cljs
 5. [ ] Phase 4: Run TDD target test
 6. [ ] Phase 5: Full test suite
@@ -166,12 +170,12 @@ bb test:e2e
 
 ## Notes
 
-- **IMPORTANT**: The bundled `.cljs` files currently use VS Code notebook format (XML cells). This needs to be converted to plain Clojure before Scittle can parse them. Add Phase 0 to strip XML wrappers.
 - Both `repl.cljs` and `fs.cljs` define their own `send-and-receive` helper - this duplication is acceptable for now (isolation), could be extracted to a shared namespace later
 
-## Alternative Considered: Inline Injection via eval_string
+## Alternative Considered: Inline at Build Time
 
-Keep the current `eval_scittle_fn` approach but read files at build time. Rejected because:
-- Still requires string escaping in the build pipeline
-- Doesn't leverage Scittle's native script tag loading
-- More complex build setup
+Read file contents at build time and embed as strings in compiled JS. Rejected because:
+- Requires build pipeline changes
+- Strings still need escaping in the bundled output
+- Files wouldn't be editable/inspectable in installed extension
+- Our approach (runtime fetch) is simpler and keeps files as-is
