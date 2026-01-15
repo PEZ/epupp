@@ -46,6 +46,20 @@
           "test-data/tampers/*.edn"
         ],
       }
+    },
+    {
+      "name": "Epupp X REPL",
+      "projectType": "scittle",
+      "fallbackPort": 11339,
+      "replSessionNames": {
+        "primary": "epupp-twitter"
+      },
+      "replSessionFilePatterns": {
+        "primary": [
+          "epupp/*.clj*",
+          "epupp/*.edn"
+        ],
+      }
     }
   ],
   "search.exclude": {

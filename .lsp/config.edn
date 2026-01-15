@@ -1,2 +1,2 @@
-{;:source-paths ["test-data"]
+{:source-paths ["test-data/tampers"]
  }
