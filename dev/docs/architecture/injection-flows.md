@@ -18,7 +18,7 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
    - Ensure Scittle is loaded
    - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
    - Inject `vendor/scittle.nrepl.js` (auto-connects)
-   - **Inject `epupp` namespace** (provides `manifest!` for library loading)
+   - **Inject Epupp API files** (`bundled/epupp/*.cljs` - provides `epupp.repl/manifest!` and `epupp.fs/*`)
 4. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
 5. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
 

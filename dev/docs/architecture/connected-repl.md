@@ -36,7 +36,7 @@ When the user clicks "Connect" in the popup:
    - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
    - Inject `vendor/scittle.nrepl.js` (auto-connects to relay)
    - Poll until WebSocket reaches OPEN state
-   - **Inject `epupp` namespace** (provides `manifest!` function)
+   - **Inject Epupp API** (`bundled/epupp/*.cljs` via fetch+inject)
 3. **WebSocket Bridge** intercepts `new WebSocket('ws://localhost:PORT/_nrepl')`
 4. Messages flow bidirectionally through the relay chain
 
@@ -63,17 +63,14 @@ sequenceDiagram
 
 ## The `epupp` Namespace
 
-At connect time, Epupp injects a ClojureScript namespace into the page via Scittle eval:
+At connect time, Epupp injects its API namespaces from bundled Scittle source files:
 
-```clojure
-(ns epupp)
+| File | Namespace | Purpose |
+|------|-----------|--------|
+| `bundled/epupp/repl.cljs` | `epupp.repl` | REPL utilities including `manifest!` for library loading |
+| `bundled/epupp/fs.cljs` | `epupp.fs` | File system operations: `cat`, `ls`, `save!`, `mv!`, `rm!` |
 
-(defn manifest!
-  "Load Epupp manifest. Injects required Scittle libraries.
-   Returns a promise that resolves when libraries are loaded."
-  [m]
-  ...)
-```
+The injection uses the same pattern as userscripts: background fetches file content via `chrome.runtime.getURL`, sends it to the content bridge via `inject-userscript` message (creating inline `<script type="application/x-scittle">` tags), and triggers Scittle evaluation.
 
 This enables loading Scittle ecosystem libraries on demand from the REPL:
 

@@ -162,12 +162,12 @@ Note: `manifest.json` changes are likely unnecessary since background fetches fi
 ## Execution Sequence
 
 1. [x] Phase 0: Extract bundled files to plain Clojure - DONE
-2. [ ] Phase 1: Verify bundled files are accessible from background + build includes them
-3. [ ] Phase 2: Design fetch + inject pattern (no content bridge changes needed)
-4. [ ] Phase 3: Implement `inject-epupp-api!` in background.cljs
-5. [ ] Phase 4: Run TDD target test
-6. [ ] Phase 5: Full test suite
-7. [ ] Phase 6: Cleanup
+2. [x] Phase 1: Verify bundled files are accessible from background + build includes them
+3. [x] Phase 2: Design fetch + inject pattern (no content bridge changes needed)
+4. [x] Phase 3: Implement `inject-epupp-api!` in background.cljs
+5. [x] Phase 4: Run TDD target test - PASSED
+6. [x] Phase 5: Full test suite - ALL PASSED
+7. [x] Phase 6: Cleanup - Archived 2026-01-15
 
 ## Notes
 
