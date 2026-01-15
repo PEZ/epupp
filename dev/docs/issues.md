@@ -69,3 +69,23 @@
 - E2E test: [e2e/panel_test.cljs](../../e2e/panel_test.cljs) (search for "undo")
 - Panel editor: [src/panel.cljs](../../src/panel.cljs)
 - Reagami: `node_modules/reagami/lib/reagami/core.mjs`
+
+---
+
+## Epupp Namespace as Separate File
+
+**Status:** Future enhancement
+
+**Current state:** The `epupp` namespace code (providing `manifest!`, `ls`, `cat`, `save!`, `mv!`, `rm!`) is embedded as a string literal in `background.cljs`. This works but makes the code harder to edit - no syntax highlighting, no paredit, no REPL support.
+
+**Desired state:** Move the epupp namespace to a separate `.cljs` file that Scittle loads at runtime. This would provide full editor support for maintaining the REPL API.
+
+**Connection to library support:** This relates to a broader feature - supporting non-script (library) files in Epupp. The epupp namespace could become a built-in library that is auto-prepended to all scripts, similar to how userscript managers provide GM_* functions.
+
+**Design considerations:**
+- How to distinguish library files from userscripts (no site-match, not shown in script list?)
+- Auto-injection order: libraries before userscripts
+- Built-in vs user-defined libraries
+- Namespace collision handling
+
+**Why not macros:** Attempted using Squint `defmacro` to stringify Clojure forms at compile time, but Squint macros don't receive forms as data in the REPL context (form argument comes in as `nil`). This approach won't work for this use case.

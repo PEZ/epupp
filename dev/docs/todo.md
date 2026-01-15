@@ -10,6 +10,9 @@
   * [x] Scittle dependencie (replicant, etc)
   * [ ] Code files ("src"-ish)
   * [ ] Urls?
+* [ ] Move epupp namespace to separate file (library support)
+  * [ ] Support non-script library files in Epupp
+  * [ ] epupp ns as built-in library auto-prepended to scripts
 * [x] Popup UI footer with info and sponsor link and such
 * [ ] Update README screenshot
 * [x] Installing scripts from script installer should add them as not approved
