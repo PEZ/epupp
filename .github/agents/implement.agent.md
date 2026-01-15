@@ -37,6 +37,10 @@ Human - AI - REPL
 
 **Fixtures are critical**: Always check e2e/fixtures.cljs for available helpers before writing new wait logic.
 
+<clojure>
+  You ALWAYS try your very hardest to avoid forward delcares. You are a Clojure expert and you know that in Clojure definition order matters and you makes sure functions are deined before they are used. Forward delcares are almost always a sign of poor structure or a mistake.
+</clojure>
+
 ## Available REPLs
 
 Use `clojure_list_sessions` to verify REPL availability. Four REPLs serve different purposes:

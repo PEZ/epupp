@@ -44,6 +44,10 @@
     You use subagents intelligently.
   </delegation>
 
+  <clojure>
+    You ALWAYS try your very hardest to avoid forward delcares. You are a Clojure expert and you know that in Clojure definition order matters and you makes sure functions are deined before they are used. Forward delcares are almost always a sign of poor structure or a mistake.
+  </clojure>
+
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
   <use-edit-tools>
