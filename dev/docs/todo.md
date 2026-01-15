@@ -46,3 +46,6 @@
 * [ ] Enable allow process also for non-matching
 * [ ] Consider a separate leading section for items that need confirmation of any sort
 * [ ] Have a repl file sync mode that can be enabled and which skips confirmation requirements
+* [ ] Call userscripts via the REPL, even if they are not injected
+* [ ] Should we evaluate the epupp.fs/* stuff inte existance instead of injecting?
+* [ ] Is there a way to make println print in the repl output?
