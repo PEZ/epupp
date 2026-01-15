@@ -5,7 +5,7 @@
   "Helper: send message to bridge and return promise of response."
   [msg-type payload response-type]
   (js/Promise.
-    (fn [resolve reject]
+    (fn [resolve _reject]
       (letfn [(handler [e]
                 (when (= (.-source e) js/window)
                   (let [msg (.-data e)]
@@ -19,6 +19,8 @@
           (clj->js (assoc payload :source "epupp-page" :type msg-type))
           "*")))))
 
+;TODO: Rename this to not conflict with clojure.core/cat
+#_{:clj-kondo/ignore [:redefined-var]}
 (defn cat
   "Get script code by name(s). Returns promise.
    Single name: returns code string or nil
