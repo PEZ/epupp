@@ -38,4 +38,4 @@
   (scittle-repl/start!+))
 
 (when (= (joyride/invoked-script) joyride/*file*)
-  (my-main))
+  #_(my-main))
