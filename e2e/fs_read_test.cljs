@@ -238,8 +238,8 @@
                                     (not= (first (.-values check-result)) ":pending"))
                              (let [result-str (first (.-values check-result))]
                                (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe true))
-                               (-> (expect (.includes result-str ":name")) (.toBe true))
-                               (-> (expect (.includes result-str ":enabled")) (.toBe true))
+                               (-> (expect (.includes result-str ":fs/name")) (.toBe true))
+                               (-> (expect (.includes result-str ":fs/enabled")) (.toBe true))
                                (-> (expect (.includes result-str ":match")) (.toBe true)))
                              (if (> (- (.now js/Date) start) timeout-ms)
                                (throw (js/Error. "Timeout waiting for epupp.fs/ls result"))

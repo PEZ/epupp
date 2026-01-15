@@ -191,6 +191,15 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 - Bulk operations
 - Backward compatibility (if aliases maintained)
 
+#### Recent Updates and Gaps
+- E2E tests updated to match current `:fs/*` semantics and to force execution when needed.
+- Coverage gaps needing new tests:
+   - Confirmation UI flow with inline cards and ghost items
+   - `queue-save-script` behavior
+   - Non-force confirmation path
+   - Badge indicator planned UX
+   - `mv!` bulk map input
+
 ## Open Items
 
 - Determine if backward compatibility aliases are needed or clean break is acceptable
