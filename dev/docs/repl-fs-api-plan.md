@@ -17,12 +17,12 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Namespaced keywords in returns | ✅ Done | `:fs/name`, `:fs/enabled`, etc. |
 | `modified` timestamp in manifest | ✅ Done | Added to `ls` output |
 | UI reactivity for fs operations | ✅ Done | Popup listens to storage changes |
-| Confirmation card pattern | 🔲 Not started | Inline cards below items |
-| Confirmation for `rm!` | 🔲 Not started | Default on, `:confirm false` to skip |
+| Confirmation UI placement | 🔲 Not started | Inline confirmation cards with ghost items for new files |
+| Confirmation for `rm!` | 🔲 Not started | Default on, `:fs/force? true` to skip |
 | Confirmation for `mv!` | 🔲 Not started | Default on |
-| Confirmation for `save!` (update) | 🔲 Not started | When overwriting existing |
-| Confirmation for `save!` (create) | 🔲 Not started | Ghost item with card |
-| Options for `save!` | 🔲 Not started | `:enabled` option |
+| Confirmation for `save!` (update) | 🔲 Not started | Requires background queue handler |
+| Confirmation for `save!` (create) | 🔲 Not started | Requires background queue handler |
+| Options for `save!` | ⚠️ Partial | `:fs/enabled` implemented, docs/tests still mention `:enabled` |
 | Bulk operations | 🔲 Not started | `cat`, `save!`, `rm!`, `mv!` |
 | Promesa in example tamper | ✅ Done | Updated repl_fs.cljs with epupp.fs/* |
 | Document "not-approved" behavior | ✅ Done | Added to user-guide.md REPL FS API section |
@@ -55,14 +55,14 @@ Use `cljs.pprint/print-table` with `with-out-str` for formatted script listings:
 (with-out-str (print-table @!scripts))
 
 ;; Select columns
-(with-out-str (print-table [:name :enabled] @!scripts))
+(with-out-str (print-table [:fs/name :fs/enabled] @!scripts))
 ```
 
 This composable approach is preferred over a custom `ls-print!` function.
 
 ### Return Value Keywords
 
-All maps use `:fs/` namespaced keywords:
+All maps use `:fs/` namespaced keywords (tests/docs still contain `:success` in several places):
 
 ```clojure
 ;; ls returns
@@ -80,11 +80,12 @@ All maps use `:fs/` namespaced keywords:
 
 ### Confirmation Pattern
 
-Operations requiring confirmation return immediately with `:fs/pending-confirmation true`. The UI shows an inline confirmation card below the affected item (or a ghost item for new files).
+Operations requiring confirmation return immediately with `:fs/pending-confirmation true`. The UI shows inline confirmation cards in the script list, with ghost items representing new files.
 
 - Operating on the same file while pending updates the existing confirmation
 - Badge indicates pending confirmations when popup/panel closed
 - User confirms/denies in UI
+- Ghost items show pending create actions with confirm/cancel inline
 - Promise resolves when confirmed or denied
 
 ```clojure
@@ -95,7 +96,7 @@ Operations requiring confirmation return immediately with `:fs/pending-confirmat
     (println "Deleted:" (:fs/name result))))
 
 ;; Skip confirmation
-(epupp.fs/rm! "script.cljs" {:confirm false})
+(epupp.fs/rm! "script.cljs" {:fs/force? true})
 ```
 
 ### Bulk Operations
@@ -109,7 +110,7 @@ Operations requiring confirmation return immediately with `:fs/pending-confirmat
 
 ### Default Behaviors
 
-- `save!` creates scripts with `:enabled true` (requires approval anyway)
+- `save!` creates scripts with `:fs/enabled true` (requires approval anyway)
 - Destructive ops require confirmation by default
 - Pre-approval deferred (security consideration)
 
@@ -144,15 +145,15 @@ The design is:
 
 * REPL calls `(rm! "script.cljs")` -> Promise resolves immediately with `{:fs/pending-confirmation true :fs/name "script.cljs"}`
 * Background stores pending confirmation -> keyed by script name (so subsequent ops replace)
-* UI shows confirmation card -> User confirms or cancels
+* UI shows inline confirmation card -> User confirms or cancels
 * Confirm -> Operation executes, confirmation cleared
 * Cancel -> Confirmation cleared, nothing happens
 
 No waiting, no callback resolution needed. The REPL just queues operations for confirmation.
 
-5. **Confirmation card UI pattern**
-   - Inline card below list item (replaces modal dialog)
-   - Ghost item for new file creation
+5. **Confirmation UI pattern**
+   - Inline confirmation cards in list
+   - Ghost items for new files
    - Badge for pending when closed
 
 6. **Implement confirmations**
@@ -163,9 +164,9 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 ### Phase 4: Options and Ergonomics
 
-7. **Options for `save!`** - `:enabled`, `:confirm`
+7. **Options for `save!`** - `:fs/enabled`, `:fs/force?`
 
-8. **Options for other ops** - `:confirm false` for all destructive
+8. **Options for other ops** - `:fs/force? true` for all destructive
 
 9. **Bulk operations** - vectors/maps for batch processing
 
@@ -175,6 +176,7 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 12. **Document features**
     - "Not-approved" behavior for new scripts
+   - Inline confirmation cards and ghost items
     - Full API reference
     - User guide section
 
@@ -203,12 +205,18 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 ### Issues Found
 
-1. **Missing `:fs/success true` when queuing** - Operations return only `:fs/pending-confirmation true` on successful queue, should include `:fs/success true`
-2. **Wrong option name** - Uses `:confirm false` instead of `:fs/force?`
-3. **Bulk bypasses confirmation** - Should queue multiple confirmations instead
-4. **`save!` lacks confirmation** - Needs confirmation workflow
-5. **`save!` bulk uses wrong keys** - Returns `{idx {:success ...}}` instead of `{idx {:fs/success ...}}`
+1. **`save!` confirmation not implemented in background** - No `queue-save-script` handler, so `save!` never queues confirmation
+2. **Wrong option names in tests/docs** - Tests still send `:confirm false` and `:enabled`; current API uses `:fs/force?` and `:fs/enabled`
+3. **Return keys mismatch in tests/docs** - Tests still assert `:success`, but code returns `:fs/success`
+4. **UI confirmation placement mismatch** - Plan says inline/ghost, but docs still mention top-level confirmation section
+5. **Bulk confirmation behavior undefined for `save!`** - Needs explicit queue semantics and return format
 6. **Force mode should clear pending** - Using `:fs/force? true` should clear any pending confirmation for that file
+
+### Current Failing Tests
+
+- [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs) - expects `:success`, `:confirm`, `:enabled` semantics
+- [e2e/fs_ui_reactivity_test.cljs](e2e/fs_ui_reactivity_test.cljs) - expects `:success` results from `save!`/`rm!`/`mv!`
+- [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) - expects `:name`/`:enabled` keys instead of `:fs/*`
 
 ### Correct Semantics
 
@@ -234,12 +242,11 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 | Task | Status |
 |------|--------|
-| Rename `:confirm` to `:fs/force?` in all functions | 🔲 |
-| Return `:fs/success true` when queuing succeeds | 🔲 |
-| Add confirmation to `save!` (both create and update) | 🔲 |
-| Make bulk `rm!` queue multiple confirmations | 🔲 |
-| Make bulk `save!` queue multiple confirmations | 🔲 |
-| Fix bulk `save!` to use `:fs/` prefixed keys | 🔲 |
-| Force mode clears pending confirmation for file | 🔲 |
-| Update E2E tests to reflect correct semantics | 🔲 |
-| Update docstrings | 🔲 |
+| Implement background `queue-save-script` handler and wiring | 🔲 | Needed for `save!` confirmation (create/update) |
+| Decide `epupp.fs` option aliasing/back-compat (`:confirm`/`:enabled`) | 🔲 | Either alias or update all call sites/tests/docs |
+| Normalize return keys to `:fs/*` everywhere | 🔲 | Ensure bulk and single operations match |
+| Confirm `:fs/force?` clears pending confirmation for file | 🔲 | Behavior must be consistent across ops |
+| Define bulk confirmation behavior for `save!` | 🔲 | Queue per item, return per-item `:fs/*` results |
+| Update E2E expectations to current API | 🔲 | [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs), [e2e/fs_ui_reactivity_test.cljs](e2e/fs_ui_reactivity_test.cljs), [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) |
+| Align docs/examples with inline confirmation UI | 🔲 | Ensure ghost item behavior is documented |
+| Update docstrings and user guide | 🔲 | Keep API docs consistent |
