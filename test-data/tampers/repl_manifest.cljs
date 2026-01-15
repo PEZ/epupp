@@ -1,4 +1,4 @@
-(ns tampers.repl-manifest-test)
+(ns tampers.repl-manifest)
 ;;
 ;; Prerequisites:
 ;; 1. Build extension: bb build:dev

@@ -1,6 +1,6 @@
-(ns e2e.primitives-test
-  "E2E tests for REPL file sync primitives API.
-   Tests epupp/cat, epupp/ls, epupp/save!, epupp/mv!, epupp/rm!
+(ns e2e.fs-test
+  "E2E tests for REPL file system API.
+   Tests epupp.fs/cat, epupp.fs/ls, epupp.fs/save!, epupp.fs/mv!, epupp.fs/rm!
 
    These test the full pipeline: nREPL client -> browser-nrepl -> extension -> Scittle -> page"
   (:require ["@playwright/test" :refer [test expect chromium]]
@@ -132,7 +132,7 @@
             ;; Wait for Scittle to be available
             (js-await (wait-for-script-tag "scittle" 5000))))))))
 
-(.describe test "REPL Primitives"
+(.describe test "REPL File System"
            (fn []
              (.beforeAll test (fn [] (setup-browser!)))
 
@@ -534,7 +534,7 @@
                                  (recur)))))))))
 
              ;; Final error check
-             (test "no uncaught errors during primitives tests"
+             (test "no uncaught errors during fs tests"
                    (^:async fn []
                      (let [ext-id (js-await (get-extension-id @!context))
                            popup (js-await (.newPage @!context))]
