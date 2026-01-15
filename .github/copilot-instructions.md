@@ -59,6 +59,7 @@
     project-specific configurations, output paths, and workflow decisions. Running tools directly
     bypasses these and often produces incorrect results (wrong output directories, missing flags).
     Check `bb tasks` for available commands before resorting to direct tool invocation.
+    For compile checks, use `bb squint-compile` instead of `npx squint compile`.
 
     **E2E tests and Docker**: Use `bb test:e2e` exclusively. Never use direct `docker build` or
     `docker run` commands. The Dockerfile uses `COPY . .` which invalidates layers when source

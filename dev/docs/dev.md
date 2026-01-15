@@ -64,6 +64,12 @@ Run unit tests once:
 bb test
 ```
 
+Compile only (no tests), pass Squint args directly:
+```bash
+bb squint-compile src/log.cljs
+bb squint-compile --paths src test --output-dir build/test
+```
+
 Start unit test watchers (Squint + Vitest in parallel):
 ```bash
 bb test:watch

@@ -7,6 +7,8 @@ flowchart LR
     js --> zip["dist/*.zip"]
 ```
 
+Use `bb squint-compile` for a direct compilation pass (it forwards arguments to Squint).
+
 ## Build-Time Configuration
 
 Configuration is injected at bundle time via esbuild, not through a source file:
