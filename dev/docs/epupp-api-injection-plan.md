@@ -13,7 +13,7 @@ The functions have been extracted to proper Scittle source files at `extension/b
 
 ## Goal
 
-Inject `extension/bundled/epupp/*.cljs` files as Scittle script tags during REPL connect, similar to how userscripts are injected. The TDD target is the failing test:
+Inject `extension/bundled/epupp/*.cljs` files as inline Scittle script tags during REPL connect, similar to how userscripts are injected. The TDD target is the failing test:
 
 ```
 epupp.repl/manifest! loads Replicant for REPL evaluation
@@ -69,8 +69,8 @@ Success criteria:
 **Analysis**: The background script will fetch file content using `fetch(chrome.runtime.getURL(...))`. Background scripts have full access to extension resources, so files in `extension/bundled/` should be accessible without adding them to `web_accessible_resources`.
 
 **Steps**:
-1. Verify files are included in the build output (check `dist/chrome/bundled/epupp/`)
-2. If not, update build script to copy bundled files
+1. Verify files are included in the build output (check `dist/chrome/bundled/epupp/` or the active build output directory)
+2. If not, update the build script to copy bundled files
 
 **Note**: `web_accessible_resources` is only needed if web pages need direct access to these URLs. Since we fetch in background and pass content via message, this may not be required.
 
@@ -80,7 +80,7 @@ Success criteria:
 
 **Goal**: Determine how to load Scittle code from bundled files.
 
-**Analysis**: Scittle evaluates inline script content in `<script type="application/x-scittle">` tags - it does NOT support `src` attributes for external Scittle files. The existing `inject-userscript` message already handles inline Scittle injection. We have two options:
+**Analysis**: The current Scittle pipeline in this extension evaluates inline script content in `<script type="application/x-scittle">` tags. It does not include a `src`-based loading path. The existing `inject-userscript` message already handles inline Scittle injection. We have two options:
 
 **Option A - Fetch in background, inject inline**: Background fetches file content via `chrome.runtime.getURL` + fetch, sends code to bridge via existing `inject-userscript` message.
 
@@ -102,7 +102,7 @@ Success criteria:
 1. Create `inject-epupp-api!` function in `background.cljs`
 2. Function fetches each bundled file via `chrome.runtime.getURL` + `fetch`
 3. Sends fetched code to content bridge via `inject-userscript` message
-4. Triggers Scittle evaluation with `trigger-scittle.js` after all files injected
+4. Triggers Scittle evaluation with `trigger-scittle.js` after all files injected (same mechanism used for userscripts)
 5. Replace call to `inject-epupp-namespace!` with `inject-epupp-api!` in `connect-tab!`
 6. Remove dead code: `epupp-namespace-code`, `inject-epupp-namespace!`
 
@@ -139,7 +139,7 @@ bb test:e2e
 **Steps**:
 1. Rename `*_xtest.cljs` files back to `*_test.cljs` for FS tests (if they pass)
 2. Update documentation if needed
-3. Move this plan document to archive
+3. Move this plan document to archive when complete
 
 ## File Changes Summary
 
@@ -149,12 +149,12 @@ bb test:e2e
 | Build config (if needed) | Ensure `bundled/epupp/*.cljs` files are copied to dist |
 
 Note: No changes needed to `content_bridge.cljs` - we reuse the existing `inject-userscript` message handler.
-Note: `manifest.json` changes likely not required since background fetches files directly.
+Note: `manifest.json` changes are likely unnecessary since background fetches files directly.
 
 ## Risk Mitigation
 
 1. **Scittle evaluation timing**: After injecting script tags, we trigger evaluation with `trigger-scittle.js` - same proven pattern as userscripts
-2. **Idempotency**: Namespace redefinition in Scittle is safe (just overwrites). For performance, could track injected files, but not critical for correctness
+2. **Idempotency**: Namespace redefinition in Scittle should be safe for these namespaces (overwrites definitions). For performance, could track injected files, but not critical for correctness
 3. **Load order**: Inject `repl.cljs` before `fs.cljs` (fs may depend on repl utilities in future)
 4. **Fetch failures**: Extension resources should always be available, but add error handling for robustness
 
