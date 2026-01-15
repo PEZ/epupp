@@ -616,22 +616,13 @@
     };
   }"))
 
-;; Evaluate ClojureScript code via Scittle's eval_string
-(def eval-scittle-fn
-  (js* "function(code) {
-    try {
-      var result = scittle.core.eval_string(code);
-      return {success: true, result: String(result)};
-    } catch(e) {
-      return {success: false, error: e.message};
-    }
-  }"))
+(def ^:private epupp-api-files
+  [{:id "epupp-repl"
+    :path "bundled/epupp/repl.cljs"}
+   {:id "epupp-fs"
+    :path "bundled/epupp/fs.cljs"}])
 
-;; The epupp namespace code injected at REPL connect time.
-;; Provides epupp/manifest! for loading Scittle libraries on demand.
-;; Uses letfn instead of let for handler self-reference (required for SCI/Scittle).
-(def epupp-namespace-code
- "Moved to extension/bundled/epupp/*.cljs to be injected instead of inlined here.")
+(declare fetch-text!)
 
 (def close-websocket-fn
   (js* "function() {
@@ -721,23 +712,37 @@
     (js-await (poll-until-connection tab-id 3000))
     true))
 
-(defn ^:async inject-epupp-namespace!
-  "Inject the epupp namespace into the page via Scittle eval.
-   Provides epupp/manifest! for loading libraries from REPL."
+(defn ^:async inject-epupp-api!
+  "Inject Epupp REPL API namespaces from bundled Scittle source files."
   [tab-id]
-  (let [result (js-await (execute-in-page tab-id eval-scittle-fn epupp-namespace-code))]
-    (if (and result (.-success result))
-      (do
-        (log/info "Background" "REPL" "Injected epupp namespace into tab:" tab-id)
-        true)
-      (do
-        (log/warn "Background" "REPL" "Failed to inject epupp namespace:" (when result (.-error result)))
-        false))))
+  (try
+    (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")]
+      (loop [remaining epupp-api-files]
+        (when (seq remaining)
+          (let [{:keys [id path]} (first remaining)
+                url (js/chrome.runtime.getURL path)
+                code (js-await (fetch-text! url))]
+            (js-await (send-tab-message tab-id {:type "inject-userscript"
+                                                :id id
+                                                :code code}))
+            (recur (rest remaining)))))
+      (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url}))
+      (js-await (test-logger/log-event! "EPUPP_API_INJECTED"
+                                        {:tab-id tab-id
+                                         :files (vec (map :path epupp-api-files))}))
+      (log/info "Background" "REPL" "Injected Epupp API into tab:" tab-id)
+      true)
+    (catch :default err
+      (log/error "Background" "REPL" "Failed to inject Epupp API:" err)
+      (js-await (test-logger/log-event! "EPUPP_API_INJECT_ERROR"
+                                        {:tab-id tab-id
+                                         :error (.-message err)}))
+      false)))
 
 (defn ^:async connect-tab!
   "End-to-end connect flow for a specific tab.
    Ensures bridge + Scittle + scittle.nrepl and waits for connection.
-   Also injects the epupp namespace for manifest! support."
+   Also injects the Epupp API for manifest! support."
   [tab-id ws-port]
   (when-not (and tab-id ws-port)
     (throw (js/Error. "connect-tab: Missing tab-id or ws-port")))
@@ -746,8 +751,8 @@
     (js-await (ensure-scittle! tab-id))
     (let [status2 (js-await (execute-in-page tab-id check-status-fn))]
       (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
-    ;; Inject epupp namespace for manifest! support
-    (js-await (inject-epupp-namespace! tab-id))
+    ;; Inject Epupp API for manifest! support
+    (js-await (inject-epupp-api! tab-id))
     true))
 
 (defn ^:async get-auto-connect-settings
