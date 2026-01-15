@@ -100,6 +100,7 @@
                  (.postMessage js/window
                                #js {:source "epupp-bridge"
                                     :type "list-scripts-response"
+                                    :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :scripts (.-scripts response)}
                                "*")))
@@ -115,11 +116,14 @@
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "save-script"
-                    :code (.-code msg)}
+                    :code (.-code msg)
+                    :enabled (.-enabled msg)
+                    :force (.-force msg)}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"
                                     :type "save-script-response"
+                                    :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :name (.-name response)
                                     :error (.-error response)}
@@ -137,11 +141,13 @@
               (js/chrome.runtime.sendMessage
                #js {:type "rename-script"
                     :from (.-from msg)
-                    :to (.-to msg)}
+                    :to (.-to msg)
+                    :force (.-force msg)}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"
                                     :type "rename-script-response"
+                                    :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :error (.-error response)}
                                "*")))
@@ -157,11 +163,13 @@
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "delete-script"
-                    :name (.-name msg)}
+                    :name (.-name msg)
+                    :force (.-force msg)}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"
                                     :type "delete-script-response"
+                                    :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :error (.-error response)}
                                "*")))
@@ -182,8 +190,81 @@
                  (.postMessage js/window
                                #js {:source "epupp-bridge"
                                     :type "get-script-response"
+                                    :requestId (.-requestId msg)
                                     :success (.-success response)
                                     :code (.-code response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
+          "queue-save-script"
+          (do
+            (log/info "Bridge" nil "Forwarding queue-save-script request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "queue-save-script"
+                    :code (.-code msg)
+                    :enabled (.-enabled msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "queue-save-script-response"
+                                    :requestId (.-requestId msg)
+                                    :success (.-success response)
+                                    :name (.-name response)
+                                    :pending-confirmation (.-pending-confirmation response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
+          "queue-rename-script"
+          (do
+            (log/info "Bridge" nil "Forwarding queue-rename-script request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "queue-rename-script"
+                    :from (.-from msg)
+                    :to (.-to msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "queue-rename-script-response"
+                                    :requestId (.-requestId msg)
+                                    :success (.-success response)
+                                    :pending-confirmation (.-pending-confirmation response)
+                                    :from-name (.-from-name response)
+                                    :to-name (.-to-name response)
+                                    :error (.-error response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
+          "queue-delete-script"
+          (do
+            (log/info "Bridge" nil "Forwarding queue-delete-script request to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "queue-delete-script"
+                    :name (.-name msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "queue-delete-script-response"
+                                    :requestId (.-requestId msg)
+                                    :success (.-success response)
+                                    :name (.-name response)
+                                    :pending-confirmation (.-pending-confirmation response)
                                     :error (.-error response)}
                                "*")))
               (catch :default e

@@ -1,23 +1,30 @@
  (ns epupp.fs
   "File system operations for managing userscripts from the REPL.")
 
+(defonce ^:private !request-id (atom 0))
+
+(defn- next-request-id []
+  (swap! !request-id inc))
+
 (defn- send-and-receive
   "Helper: send message to bridge and return promise of response."
   [msg-type payload response-type]
-  (js/Promise.
-    (fn [resolve _reject]
-      (letfn [(handler [e]
-                (when (= (.-source e) js/window)
-                  (let [msg (.-data e)]
-                    (when (and msg
-                               (= "epupp-bridge" (.-source msg))
-                               (= response-type (.-type msg)))
-                      (.removeEventListener js/window "message" handler)
-                      (resolve msg)))))]
-        (.addEventListener js/window "message" handler)
-        (.postMessage js/window
-          (clj->js (assoc payload :source "epupp-page" :type msg-type))
-          "*")))))
+  (let [req-id (next-request-id)]
+    (js/Promise.
+      (fn [resolve _reject]
+        (letfn [(handler [e]
+                  (when (= (.-source e) js/window)
+                    (let [msg (.-data e)]
+                      (when (and msg
+                                 (= "epupp-bridge" (.-source msg))
+                                 (= response-type (.-type msg))
+                                 (= req-id (.-requestId msg)))
+                        (.removeEventListener js/window "message" handler)
+                        (resolve msg)))))]
+          (.addEventListener js/window "message" handler)
+          (.postMessage js/window
+            (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
+            "*"))))))
 
 ;TODO: Rename this to not conflict with clojure.core/cat
 #_{:clj-kondo/ignore [:redefined-var]}

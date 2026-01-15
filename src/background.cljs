@@ -911,6 +911,44 @@
                           (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
                       false)
 
+                    ;; Queue save for confirmation (from save! without :fs/force?)
+                    "queue-save-script"
+                    (let [code (.-code message)
+                          enabled (if (some? (.-enabled message)) (.-enabled message) true)]
+                      (try
+                        (let [manifest (manifest-parser/extract-manifest code)
+                              raw-name (get manifest "script-name")
+                              normalized-name (when raw-name
+                                                (script-utils/normalize-script-name raw-name))
+                              site-match (get manifest "site-match")
+                              requires (get manifest "require")]
+                          (if-not normalized-name
+                            (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+                            (let [existing (storage/get-script-by-name normalized-name)
+                                  is-update? (boolean existing)
+                                  script-id (or (:script/id existing)
+                                                (str "script-" (.now js/Date)))
+                                  script-data {:script/id script-id
+                                               :script/name normalized-name
+                                               :script/code code
+                                               :script/match (if (vector? site-match) site-match [site-match])
+                                               :script/require (or requires [])
+                                               :script/enabled enabled}]
+                              ;; Queue the save for confirmation
+                              (add-fs-confirmation! normalized-name
+                                                    (if is-update? :save-update :save-create)
+                                                    {:confirm/script-id script-id
+                                                     :confirm/script-data script-data
+                                                     :confirm/is-update? is-update?})
+                              (broadcast-fs-confirmations-changed!)
+                              (send-response #js {:success true
+                                                  :pending-confirmation true
+                                                  :name normalized-name
+                                                  :is-update is-update?}))))
+                        (catch :default err
+                          (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
+                      false)
+
                     ;; Page context renames script via epupp/mv!
                     "rename-script"
                     (let [from-name (.-from message)
@@ -994,6 +1032,18 @@
                                       (send-response #js {:success true :operation "rename"
                                                           :from-name (:confirm/script-name confirmation)
                                                           :to-name (:confirm/to-name confirmation)}))
+                            :save-update (do
+                                           (storage/save-script! (:confirm/script-data confirmation))
+                                           (remove-fs-confirmation! key)
+                                           (broadcast-fs-confirmations-changed!)
+                                           (send-response #js {:success true :operation "save-update"
+                                                               :name (:confirm/script-name confirmation)}))
+                            :save-create (do
+                                           (storage/save-script! (:confirm/script-data confirmation))
+                                           (remove-fs-confirmation! key)
+                                           (broadcast-fs-confirmations-changed!)
+                                           (send-response #js {:success true :operation "save-create"
+                                                               :name (:confirm/script-name confirmation)}))
                             (send-response #js {:success false :error (str "Unknown operation: " op)}))))
                       false)
 
