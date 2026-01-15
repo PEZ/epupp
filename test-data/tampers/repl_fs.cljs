@@ -18,9 +18,11 @@
 ;; All functions return promises. Use promesa for ergonomic async.
 
 (comment
-  (epupp/manifest! {:epupp/require ["scittle://promesa.js"]})
+  (epupp/manifest! {:epupp/require ["scittle://promesa.js"
+                                    "scittle://pprint.js"]})
 
   (require '[promesa.core :as p])
+  (require '[cljs.pprint :refer [print-table]])
 
   ;; ===== SETUP =====
   ;; Verify fs functions exist
@@ -57,6 +59,27 @@
     (def ls-result ls-result))
   ;; Check the result after eval of the p/let
   ls-result
+
+  ;; ===== Formatted Output with print-table =====
+  ;; Use cljs.pprint/print-table for nicely formatted listings
+  ;; Wrap with with-out-str to capture output in REPL
+
+  ;; Full table with all columns
+  (with-out-str (print-table ls-result))
+  ;; =>
+  ;; |                            :name | :enabled |     :match |
+  ;; |----------------------------------+----------+------------|
+  ;; |                 hello_world.cljs |    false |      ["*"] |
+  ;; | GitHub Gist Installer (Built-in) |     true | ["..."] |
+  ;; ...
+
+  ;; Select specific columns
+  (with-out-str (print-table [:name :enabled] ls-result))
+  ;; =>
+  ;; |                            :name | :enabled |
+  ;; |----------------------------------+----------|
+  ;; |                 hello_world.cljs |    false |
+  ;; ...
 
 
   ;; ===== epupp/cat - Get Script Code =====

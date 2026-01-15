@@ -24,7 +24,6 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Confirmation for `save!` (create) | 🔲 Not started | Ghost item with card |
 | Options for `save!` | 🔲 Not started | `:enabled` option |
 | Bulk operations | 🔲 Not started | `cat`, `save!`, `rm!`, `mv!` |
-| `epupp.fs/ls-print!` | 🔲 Not started | Formatted output with options |
 | Promesa in example tamper | 🔲 Not started | Better ergonomics demo |
 | Document "not-approved" behavior | 🔲 Not started | New scripts go to unapproved state |
 
@@ -39,11 +38,27 @@ epupp.fs/     - File system operations
   save!       - Create/update script
   mv!         - Rename script
   rm!         - Delete script
-  ls-print!   - Pretty-print listing
 
 epupp.repl/   - REPL session utilities
   manifest!   - Inject libraries (existing, to be moved)
 ```
+
+### Output Formatting
+
+Use `cljs.pprint/print-table` with `with-out-str` for formatted script listings:
+
+```clojure
+(epupp/manifest! {:epupp/require ["scittle://pprint.js"]})
+(require '[cljs.pprint :refer [print-table]])
+
+;; Full table (wrap with-out-str to capture in REPL)
+(with-out-str (print-table @!scripts))
+
+;; Select columns
+(with-out-str (print-table [:name :enabled] @!scripts))
+```
+
+This composable approach is preferred over a custom `ls-print!` function.
 
 ### Return Value Keywords
 
@@ -144,11 +159,6 @@ Order optimized for enabling further work:
 
 9. **Bulk operations** - vectors/maps for batch processing
 
-10. **`epupp.fs/ls-print!`** - formatted stdout output
-    - Long format option
-    - Sort by time option
-    - Check Scittle for existing table utilities that users can compose with `ls`
-
 ### Phase 5: Documentation
 
 11. **Update example tamper** - Use promesa patterns
@@ -173,5 +183,4 @@ Order optimized for enabling further work:
 
 ## Open Items
 
-- Check Scittle ecosystem for table printing utilities users can compose with `ls`
 - Determine if backward compatibility aliases are needed or clean break is acceptable
