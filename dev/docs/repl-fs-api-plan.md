@@ -93,7 +93,7 @@ This composable approach is preferred over a custom `ls-print!` function.
 
 ### Return Value Keywords
 
-All maps use `:fs/` namespaced keywords (tests/docs still contain `:success` in several places):
+All maps use `:fs/` namespaced keywords:
 
 ```clojure
 ;; ls returns
@@ -143,7 +143,30 @@ Operations requiring confirmation return immediately with `:fs/pending-confirmat
 - Destructive ops require confirmation by default
 - Pre-approval deferred (security consideration)
 
-## Implementation Order
+### Squint vs Scittle Keyword Handling (CRITICAL)
+
+**Different `clj->js` behavior:**
+
+| Environment | Input | Output |
+|-------------|-------|--------|
+| Scittle (page API) | `(clj->js {:fs/name "x"})` | `{"name": "x"}` (namespace STRIPPED) |
+| Squint (bridge, background) | `(clj->js {:fs/name "x"})` | `{"fs/name": "x"}` (namespace PRESERVED) |
+
+**This difference is intentional and handled correctly:**
+
+1. **Wire protocol uses non-namespaced keys**: The page API deliberately uses `{:code code :enabled enabled :force true}` (not `:fs/code`) when building payloads. After Scittle's `clj->js`, this becomes `{"code": ..., "enabled": ..., "force": ...}`.
+
+2. **Bridge reads non-namespaced keys**: Content bridge uses `(.-code msg)`, `(.-enabled msg)`, `(.-force msg)` - matching the wire format.
+
+3. **Background returns non-namespaced JS**: Responses are `#js {:success true :name "..."}` which becomes `{"success": true, "name": "..."}`.
+
+4. **Page API converts to namespaced on return**: The page API reads `(.-success msg)` and returns `{:fs/success (.-success msg)}` to the REPL user.
+
+**Summary**: Namespaced keywords (`:fs/*`) are ONLY used at the REPL user interface layer. Internal wire protocol uses non-namespaced keys. This avoids Scittle's namespace-stripping behavior causing issues.
+
+## Implementation Order (Original Plan - Most Items Done)
+
+This was the original implementation order. Most foundation items are complete. See **ACTIONABLE IMPLEMENTATION PLAN** below for current work.
 
 Order optimized for enabling further work:
 
@@ -303,30 +326,24 @@ Add new cases:
 
 Each needs corresponding response type (e.g., `queue-save-script-response`).
 
-### Phase 2: Update Background Handlers to Use Force Parameter
+### Phase 2: Add Missing Background Handler
 
 **Files to edit:**
 - [src/background.cljs](../../src/background.cljs)
 
-**Task 2.1: Update `save-script` handler**
-
-Check for `force` parameter. When `force` is true, clear any pending confirmation for this script name before saving.
-
-**Task 2.2: Update `rename-script` handler**
-
-Check for `force` parameter. When `force` is true, clear any pending confirmation before renaming.
-
-**Task 2.3: Update `delete-script` handler**
-
-Check for `force` parameter. When `force` is true, clear any pending confirmation before deleting.
-
-**Task 2.4: Implement `queue-save-script` handler**
+**Task 2.1: Implement `queue-save-script` handler**
 
 New handler similar to `queue-delete-script` and `queue-rename-script`:
 - Parse manifest from code to get script name
 - Check if script exists (update) or not (create)
 - Add to pending confirmations
 - Return `{:success true :pending-confirmation true :name normalized-name}`
+
+**Note:** The existing `save-script`, `rename-script`, and `delete-script` handlers already work correctly. The `save-script` handler already reads `enabled` - the problem was only that the bridge didn't forward it. When `:fs/force? true` is used, tests send directly to these handlers (not queue-* variants), so no changes needed to make current tests pass.
+
+### Phase 2.5 (Optional): Force Clears Pending
+
+Nice-to-have for complete semantics: when `force` is true on a direct operation, clear any pending confirmation for that script. This is only relevant when mixing force and non-force calls, which tests don't do.
 
 ### Phase 3: Verify Tests Pass
 
@@ -335,7 +352,7 @@ After Phase 1 and 2, run:
 bb test:e2e --serial -- --grep "fs"
 ```
 
-All 18 tests should pass since they use `:fs/force? true`.
+All fs-related tests should pass since they use `:fs/force? true`.
 
 ### Phase 4: Confirmation UI (DEFERRED)
 
@@ -360,11 +377,18 @@ Copy this to the todo list when starting work:
 | 4 | Add `queue-save-script` route to bridge | content_bridge.cljs | 🔲 |
 | 5 | Add `queue-rename-script` route to bridge | content_bridge.cljs | 🔲 |
 | 6 | Add `queue-delete-script` route to bridge | content_bridge.cljs | 🔲 |
-| 7 | Update `save-script` background handler for `force` | background.cljs | 🔲 |
-| 8 | Update `rename-script` background handler for `force` | background.cljs | 🔲 |
-| 9 | Update `delete-script` background handler for `force` | background.cljs | 🔲 |
-| 10 | Implement `queue-save-script` background handler | background.cljs | 🔲 |
-| 11 | Run E2E tests to verify | - | 🔲 |
+| 7 | Implement `queue-save-script` background handler | background.cljs | 🔲 |
+| 8 | Run E2E tests to verify | - | 🔲 |
+
+**Note:** Background handlers for non-queue operations (`save-script`, `rename-script`, `delete-script`) already work correctly. The `enabled` parameter is already read by `save-script` background handler - the problem is only that the bridge doesn't forward it. No background handler changes needed for immediate test fixes.
+
+### Optional (force clears pending - nice-to-have)
+
+| # | Task | File | Status |
+|---|------|------|--------|
+| O1 | `save-script` handler clears pending on force | background.cljs | 🔲 |
+| O2 | `rename-script` handler clears pending on force | background.cljs | 🔲 |
+| O3 | `delete-script` handler clears pending on force | background.cljs | 🔲 |
 
 ### Deferred (confirmation UI polish)
 
@@ -381,16 +405,18 @@ Copy this to the todo list when starting work:
 
 ### Page -> Bridge -> Background
 
-| Page API | Bridge Route | Background Handler |
-|----------|--------------|-------------------|
-| `epupp.fs/ls` | `list-scripts` | `list-scripts` ✅ |
-| `epupp.fs/cat` | `get-script` | `get-script` ✅ |
-| `epupp.fs/save!` (force) | `save-script` | `save-script` ⚠️ needs params |
-| `epupp.fs/save!` (confirm) | `queue-save-script` | ❌ missing |
-| `epupp.fs/mv!` (force) | `rename-script` | `rename-script` ⚠️ needs force |
-| `epupp.fs/mv!` (confirm) | `queue-rename-script` | `queue-rename-script` ⚠️ no route |
-| `epupp.fs/rm!` (force) | `delete-script` | `delete-script` ⚠️ needs force |
-| `epupp.fs/rm!` (confirm) | `queue-delete-script` | `queue-delete-script` ⚠️ no route |
+| Page API | Bridge Route | Background Handler | Issue |
+|----------|--------------|-------------------|-------|
+| `epupp.fs/ls` | `list-scripts` ✅ | `list-scripts` ✅ | Working |
+| `epupp.fs/cat` | `get-script` ✅ | `get-script` ✅ | Working |
+| `epupp.fs/save!` (force) | `save-script` ⚠️ | `save-script` ✅ | Bridge doesn't forward `enabled`, `force` |
+| `epupp.fs/save!` (confirm) | ❌ no route | ❌ no handler | Both missing |
+| `epupp.fs/mv!` (force) | `rename-script` ⚠️ | `rename-script` ✅ | Bridge doesn't forward `force` |
+| `epupp.fs/mv!` (confirm) | ❌ no route | `queue-rename-script` ✅ | Bridge route missing |
+| `epupp.fs/rm!` (force) | `delete-script` ⚠️ | `delete-script` ✅ | Bridge doesn't forward `force` |
+| `epupp.fs/rm!` (confirm) | ❌ no route | `queue-delete-script` ✅ | Bridge route missing |
+
+**Key insight:** Background handlers exist for queue operations (except `queue-save-script`). The bridge simply doesn't route these messages.
 
 ### Response Types
 
