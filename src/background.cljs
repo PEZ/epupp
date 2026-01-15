@@ -114,6 +114,37 @@
   [tab-id message]
   (js/chrome.tabs.sendMessage tab-id (clj->js message)))
 
+(defn- get-icon-paths
+  "Get icon paths for a given state. Delegates to tested pure function."
+  [state]
+  (bg-utils/get-icon-paths state))
+
+
+
+(defn- compute-display-icon-state
+  "Compute icon state to display based on:
+   - Connected is GLOBAL: if ANY tab has REPL connected -> green
+   - Injected is TAB-LOCAL: only if active-tab has Scittle -> yellow
+   - Otherwise: disconnected (white)"
+  [active-tab-id]
+  (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
+
+(defn- ^:async update-icon-now!
+  "Update the toolbar icon based on global (connected) and tab-local (injected) state.
+   Takes the relevant tab-id to use for tab-local state checking."
+  [relevant-tab-id]
+  (let [display-state (compute-display-icon-state relevant-tab-id)]
+    (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id relevant-tab-id :state display-state}))
+    (js/chrome.action.setIcon
+     #js {:path (get-icon-paths display-state)})))
+
+(defn ^:async update-icon-for-tab!
+  "Update icon state for a specific tab, then update the toolbar icon.
+   Uses the given tab-id for tab-local state calculation."
+  [tab-id state]
+  (swap! !state assoc-in [:icon/states tab-id] state)
+  (js-await (update-icon-now! tab-id)))
+
 (defn handle-ws-connect
   "Create WebSocket connection for a tab.
    Closes existing connection for this tab, AND any other tab on the same port
@@ -304,40 +335,6 @@
 ;; ============================================================
 ;; Toolbar Icon State Management
 ;; ============================================================
-
-
-
-(defn- get-icon-paths
-  "Get icon paths for a given state. Delegates to tested pure function."
-  [state]
-  (bg-utils/get-icon-paths state))
-
-
-
-(defn- compute-display-icon-state
-  "Compute icon state to display based on:
-   - Connected is GLOBAL: if ANY tab has REPL connected -> green
-   - Injected is TAB-LOCAL: only if active-tab has Scittle -> yellow
-   - Otherwise: disconnected (white)"
-  [active-tab-id]
-  (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
-
-(defn- ^:async update-icon-now!
-  "Update the toolbar icon based on global (connected) and tab-local (injected) state.
-   Takes the relevant tab-id to use for tab-local state checking."
-  [relevant-tab-id]
-  (let [display-state (compute-display-icon-state relevant-tab-id)]
-    (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id relevant-tab-id :state display-state}))
-    (js/chrome.action.setIcon
-     #js {:path (get-icon-paths display-state)})))
-
-(defn ^:async update-icon-for-tab!
-  "Update icon state for a specific tab, then update the toolbar icon.
-   Uses the given tab-id for tab-local state calculation."
-  [tab-id state]
-  (swap! !state assoc-in [:icon/states tab-id] state)
-  (js-await (update-icon-now! tab-id)))
-
 
 
 (defn get-icon-state
@@ -622,7 +619,12 @@
    {:id "epupp-fs"
     :path "bundled/epupp/fs.cljs"}])
 
-(declare fetch-text!)
+(defn ^:async fetch-text!
+  [url]
+  (let [resp (js-await (js/fetch url))]
+    (when-not (.-ok resp)
+      (throw (js/Error. (str "Failed to fetch " url " (" (.-status resp) ")"))))
+    (js-await (.text resp))))
 
 (def close-websocket-fn
   (js* "function() {
@@ -808,13 +810,6 @@
             (if (and saved (.-wsPort saved))
               (resolve (str (.-wsPort saved)))
               (resolve "1340"))))))))) ; default ws port
-
-(defn ^:async fetch-text!
-  [url]
-  (let [resp (js-await (js/fetch url))]
-    (when-not (.-ok resp)
-      (throw (js/Error. (str "Failed to fetch " url " (" (.-status resp) ")"))))
-    (js-await (.text resp))))
 
 (defn- allowed-script-origins
   "Get the merged list of allowed origins from config and user storage"

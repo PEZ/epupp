@@ -10,9 +10,9 @@
   * [x] Scittle dependencie (replicant, etc)
   * [ ] Code files ("src"-ish)
   * [ ] Urls?
-* [ ] Move epupp namespace to separate file (library support)
-  * [ ] Support non-script library files in Epupp
-  * [ ] epupp ns as built-in library auto-prepended to scripts
+* [x] Move epupp namespace to separate file (library support)
+  * [ ] ? Support non-script library files in Epupp
+  * [ ] ? epupp ns as built-in library auto-prepended to scripts
 * [x] Popup UI footer with info and sponsor link and such
 * [ ] Update README screenshot
 * [x] Installing scripts from script installer should add them as not approved
@@ -35,10 +35,11 @@
 * [x] E2E test multiple tabs REPL connected and disconnected
 * [x] E2E performance tuning
 * [x] Blank slates for different sections of the UI
-* [ ] Unify css between panel and popup
+* [x] Unify css between panel and popup
 * [ ] Consider if a version of Uniflow could be included as an Epupp library
 * [ ] Solve download of files from the repl
 * [ ] Solve upload of files from the repl
 * [ ] Create a template Epupp REPL project
 * [ ] Fix fallback port scittle behaviour in Calva
 * [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
+* [ ] Scittle nrepl injected twice
