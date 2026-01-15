@@ -49,3 +49,5 @@
 * [ ] Call userscripts via the REPL, even if they are not injected
 * [ ] Should we evaluate the epupp.fs/* stuff inte existance instead of injecting?
 * [ ] Is there a way to make println print in the repl output?
+* [ ] Add scittle repls to the popup and panel in dev builds.
+* [ ] The panel should be able to connect a repl (this will give all inspectors repl access, I think)
