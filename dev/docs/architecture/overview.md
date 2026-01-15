@@ -49,6 +49,7 @@ flowchart TB
 
 | Topic | Read This |
 |------|-----------|
+| **UI architecture + TDD workflow** | [../ui.md](../ui.md) |
 | Source file map + dependencies | [components.md](components.md) |
 | Message types + payloads | [message-protocol.md](message-protocol.md) |
 | Connected REPL flow + `epupp/manifest!` | [connected-repl.md](connected-repl.md) |
