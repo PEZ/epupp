@@ -223,10 +223,10 @@
                              (-> (expect (aget conn "tab-id")) (.toBeDefined)))))
                        (js-await (.close popup)))))
 
-             (test "epupp/manifest! loads Replicant for REPL evaluation"
+             (test "epupp.repl/manifest! loads Replicant for REPL evaluation"
                    (^:async fn []
                      ;; Step 1: Verify epupp namespace was injected at connect time
-                     (let [ns-check (js-await (eval-in-browser "(fn? epupp/manifest!)"))]
+                     (let [ns-check (js-await (eval-in-browser "(fn? epupp.repl/manifest!)"))]
                        (js/console.log "=== ns-check result ===" (js/JSON.stringify ns-check))
                        (-> (expect (.-success ns-check)) (.toBe true))
                        (-> (expect (.-values ns-check)) (.toContain "true")))
@@ -235,7 +235,7 @@
                      ;; Call manifest! - it returns a promise but we can't wait for it in nREPL
                      ;; Just verify it doesn't error and returns a promise
                      (let [manifest-result (js-await (eval-in-browser
-                                                      "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                      "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                        (js/console.log "=== manifest-result ===" (js/JSON.stringify manifest-result))
                        (-> (expect (.-success manifest-result)) (.toBe true)))
 
@@ -267,11 +267,11 @@
                        (-> (expect (.-success dom-check)) (.toBe true))
                        (-> (expect (.-values dom-check)) (.toContain "true")))))
 
-             (test "epupp/manifest! is idempotent - no duplicate script tags"
+             (test "epupp.repl/manifest! is idempotent - no duplicate script tags"
                    (^:async fn []
                      ;; First, load Replicant
                      (let [first-load (js-await (eval-in-browser
-                                                 "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                 "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                        (-> (expect (.-success first-load)) (.toBe true)))
 
                      ;; Wait for replicant script tag to appear (poll instead of fixed sleep)
@@ -287,7 +287,7 @@
 
                        ;; Call manifest! again - should be idempotent (no new script added)
                        (let [second-load (js-await (eval-in-browser
-                                                    "(epupp/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                    "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
                          (-> (expect (.-success second-load)) (.toBe true)))
 
                        ;; Count replicant script tags after second load

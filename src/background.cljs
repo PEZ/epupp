@@ -71,6 +71,7 @@
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
+                   :pending/fs-confirmations {} ; script-name -> confirmation record
                    :icon/states {}      ; tab-id -> :disconnected | :injected | :connected
                    :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
@@ -267,6 +268,38 @@
                 (storage/pattern-approved? script pattern))
         (swap! !state update :pending/approvals dissoc approval-id))))
   (update-badge-for-active-tab!))
+
+;; ============================================================
+;; Pending FS Confirmation Management
+;; ============================================================
+
+(defn add-fs-confirmation!
+  "Add a pending filesystem operation confirmation.
+   Keyed by script-name - subsequent ops on same script replace existing."
+  [script-name operation-type details]
+  (swap! !state assoc-in [:pending/fs-confirmations script-name]
+         (merge {:confirm/script-name script-name
+                 :confirm/operation operation-type
+                 :confirm/timestamp (.now js/Date)}
+                details)))
+
+(defn remove-fs-confirmation!
+  "Remove a pending filesystem confirmation by script name."
+  [script-name]
+  (swap! !state update :pending/fs-confirmations dissoc script-name))
+
+(defn get-fs-confirmations
+  "Get all pending filesystem confirmations."
+  []
+  (vals (:pending/fs-confirmations @!state)))
+
+(defn broadcast-fs-confirmations-changed!
+  "Notify popup/panel that pending confirmations have changed."
+  []
+  (let [confirmations (get-fs-confirmations)]
+    (js/chrome.runtime.sendMessage
+     (clj->js {:type "fs-confirmations-changed"
+               :confirmations confirmations}))))
 
 ;; ============================================================
 ;; Toolbar Icon State Management
@@ -598,79 +631,7 @@
 ;; Provides epupp/manifest! for loading Scittle libraries on demand.
 ;; Uses letfn instead of let for handler self-reference (required for SCI/Scittle).
 (def epupp-namespace-code
-  "(ns epupp)
-
-(defn- send-and-receive
-  \"Helper: send message to bridge and return promise of response.\"
-  [msg-type payload response-type]
-  (js/Promise.
-    (fn [resolve reject]
-      (letfn [(handler [e]
-                (when (= (.-source e) js/window)
-                  (let [msg (.-data e)]
-                    (when (and msg
-                               (= \"epupp-bridge\" (.-source msg))
-                               (= response-type (.-type msg)))
-                      (.removeEventListener js/window \"message\" handler)
-                      (resolve msg)))))]
-        (.addEventListener js/window \"message\" handler)
-        (.postMessage js/window
-          (clj->js (assoc payload :source \"epupp-page\" :type msg-type))
-          \"*\")))))
-
-(defn manifest!
-  \"Load Epupp manifest. Injects required Scittle libraries.
-   Returns a promise that resolves when libraries are loaded.
-
-   Example: (epupp/manifest! {:epupp/require [\\\"scittle://reagent.js\\\"]})\"
-  [m]
-  (-> (send-and-receive \"load-manifest\" {:manifest m} \"manifest-response\")
-      (.then (fn [msg]
-               (if (.-success msg)
-                 true
-                 (throw (js/Error. (.-error msg))))))))
-
-(defn cat
-  \"Get script code by name. Returns promise of code string or nil.\"
-  [script-name]
-  (-> (send-and-receive \"get-script\" {:name script-name} \"get-script-response\")
-      (.then (fn [msg]
-               (when (.-success msg) (.-code msg))))))
-
-(defn ls
-  \"List all scripts. Returns promise of vector with script info.\"
-  []
-  (-> (send-and-receive \"list-scripts\" {} \"list-scripts-response\")
-      (.then (fn [msg]
-               (if (.-success msg)
-                 (js->clj (.-scripts msg) :keywordize-keys true)
-                 [])))))
-
-(defn save!
-  \"Save code to Epupp. Parses manifest from code.
-   Returns promise of {:success true :name ...} or {:success false :error ...}\"
-  [code]
-  (-> (send-and-receive \"save-script\" {:code code} \"save-script-response\")
-      (.then (fn [msg]
-               {:success (.-success msg)
-                :name (.-name msg)
-                :error (.-error msg)}))))
-
-(defn mv!
-  \"Rename a script. Returns promise of result map.\"
-  [from-name to-name]
-  (-> (send-and-receive \"rename-script\" {:from from-name :to to-name} \"rename-script-response\")
-      (.then (fn [msg]
-               {:success (.-success msg)
-                :error (.-error msg)}))))
-
-(defn rm!
-  \"Delete a script by name. Returns promise of result map.\"
-  [script-name]
-  (-> (send-and-receive \"delete-script\" {:name script-name} \"delete-script-response\")
-      (.then (fn [msg]
-               {:success (.-success msg)
-                :error (.-error msg)}))))")
+ "Moved to extension/bundled/epupp/*.cljs to be injected instead of inlined here.")
 
 (def close-websocket-fn
   (js* "function() {
@@ -910,20 +871,22 @@
                     "ws-close" (do (handle-ws-close tab-id) false)
                     "ping" false
 
-                    ;; Page context requests script list via epupp/ls
+                    ;; Page context requests script list via epupp.fs/ls
                     "list-scripts"
                     (let [scripts (storage/get-scripts)
                           public-scripts (mapv (fn [s]
-                                                 {:name (:script/name s)
-                                                  :enabled (:script/enabled s)
-                                                  :match (:script/match s)})
+                                                 {:fs/name (:script/name s)
+                                                  :fs/enabled (:script/enabled s)
+                                                  :fs/match (:script/match s)
+                                                  :fs/modified (:script/modified s)})
                                                scripts)]
                       (send-response (clj->js {:success true :scripts public-scripts}))
                       false)
 
                     ;; Page context saves script code via epupp/save!
                     "save-script"
-                    (let [code (.-code message)]
+                    (let [code (.-code message)
+                          enabled (if (some? (.-enabled message)) (.-enabled message) true)]
                       (try
                         (let [manifest (manifest-parser/extract-manifest code)
                               raw-name (get manifest "script-name")
@@ -940,7 +903,8 @@
                                           :script/name normalized-name
                                           :script/code code
                                           :script/match (if (vector? site-match) site-match [site-match])
-                                          :script/require (or requires [])}]
+                                          :script/require (or requires [])
+                                          :script/enabled enabled}]
                               (storage/save-script! script)
                               (send-response #js {:success true :name normalized-name}))))
                         (catch :default err
@@ -972,6 +936,83 @@
                           (do
                             (storage/delete-script! (:script/id script))
                             (send-response #js {:success true}))))
+                      false)
+
+                    ;; Queue delete for confirmation (from rm! with default :confirm true)
+                    "queue-delete-script"
+                    (let [script-name (.-name message)
+                          script (storage/get-script-by-name script-name)]
+                      (if-not script
+                        (send-response #js {:success false :error (str "Script not found: " script-name)})
+                        (if (script-utils/builtin-script-id? (:script/id script))
+                          (send-response #js {:success false :error "Cannot delete built-in scripts"})
+                          (do
+                            (add-fs-confirmation! script-name :delete {:confirm/script-id (:script/id script)})
+                            (broadcast-fs-confirmations-changed!)
+                            (send-response #js {:success true
+                                                :pending-confirmation true
+                                                :name script-name}))))
+                      false)
+
+                    ;; Queue rename for confirmation (from mv! with default :confirm true)
+                    "queue-rename-script"
+                    (let [from-name (.-from message)
+                          to-name (.-to message)
+                          script (storage/get-script-by-name from-name)]
+                      (if-not script
+                        (send-response #js {:success false :error (str "Script not found: " from-name)})
+                        (if (script-utils/builtin-script-id? (:script/id script))
+                          (send-response #js {:success false :error "Cannot rename built-in scripts"})
+                          (do
+                            ;; Key by from-name so subsequent renames replace
+                            (add-fs-confirmation! from-name :rename {:confirm/script-id (:script/id script)
+                                                                     :confirm/to-name to-name})
+                            (broadcast-fs-confirmations-changed!)
+                            (send-response #js {:success true
+                                                :pending-confirmation true
+                                                :from-name from-name
+                                                :to-name to-name}))))
+                      false)
+
+                    ;; Confirm a pending FS operation (execute it)
+                    "confirm-fs-operation"
+                    (let [key (.-key message)
+                          confirmation (get (:pending/fs-confirmations @!state) key)]
+                      (if-not confirmation
+                        (send-response #js {:success false :error "No pending confirmation found"})
+                        (let [op (:confirm/operation confirmation)]
+                          (case op
+                            :delete (do
+                                      (storage/delete-script! (:confirm/script-id confirmation))
+                                      (remove-fs-confirmation! key)
+                                      (broadcast-fs-confirmations-changed!)
+                                      (send-response #js {:success true :operation "delete" :name key}))
+                            :rename (do
+                                      (storage/rename-script! (:confirm/script-id confirmation) (:confirm/to-name confirmation))
+                                      (remove-fs-confirmation! key)
+                                      (broadcast-fs-confirmations-changed!)
+                                      (send-response #js {:success true :operation "rename"
+                                                          :from-name (:confirm/script-name confirmation)
+                                                          :to-name (:confirm/to-name confirmation)}))
+                            (send-response #js {:success false :error (str "Unknown operation: " op)}))))
+                      false)
+
+                    ;; Cancel a pending FS operation
+                    "cancel-fs-operation"
+                    (let [key (.-key message)]
+                      (if-not (get (:pending/fs-confirmations @!state) key)
+                        (send-response #js {:success false :error "No pending confirmation found"})
+                        (do
+                          (remove-fs-confirmation! key)
+                          (broadcast-fs-confirmations-changed!)
+                          (send-response #js {:success true :cancelled key})))
+                      false)
+
+                    ;; Popup/Panel requests current pending confirmations
+                    "get-fs-confirmations"
+                    (let [confirmations (get-fs-confirmations)]
+                      (send-response (clj->js {:success true
+                                               :confirmations confirmations}))
                       false)
 
                     ;; Page context requests script code by name via epupp/cat

@@ -115,7 +115,8 @@
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "save-script"
-                    :code (.-code msg)}
+                    :code (.-code msg)
+                    :enabled (.-enabled msg)}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"

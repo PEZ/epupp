@@ -35,7 +35,8 @@
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/error nil
-         :repl/connections []}))          ; Validation error message
+         :repl/connections []              ; Active REPL connections
+         :pending/fs-confirmations []}))   ; Pending FS operation confirmations
 
 
 
@@ -391,6 +392,30 @@
          ;; Keywords are strings, so {:keys [tab-id]} works with "tab-id" keys
          (let [connections (.-connections response)]
            (dispatch [[:db/ax.assoc :repl/connections connections]])))))
+
+    :popup/fx.load-fs-confirmations
+    (js/chrome.runtime.sendMessage
+     #js {:type "get-fs-confirmations"}
+     (fn [response]
+       (when (and response (.-success response))
+         (let [confirmations (js->clj (.-confirmations response) :keywordize-keys true)]
+           (dispatch [[:db/ax.assoc :pending/fs-confirmations confirmations]])))))
+
+    :popup/fx.confirm-fs-operation
+    (let [[key] args]
+      (js/chrome.runtime.sendMessage
+       #js {:type "confirm-fs-operation" :key key}
+       (fn [_response]
+         ;; Confirmations list will update via broadcast message
+         nil)))
+
+    :popup/fx.cancel-fs-operation
+    (let [[key] args]
+      (js/chrome.runtime.sendMessage
+       #js {:type "cancel-fs-operation" :key key}
+       (fn [_response]
+         ;; Confirmations list will update via broadcast message
+         nil)))
 
     :popup/fx.reveal-tab
     (let [[tab-id] args
@@ -809,6 +834,49 @@
       [:div.step-header "Connected Tabs"]
       [connected-tabs-section state]]]))
 
+;; ============================================================
+;; FS Confirmation UI
+;; ============================================================
+
+(defn confirmation-item [{:keys [confirm/script-name confirm/operation confirm/to-name]}]
+  (let [key script-name]
+    [:div.confirmation-item
+     [:div.confirmation-info
+      [:span.confirmation-op
+       (case operation
+         :delete [:<> [icons/trash] " Delete"]
+         :rename [:<> [icons/edit] " Rename"]
+         [:<> "Unknown op"])]
+      [:span.confirmation-details
+       (case operation
+         :delete [:span.script-name script-name]
+         :rename [:<> [:span.script-name script-name]
+                  " → "
+                  [:span.script-name to-name]]
+         script-name)]]
+     [:div.confirmation-actions
+      [view-elements/action-button
+       {:button/variant :success
+        :button/class "confirmation-confirm"
+        :button/on-click #(dispatch! [[:popup/ax.confirm-fs-operation key]])}
+       "Confirm"]
+      [view-elements/action-button
+       {:button/variant :secondary
+        :button/class "confirmation-cancel"
+        :button/on-click #(dispatch! [[:popup/ax.cancel-fs-operation key]])}
+       "Cancel"]]]))
+
+(defn fs-confirmations-section [{:keys [pending/fs-confirmations]}]
+  (when (seq fs-confirmations)
+    [:div.fs-confirmations-section
+     [:div.fs-confirmations-header
+      [icons/alert {:class "warning-icon"}]
+      [:span "Pending Confirmations"]]
+     [:div.fs-confirmations-list
+      (for [confirmation fs-confirmations]
+        ^{:key (:confirm/script-name confirmation)}
+        [confirmation-item confirmation])]]))
+
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
@@ -819,6 +887,8 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/jack-in {:size 28}]}]
+
+     [fs-confirmations-section state]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
@@ -868,6 +938,20 @@
      ;; Return false - we don't send async response
      false))
 
+  ;; Listen for FS confirmation changes from background
+  (js/chrome.runtime.onMessage.addListener
+   (fn [message _sender _send-response]
+     (when (= "fs-confirmations-changed" (.-type message))
+       (let [confirmations (js->clj (.-confirmations message) :keywordize-keys true)]
+         (dispatch! [[:db/ax.assoc :pending/fs-confirmations confirmations]])))
+     false))
+
+  ;; Listen for storage changes (scripts modified via REPL, panel, etc.)
+  (js/chrome.storage.onChanged.addListener
+   (fn [changes area]
+     (when (and (= area "local") (.-scripts changes))
+       (dispatch! [[:popup/ax.load-scripts]]))))
+
   (dispatch! [[:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
@@ -875,7 +959,8 @@
               [:popup/ax.load-user-origins]
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
-              [:popup/ax.load-connections]]))
+              [:popup/ax.load-connections]
+              [:popup/ax.load-fs-confirmations]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" nil "Script loaded, readyState:" js/document.readyState)

@@ -153,6 +153,17 @@
     :popup/ax.load-connections
     {:uf/fxs [[:popup/fx.load-connections]]}
 
+    :popup/ax.load-fs-confirmations
+    {:uf/fxs [[:popup/fx.load-fs-confirmations]]}
+
+    :popup/ax.confirm-fs-operation
+    (let [[key] args]
+      {:uf/fxs [[:popup/fx.confirm-fs-operation key]]})
+
+    :popup/ax.cancel-fs-operation
+    (let [[key] args]
+      {:uf/fxs [[:popup/fx.cancel-fs-operation key]]})
+
     :popup/ax.reveal-tab
     (let [[tab-id] args]
       {:uf/fxs [[:popup/fx.reveal-tab tab-id]]})

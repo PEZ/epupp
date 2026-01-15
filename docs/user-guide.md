@@ -506,6 +506,122 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ---
 
+## REPL File System API
+
+Manage userscripts programmatically from the REPL using the `epupp.fs` namespace.
+
+### Available Functions
+
+| Function | Description |
+|----------|-------------|
+| `epupp.fs/ls` | List all scripts with metadata |
+| `epupp.fs/cat` | Get script code by name |
+| `epupp.fs/save!` | Create or update a script |
+| `epupp.fs/mv!` | Rename a script |
+| `epupp.fs/rm!` | Delete a script |
+
+### Listing Scripts
+
+```clojure
+(epupp.fs/ls)
+;; => [{:fs/name "my_script.cljs"
+;;      :fs/enabled true
+;;      :fs/match ["https://example.com/*"]
+;;      :fs/modified "2025-01-15T12:00:00.000Z"}
+;;     ...]
+```
+
+### Reading Script Code
+
+```clojure
+(epupp.fs/cat "my_script.cljs")
+;; => "(ns my-script) ..."
+
+(epupp.fs/cat "nonexistent.cljs")
+;; => nil
+```
+
+### Creating/Updating Scripts
+
+Save code with an embedded manifest:
+
+```clojure
+(epupp.fs/save!
+  "{:epupp/script-name \"new_script.cljs\"
+    :epupp/site-match \"https://example.com/*\"}
+
+   (ns new-script)
+   (js/console.log \"Hello!\")")
+;; => {:fs/success true :fs/name "new_script.cljs" :fs/error nil}
+```
+
+If a script with that name exists, it's updated. Otherwise, a new script is created.
+
+### Script Approval Requirement
+
+Scripts created via `epupp.fs/save!` start with no approved patterns. Before they run automatically on matching sites, you must approve them in the popup UI:
+
+1. Navigate to a page matching the script's pattern
+2. Open the Epupp popup
+3. The script shows an amber border indicating pending approval
+4. Click **Allow** to approve and run the script
+
+This security measure ensures you explicitly authorize each script to run on specific sites. The approval is per-pattern - a script with multiple `:epupp/site-match` patterns needs individual approval for each.
+
+For immediate testing without approval workflow, use one-time evaluation:
+- Click the **Play** button in the popup to run the script once on the current page
+- Or evaluate code directly in the DevTools panel
+
+### Renaming Scripts
+
+```clojure
+(epupp.fs/mv! "old_name.cljs" "new_name.cljs")
+;; => {:fs/success true :fs/error nil}
+```
+
+Note: Built-in scripts cannot be renamed.
+
+### Deleting Scripts
+
+```clojure
+(epupp.fs/rm! "unwanted_script.cljs")
+;; => {:fs/success true :fs/error nil}
+```
+
+Note: Built-in scripts cannot be deleted.
+
+### Return Value Format
+
+All `epupp.fs` functions return promises. Results use namespaced keywords (`:fs/*`):
+
+| Key | Description |
+|-----|-------------|
+| `:fs/success` | Boolean indicating operation success |
+| `:fs/name` | Script name (in save!/mv! results) |
+| `:fs/error` | Error message string, or nil |
+| `:fs/enabled` | Whether script is enabled (in ls) |
+| `:fs/match` | URL patterns (in ls) |
+| `:fs/modified` | Last modification timestamp (in ls) |
+
+### UI Reactivity
+
+The popup automatically refreshes when scripts change via the fs API. You don't need to manually reload the popup to see changes made from the REPL.
+
+### Pretty Printing Script Lists
+
+For formatted output, use `cljs.pprint`:
+
+```clojure
+(epupp.repl/manifest! {:epupp/require ["scittle://pprint.js"]})
+(require '[cljs.pprint :refer [print-table]])
+
+;; Print all scripts as table
+(-> (epupp.fs/ls)
+    (.then #(print-table [:fs/name :fs/enabled] %)))
+```
+
+---
+
 ## Troubleshooting
 
 ### No Epupp Panel?

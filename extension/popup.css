@@ -858,5 +858,95 @@ button#connect:active {
   background: var(--code-bg);
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+/* ============================================================
+   FS Confirmation Cards - REPL file operation confirmations
+   ============================================================ */
+
+.fs-confirmations-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--approval-bg);
+  border: 1px solid var(--approval-border);
+  border-radius: var(--radius);
+}
+
+.fs-confirmations-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--approval-header-color);
+  margin-bottom: 12px;
+}
+
+.fs-confirmations-header .warning-icon {
+  color: var(--color-warning);
+}
+
+.fs-confirmations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confirmation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+}
+
+.confirmation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.confirmation-op {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.confirmation-op svg {
+  width: 14px;
+  height: 14px;
+}
+
+.confirmation-details {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.confirmation-details .script-name {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-weight: 500;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.confirmation-confirm,
+.confirmation-cancel {
+  padding: 4px 10px;
+  font-size: 11px;
+}
   font-size: 10px;
 }

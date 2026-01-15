@@ -1,7 +1,7 @@
 # Epupp REPL File System API - Implementation Plan
 
 **Created:** January 15, 2026
-**Status:** Planning
+**Status:** In Progress
 **Related:** [repl-file-sync-plan.md](repl-file-sync-plan.md) (almost completely implemented)
 
 ## Overview
@@ -13,10 +13,10 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Task | Status | Notes |
 |------|--------|-------|
 | Rename files/refs from "primitives" to "fs" | ✅ Done | Test files, docs updated |
-| Namespace rename (`epupp.fs/*`, `epupp.repl/*`) | 🔲 Not started | Enables clean API surface |
-| Namespaced keywords in returns | 🔲 Not started | `:fs/name`, `:fs/enabled`, etc. |
-| `modified` timestamp in manifest | 🔲 Not started | Enables `ls` sorting by time |
-| UI reactivity for fs operations | 🔲 Not started | Popup/panel update on changes |
+| Namespace rename (`epupp.fs/*`, `epupp.repl/*`) | ✅ Done | `epupp-namespace-code` updated |
+| Namespaced keywords in returns | ✅ Done | `:fs/name`, `:fs/enabled`, etc. |
+| `modified` timestamp in manifest | ✅ Done | Added to `ls` output |
+| UI reactivity for fs operations | ✅ Done | Popup listens to storage changes |
 | Confirmation card pattern | 🔲 Not started | Inline cards below items |
 | Confirmation for `rm!` | 🔲 Not started | Default on, `:confirm false` to skip |
 | Confirmation for `mv!` | 🔲 Not started | Default on |
@@ -24,8 +24,8 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Confirmation for `save!` (create) | 🔲 Not started | Ghost item with card |
 | Options for `save!` | 🔲 Not started | `:enabled` option |
 | Bulk operations | 🔲 Not started | `cat`, `save!`, `rm!`, `mv!` |
-| Promesa in example tamper | 🔲 Not started | Better ergonomics demo |
-| Document "not-approved" behavior | 🔲 Not started | New scripts go to unapproved state |
+| Promesa in example tamper | ✅ Done | Updated repl_fs.cljs with epupp.fs/* |
+| Document "not-approved" behavior | ✅ Done | Added to user-guide.md REPL FS API section |
 
 ## Design Decisions
 
@@ -140,6 +140,16 @@ Order optimized for enabling further work:
 
 ### Phase 3: Confirmation Workflow
 
+The design is:
+
+* REPL calls `(rm! "script.cljs")` -> Promise resolves immediately with `{:fs/pending-confirmation true :fs/name "script.cljs"}`
+* Background stores pending confirmation -> keyed by script name (so subsequent ops replace)
+* UI shows confirmation card -> User confirms or cancels
+* Confirm -> Operation executes, confirmation cleared
+* Cancel -> Confirmation cleared, nothing happens
+
+No waiting, no callback resolution needed. The REPL just queues operations for confirmation.
+
 5. **Confirmation card UI pattern**
    - Inline card below list item (replaces modal dialog)
    - Ghost item for new file creation
@@ -184,3 +194,52 @@ Order optimized for enabling further work:
 ## Open Items
 
 - Determine if backward compatibility aliases are needed or clean break is acceptable
+
+---
+
+## Mini-Plan: Fix Confirmation Semantics (January 2026)
+
+**Problem:** Current implementation has incorrect semantics discovered via E2E test failures.
+
+### Issues Found
+
+1. **Missing `:fs/success true` when queuing** - Operations return only `:fs/pending-confirmation true` on successful queue, should include `:fs/success true`
+2. **Wrong option name** - Uses `:confirm false` instead of `:fs/force?`
+3. **Bulk bypasses confirmation** - Should queue multiple confirmations instead
+4. **`save!` lacks confirmation** - Needs confirmation workflow
+5. **`save!` bulk uses wrong keys** - Returns `{idx {:success ...}}` instead of `{idx {:fs/success ...}}`
+6. **Force mode should clear pending** - Using `:fs/force? true` should clear any pending confirmation for that file
+
+### Correct Semantics
+
+`:fs/success` = whether the command was accepted (queue or execute)
+`:fs/pending-confirmation` = orthogonal flag indicating confirmation needed
+
+```clojure
+;; Successfully queued for confirmation
+{:fs/success true
+ :fs/pending-confirmation true
+ :fs/name "script.cljs"}
+
+;; Successfully executed (forced)
+{:fs/success true
+ :fs/name "script.cljs"}
+
+;; Error
+{:fs/success false
+ :fs/error "Script not found"}
+```
+
+### Tasks
+
+| Task | Status |
+|------|--------|
+| Rename `:confirm` to `:fs/force?` in all functions | 🔲 |
+| Return `:fs/success true` when queuing succeeds | 🔲 |
+| Add confirmation to `save!` (both create and update) | 🔲 |
+| Make bulk `rm!` queue multiple confirmations | 🔲 |
+| Make bulk `save!` queue multiple confirmations | 🔲 |
+| Fix bulk `save!` to use `:fs/` prefixed keys | 🔲 |
+| Force mode clears pending confirmation for file | 🔲 |
+| Update E2E tests to reflect correct semantics | 🔲 |
+| Update docstrings | 🔲 |
