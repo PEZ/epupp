@@ -214,11 +214,12 @@ Clojure sequence functions don't work on JavaScript collections like `NodeList`,
 
 ## Validating Squint Syntax
 
-**Use `get_errors` (problem report)** to check bracket balance and syntax errors. Don't compile directly with `npx squint compile` for test files - it creates stray `.mjs` files in non-gitignored paths.
+**Use `get_errors` (problem report)** to check bracket balance and syntax errors. For compilation checks, use `bb squint-compile` which wraps Squint with proper project configuration.
 
 - `get_errors` gives accurate line numbers for bracket issues
-- `bb test:e2e` compiles to `build/e2e/` (gitignored)
-- Direct compilation uses `squint.edn` output path (for source, not tests)
+- `bb squint-compile src/file.cljs` - Check single file compilation
+- `bb squint-compile --paths src test --output-dir build/test` - Full compilation
+- `bb test` and `bb test:e2e` also compile as part of their workflow
 
 ## Debugging Squint Issues
 

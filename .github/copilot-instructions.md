@@ -148,7 +148,7 @@ This project uses **[Squint](https://github.com/squint-cljs/squint)** to compile
 
 **Build flow:**
 ```bash
-npx squint compile  # src/*.cljs → extension/*.mjs
+bb squint-compile   # src/*.cljs → extension/*.mjs (or bb watch for continuous)
 npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 ```
 
@@ -173,6 +173,7 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | `bb test` | Unit tests (fast, always run after changes) |
 | `bb test:e2e` | E2E tests in Docker, 6 parallel shards (~16s) |
 | `bb test:e2e --serial` | E2E tests sequential, detailed output for debugging |
+| `bb squint-compile` | Check compilation without running tests |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 
 **E2E test options:**

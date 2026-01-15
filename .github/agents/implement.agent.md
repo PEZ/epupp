@@ -148,6 +148,7 @@ After each phase:
 | bb test | Compile and run unit tests (~1s) |
 | bb test:e2e | E2E tests in Docker, parallel (~16s) |
 | bb test:e2e --serial | E2E with detailed output for debugging |
+| bb squint-compile | Check compilation without running tests |
 | bb build:dev | Build extension for manual testing |
 
 **ALWAYS use bb task over direct shell commands.** The bb tasks encode project-specific configurations.

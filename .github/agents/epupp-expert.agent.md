@@ -156,6 +156,7 @@ After each phase:
 | bb test | Unit tests (~1s) |
 | bb test:e2e | E2E tests, parallel (~16s) |
 | bb test:e2e --serial | E2E with detailed output |
+| bb squint-compile | Check compilation without running tests |
 | bb build:dev | Build for manual testing |
 
 **ALWAYS use bb task over direct shell commands.**
