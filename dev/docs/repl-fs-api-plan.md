@@ -1,12 +1,42 @@
 # Epupp REPL File System API - Implementation Plan
 
 **Created:** January 15, 2026
-**Status:** In Progress
+**Status:** In Progress - Blocked on content bridge forwarding
 **Related:** [repl-file-sync-plan.md](repl-file-sync-plan.md) (almost completely implemented)
 
 ## Overview
 
 A file system API for managing userscripts from the REPL, with confirmation workflows, UI reactivity, and ergonomic async patterns.
+
+## ROOT CAUSE ANALYSIS (January 2026)
+
+**All E2E tests are failing** because of a single missing piece: **the content bridge does not forward queue messages**.
+
+The `epupp.fs` page API sends messages like `queue-save-script`, `queue-delete-script`, `queue-rename-script` to the bridge, but `content_bridge.cljs` only forwards `save-script`, `delete-script`, `rename-script`. The bridge silently drops the queue variants.
+
+Additionally, **the save-script handler in content_bridge does not forward the `enabled` or `force` options** from the page API.
+
+### Message Flow Diagram
+
+```
+Page (epupp.fs/save!)  -->  Content Bridge  -->  Background Worker
+                           (MISSING ROUTES)
+```
+
+**Current bridge routes:**
+- `save-script` - forwards only `code`, not `enabled` or `force`
+- `rename-script` - forwards `from`, `to` only
+- `delete-script` - forwards `name` only
+
+**Missing bridge routes:**
+- `queue-save-script`
+- `queue-rename-script`
+- `queue-delete-script`
+
+**Missing parameter forwarding:**
+- `save-script` needs `enabled`, `force`
+- `rename-script` needs `force`
+- `delete-script` needs `force`
 
 ## Implementation Progress
 
@@ -17,13 +47,14 @@ A file system API for managing userscripts from the REPL, with confirmation work
 | Namespaced keywords in returns | ✅ Done | `:fs/name`, `:fs/enabled`, etc. |
 | `modified` timestamp in manifest | ✅ Done | Added to `ls` output |
 | UI reactivity for fs operations | ✅ Done | Popup listens to storage changes |
+| **Content bridge message forwarding** | ❌ Blocked | Missing queue-* routes and options forwarding |
 | Confirmation UI placement | ⚠️ Partial | Top-level confirmation section exists; inline/ghost items pending |
-| Confirmation for `rm!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
-| Confirmation for `mv!` | ⚠️ Partial | Queue+confirm exists, but UI placement is still top-level; inline/ghost pending |
+| Confirmation for `rm!` | ⚠️ Partial | Queue+confirm exists in background, bridge route missing |
+| Confirmation for `mv!` | ⚠️ Partial | Queue+confirm exists in background, bridge route missing |
 | Confirmation for `save!` (update) | 🔲 Not started | Requires background queue handler |
 | Confirmation for `save!` (create) | 🔲 Not started | Requires background queue handler |
-| Options for `save!` | ⚠️ Partial | `:fs/enabled` implemented, docs/tests still mention `:enabled` |
-| Bulk operations | ⚠️ Partial | `cat` and `rm!` bulk implemented; `save!` bulk blocked by missing queue handler; `mv!` bulk not implemented |
+| Options for `save!` | ⚠️ Partial | `:fs/enabled` implemented in page API, not forwarded by bridge |
+| Bulk operations | ⚠️ Partial | `cat` and `rm!` bulk implemented; `save!` bulk blocked |
 | Promesa in example tamper | ✅ Done | Updated repl_fs.cljs with epupp.fs/* |
 | Document "not-approved" behavior | ✅ Done | Added to user-guide.md REPL FS API section |
 
@@ -206,56 +237,171 @@ No waiting, no callback resolution needed. The REPL just queues operations for c
 
 ---
 
-## Mini-Plan: Fix Confirmation Semantics (January 2026)
+## ACTIONABLE IMPLEMENTATION PLAN
 
-**Problem:** Current implementation has incorrect semantics discovered via E2E test failures.
+**Goal:** Make `epupp.fs/*` operations work end-to-end with `:fs/force? true` option.
 
-### Issues Found
+**Strategy:** Fix the plumbing first (content bridge forwarding), then layer on confirmation UI. The tests use `:fs/force? true` to bypass confirmations, so fixing the bridge unblocks all current tests.
 
-1. **`save!` confirmation not implemented in background** - No `queue-save-script` handler, so `save!` never queues confirmation
-2. **Wrong option names in tests/docs** - Tests still send `:confirm false` and `:enabled`; current API uses `:fs/force?` and `:fs/enabled`
-3. **Return keys mismatch in tests/docs** - Tests still assert `:success`, but code returns `:fs/success`
-4. **UI confirmation placement mismatch** - Implementation uses a top-level confirmation section and must move to inline cards with ghost items
-5. **Bulk confirmation behavior undefined for `save!`** - Needs explicit queue semantics and return format
-6. **Force mode should clear pending** - Using `:fs/force? true` should clear any pending confirmation for that file
+### Phase 1: Fix Content Bridge Forwarding (CRITICAL - UNBLOCKS ALL TESTS)
 
-### Current Failing Tests
+**Files to edit:**
+- [src/content_bridge.cljs](../../src/content_bridge.cljs)
 
-- [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs) - expects `:success`, `:confirm`, `:enabled` semantics
-   - Assumes immediate execution; update to use `:fs/force?` or trigger the UI confirmation flow.
-- [e2e/fs_ui_reactivity_test.cljs](e2e/fs_ui_reactivity_test.cljs) - expects `:success` results from `save!`/`rm!`/`mv!`
-   - Assumes immediate execution; update to use `:fs/force?` or trigger the UI confirmation flow.
-- [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) - expects `:name`/`:enabled` in `ls` output instead of `:fs/name`/`:fs/enabled`
+**Current state:** Bridge forwards `save-script`, `rename-script`, `delete-script` but:
+1. Does NOT forward `enabled` or `force` parameters to `save-script`
+2. Does NOT forward `force` parameter to `rename-script`/`delete-script`
+3. Does NOT have routes for `queue-*` message types
 
-### Correct Semantics
-
-`:fs/success` = whether the command was accepted (queue or execute)
-`:fs/pending-confirmation` = orthogonal flag indicating confirmation needed
+**Task 1.1: Update `save-script` handler in content_bridge.cljs**
 
 ```clojure
-;; Successfully queued for confirmation
-{:fs/success true
- :fs/pending-confirmation true
- :fs/name "script.cljs"}
+;; CURRENT (broken):
+"save-script"
+(do
+  (js/chrome.runtime.sendMessage
+   #js {:type "save-script"
+        :code (.-code msg)}  ;; missing enabled and force!
+   ...))
 
-;; Successfully executed (forced)
-{:fs/success true
- :fs/name "script.cljs"}
-
-;; Error
-{:fs/success false
- :fs/error "Script not found"}
+;; FIXED:
+"save-script"
+(do
+  (js/chrome.runtime.sendMessage
+   #js {:type "save-script"
+        :code (.-code msg)
+        :enabled (.-enabled msg)
+        :force (.-force msg)}
+   ...))
 ```
 
-### Tasks
+**Task 1.2: Update `rename-script` handler in content_bridge.cljs**
 
-| Task | Status |
-|------|--------|
-| Implement background `queue-save-script` handler and wiring | 🔲 | Needed for `save!` confirmation (create/update) |
-| Decide `epupp.fs` option aliasing/back-compat (`:confirm`/`:enabled`) | 🔲 | Either alias or update all call sites/tests/docs |
-| Normalize return keys to `:fs/*` everywhere | 🔲 | Ensure bulk and single operations match |
-| Confirm `:fs/force?` clears pending confirmation for file | 🔲 | Behavior must be consistent across ops |
-| Define bulk confirmation behavior for `save!` | 🔲 | Queue per item, return per-item `:fs/*` results |
-| Update E2E expectations to current API | 🔲 | [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs), [e2e/fs_ui_reactivity_test.cljs](e2e/fs_ui_reactivity_test.cljs), [e2e/fs_read_test.cljs](e2e/fs_read_test.cljs) |
-| Align docs/examples with inline confirmation UI | 🔲 | Ensure ghost item behavior is documented |
-| Update docstrings and user guide | 🔲 | Keep API docs consistent |
+Forward the `force` parameter:
+```clojure
+#js {:type "rename-script"
+     :from (.-from msg)
+     :to (.-to msg)
+     :force (.-force msg)}
+```
+
+**Task 1.3: Update `delete-script` handler in content_bridge.cljs**
+
+Forward the `force` parameter:
+```clojure
+#js {:type "delete-script"
+     :name (.-name msg)
+     :force (.-force msg)}
+```
+
+**Task 1.4: Add queue-* message routes to content_bridge.cljs**
+
+Add new cases:
+- `queue-save-script` -> forwards to background
+- `queue-rename-script` -> forwards to background
+- `queue-delete-script` -> forwards to background
+
+Each needs corresponding response type (e.g., `queue-save-script-response`).
+
+### Phase 2: Update Background Handlers to Use Force Parameter
+
+**Files to edit:**
+- [src/background.cljs](../../src/background.cljs)
+
+**Task 2.1: Update `save-script` handler**
+
+Check for `force` parameter. When `force` is true, clear any pending confirmation for this script name before saving.
+
+**Task 2.2: Update `rename-script` handler**
+
+Check for `force` parameter. When `force` is true, clear any pending confirmation before renaming.
+
+**Task 2.3: Update `delete-script` handler**
+
+Check for `force` parameter. When `force` is true, clear any pending confirmation before deleting.
+
+**Task 2.4: Implement `queue-save-script` handler**
+
+New handler similar to `queue-delete-script` and `queue-rename-script`:
+- Parse manifest from code to get script name
+- Check if script exists (update) or not (create)
+- Add to pending confirmations
+- Return `{:success true :pending-confirmation true :name normalized-name}`
+
+### Phase 3: Verify Tests Pass
+
+After Phase 1 and 2, run:
+```bash
+bb test:e2e --serial -- --grep "fs"
+```
+
+All 18 tests should pass since they use `:fs/force? true`.
+
+### Phase 4: Confirmation UI (DEFERRED)
+
+This can be done after the core API works. Tasks:
+1. Inline confirmation cards in script list (replace top-level section)
+2. Ghost items for new scripts pending creation
+3. Badge indicator when popup closed
+
+---
+
+## EXECUTION CHECKLIST
+
+Copy this to the todo list when starting work:
+
+### Immediate (unblocks all E2E tests)
+
+| # | Task | File | Status |
+|---|------|------|--------|
+| 1 | Forward `enabled`, `force` in `save-script` handler | content_bridge.cljs | 🔲 |
+| 2 | Forward `force` in `rename-script` handler | content_bridge.cljs | 🔲 |
+| 3 | Forward `force` in `delete-script` handler | content_bridge.cljs | 🔲 |
+| 4 | Add `queue-save-script` route to bridge | content_bridge.cljs | 🔲 |
+| 5 | Add `queue-rename-script` route to bridge | content_bridge.cljs | 🔲 |
+| 6 | Add `queue-delete-script` route to bridge | content_bridge.cljs | 🔲 |
+| 7 | Update `save-script` background handler for `force` | background.cljs | 🔲 |
+| 8 | Update `rename-script` background handler for `force` | background.cljs | 🔲 |
+| 9 | Update `delete-script` background handler for `force` | background.cljs | 🔲 |
+| 10 | Implement `queue-save-script` background handler | background.cljs | 🔲 |
+| 11 | Run E2E tests to verify | - | 🔲 |
+
+### Deferred (confirmation UI polish)
+
+| # | Task | File | Status |
+|---|------|------|--------|
+| D1 | Inline confirmation cards in popup | popup.cljs | 🔲 |
+| D2 | Ghost items for pending creates | popup.cljs | 🔲 |
+| D3 | Badge indicator for pending ops | background.cljs | 🔲 |
+| D4 | Update user guide with confirmation flow | docs/user-guide.md | 🔲 |
+
+---
+
+## REFERENCE: Current Message Types
+
+### Page -> Bridge -> Background
+
+| Page API | Bridge Route | Background Handler |
+|----------|--------------|-------------------|
+| `epupp.fs/ls` | `list-scripts` | `list-scripts` ✅ |
+| `epupp.fs/cat` | `get-script` | `get-script` ✅ |
+| `epupp.fs/save!` (force) | `save-script` | `save-script` ⚠️ needs params |
+| `epupp.fs/save!` (confirm) | `queue-save-script` | ❌ missing |
+| `epupp.fs/mv!` (force) | `rename-script` | `rename-script` ⚠️ needs force |
+| `epupp.fs/mv!` (confirm) | `queue-rename-script` | `queue-rename-script` ⚠️ no route |
+| `epupp.fs/rm!` (force) | `delete-script` | `delete-script` ⚠️ needs force |
+| `epupp.fs/rm!` (confirm) | `queue-delete-script` | `queue-delete-script` ⚠️ no route |
+
+### Response Types
+
+| Request | Response Type |
+|---------|--------------|
+| `list-scripts` | `list-scripts-response` |
+| `get-script` | `get-script-response` |
+| `save-script` | `save-script-response` |
+| `queue-save-script` | `queue-save-script-response` |
+| `rename-script` | `rename-script-response` |
+| `queue-rename-script` | `queue-rename-script-response` |
+| `delete-script` | `delete-script-response` |
+| `queue-delete-script` | `queue-delete-script-response` |
+
