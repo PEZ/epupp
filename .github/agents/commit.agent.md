@@ -1,6 +1,6 @@
 ---
 description: 'Commits changed files in logical groupings with good commit messages'
-model: Claude Sonnet 4.5 (copilot)
+model: GPT-5.2-Codex (copilot)
 # tools: ['run_in_terminal', 'get_changed_files', 'read_file', 'grep_search']
 ---
 

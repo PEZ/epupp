@@ -1,6 +1,6 @@
 ---
 description: 'Edits Clojure/ClojureScript/Squint Files'
-model: Claude Sonnet 4.5 (copilot)
+model: GPT-5.2-Codex (copilot)
 tools: ['read/problems', 'read/readFile', 'read/getTaskOutput', 'edit/createDirectory', 'edit/createFile', 'edit/editFiles', 'search', 'betterthantomorrow.joyride/joyride-eval', 'betterthantomorrow.joyride/human-intelligence', 'todo']
 ---
 
