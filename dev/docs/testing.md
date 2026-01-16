@@ -31,7 +31,8 @@ Lead new work with tests to lock in intent and expose regressions early.
 
 **Default (AI Agents and Automated Testing):**
 - `bb test` - Unit tests (fast, always run after changes)
-- `bb test:e2e` - All E2E tests (headless in Docker), includes REPL integration
+- `bb test:e2e` - All E2E tests (sharded and headless in Docker), includes REPL integration
+- `bb test:e2e --serial -- --shard=2/6` (e.g.) To run only one shard, for trouble shooting
 
 **Human Developers (Visible Browser):**
 - `bb test:watch` - Unit test watcher
