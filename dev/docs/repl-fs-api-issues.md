@@ -78,9 +78,7 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 - When more than one confirmation is pending, show "Confirm all" and "Cancel all" buttons.
 
 ### Confirmations should cancel on content changes
-**Symptom:** When a script changes (code or manifest metadata such as name, match, run-at), any pending confirmation for that script remains.
-
-**Expected:** If a script is modified while a confirmation is pending, the confirmation should be cancelled and removed.
+**Status:** Resolved - confirmations cancel when code or manifest metadata changes.
 
 ### Pending-confirmation badge does not update
 **Status:** Resolved - badge count increments for each queued confirmation and decrements when a confirmation is accepted or denied.
@@ -99,6 +97,11 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 
 **Process:** When updating an E2E file, first apply this refactor and re-run the tests to confirm no behavior changes. Only then make changes to test logic.
 
+### FS API REPL E2E tests use atom-based result harvesting
+**Symptom:** REPL FS API E2E tests use complex atom-based patterns with later inspection, which is harder to read and maintain.
+
+**Fix (last priority):** Refactor to the same `promesa` `p/let` pattern used in [test-data/tampers/repl_fs.cljs](../../test-data/tampers/repl_fs.cljs), with inline `def`s.
+
 ## Bug log
 Add new findings here as testing continues.
 
@@ -107,6 +110,7 @@ Add new findings here as testing continues.
 - Badge count updates for pending confirmations
 - FS API rejects failed operations (Promise rejection)
 - Sharded E2E failure (shard 2) resolved
+- Confirmations cancel on code and metadata changes
 
 ### Template
 - **Date:** YYYY-MM-DD
