@@ -3,11 +3,6 @@
 ## Overview
 This document tracks issues discovered while manually testing the REPL File System API (`epupp.fs/*`) and highlights gaps in automated coverage.
 
-## Snapshot (2026-01-16)
-### Reality check
-- The sharded E2E run is currently green: `bb test:e2e` passes with 6 shards.
-- No known issues remain open.
-
 ### What’s left to do (next moves)
 1. **Keep it green:** continue to run `bb test:e2e` as changes land, and treat any sharded failures as blockers.
 2. **Maintenance (last priority):** refactor the REPL FS E2E tests away from atom-based result harvesting (see "Testing process issues").
@@ -64,100 +59,40 @@ Read these first:
 - **Small, reviewable patches**: one behavior change per commit-sized slice.
 - **Close the loop**: update this doc’s “Known bugs” + “Test coverage gaps” once the regression is covered.
 
-## Current status
-These are the stable behaviors we currently rely on:
-- Force-path operations work: `save!`, `mv!`, `rm!` succeed with `{:fs/force? true}`.
-- Confirmation UI is working in the centralized panel.
-- Badge count updates are working.
-- FS API rejects failed operations (Promise rejects on failure).
-
-E2E confidence:
-- Sharded E2E suite is green: `bb test:e2e` passes (6 shards).
-- Shard 2 contents confirmed via `bb test:e2e --serial -- --list --shard=2/6` (currently the REPL FS write tests).
-
-## Release scrutiny
-Everything about the REPL FS API must be scrutinized before release. Return maps and their semantics must be treated as stable and cannot change after release.
-
 ## Known issues
 Add new, currently failing issues here. If something is fixed, move it to "Resolved issues" and add an entry to the "Fixed log".
 
-None at the moment.
+### `mv!` allows renaming to existing script name, creates duplicate names
+
+**Severity:** High - causes data corruption
+
+**Symptom:** Calling `(epupp.fs/mv! "script_a.cljs" "script_b.cljs")` when `script_b.cljs` already exists succeeds with `:fs/success true` instead of rejecting. This creates two scripts with the same name but different internal IDs.
+
+**Expected:** The operation should reject with an error like "Destination script already exists: script_b.cljs"
+
+**Repro:**
+```clojure
+;; Create two test files
+(-> (epupp.fs/save! ["{:epupp/script-name \"test-file-1\" :epupp/site-match \"*\"}"
+                     "{:epupp/script-name \"test-file-2\" :epupp/site-match \"*\"}"]
+                    {:fs/force? true})
+    (p/then #(js/console.log "Created:" (pr-str %))))
+
+;; Rename file 1 to file 2 (should fail, but doesn't)
+(-> (epupp.fs/mv! "test_file_1.cljs" "test_file_2.cljs" {:fs/force? true})
+    (p/then #(js/console.log "Result:" (pr-str %)))
+    (p/catch #(js/console.log "Error:" (str %))))
+;; => {:fs/success true, :fs/from-name "test_file_1.cljs", :fs/to-name "test_file_2.cljs", :fs/error nil}
+
+;; Now ls shows TWO scripts named test_file_2.cljs with different timestamps
+(-> (epupp.fs/ls)
+    (p/then #(println (filter (fn [s] (clojure.string/includes? (:fs/name s) "test_file")) %))))
+```
 
 ## Resolved issues
-### Confirmation cancellation on non-manifest metadata changes
-**Status:** Resolved - toggling `:script/enabled` no longer cancels pending confirmations.
 
-**Change:** `cancel-pending-fs-confirmations-for-scripts!` now only triggers on changes to:
-- `:script/code`, `:script/match`, `:script/run-at`, `:script/require`, `:script/description`
-
-Internal metadata like `:script/enabled` is excluded.
-
-**Covered by E2E:** `pending_confirmation_not_cancelled_when_enabled_toggled` in [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs)
-
-### Confirmation UI interactions (centralized panel)
-**Status:** Resolved - centralized confirmation UI now supports per-item reveal/highlight/inspect controls and bulk confirm/cancel.
-
-**Covered by E2E:** See [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) for:
-- reveal + temporary highlight
-- inspect from/to versions
-- bulk confirm all / cancel all
-
-### Confirmations should cancel on content changes
-**Status:** Resolved - confirmations cancel when code or manifest metadata changes.
-
-### Pending-confirmation badge does not update
-**Status:** Resolved - badge count increments for each queued confirmation and decrements when a confirmation is accepted or denied.
-
-### Promise does not reject on failure
-**Status:** Resolved - failed operations now reject (Promise rejection) and trigger `p/catch`.
 
 ## Test coverage gaps
-None known at the moment - E2E asserts confirmation UI state for non-force paths.
+Unknown
 
-## Testing process issues
-### E2E describe blocks are too deep for AI edits
-**Symptom:** Some E2E files have long, deeply nested `describe` forms, which makes automated edits fragile.
 
-**Fix:** Extract anonymous functions so the `describe` form reads like a top-level recipe. Use [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) as the template.
-
-**Process:** When updating an E2E file, first apply this refactor and re-run the tests to confirm no behavior changes. Only then make changes to test logic.
-
-### FS API REPL E2E tests use atom-based result harvesting
-**Symptom:** REPL FS API E2E tests use complex atom-based patterns with later inspection, which is harder to read and maintain.
-
-**Fix (last priority):** Refactor to the same `promesa` `p/let` pattern used in [test-data/tampers/repl_fs.cljs](../../test-data/tampers/repl_fs.cljs), with inline `def`s.
-
-## Bug log
-Add new findings here as testing continues.
-
-Tip: If the suite is green but you find a manual bug, add it under "Known issues" first, then write an E2E test that fails deterministically (no sleeps).
-
-## Fixed log
-- Confirmation UI now works in centralized panel
-- Confirmation UI interactions: reveal/highlight/inspect + bulk confirm/cancel
-- Badge count updates for pending confirmations
-- FS API rejects failed operations (Promise rejection)
-- Sharded E2E failure (shard 2) resolved
-- Confirmations cancel on code and metadata changes
-- Confirmation NOT cancelled when toggling `:script/enabled` (internal metadata)
-
-### 2026-01-16
-- Fixed: toggling `:script/enabled` no longer cancels pending FS confirmations
-- Fixed: E2E selector ambiguity for `.confirmation-cancel` (scoped to specific confirmation items)
-- Shard 2 contents confirmed via `bb test:e2e --serial -- --list --shard=2/6` (REPL FS write tests).
-- `bb test:e2e` passes with 6 shards.
-
-### Template
-- **Date:** YYYY-MM-DD
-- **Scenario:**
-- **Steps:**
-- **Expected:**
-- **Actual:**
-- **Notes:**
-
-### 2026-01-15
-- **Scenario:** Confirmation UI for non-force REPL FS operations
-- **Steps:** Run `save!` without `:fs/force?` and open the popup
-- **Expected:** Confirmation card is visible in the centralized confirmation panel
-- **Actual:** No confirmation UI visible (since fixed)
-- **Notes:** Historical issue - resolved; E2E coverage now exists

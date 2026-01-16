@@ -52,3 +52,5 @@
 * [ ] Add scittle repls to the popup and panel in dev builds.
 * [ ] The panel should be able to connect a repl (this will give all inspectors repl access, I think)
 * [ ] Make allow a confirmation thing, make it clear that it is about allowing it to auto-run on url match
+* [ ] We need to be able to Disconnect the REPL.
+* [ ] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics

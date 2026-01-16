@@ -1,3 +1,8 @@
+(epupp.repl/manifest! {:epupp/require ["scittle://promesa.js"
+                                       "scittle://pprint.js"]})
+;; Now load the file
+
+
 (ns tampers.repl-fs
   (:require
    [promesa.core :as p]
@@ -24,9 +29,6 @@
 ;; All functions return promises. Use promesa for ergonomic async.
 
 (comment
-  (epupp.repl/manifest! {:epupp/require ["scittle://promesa.js"
-                                         "scittle://pprint.js"]})
-  ;; Now load the file
 
   ;; ===== SETUP =====
   ;; Verify fs functions exist
@@ -135,13 +137,12 @@
         (p/catch (fn [e]
                    (js/alert (str "Error" e))))))
 
-  (p/let [mv-result (epupp.fs/mv! "test3.cljs" "test4.cljs")]
-      (def mv-result mv-result)
-      (-> mv-result
-          (p/then (fn [r]
-                    (js/alert r)))
-          (p/catch (fn [e]
-                     (js/alert (str "Error" e))))))
+  (-> (p/let [mv-result-rejected (epupp.fs/mv! "i-am-not.cljs" "i-will-not-be.cljs")]
+        (def mv-result-rejected mv-result-rejected))
+      (p/then (fn [r]
+                (js/alert r)))
+      (p/catch (fn [e]
+                 (js/alert (str "Error" e)))))
 
   ;; Verify rename: new name exists, old name gone
   (p/let [ls-after-mv (epupp.fs/ls)]

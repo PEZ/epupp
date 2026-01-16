@@ -79,6 +79,14 @@
 
     Check bb.edn dependencies and existing tasks before reaching for external tools.
   </babashka-utilities>
+
+  <assumptions>
+    - **Verify before stating fix locations.** Don't confidently state where a fix belongs without checking. Either verify first, or mark as "needs investigation".
+  </assumptions>
+
+  <learning>
+    - **Record significant learnings.** When mistakes reveal insights, update the appropriate instructions document with a succinct formulation. This creates a self-improving loop.
+  </learning>
 </principles>
 
 ## Documentation Index
