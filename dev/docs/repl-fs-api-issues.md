@@ -60,14 +60,6 @@ Read these first:
 - Badge count updates are working.
 - FS API rejects failed operations (Promise rejects on failure).
 
-## Highest priority
-### E2E shard 2 fails (sharded runs)
-**Symptom:** E2E tests pass in `--serial` mode but fail in sharded runs. Shard 2 fails.
-
-**Fix priority:** Blocker - resolve before any other work.
-
-**Required first step:** Make Playwright list what’s in shard 2 before changing any tests. Use that shard listing to guide investigation.
-
 ## Release scrutiny
 Everything about the REPL FS API must be scrutinized before release. Return maps and their semantics must be treated as stable and cannot change after release.
 
@@ -107,12 +99,14 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 
 **Process:** When updating an E2E file, first apply this refactor and re-run the tests to confirm no behavior changes. Only then make changes to test logic.
 
-## Hypotheses
-- The confirmation UI may be present in the DOM but not visible (hidden container or CSS mismatch).
-- The popup may not refresh after the pending confirmation is queued.
-
 ## Bug log
 Add new findings here as testing continues.
+
+## Fixed log
+- Confirmation UI now works in centralized panel
+- Badge count updates for pending confirmations
+- FS API rejects failed operations (Promise rejection)
+- Sharded E2E failure (shard 2) resolved
 
 ### Template
 - **Date:** YYYY-MM-DD
