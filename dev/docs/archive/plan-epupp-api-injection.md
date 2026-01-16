@@ -9,7 +9,7 @@ The `epupp.repl/manifest!` and `epupp.fs/*` functions were defined as inline str
 
 The functions have been extracted to proper Scittle source files at `extension/bundled/epupp/`:
 - `repl.cljs` - provides `epupp.repl/manifest!`
-- `fs.cljs` - provides `epupp.fs/cat`, `epupp.fs/ls`, `epupp.fs/save!`, `epupp.fs/mv!`, `epupp.fs/rm!`
+- `fs.cljs` - provides `epupp.fs/show`, `epupp.fs/ls`, `epupp.fs/save!`, `epupp.fs/mv!`, `epupp.fs/rm!`
 
 ## Goal
 

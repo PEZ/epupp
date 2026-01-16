@@ -1,5 +1,5 @@
 (ns e2e.fs-read-test
-  "E2E tests for REPL file system read operations: epupp.fs/cat, epupp.fs/ls"
+  "E2E tests for REPL file system read operations: epupp.fs/show, epupp.fs/ls"
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["net" :as net]
             ["path" :as path]
@@ -130,17 +130,17 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "epupp.fs/cat retrieves script code by name"
+             (test "epupp.fs/show retrieves script code by name"
                    (^:async fn []
-                     (let [ns-check (js-await (eval-in-browser "(fn? epupp.fs/cat)"))]
-                       (js/console.log "=== epupp.fs/cat exists? ===" (js/JSON.stringify ns-check))
+                     (let [ns-check (js-await (eval-in-browser "(fn? epupp.fs/show)"))]
+                       (js/console.log "=== epupp.fs/show exists? ===" (js/JSON.stringify ns-check))
                        (-> (expect (.-success ns-check)) (.toBe true))
                        (-> (expect (.-values ns-check)) (.toContain "true")))
 
                      (let [setup-result (js-await (eval-in-browser
-                                                   "(def !cat-result (atom nil))
-                                                    (-> (epupp.fs/cat \"GitHub Gist Installer (Built-in)\")
-                                                        (.then (fn [code] (reset! !cat-result code))))
+                                                   "(def !show-result (atom nil))
+                                                    (-> (epupp.fs/show \"GitHub Gist Installer (Built-in)\")
+                                                        (.then (fn [code] (reset! !show-result code))))
                                                     :pending"))]
                        (js/console.log "=== setup result ===" (js/JSON.stringify setup-result))
                        (-> (expect (.-success setup-result)) (.toBe true)))
@@ -148,7 +148,7 @@
                      (let [start (.now js/Date)
                            timeout-ms 3000]
                        (loop []
-                         (let [check-result (js-await (eval-in-browser "@!cat-result"))]
+                         (let [check-result (js-await (eval-in-browser "@!show-result"))]
                            (js/console.log "=== check result ===" (js/JSON.stringify check-result))
                            (if (and (.-success check-result)
                                     (seq (.-values check-result))
@@ -157,47 +157,47 @@
                                                 (fn [v] (.includes v "epupp/script-name"))))
                                  (.toBe true))
                              (if (> (- (.now js/Date) start) timeout-ms)
-                               (throw (js/Error. "Timeout waiting for epupp.fs/cat result"))
+                               (throw (js/Error. "Timeout waiting for epupp.fs/show result"))
                                (do
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
-             (test "epupp.fs/cat returns nil for non-existent script"
+             (test "epupp.fs/show returns nil for non-existent script"
                    (^:async fn []
                      (let [setup-result (js-await (eval-in-browser
-                                                   "(def !cat-nil-result (atom :pending))
-                                                    (-> (epupp.fs/cat \"does-not-exist.cljs\")
-                                                        (.then (fn [code] (reset! !cat-nil-result code))))
+                                                   "(def !show-nil-result (atom :pending))
+                                                    (-> (epupp.fs/show \"does-not-exist.cljs\")
+                                                        (.then (fn [code] (reset! !show-nil-result code))))
                                                     :setup-done"))]
                        (-> (expect (.-success setup-result)) (.toBe true)))
 
                      (let [start (.now js/Date)
                            timeout-ms 3000]
                        (loop []
-                         (let [check-result (js-await (eval-in-browser "@!cat-nil-result"))]
+                         (let [check-result (js-await (eval-in-browser "@!show-nil-result"))]
                            (if (and (.-success check-result)
                                     (seq (.-values check-result))
                                     (not= (first (.-values check-result)) ":pending"))
                              (-> (expect (.-values check-result)) (.toContain "nil"))
                              (if (> (- (.now js/Date) start) timeout-ms)
-                               (throw (js/Error. "Timeout waiting for epupp.fs/cat nil result"))
+                               (throw (js/Error. "Timeout waiting for epupp.fs/show nil result"))
                                (do
                                  (js-await (sleep 50))
                                  (recur)))))))))
 
-             (test "epupp.fs/cat with vector returns map of names to codes"
+             (test "epupp.fs/show with vector returns map of names to codes"
                    (^:async fn []
                      (let [setup-result (js-await (eval-in-browser
-                                                   "(def !bulk-cat-result (atom :pending))
-                                                    (-> (epupp.fs/cat [\"GitHub Gist Installer (Built-in)\" \"does-not-exist.cljs\"])
-                                                        (.then (fn [result] (reset! !bulk-cat-result result))))
+                                                   "(def !bulk-show-result (atom :pending))
+                                                    (-> (epupp.fs/show [\"GitHub Gist Installer (Built-in)\" \"does-not-exist.cljs\"])
+                                                        (.then (fn [result] (reset! !bulk-show-result result))))
                                                     :setup-done"))]
                        (-> (expect (.-success setup-result)) (.toBe true)))
 
                      (let [start (.now js/Date)
                            timeout-ms 3000]
                        (loop []
-                         (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-cat-result)"))]
+                         (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-show-result)"))]
                            (if (and (.-success check-result)
                                     (seq (.-values check-result))
                                     (not= (first (.-values check-result)) ":pending"))
@@ -211,7 +211,7 @@
                                (-> (expect (.includes result-str "nil"))
                                    (.toBe true)))
                              (if (> (- (.now js/Date) start) timeout-ms)
-                               (throw (js/Error. "Timeout waiting for bulk cat result"))
+                               (throw (js/Error. "Timeout waiting for bulk show result"))
                                (do
                                  (js-await (sleep 50))
                                  (recur)))))))))

@@ -1,6 +1,7 @@
 (ns tampers.repl-fs
   (:require
-    [promesa.core :as p]))
+   [promesa.core :as p]
+   [cljs.pprint :refer [print-table]]))
 ;;
 ;; Prerequisites:
 ;; 1. Build extension: bb build:dev
@@ -12,7 +13,7 @@
 ;;
 ;; REPL File System API (epupp.fs namespace):
 ;; - epupp.fs/ls     - List all scripts with metadata
-;; - epupp.fs/cat    - Get script code by name
+;; - epupp.fs/show   - Get script code by name
 ;; - epupp.fs/save!  - Create/update script from code with manifest
 ;; - epupp.fs/mv!    - Rename a script
 ;; - epupp.fs/rm!    - Delete a script
@@ -25,16 +26,14 @@
 (comment
   (epupp.repl/manifest! {:epupp/require ["scittle://promesa.js"
                                          "scittle://pprint.js"]})
-
-  (require '[promesa.core :as p])
-  (require '[cljs.pprint :refer [print-table]])
+  ;; Now load the file
 
   ;; ===== SETUP =====
   ;; Verify fs functions exist
   (fn? epupp.fs/ls)
   ;; => true
 
-  (fn? epupp.fs/cat)
+  (fn? epupp.fs/show)
   ;; => true
 
   (fn? epupp.fs/save!)
@@ -78,24 +77,24 @@
   ;; ...
 
 
-  ;; ===== epupp.fs/cat - Get Script Code =====
+  ;; ===== epupp.fs/show - Get Script Code =====
   ;; Returns code string or nil if not found
 
-  (p/let [cat-result (epupp.fs/cat "GitHub Gist Installer (Built-in)")]
-    (def cat-result cat-result))
+  (p/let [show-result (epupp.fs/show "GitHub Gist Installer (Built-in)")]
+    (def show-result show-result))
 
-  cat-result
+  show-result
   ;; => "{:epupp/script-name ...}\n\n(ns ...)"
 
   ;; Verify manifest is in the code
-  (clojure.string/includes? cat-result ":epupp/script-name")
+  (clojure.string/includes? show-result ":epupp/script-name")
   ;; => true
 
   ;; Non-existent script returns nil
-  (p/let [cat-nil (epupp.fs/cat "does-not-exist.cljs")]
-    (def cat-nil cat-nil))
+  (p/let [show-nil (epupp.fs/show "does-not-exist.cljs")]
+    (def show-nil show-nil))
 
-  cat-nil
+  show-nil
   ;; => nil
 
   ;; ===== epupp.fs/save! - Create Script =====
@@ -115,7 +114,7 @@
   ;; => {:fs/success true, :fs/name "repl_test_script.cljs", :fs/error nil}
 
   (p/let [save-result-multi (epupp.fs/save! ["{:epupp/script-name \"1\"}"
-                                       "{:epupp/script-name \"2\"}"])]
+                                             "{:epupp/script-name \"2\"}"])]
     (def save-result-multi save-result))
 
   ;; Verify script appears in ls
@@ -128,14 +127,21 @@
   ;; ===== epupp.fs/mv! - Rename Script =====
   ;; Returns {:fs/success true} or {:fs/success false :fs/error "..."}
 
-  (p/let [mv-result (epupp.fs/mv! "test3.cljs" "test4.cljs")]
+  (p/let [mv-result (epupp.fs/mv! "repl_test_script.cljs" "repl_test_script_moved.cljs")]
     (def mv-result mv-result)
-    #_(-> mv-result
+    (-> mv-result
         (p/then (fn [r]
                   (js/alert r)))
         (p/catch (fn [e]
                    (js/alert (str "Error" e))))))
-  ;; => {:fs/success true, :fs/error nil}
+
+  (p/let [mv-result (epupp.fs/mv! "test3.cljs" "test4.cljs")]
+      (def mv-result mv-result)
+      (-> mv-result
+          (p/then (fn [r]
+                    (js/alert r)))
+          (p/catch (fn [e]
+                     (js/alert (str "Error" e))))))
 
   ;; Verify rename: new name exists, old name gone
   (p/let [ls-after-mv (epupp.fs/ls)]

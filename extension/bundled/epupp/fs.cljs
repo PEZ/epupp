@@ -33,15 +33,13 @@
     msg
     (throw (js/Error. (or (.-error msg) "Unknown error")))))
 
-;TODO: Rename this to not conflict with clojure.core/cat
-#_{:clj-kondo/ignore [:redefined-var]}
-(defn cat
+(defn show
   "Get script code by name(s). Returns promise.
    Single name: returns code string or nil
    Vector of names: returns map of name->code (nil for missing)
 
-   Examples: (epupp.fs/cat \"my-script.cljs\")
-             (epupp.fs/cat [\"script1.cljs\" \"script2.cljs\"])"
+   Examples: (epupp.fs/show \"my-script.cljs\")
+             (epupp.fs/show [\"script1.cljs\" \"script2.cljs\"])"
   [name-or-names]
   (if (vector? name-or-names)
     ;; Bulk mode: fetch all and return map

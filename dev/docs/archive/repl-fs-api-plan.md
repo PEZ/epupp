@@ -408,7 +408,7 @@ Copy this to the todo list when starting work:
 | Page API | Bridge Route | Background Handler | Issue |
 |----------|--------------|-------------------|-------|
 | `epupp.fs/ls` | `list-scripts` ✅ | `list-scripts` ✅ | Working |
-| `epupp.fs/cat` | `get-script` ✅ | `get-script` ✅ | Working |
+| `epupp.fs/show` | `get-script` ✅ | `get-script` ✅ | Working |
 | `epupp.fs/save!` (force) | `save-script` ⚠️ | `save-script` ✅ | Bridge doesn't forward `enabled`, `force` |
 | `epupp.fs/save!` (confirm) | ❌ no route | ❌ no handler | Both missing |
 | `epupp.fs/mv!` (force) | `rename-script` ⚠️ | `rename-script` ✅ | Bridge doesn't forward `force` |

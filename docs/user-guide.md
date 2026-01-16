@@ -515,7 +515,7 @@ Manage userscripts programmatically from the REPL using the `epupp.fs` namespace
 | Function | Description |
 |----------|-------------|
 | `epupp.fs/ls` | List all scripts with metadata |
-| `epupp.fs/cat` | Get script code by name |
+| `epupp.fs/show` | Get script code by name |
 | `epupp.fs/save!` | Create or update a script |
 | `epupp.fs/mv!` | Rename a script |
 | `epupp.fs/rm!` | Delete a script |
@@ -534,10 +534,10 @@ Manage userscripts programmatically from the REPL using the `epupp.fs` namespace
 ### Reading Script Code
 
 ```clojure
-(epupp.fs/cat "my_script.cljs")
+(epupp.fs/show "my_script.cljs")
 ;; => "(ns my-script) ..."
 
-(epupp.fs/cat "nonexistent.cljs")
+(epupp.fs/show "nonexistent.cljs")
 ;; => nil
 ```
 
