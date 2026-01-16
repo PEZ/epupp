@@ -948,5 +948,31 @@ button#connect:active {
   padding: 4px 10px;
   font-size: 11px;
 }
-  font-size: 10px;
+
+.confirmation-reveal,
+.confirmation-inspect-from,
+.confirmation-inspect-to {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.fs-confirmations-bulk-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.confirmations-confirm-all,
+.confirmations-cancel-all {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* Script list highlights for pending confirmations */
+.script-item.script-item-fs-confirmation {
+  border-color: var(--approval-border);
+}
+
+.script-item.script-item-reveal-highlight {
+  box-shadow: 0 0 0 2px var(--color-warning);
 }

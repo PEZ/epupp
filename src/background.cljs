@@ -1121,6 +1121,33 @@
                             (send-response #js {:success false :error (str "Unknown operation: " op)}))))
                       false)
 
+                    ;; Confirm ALL pending FS operations
+                    "confirm-all-fs-operations"
+                    (let [keys (js/Object.keys (:pending/fs-confirmations @!state))
+                          results #js []]
+                      (loop [idx 0]
+                        (when (< idx (.-length keys))
+                          (let [key (aget keys idx)
+                                confirmation (get (:pending/fs-confirmations @!state) key)]
+                            (when confirmation
+                              (try
+                                (let [op (:confirm/operation confirmation)]
+                                  (case op
+                                    :delete (storage/delete-script! (:confirm/script-id confirmation))
+                                    :rename (storage/rename-script! (:confirm/script-id confirmation) (:confirm/to-name confirmation))
+                                    :save-update (storage/save-script! (:confirm/script-data confirmation))
+                                    :save-create (storage/save-script! (:confirm/script-data confirmation))
+                                    (throw (js/Error. (str "Unknown operation: " op))))
+                                  (remove-fs-confirmation! key)
+                                  (.push results #js {:key key :success true :operation (str op)}))
+                                (catch :default err
+                                  ;; Best-effort: keep confirmation pending on error
+                                  (.push results #js {:key key :success false :error (.-message err)})))))
+                          (recur (inc idx))))
+                      (broadcast-fs-confirmations-changed!)
+                      (send-response #js {:success true :results results})
+                      false)
+
                     ;; Cancel a pending FS operation
                     "cancel-fs-operation"
                     (let [key (.-key message)]
@@ -1130,6 +1157,16 @@
                           (remove-fs-confirmation! key)
                           (broadcast-fs-confirmations-changed!)
                           (send-response #js {:success true :cancelled key})))
+                      false)
+
+                    ;; Cancel ALL pending FS operations
+                    "cancel-all-fs-operations"
+                    (do
+                      (swap! !state assoc :pending/fs-confirmations #js {})
+                      (persist-pending-fs-confirmations!)
+                      (broadcast-fs-confirmations-changed!)
+                      (update-badge-for-active-tab!)
+                      (send-response #js {:success true})
                       false)
 
                     ;; Popup/Panel requests current pending confirmations
@@ -1240,6 +1277,19 @@
                         ((^:async fn []
                            (let [events (js-await (test-logger/get-test-events))]
                              (send-response #js {:success true :events events}))))
+                        true)
+                      (do
+                        (send-response #js {:success false :error "Not available"})
+                        false))
+
+                    "e2e/get-storage"
+                    (if (.-dev config)
+                      (let [key (.-key message)]
+                        ((^:async fn []
+                           (if key
+                             (let [result (js-await (js/chrome.storage.local.get #js [key]))]
+                               (send-response #js {:success true :key key :value (aget result key)}))
+                             (send-response #js {:success false :error "Missing key"}))))
                         true)
                       (do
                         (send-response #js {:success false :error "Not available"})

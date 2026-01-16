@@ -43,6 +43,21 @@
                    resolve))))
              #js {:type msg-type :data (or data #js {})}))
 
+(defn ^:async wait-for-editing-script
+  "Poll chrome.storage.local editingScript via background e2e message."
+  [page timeout-ms]
+  (let [start (.now js/Date)]
+    (loop []
+      (let [resp (js-await (send-runtime-message page "e2e/get-storage" #js {:key "editingScript"}))
+            value (when (and resp (.-success resp)) (.-value resp))]
+        (if (and value (.-name value) (.-code value))
+          value
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for editingScript"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
+
 (defn ^:async eval-in-browser
   "Evaluate code via nREPL on server 1. Returns {:success bool :values [...] :error str}"
   [code]
@@ -422,11 +437,14 @@
       (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\"):has-text(\"" to-b "\")")))
                     (.toBeVisible #js {:timeout 2000})))
 
-      ;; Confirm both by clicking confirm within each item
-      (let [item-a (.locator popup (str ".confirmation-item:has-text(\"" from-name-a "\")"))
-            item-b (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\")"))]
-        (js-await (.click (.locator item-a ".confirmation-confirm")))
-        (js-await (.click (.locator item-b ".confirmation-confirm"))))
+      ;; Bulk actions are available when multiple confirmations exist
+      (js-await (-> (expect (.locator popup ".confirmations-confirm-all"))
+            (.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup ".confirmations-cancel-all"))
+            (.toBeVisible #js {:timeout 2000})))
+
+      ;; Confirm all in one click
+      (js-await (.click (.locator popup ".confirmations-confirm-all")))
 
       ;; Verify renamed scripts show up and old names do not
       (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to-a "\")")))
@@ -438,6 +456,195 @@
       (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name-b "\")")))
                     (.not.toBeVisible #js {:timeout 2000})))
 
+      (js-await (assert-no-errors! popup))
+      (js-await (.close popup)))))
+
+(defn- ^:async popup_bulk_cancels_pending_confirmations []
+  (let [from-base-a (unique-basename "fs_cancel_all_src_a")
+        from-name-a (script-file from-base-a)
+        to-a (script-file (unique-basename "fs_cancel_all_to_a"))
+        from-base-b (unique-basename "fs_cancel_all_src_b")
+        from-name-b (script-file from-base-b)
+        to-b (script-file (unique-basename "fs_cancel_all_to_b"))]
+    ;; Create two scripts (force-save) so they exist before mv!
+    (let [test-code-a (str "{:epupp/script-name \"" from-base-a "\"\n"
+                           "                                      :epupp/site-match \"https://cancel-all-confirmation-test.com/*\"}\n"
+                           "                                     (ns " from-base-a ")")
+          save-code-a (str "(def !fs-cancel-all-setup-a (atom :pending))\n"
+                           "(-> (epupp.fs/save! " (pr-str test-code-a) " {:fs/force? true})\n"
+                           "  (.then (fn [r] (reset! !fs-cancel-all-setup-a r))))\n"
+                           ":setup-done")
+          test-code-b (str "{:epupp/script-name \"" from-base-b "\"\n"
+                           "                                      :epupp/site-match \"https://cancel-all-confirmation-test.com/*\"}\n"
+                           "                                     (ns " from-base-b ")")
+          save-code-b (str "(def !fs-cancel-all-setup-b (atom :pending))\n"
+                           "(-> (epupp.fs/save! " (pr-str test-code-b) " {:fs/force? true})\n"
+                           "  (.then (fn [r] (reset! !fs-cancel-all-setup-b r))))\n"
+                           ":setup-done")]
+      (let [setup-a (js-await (eval-in-browser save-code-a))]
+        (-> (expect (.-success setup-a)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!fs-cancel-all-setup-a" 3000))
+      (let [setup-b (js-await (eval-in-browser save-code-b))]
+        (-> (expect (.-success setup-b)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!fs-cancel-all-setup-b" 3000)))
+
+    ;; Trigger two non-force mv confirmations
+    (let [mv-code-a (str "(def !fs-cancel-all-mv-a (atom :pending))\n"
+                         "(-> (epupp.fs/mv! " (pr-str from-name-a) " " (pr-str to-a) ")\n"
+                         "  (.then (fn [r] (reset! !fs-cancel-all-mv-a r))))\n"
+                         ":setup-done")
+          mv-code-b (str "(def !fs-cancel-all-mv-b (atom :pending))\n"
+                         "(-> (epupp.fs/mv! " (pr-str from-name-b) " " (pr-str to-b) ")\n"
+                         "  (.then (fn [r] (reset! !fs-cancel-all-mv-b r))))\n"
+                         ":setup-done")]
+      (let [mv-a (js-await (eval-in-browser mv-code-a))]
+        (-> (expect (.-success mv-a)) (.toBe true)))
+      (let [mv-out-a (js-await (wait-for-eval-promise "!fs-cancel-all-mv-a" 3000))]
+        (-> (expect (.includes mv-out-a "pending-confirmation true")) (.toBe true)))
+      (let [mv-b (js-await (eval-in-browser mv-code-b))]
+        (-> (expect (.-success mv-b)) (.toBe true)))
+      (let [mv-out-b (js-await (wait-for-eval-promise "!fs-cancel-all-mv-b" 3000))]
+        (-> (expect (.includes mv-out-b "pending-confirmation true")) (.toBe true))))
+
+    ;; Open popup and cancel all
+    (let [popup (js-await (.newPage @!context))]
+      (js-await (.goto popup
+                       (str "chrome-extension://" @!ext-id "/popup.html")
+                       #js {:waitUntil "networkidle"}))
+      (js-await (wait-for-popup-ready popup))
+
+      ;; Both confirmations visible
+      (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-a "\"):has-text(\"" to-a "\")")))
+                    (.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\"):has-text(\"" to-b "\")")))
+                    (.toBeVisible #js {:timeout 2000})))
+
+      ;; Cancel all
+      (js-await (-> (expect (.locator popup ".confirmations-cancel-all"))
+                    (.toBeVisible #js {:timeout 2000})))
+      (js-await (.click (.locator popup ".confirmations-cancel-all")))
+
+      ;; Confirmations should be gone
+      (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-a "\")")))
+                    (.not.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup (str ".confirmation-item:has-text(\"" from-name-b "\")")))
+                    (.not.toBeVisible #js {:timeout 2000})))
+
+      ;; Old names remain, new names do not appear
+      (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name-a "\")")))
+                    (.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" from-name-b "\")")))
+                    (.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to-a "\")")))
+                    (.not.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect (.locator popup (str ".script-item:has-text(\"" to-b "\")")))
+                    (.not.toBeVisible #js {:timeout 2000})))
+
+      (js-await (assert-no-errors! popup))
+      (js-await (.close popup)))))
+
+(defn- ^:async popup_reveals_and_highlights_script_for_confirmation []
+  (let [base (unique-basename "fs_reveal")
+        name (script-file base)
+        to (script-file (unique-basename "fs_reveal_to"))
+        test-code (str "{:epupp/script-name \"" base "\""
+                       " :epupp/site-match \"https://reveal-test.com/*\"}"
+                       "(ns " base ")")]
+    ;; Force-save
+    (let [save-code (str "(def !fs-reveal-setup (atom :pending))"
+                         "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})"
+                         "  (.then (fn [r] (reset! !fs-reveal-setup r))))"
+                         ":setup-done")]
+      (let [res (js-await (eval-in-browser save-code))]
+        (-> (expect (.-success res)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!fs-reveal-setup" 3000)))
+
+    ;; Queue rename
+    (let [mv-code (str "(def !fs-reveal-mv (atom :pending))"
+                       "(-> (epupp.fs/mv! " (pr-str name) " " (pr-str to) ")"
+                       "  (.then (fn [r] (reset! !fs-reveal-mv r))))"
+                       ":setup-done")]
+      (let [res (js-await (eval-in-browser mv-code))]
+        (-> (expect (.-success res)) (.toBe true)))
+      (let [out (js-await (wait-for-eval-promise "!fs-reveal-mv" 3000))]
+        (-> (expect (.includes out "pending-confirmation true")) (.toBe true))))
+
+    (let [popup (js-await (.newPage @!context))]
+      (js-await (.goto popup
+                       (str "chrome-extension://" @!ext-id "/popup.html")
+                       #js {:waitUntil "networkidle"}))
+      (js-await (wait-for-popup-ready popup))
+
+      ;; Script item is marked as having a pending confirmation
+      (let [script-item (.locator popup (str ".script-item:has-text(\"" name "\")"))]
+        (js-await (-> (expect script-item)
+                      (.toHaveClass (js/RegExp. "script-item-fs-confirmation"))))
+
+        ;; Click reveal from the confirmation card - triggers temporary highlight
+        (let [confirmation (.locator popup (str ".confirmation-item:has-text(\"" name "\")"))]
+          (js-await (.click (.locator confirmation ".confirmation-reveal")))
+          (js-await (-> (expect script-item)
+                        (.toHaveClass (js/RegExp. "script-item-reveal-highlight"))))))
+
+      ;; Cleanup: cancel confirmation
+      (js-await (.click (.locator popup ".confirmation-cancel")))
+
+      (js-await (assert-no-errors! popup))
+      (js-await (.close popup)))))
+
+(defn- ^:async popup_inspects_from_and_to_versions_for_update_confirmation []
+  (let [base (unique-basename "fs_inspect_update")
+        name (script-file base)
+        code-v1 (str "{:epupp/script-name \"" base "\"\n"
+                     " :epupp/site-match \"https://inspect-update-test.com/*\"}\n"
+                     "(ns " base ")\n"
+                     "  (def v 1)")
+        code-v2 (str "{:epupp/script-name \"" base "\"\n"
+                     " :epupp/site-match \"https://inspect-update-test.com/*\"}\n"
+                     "(ns " base ")\n"
+                     "  (def v 2)")]
+    ;; Force-save v1
+    (let [save-code (str "(def !fs-inspect-update-setup (atom :pending))\n"
+                         "(-> (epupp.fs/save! " (pr-str code-v1) " {:fs/force? true})\n"
+                         "  (.then (fn [r] (reset! !fs-inspect-update-setup r))))\n"
+                         ":setup-done")]
+      (let [res (js-await (eval-in-browser save-code))]
+        (-> (expect (.-success res)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!fs-inspect-update-setup" 3000)))
+
+    ;; Queue v2 (non-force save) - should produce save-update confirmation
+    (let [save-code (str "(def !fs-inspect-update-save (atom :pending))\n"
+                         "(-> (epupp.fs/save! " (pr-str code-v2) ")\n"
+                         "  (.then (fn [r] (reset! !fs-inspect-update-save r))))\n"
+                         ":setup-done")]
+      (let [res (js-await (eval-in-browser save-code))]
+        (-> (expect (.-success res)) (.toBe true)))
+      (let [out (js-await (wait-for-eval-promise "!fs-inspect-update-save" 3000))]
+        (-> (expect (.includes out "pending-confirmation true")) (.toBe true))))
+
+    (let [popup (js-await (.newPage @!context))]
+      (js-await (.goto popup
+                       (str "chrome-extension://" @!ext-id "/popup.html")
+                       #js {:waitUntil "networkidle"}))
+      (js-await (wait-for-popup-ready popup))
+
+      (let [confirmation (.locator popup (str ".confirmation-item:has-text(\"" name "\")"))]
+        (js-await (-> (expect confirmation) (.toBeVisible #js {:timeout 2000})))
+
+        ;; Inspect current (from) version - should show v1
+        (js-await (.click (.locator confirmation ".confirmation-inspect-from")))
+        (let [editing (js-await (wait-for-editing-script popup 1000))]
+          (-> (expect (.-name editing)) (.toBe name))
+          (-> (expect (.-code editing)) (.toContain "(def v 1)")))
+
+        ;; Inspect pending (to) version - should show v2
+        (js-await (.click (.locator confirmation ".confirmation-inspect-to")))
+        (let [editing (js-await (wait-for-editing-script popup 1000))]
+          (-> (expect (.-name editing)) (.toBe name))
+          (-> (expect (.-code editing)) (.toContain "(def v 2)"))))
+
+      ;; Cleanup
+      (js-await (.click (.locator popup ".confirmation-cancel")))
       (js-await (assert-no-errors! popup))
       (js-await (.close popup)))))
 
@@ -712,6 +919,9 @@
              (test "popup shows multiple pending confirmations"
                    popup_shows_multiple_pending_confirmations)
 
+             (test "popup can bulk-cancel pending confirmations"
+               popup_bulk_cancels_pending_confirmations)
+
              (test "popup refreshes after epupp.fs/mv!"
                    popup_refreshes_after_mv)
 
@@ -724,6 +934,12 @@
 
              (test "pending confirmation is cancelled when script metadata changes"
                pending_confirmation_cancelled_when_script_metadata_changes)
+
+             (test "popup can reveal and highlight affected script"
+               popup_reveals_and_highlights_script_for_confirmation)
+
+             (test "popup can inspect from/to versions for update confirmation"
+               popup_inspects_from_and_to_versions_for_update_confirmation)
 
              (test "badge count includes FS confirmations"
                    badge_count_includes_fs_confirmations)

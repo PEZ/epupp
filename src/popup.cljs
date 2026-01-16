@@ -21,6 +21,7 @@
          :ui/copy-feedback nil
          :ui/connect-status nil ; Connection progress/error status
          :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
+         :ui/reveal-highlight-script-name nil ; Temporary highlight when revealing a script
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
                                  :other-scripts false     ; expanded by default
@@ -409,6 +410,15 @@
          ;; Confirmations list will update via broadcast message
          nil)))
 
+    :popup/fx.confirm-all-fs-operations
+    (do
+      (js/chrome.runtime.sendMessage
+       #js {:type "confirm-all-fs-operations"}
+       (fn [_response]
+         ;; Confirmations list will update via broadcast message
+         nil))
+      nil)
+
     :popup/fx.cancel-fs-operation
     (let [[key] args]
       (js/chrome.runtime.sendMessage
@@ -416,6 +426,22 @@
        (fn [_response]
          ;; Confirmations list will update via broadcast message
          nil)))
+
+    :popup/fx.cancel-all-fs-operations
+    (do
+      (js/chrome.runtime.sendMessage
+       #js {:type "cancel-all-fs-operations"}
+       (fn [_response]
+         ;; Confirmations list will update via broadcast message
+         nil))
+      nil)
+
+    :popup/fx.reveal-script
+    (let [[script-name] args
+          el (js/document.querySelector (str ".script-item[data-script-name='" script-name "']"))]
+      (when el
+        (.scrollIntoView el #js {:block "center"}))
+      nil)
 
     :popup/fx.reveal-tab
     (let [[tab-id] args
@@ -500,10 +526,10 @@
     :else (str pattern)))
 
 (defn script-item [{:keys [script/name script/match script/enabled script/description script/run-at]
-                    script-id :script/id
-                    :as script}
-                   current-url
-                   editing-hint-script-id]
+        script-id :script/id
+        :as script}
+       current-url
+       {:keys [editing-hint-script-id fs-confirmation? reveal-highlight?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         matches-current (some? matching-pattern)
         needs-approval (and matches-current
@@ -518,8 +544,11 @@
                            description))
         builtin? (script-utils/builtin-script? script)]
     [:div
-     [:div.script-item {:class (str (when builtin? "script-item-builtin ")
-                                    (when needs-approval "script-item-approval"))}
+       [:div.script-item {:data-script-name name
+                :class (str (when builtin? "script-item-builtin ")
+                      (when needs-approval "script-item-approval ")
+                      (when fs-confirmation? "script-item-fs-confirmation ")
+                      (when reveal-highlight? "script-item-reveal-highlight"))}
       [:input {:type "checkbox"
                :checked enabled
                :title (if enabled "Enabled" "Disabled")
@@ -582,10 +611,11 @@
   [scripts]
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
+(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name pending/fs-confirmations]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
                               sort-scripts)
+  pending-script-names (into #{} (map (fn [c] (aget c "confirm/script-name")) fs-confirmations))
         ;; Filter out built-in scripts to check if user has any custom scripts
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
@@ -594,7 +624,10 @@
      (if (seq matching-scripts)
        (for [script matching-scripts]
          ^{:key (:script/id script)}
-         [script-item script current-url editing-hint-script-id])
+         [script-item script current-url
+          {:editing-hint-script-id editing-hint-script-id
+           :fs-confirmation? (contains? pending-script-names (:script/name script))
+           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
        [:div.no-scripts
         (if no-user-scripts?
           ;; No user scripts at all - guide to create first one
@@ -627,15 +660,19 @@
 ;; Settings Components
 ;; ============================================================
 
-(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id]}]
+(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name pending/fs-confirmations]}]
   (let [other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %)))
-                           sort-scripts)]
+                           sort-scripts)
+  pending-script-names (into #{} (map (fn [c] (aget c "confirm/script-name")) fs-confirmations))]
     [:div.script-list
      (if (seq other-scripts)
        (for [script other-scripts]
          ^{:key (:script/id script)}
-         [script-item script current-url editing-hint-script-id])
+         [script-item script current-url
+          {:editing-hint-script-id editing-hint-script-id
+           :fs-confirmation? (contains? pending-script-names (:script/name script))
+           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
        [:div.no-scripts
         "No other scripts."
         [:div.no-scripts-hint
@@ -843,7 +880,7 @@
         operation (aget confirmation "confirm/operation")
         to-name (aget confirmation "confirm/to-name")
         key script-name]
-    [:div.confirmation-item
+    [:div.confirmation-item {:data-script-name script-name}
      [:div.confirmation-info
       [:span.confirmation-op
        (case operation
@@ -864,6 +901,26 @@
          script-name)]]
      [:div.confirmation-actions
       [view-elements/action-button
+       {:button/variant :secondary
+        :button/class "confirmation-reveal"
+        :button/on-click #(dispatch! [[:popup/ax.reveal-script script-name]])}
+       "Reveal"]
+
+      (when (#{:save-update :rename :delete} operation)
+        [view-elements/action-button
+         {:button/variant :secondary
+          :button/class "confirmation-inspect-from"
+          :button/on-click #(dispatch! [[:popup/ax.inspect-fs-confirmation script-name "from"]])}
+         "Inspect from"])
+
+      (when (#{:save-update :save-create :rename} operation)
+        [view-elements/action-button
+         {:button/variant :secondary
+          :button/class "confirmation-inspect-to"
+          :button/on-click #(dispatch! [[:popup/ax.inspect-fs-confirmation script-name "to"]])}
+         "Inspect to"])
+
+      [view-elements/action-button
        {:button/variant :success
         :button/class "confirmation-confirm"
         :button/on-click #(dispatch! [[:popup/ax.confirm-fs-operation key]])}
@@ -880,7 +937,18 @@
       [:div.fs-confirmations-section
        [:div.fs-confirmations-header
         [icons/alert {:class "warning-icon"}]
-        [:span "Pending Confirmations"]]
+        [:span "Pending Confirmations"]
+        [:div.fs-confirmations-bulk-actions
+         [view-elements/action-button
+          {:button/variant :success
+           :button/class "confirmations-confirm-all"
+           :button/on-click #(dispatch! [[:popup/ax.confirm-all-fs-operations]])}
+          "Confirm all"]
+         [view-elements/action-button
+          {:button/variant :secondary
+           :button/class "confirmations-cancel-all"
+           :button/on-click #(dispatch! [[:popup/ax.cancel-all-fs-operations]])}
+          "Cancel all"]]]
        [:div.fs-confirmations-list
         (for [confirmation fs-confirmations]
           ^{:key (aget confirmation "confirm/script-name")}

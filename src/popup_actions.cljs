@@ -160,9 +160,48 @@
     (let [[key] args]
       {:uf/fxs [[:popup/fx.confirm-fs-operation key]]})
 
+    :popup/ax.confirm-all-fs-operations
+    {:uf/fxs [[:popup/fx.confirm-all-fs-operations]]}
+
     :popup/ax.cancel-fs-operation
     (let [[key] args]
       {:uf/fxs [[:popup/fx.cancel-fs-operation key]]})
+
+    :popup/ax.cancel-all-fs-operations
+    {:uf/fxs [[:popup/fx.cancel-all-fs-operations]]}
+
+    :popup/ax.reveal-script
+    (let [[script-name] args
+          new-state (-> state
+                        ;; Expand script sections so reveal has a chance to find it
+                        (assoc-in [:ui/sections-collapsed :matching-scripts] false)
+                        (assoc-in [:ui/sections-collapsed :other-scripts] false)
+                        (assoc :ui/reveal-highlight-script-name script-name))]
+      {:uf/db new-state
+       :uf/fxs [[:popup/fx.reveal-script script-name]
+                [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/reveal-highlight-script-name nil]] 2000]]})
+
+    :popup/ax.inspect-fs-confirmation
+    (let [[key mode] args
+          confirmations (:pending/fs-confirmations state)
+          confirmation (when confirmations
+                         (.find confirmations (fn [c] (= (aget c "confirm/script-name") key))))
+          scripts (:scripts/list state)
+          stored-script (when scripts
+                          (.find scripts (fn [s] (= (:script/name s) key))))
+          to-script (when confirmation
+                      (aget confirmation "confirm/script-data"))
+          script (case mode
+                   "from" stored-script
+                   "to" to-script
+                   stored-script)
+          script-id (when script
+                      (or (:script/id script)
+                          (:confirm/script-id confirmation)))]
+      (when script
+        {:uf/db (assoc state :ui/editing-hint-script-id script-id)
+         :uf/fxs [[:popup/fx.inspect-script script]
+                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
 
     :popup/ax.reveal-tab
     (let [[tab-id] args]
