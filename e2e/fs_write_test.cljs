@@ -521,10 +521,11 @@
              (test "epupp.fs/rm! rejects deleting built-in scripts"
                    (^:async fn []
                      (let [setup-result (js-await (eval-in-browser
-                                                   "(def !rm-builtin-result (atom :pending))
-                                                    (-> (epupp.fs/rm! \"GitHub Gist Installer (Built-in)\" {:fs/force? true})
-                                                        (.then (fn [r] (reset! !rm-builtin-result r))))
-                                                    :setup-done"))]
+                                     "(def !rm-builtin-result (atom :pending))
+                                    (-> (epupp.fs/rm! \"GitHub Gist Installer (Built-in)\" {:fs/force? true})
+                                      (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))
+                                      (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))
+                                    :setup-done"))]
                        (-> (expect (.-success setup-result)) (.toBe true)))
 
                      (let [start (.now js/Date)
@@ -535,10 +536,11 @@
                                     (seq (.-values check-result))
                                     (not= (first (.-values check-result)) ":pending"))
                              (let [result-str (first (.-values check-result))]
-                               (-> (expect (.includes result-str ":success false"))
-                                   (.toBe true))
-                               (-> (expect (.includes result-str "built-in"))
-                                   (.toBe true)))
+                               (-> (expect (.includes result-str "rejected"))
+                                 (.toBe true))
+                               (-> (expect (or (.includes result-str "built-in")
+                                       (.includes result-str "Cannot delete built-in scripts")))
+                                 (.toBe true)))
                              (if (> (- (.now js/Date) start) timeout-ms)
                                (throw (js/Error. "Timeout waiting for epupp.fs/rm! built-in result"))
                                (do
@@ -564,7 +566,8 @@
                      (let [setup-result (js-await (eval-in-browser
                                      "(def !bulk-rm-result (atom :pending))
                                     (-> (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"] {:fs/force? true})
-                                      (.then (fn [result] (reset! !bulk-rm-result result))))
+                                      (.then (fn [result] (reset! !bulk-rm-result {:resolved result})))
+                                      (.catch (fn [e] (reset! !bulk-rm-result {:rejected (.-message e)}))))
                                     :setup-done"))]
                        (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -576,13 +579,10 @@
                                     (seq (.-values check-result))
                                     (not= (first (.-values check-result)) ":pending"))
                              (let [result-str (first (.-values check-result))]
-                               (-> (expect (.includes result-str "bulk_rm_test_1.cljs"))
+                               (-> (expect (.includes result-str "rejected"))
                                    (.toBe true))
-                               (-> (expect (.includes result-str "bulk_rm_test_2.cljs"))
-                                   (.toBe true))
-                                 (-> (expect (.includes result-str ":success true"))
-                                   (.toBe true))
-                               (-> (expect (.includes result-str "does-not-exist.cljs"))
+                               (-> (expect (or (.includes result-str "does-not-exist")
+                                               (.includes result-str "Script not found")))
                                    (.toBe true)))
                              (if (> (- (.now js/Date) start) timeout-ms)
                                (throw (js/Error. "Timeout waiting for bulk rm! result"))
