@@ -586,8 +586,9 @@
           (js-await (-> (expect script-item)
                         (.toHaveClass (js/RegExp. "script-item-reveal-highlight"))))))
 
-      ;; Cleanup: cancel confirmation
-      (js-await (.click (.locator popup ".confirmation-cancel")))
+      ;; Cleanup: cancel the specific confirmation
+      (let [confirmation (.locator popup (str ".confirmation-item:has-text(\"" name "\")"))]
+        (js-await (.click (.locator confirmation ".confirmation-cancel"))))
 
       (js-await (assert-no-errors! popup))
       (js-await (.close popup)))))
@@ -641,10 +642,11 @@
         (js-await (.click (.locator confirmation ".confirmation-inspect-to")))
         (let [editing (js-await (wait-for-editing-script popup 1000))]
           (-> (expect (.-name editing)) (.toBe name))
-          (-> (expect (.-code editing)) (.toContain "(def v 2)"))))
+          (-> (expect (.-code editing)) (.toContain "(def v 2)")))
 
-      ;; Cleanup
-      (js-await (.click (.locator popup ".confirmation-cancel")))
+        ;; Cleanup: cancel this specific confirmation (not the "Cancel all" button)
+        (js-await (.click (.locator confirmation ".confirmation-cancel"))))
+
       (js-await (assert-no-errors! popup))
       (js-await (.close popup)))))
 
@@ -745,30 +747,31 @@
       (js-await (assert-no-errors! popup))
       (js-await (.close popup)))))
 
-(defn- ^:async pending_confirmation_cancelled_when_script_metadata_changes []
-  ;; Create script first
-  (let [base (unique-basename "cancel_on_metadata")
+(defn- ^:async pending_confirmation_not_cancelled_when_enabled_toggled []
+  ;; Toggling :script/enabled should NOT cancel pending confirmations
+  ;; because enabled state is internal metadata, not user-facing manifest data.
+  (let [base (unique-basename "no_cancel_on_enable")
         name (script-file base)
         test-code (str "{:epupp/script-name \"" base "\""
-                       " :epupp/site-match \"https://cancel-meta-test.com/*\"}"
+                       " :epupp/site-match \"https://no-cancel-enable-test.com/*\"}"
                        "(ns " base ")")]
     ;; Force-save initial version
-    (let [save-code (str "(def !cancel-meta-setup (atom :pending))"
+    (let [save-code (str "(def !no-cancel-enable-setup (atom :pending))"
                          "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})"
-                         "  (.then (fn [r] (reset! !cancel-meta-setup r))))"
+                         "  (.then (fn [r] (reset! !no-cancel-enable-setup r))))"
                          ":setup-done")]
       (let [res (js-await (eval-in-browser save-code))]
         (-> (expect (.-success res)) (.toBe true)))
-      (js-await (wait-for-eval-promise "!cancel-meta-setup" 3000)))
+      (js-await (wait-for-eval-promise "!no-cancel-enable-setup" 3000)))
 
     ;; Queue a rename (non-force) - creates pending confirmation
-    (let [rename-code (str "(def !cancel-meta-rename (atom :pending))"
-                           "(-> (epupp.fs/mv! " (pr-str name) " \"renamed_meta.cljs\")"
-                           "  (.then (fn [r] (reset! !cancel-meta-rename r))))"
+    (let [rename-code (str "(def !no-cancel-enable-rename (atom :pending))"
+                           "(-> (epupp.fs/mv! " (pr-str name) " \"renamed_no_cancel.cljs\")"
+                           "  (.then (fn [r] (reset! !no-cancel-enable-rename r))))"
                            ":setup-done")]
       (let [res (js-await (eval-in-browser rename-code))]
         (-> (expect (.-success res)) (.toBe true)))
-      (let [out (js-await (wait-for-eval-promise "!cancel-meta-rename" 3000))]
+      (let [out (js-await (wait-for-eval-promise "!no-cancel-enable-rename" 3000))]
         (-> (expect (.includes out "pending-confirmation true")) (.toBe true))))
 
     ;; Open popup and verify confirmation exists
@@ -781,13 +784,13 @@
       (let [confirmation (.locator popup (str ".confirmation-item:has-text(\"" name "\")"))]
         (js-await (-> (expect confirmation) (.toBeVisible #js {:timeout 2000})))
 
-        ;; Toggle script enabled checkbox - this changes storage metadata without changing code
+        ;; Toggle script enabled checkbox - this changes :script/enabled but NOT manifest data
         (let [script-checkbox (.locator popup (str ".script-item:has-text(\"" name "\") input[type=checkbox]"))]
           (js-await (-> (expect script-checkbox) (.toBeVisible #js {:timeout 2000})))
           (js-await (.click script-checkbox)))
 
-        ;; Confirmation should be gone (script metadata changed, pending cancelled)
-        (js-await (-> (expect confirmation) (.not.toBeVisible #js {:timeout 2000}))))
+        ;; Confirmation should STILL be visible (enabled toggle does not cancel)
+        (js-await (-> (expect confirmation) (.toBeVisible #js {:timeout 2000}))))
 
       (js-await (assert-no-errors! popup))
       (js-await (.close popup)))))
@@ -932,8 +935,8 @@
              (test "pending confirmation is cancelled when script content changes"
                    pending_confirmation_cancelled_when_script_content_changes)
 
-             (test "pending confirmation is cancelled when script metadata changes"
-               pending_confirmation_cancelled_when_script_metadata_changes)
+             (test "pending confirmation is NOT cancelled when enabled is toggled"
+               pending_confirmation_not_cancelled_when_enabled_toggled)
 
              (test "popup can reveal and highlight affected script"
                popup_reveals_and_highlights_script_for_confirmation)

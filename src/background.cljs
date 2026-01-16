@@ -376,21 +376,21 @@
         new-scripts (script-utils/parse-scripts (or (.-newValue scripts-change) []))
         old-by-name (into {} (map (fn [script] [(:script/name script) script]) old-scripts))
         new-by-name (into {} (map (fn [script] [(:script/name script) script]) new-scripts))
+        ;; Only cancel confirmations when user-facing manifest fields change.
+        ;; Internal metadata like :script/enabled should NOT trigger cancellation.
         names-to-cancel (keep (fn [[name old-script]]
                                 (let [new-script (get new-by-name name)
-               changed? (or (nil? new-script)
-                    (not= (:script/code old-script)
-                      (:script/code new-script))
-                    (not= (:script/match old-script)
-                      (:script/match new-script))
-                    (not= (:script/run-at old-script)
-                      (:script/run-at new-script))
-                    (not= (:script/enabled old-script)
-                      (:script/enabled new-script))
-                    (not= (:script/require old-script)
-                      (:script/require new-script))
-                    (not= (:script/description old-script)
-                      (:script/description new-script)))]
+                                      changed? (or (nil? new-script)
+                                                   (not= (:script/code old-script)
+                                                         (:script/code new-script))
+                                                   (not= (:script/match old-script)
+                                                         (:script/match new-script))
+                                                   (not= (:script/run-at old-script)
+                                                         (:script/run-at new-script))
+                                                   (not= (:script/require old-script)
+                                                         (:script/require new-script))
+                                                   (not= (:script/description old-script)
+                                                         (:script/description new-script)))]
                                   (when (and changed?
                                              (get (:pending/fs-confirmations @!state) name))
                                     name)))
