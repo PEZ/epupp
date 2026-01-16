@@ -41,6 +41,11 @@ Read these first:
 	- First: the single grep’d test.
 	- Then: `bb test:e2e` to ensure you didn’t introduce timing regressions elsewhere.
 
+8. **Normalize E2E describe structure before edits**
+	- If the file has deeply nested or long `describe` forms, extract anonymous functions first.
+	- Use the structure in [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) as the model.
+	- Confirm tests still pass after only the refactor; then proceed with logic changes.
+
 ### What makes an issue-fix super effective
 - **One crisp failing test** that matches the user-facing symptom.
 - **A minimal repro script** you can paste into the REPL (and keep in the issue log).
@@ -52,6 +57,16 @@ Read these first:
 ## Current status
 - Force-path operations work: `save!`, `mv!`, `rm!` succeed with `{:fs/force? true}`.
 - Confirmation UI is working in the centralized panel.
+- Badge count updates are working.
+- FS API rejects failed operations (Promise rejects on failure).
+
+## Highest priority
+### E2E shard 2 fails (sharded runs)
+**Symptom:** E2E tests pass in `--serial` mode but fail in sharded runs. Shard 2 fails.
+
+**Fix priority:** Blocker - resolve before any other work.
+
+**Required first step:** Make Playwright list what’s in shard 2 before changing any tests. Use that shard listing to guide investigation.
 
 ## Release scrutiny
 Everything about the REPL FS API must be scrutinized before release. Return maps and their semantics must be treated as stable and cannot change after release.
@@ -76,19 +91,21 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 **Expected:** If a script is modified while a confirmation is pending, the confirmation should be cancelled and removed.
 
 ### Pending-confirmation badge does not update
-**Symptom:** Pending-confirmation badge does not reflect the current count of queued confirmations.
-
-**Expected:** Badge increments for each queued confirmation and decrements when a confirmation is accepted or denied.
+**Status:** Resolved - badge count increments for each queued confirmation and decrements when a confirmation is accepted or denied.
 
 ### Promise does not reject on failure
-**Symptom:** Operations that fail still resolve, so `p/then` executes with `{:fs/success false ...}` instead of rejecting.
-
-**Example:** `(epupp.fs/mv! "test.cljs" "test2.cljs")` resolves with `{:fs/success false :fs/error "Script not found: test.cljs" ...}` and does not trigger `p/catch`.
-
-**Expected:** Promise should reject (or be rejected via `p/rejected`) on failure, or a dedicated helper should be documented for checking `:fs/success` before `p/then`.
+**Status:** Resolved - failed operations now reject (Promise rejection) and trigger `p/catch`.
 
 ## Test coverage gaps
 - E2E tests should explicitly assert confirmation UI state in the centralized panel (not just force paths).
+
+## Testing process issues
+### E2E describe blocks are too deep for AI edits
+**Symptom:** Some E2E files have long, deeply nested `describe` forms, which makes automated edits fragile.
+
+**Fix:** Extract anonymous functions so the `describe` form reads like a top-level recipe. Use [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) as the template.
+
+**Process:** When updating an E2E file, first apply this refactor and re-run the tests to confirm no behavior changes. Only then make changes to test logic.
 
 ## Hypotheses
 - The confirmation UI may be present in the DOM but not visible (hidden container or CSS mismatch).
