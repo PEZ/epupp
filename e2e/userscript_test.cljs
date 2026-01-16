@@ -12,9 +12,9 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           clear-test-events! assert-no-errors!]]))
+                                           assert-no-errors!]]))
 
-(defn code-with-manifest
+(defn- code-with-manifest
   "Generate test code with epupp manifest metadata."
   [{:keys [name match description run-at code]
     :or {code "(println \"Test script\")"}}]
@@ -31,329 +31,341 @@
 ;; Userscript Injection
 ;; =============================================================================
 
-(test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Setup: Create a script that matches localhost:18080
-            (let [panel (js-await (create-panel-page context ext-id))
-                  code (code-with-manifest {:name "Injection Test"
-                                            :match "http://localhost:18080/*"
-                                            :code "(js/console.log \"Userscript ran!\")"})]
-              (js-await (.fill (.locator panel "#code-area") code))
-              (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (wait-for-save-status panel "Created"))
-              (js-await (.close panel)))
+(defn- ^:async test_injects_on_matching_url_and_logs []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Setup: Create a script that matches localhost:18080
+      (let [panel (js-await (create-panel-page context ext-id))
+            code (code-with-manifest {:name "Injection Test"
+                                      :match "http://localhost:18080/*"
+                                      :code "(js/console.log \"Userscript ran!\")"})]
+        (js-await (.fill (.locator panel "#code-area") code))
+        (js-await (.click (.locator panel "button.btn-save")))
+        (js-await (wait-for-save-status panel "Created"))
+        (js-await (.close panel)))
 
-            ;; Approve the script pattern in popup
-            (let [popup (js-await (create-popup-page context ext-id))]
-              ;; Set the test URL override for approval UI
-              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-              (js-await (.reload popup))
-              (js-await (wait-for-popup-ready popup))
+      ;; Approve the script pattern in popup
+      (let [popup (js-await (create-popup-page context ext-id))]
+        ;; Set the test URL override for approval UI
+        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
 
-              ;; Find and approve the script
-              (let [script-item (.locator popup ".script-item:has-text(\"injection_test.cljs\")")]
-                (js-await (-> (expect script-item) (.toBeVisible)))
-                (js/console.log "Script item visible, checking for Allow button...")
-                ;; Check for approval button (may not exist if auto-approved)
-                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-                  (when (pos? (js-await (.count allow-btn)))
-                    (js/console.log "Clicking Allow button...")
-                    (js-await (.click allow-btn))
-                    ;; Wait for button to disappear (approval processed)
-                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-              (js-await (.close popup)))
+        ;; Find and approve the script
+        (let [script-item (.locator popup ".script-item:has-text(\"injection_test.cljs\")")]
+          (js-await (-> (expect script-item) (.toBeVisible)))
+          (js/console.log "Script item visible, checking for Allow button...")
+          ;; Check for approval button (may not exist if auto-approved)
+          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+            (when (pos? (js-await (.count allow-btn)))
+              (js/console.log "Clicking Allow button...")
+              (js-await (.click allow-btn))
+              ;; Wait for button to disappear (approval processed)
+              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+        (js-await (.close popup)))
 
-            ;; Navigate to matching page
-            (let [page (js-await (.newPage context))]
-              (js/console.log "Navigating to localhost:18080/basic.html...")
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
-              (js-await (-> (expect (.locator page "#test-marker"))
-                            (.toContainText "ready")))
-              (js/console.log "Page loaded, test-marker visible")
+      ;; Navigate to matching page
+      (let [page (js-await (.newPage context))]
+        (js/console.log "Navigating to localhost:18080/basic.html...")
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Page loaded, test-marker visible")
 
-              ;; Wait for SCRIPT_INJECTED event BEFORE closing the page
-              ;; The injection happens asynchronously after webNavigation.onCompleted
-              ;; so we need to keep the page open until injection completes
-              (let [popup (js-await (create-popup-page context ext-id))
-                    _ (js/console.log "Waiting for SCRIPT_INJECTED event (page still open)...")
-                    event (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))]
-                (js/console.log "SCRIPT_INJECTED event:" (js/JSON.stringify event))
-                ;; Verify event has expected data
-                (js-await (-> (expect (.-event event)) (.toBe "SCRIPT_INJECTED")))
-                (js-await (assert-no-errors! popup))
-                (js-await (.close popup)))
+        ;; Wait for SCRIPT_INJECTED event BEFORE closing the page
+        ;; The injection happens asynchronously after webNavigation.onCompleted
+        ;; so we need to keep the page open until injection completes
+        (let [popup (js-await (create-popup-page context ext-id))
+              _ (js/console.log "Waiting for SCRIPT_INJECTED event (page still open)...")
+              event (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))]
+          (js/console.log "SCRIPT_INJECTED event:" (js/JSON.stringify event))
+          ;; Verify event has expected data
+          (js-await (-> (expect (.-event event)) (.toBe "SCRIPT_INJECTED")))
+          (js-await (assert-no-errors! popup))
+          (js-await (.close popup)))
 
-              (js-await (.close page)))
+        (js-await (.close page)))
 
-            (finally
-              (js-await (.close context)))))))
+      (finally
+        (js-await (.close context))))))
 
 ;; =============================================================================
 ;; Document-start Timing
 ;; =============================================================================
 
-(test "Userscript: document-start script runs before page scripts"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Setup: Create a document-start script that records timing
-            (let [panel (js-await (create-panel-page context ext-id))
-                  code (code-with-manifest {:name "Timing Test"
-                                            :match "http://localhost:18080/*"
-                                            :run-at "document-start"
-                                            :code "(set! js/window.__EPUPP_SCRIPT_PERF (js/performance.now))"})]
-              (js-await (.fill (.locator panel "#code-area") code))
-              (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (wait-for-save-status panel "Created"))
-              (js-await (.close panel)))
+(defn- ^:async test_document_start_runs_before_page_scripts []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Setup: Create a document-start script that records timing
+      (let [panel (js-await (create-panel-page context ext-id))
+            code (code-with-manifest {:name "Timing Test"
+                                      :match "http://localhost:18080/*"
+                                      :run-at "document-start"
+                                      :code "(set! js/window.__EPUPP_SCRIPT_PERF (js/performance.now))"})]
+        (js-await (.fill (.locator panel "#code-area") code))
+        (js-await (.click (.locator panel "button.btn-save")))
+        (js-await (wait-for-save-status panel "Created"))
+        (js-await (.close panel)))
 
-            ;; Approve the script
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/timing-test.html';"))
-              (js-await (.reload popup))
-              (js-await (wait-for-popup-ready popup))
+      ;; Approve the script
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/timing-test.html';"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
 
-              (let [script-item (.locator popup ".script-item:has-text(\"timing_test.cljs\")")]
-                (js-await (-> (expect script-item) (.toBeVisible)))
-                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-                  (when (pos? (js-await (.count allow-btn)))
-                    (js/console.log "Timing test - clicking Allow button...")
-                    (js-await (.click allow-btn))
-                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-              (js-await (.close popup)))
+        (let [script-item (.locator popup ".script-item:has-text(\"timing_test.cljs\")")]
+          (js-await (-> (expect script-item) (.toBeVisible)))
+          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+            (when (pos? (js-await (.count allow-btn)))
+              (js/console.log "Timing test - clicking Allow button...")
+              (js-await (.click allow-btn))
+              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+        (js-await (.close popup)))
 
-            ;; Navigate to timing test page
-            (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/timing-test.html" #js {:timeout 1000}))
-              ;; Wait for page to fully load
-              (js-await (-> (expect (.locator page "#timing-marker"))
-                            (.toBeVisible)))
+      ;; Navigate to timing test page
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/timing-test.html" #js {:timeout 1000}))
+        ;; Wait for page to fully load
+        (js-await (-> (expect (.locator page "#timing-marker"))
+                      (.toBeVisible)))
 
-              ;; Get both timing values - use a function that returns the object
-              (let [timings (js-await (.evaluate page (fn []
-                                                        #js {:epuppPerf js/window.__EPUPP_SCRIPT_PERF
-                                                             :pagePerf js/window.__PAGE_SCRIPT_PERF})))]
-                (js/console.log "Timing comparison - Epupp:" (aget timings "epuppPerf") "Page:" (aget timings "pagePerf"))
+        ;; Get both timing values - use a function that returns the object
+        (let [timings (js-await (.evaluate page (fn []
+                                                  #js {:epuppPerf js/window.__EPUPP_SCRIPT_PERF
+                                                       :pagePerf js/window.__PAGE_SCRIPT_PERF})))]
+          (js/console.log "Timing comparison - Epupp:" (aget timings "epuppPerf") "Page:" (aget timings "pagePerf"))
 
-                ;; Epupp script should have a perf value (might be undefined if Scittle didn't load fast enough)
-                ;; The key assertion: if both exist, Epupp should run first
-                (when (and (aget timings "epuppPerf") (aget timings "pagePerf"))
-                  (js-await (-> (expect (aget timings "epuppPerf"))
-                                (.toBeLessThan (aget timings "pagePerf"))))))
+          ;; Epupp script should have a perf value (might be undefined if Scittle didn't load fast enough)
+          ;; The key assertion: if both exist, Epupp should run first
+          (when (and (aget timings "epuppPerf") (aget timings "pagePerf"))
+            (js-await (-> (expect (aget timings "epuppPerf"))
+                          (.toBeLessThan (aget timings "pagePerf"))))))
 
-              ;; Check for errors before closing
-              (let [popup (js-await (create-popup-page context ext-id))]
-                (js-await (assert-no-errors! popup))
-                (js-await (.close popup)))
+        ;; Check for errors before closing
+        (let [popup (js-await (create-popup-page context ext-id))]
+          (js-await (assert-no-errors! popup))
+          (js-await (.close popup)))
 
-              (js-await (.close page)))
+        (js-await (.close page)))
 
-            (finally
-              (js-await (.close context)))))))
+      (finally
+        (js-await (.close context))))))
 
 ;; =============================================================================
 ;; Performance Reporting
 ;; =============================================================================
 
-(test "Userscript: generate performance report from events"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Setup: Create a simple script to trigger full injection pipeline
-            (let [panel (js-await (create-panel-page context ext-id))
-                  code (code-with-manifest {:name "Performance Report Test"
-                                            :match "http://localhost:18080/*"
-                                            :code "(js/console.log \"Perf test\")"})]
-              (js-await (.fill (.locator panel "#code-area") code))
-              (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (wait-for-save-status panel "Created"))
-              (js-await (.close panel)))
+(defn- ^:async test_generate_performance_report_from_events []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Setup: Create a simple script to trigger full injection pipeline
+      (let [panel (js-await (create-panel-page context ext-id))
+            code (code-with-manifest {:name "Performance Report Test"
+                                      :match "http://localhost:18080/*"
+                                      :code "(js/console.log \"Perf test\")"})]
+        (js-await (.fill (.locator panel "#code-area") code))
+        (js-await (.click (.locator panel "button.btn-save")))
+        (js-await (wait-for-save-status panel "Created"))
+        (js-await (.close panel)))
 
-            ;; Approve the script
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-              (js-await (.reload popup))
-              (js-await (wait-for-popup-ready popup))
+      ;; Approve the script
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
 
-              (let [script-item (.locator popup ".script-item:has-text(\"performance_report_test.cljs\")")]
-                (js-await (-> (expect script-item) (.toBeVisible)))
-                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-                  (when (pos? (js-await (.count allow-btn)))
-                    (js-await (.click allow-btn))
-                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-              (js-await (.close popup)))
+        (let [script-item (.locator popup ".script-item:has-text(\"performance_report_test.cljs\")")]
+          (js-await (-> (expect script-item) (.toBeVisible)))
+          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+            (when (pos? (js-await (.count allow-btn)))
+              (js-await (.click allow-btn))
+              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+        (js-await (.close popup)))
 
-            ;; Navigate to trigger injection
-            (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
-              (js-await (-> (expect (.locator page "#test-marker"))
-                            (.toContainText "ready")))
-              (js-await (.close page)))
+      ;; Navigate to trigger injection
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js-await (.close page)))
 
-            ;; Generate and print performance report
-            (let [popup (js-await (create-popup-page context ext-id))
-                  events (js-await (get-test-events popup))
-                  report (generate-timing-report events)]
-              ;; Print the report
-              (print-timing-report report)
+      ;; Generate and print performance report
+      (let [popup (js-await (create-popup-page context ext-id))
+            events (js-await (get-test-events popup))
+            report (generate-timing-report events)]
+        ;; Print the report
+        (print-timing-report report)
 
-              ;; Verify we got some events
-              (js-await (-> (expect (.-length events))
-                            (.toBeGreaterThan 0)))
+        ;; Verify we got some events
+        (js-await (-> (expect (.-length events))
+                      (.toBeGreaterThan 0)))
 
-              ;; Verify report has expected structure
-              (js-await (-> (expect (:all-events report))
-                            (.toBeDefined)))
-              (js-await (assert-no-errors! popup))
-              (js-await (.close popup)))
+        ;; Verify report has expected structure
+        (js-await (-> (expect (:all-events report))
+                      (.toBeDefined)))
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
 
-            (finally
-              (js-await (.close context)))))))
+      (finally
+        (js-await (.close context))))))
 
 ;; =============================================================================
 ;; Error Checking
 ;; =============================================================================
 
-(test "Userscript: injection produces no uncaught errors"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Create and approve a script
-            (let [panel (js-await (create-panel-page context ext-id))
-                  code (code-with-manifest {:name "Error Check Test"
-                                            :match "http://localhost:18080/*"
-                                            :code "(js/console.log \"No errors please\")"})]
-              (js-await (.fill (.locator panel "#code-area") code))
-              (js-await (.click (.locator panel "button.btn-save")))
-              (js-await (wait-for-save-status panel "Created"))
-              (js-await (.close panel)))
+(defn- ^:async test_injection_produces_no_uncaught_errors []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Create and approve a script
+      (let [panel (js-await (create-panel-page context ext-id))
+            code (code-with-manifest {:name "Error Check Test"
+                                      :match "http://localhost:18080/*"
+                                      :code "(js/console.log \"No errors please\")"})]
+        (js-await (.fill (.locator panel "#code-area") code))
+        (js-await (.click (.locator panel "button.btn-save")))
+        (js-await (wait-for-save-status panel "Created"))
+        (js-await (.close panel)))
 
-            ;; Approve the script
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-              (js-await (.reload popup))
-              (js-await (wait-for-popup-ready popup))
+      ;; Approve the script
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
 
-              (let [script-item (.locator popup ".script-item:has-text(\"error_check_test.cljs\")")]
-                (js-await (-> (expect script-item) (.toBeVisible)))
-                (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-                  (when (pos? (js-await (.count allow-btn)))
-                    (js-await (.click allow-btn))
-                    (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-              (js-await (.close popup)))
+        (let [script-item (.locator popup ".script-item:has-text(\"error_check_test.cljs\")")]
+          (js-await (-> (expect script-item) (.toBeVisible)))
+          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
+            (when (pos? (js-await (.count allow-btn)))
+              (js-await (.click allow-btn))
+              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+        (js-await (.close popup)))
 
-            ;; Navigate to trigger injection
-            (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
-              (js-await (-> (expect (.locator page "#test-marker"))
-                            (.toContainText "ready")))
+      ;; Navigate to trigger injection
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
 
-              ;; Wait for script injection
-              (let [popup (js-await (create-popup-page context ext-id))
-                    _ (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))]
-                ;; Check for any errors
-                (js-await (assert-no-errors! popup))
-                (js-await (.close popup)))
+        ;; Wait for script injection
+        (let [popup (js-await (create-popup-page context ext-id))
+              _ (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))]
+          ;; Check for any errors
+          (js-await (assert-no-errors! popup))
+          (js-await (.close popup)))
 
-              (js-await (.close page)))
+        (js-await (.close page)))
 
-            (finally
-              (js-await (.close context)))))))
+      (finally
+        (js-await (.close context))))))
 
 ;; =============================================================================
 ;; Gist Installer (Built-in Userscript)
 ;; =============================================================================
 
-(test "Userscript: gist installer shows Install button and installs script"
-      (^:async fn []
-        (let [context (js-await (launch-browser))
-              ext-id (js-await (get-extension-id context))]
-          (try
-            ;; Clear storage and wait for built-in gist installer to be re-installed
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
-              (js-await (.reload popup))
-              (js-await (wait-for-popup-ready popup))
+(defn- ^:async test_gist_installer_shows_button_and_installs []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and wait for built-in gist installer to be re-installed
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
 
-              ;; Wait for gist installer to be re-installed with require field
-              ;; Poll using .evaluate loop - same pattern as wait-for-event
-              (let [start (.now js/Date)
-                    timeout-ms 5000]
-                (loop []
-                  (let [storage-data (js-await (.evaluate popup
-                                                          (fn []
-                                                            (js/Promise. (fn [resolve]
-                                                                           (.get js/chrome.storage.local #js ["scripts"]
-                                                                                 (fn [result] (resolve result))))))))
-                        scripts (.-scripts storage-data)
-                        gist-installer (when scripts
-                                         (.find scripts (fn [s]
-                                                          (= (.-id s) "epupp-builtin-gist-installer"))))
-                        has-requires (and gist-installer
-                                          (.-require gist-installer)
-                                          (pos? (.-length (.-require gist-installer))))]
-                    (if has-requires
-                      (js/console.log "Gist installer re-installed with requires")
-                      (if (> (- (.now js/Date) start) timeout-ms)
-                        (throw (js/Error. "Timeout waiting for gist installer with requires"))
-                        (do
-                          (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
-                          (recur)))))))
-              (js-await (.close popup)))
+        ;; Wait for gist installer to be re-installed with require field
+        ;; Poll using .evaluate loop - same pattern as wait-for-event
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  gist-installer (when scripts
+                                   (.find scripts (fn [s]
+                                                    (= (.-id s) "epupp-builtin-gist-installer"))))
+                  has-requires (and gist-installer
+                                    (.-require gist-installer)
+                                    (pos? (.-length (.-require gist-installer))))]
+              (if has-requires
+                (js/console.log "Gist installer re-installed with requires")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for gist installer with requires"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+                    (recur)))))))
+        (js-await (.close popup)))
 
-            ;; Navigate to mock gist page
-            (let [page (js-await (.newPage context))]
-              (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
-              (js-await (-> (expect (.locator page "#test-marker"))
-                            (.toContainText "ready")))
-              (js/console.log "Mock gist page loaded")
+      ;; Navigate to mock gist page
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Mock gist page loaded")
 
-              ;; Wait for the gist installer userscript to run and add Install button
-              ;; The button should appear on the installable gist file
-              (let [install-btn (.locator page "#installable-gist button:has-text(\"Install\")")]
-                (js/console.log "Waiting for Install button to appear...")
-                (js-await (-> (expect install-btn)
-                              (.toBeVisible #js {:timeout 10000})))
-                (js/console.log "Install button found, clicking...")
+        ;; Wait for the gist installer userscript to run and add Install button
+        ;; The button should appear on the installable gist file
+        (let [install-btn (.locator page "#installable-gist button:has-text(\"Install\")")]
+          (js/console.log "Waiting for Install button to appear...")
+          (js-await (-> (expect install-btn)
+                        (.toBeVisible #js {:timeout 10000})))
+          (js/console.log "Install button found, clicking...")
 
-                ;; Click the install button - should show confirmation modal
-                (js-await (.click install-btn))
+          ;; Click the install button - should show confirmation modal
+          (js-await (.click install-btn))
 
-                ;; Wait for confirmation modal - uses #epupp-confirm ID
-                (let [confirm-btn (.locator page "#epupp-confirm")]
-                  (js-await (-> (expect confirm-btn)
-                                (.toBeVisible #js {:timeout 5000})))
-                  (js/console.log "Confirmation modal appeared, confirming...")
+          ;; Wait for confirmation modal - uses #epupp-confirm ID
+          (let [confirm-btn (.locator page "#epupp-confirm")]
+            (js-await (-> (expect confirm-btn)
+                          (.toBeVisible #js {:timeout 5000})))
+            (js/console.log "Confirmation modal appeared, confirming...")
 
-                  ;; Confirm the installation
-                  (js-await (.click confirm-btn))
+            ;; Confirm the installation
+            (js-await (.click confirm-btn))
 
-                  ;; Wait for button to change to "Installed"
-                  (let [installed-indicator (.locator page "#installable-gist button:has-text(\"Installed\")")]
-                    (js-await (-> (expect installed-indicator)
-                                  (.toBeVisible #js {:timeout 5000})))
-                    (js/console.log "Script installed successfully"))))
+            ;; Wait for button to change to "Installed"
+            (let [installed-indicator (.locator page "#installable-gist button:has-text(\"Installed\")")]
+              (js-await (-> (expect installed-indicator)
+                            (.toBeVisible #js {:timeout 5000})))
+              (js/console.log "Script installed successfully"))))
 
-              (js-await (.close page)))
+        (js-await (.close page)))
 
-            ;; Verify script appears in popup
-            (let [popup (js-await (create-popup-page context ext-id))]
-              (js-await (wait-for-popup-ready popup))
+      ;; Verify script appears in popup
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
 
-              ;; Look for the installed script
-              (let [script-item (.locator popup ".script-item:has-text(\"test_installer_script.cljs\")")]
-                (js-await (-> (expect script-item)
-                              (.toBeVisible #js {:timeout 5000})))
-                (js/console.log "Installed script visible in popup"))
+        ;; Look for the installed script
+        (let [script-item (.locator popup ".script-item:has-text(\"test_installer_script.cljs\")")]
+          (js-await (-> (expect script-item)
+                        (.toBeVisible #js {:timeout 5000})))
+          (js/console.log "Installed script visible in popup"))
 
-              (js-await (assert-no-errors! popup))
-              (js-await (.close popup)))
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
 
-            (finally
-              (js-await (.close context)))))))
+      (finally
+        (js-await (.close context))))))
+
+(.describe test "Userscript"
+           (fn []
+             (test "injects on matching URL and logs SCRIPT_INJECTED"
+                   test_injects_on_matching_url_and_logs)
+
+             (test "document-start script runs before page scripts"
+                   test_document_start_runs_before_page_scripts)
+
+             (test "generate performance report from events"
+                   test_generate_performance_report_from_events)
+
+             (test "injection produces no uncaught errors"
+                   test_injection_produces_no_uncaught_errors)
+
+             (test "gist installer shows Install button and installs script"
+                   test_gist_installer_shows_button_and_installs)))
