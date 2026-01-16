@@ -79,6 +79,26 @@ There is an extensive library of helpers in `e2e/fixtures.cljs`, covering:
 
 ## Writing E2E Tests
 
+### Test File Structure (Mandatory Pattern)
+
+**All E2E test files MUST follow the flat test structure pattern.** Deeply nested test forms create major editing problems for structural editing tools.
+
+**Required Pattern:**
+- Private test functions at top level: `(defn- ^:async test_feature_name [] ...)`
+- Single shallow `describe` block at the END of the file
+- Simple function references in test registrations: `(test "description" test_feature_name)`
+- Shared setup via atoms and setup functions at top of file
+
+**Model File:** [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs)
+
+**Why This Matters:**
+- Top-level forms are reliably editable by line number
+- No deep nesting prevents structural editing failures
+- Each test function is independently modifiable
+- Shared setup/teardown logic is clear and maintainable
+
+For migration of legacy nested structures, see [e2e-test-structure-migration-plan.md](e2e-test-structure-migration-plan.md).
+
 ### Performance: No Fixed Sleeps
 
 **Critical**: Never use fixed-delay sleeps. They waste time and make tests flaky.
