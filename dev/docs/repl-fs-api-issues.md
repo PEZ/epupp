@@ -3,6 +3,16 @@
 ## Overview
 This document tracks issues discovered while manually testing the REPL File System API (`epupp.fs/*`) and highlights gaps in automated coverage.
 
+## Snapshot (2026-01-16)
+### Reality check
+- All user-visible issues currently tracked in this doc are marked **Resolved** and are backed by E2E coverage.
+- The sharded E2E run is currently green: `bb test:e2e` passes with 6 shards.
+
+### What’s left to do (next moves)
+1. **Keep it green:** continue to run `bb test:e2e` as changes land, and treat any sharded failures as blockers.
+2. **Maintenance (last priority):** refactor the REPL FS E2E tests away from atom-based result harvesting (see "Testing process issues").
+3. **Release scrutiny:** as new behaviors are discovered during manual testing, add them as new entries under "Known issues" with a crisp failing E2E repro.
+
 ## Fixing process (E2E-first, TDD-friendly)
 When a REPL FS issue is user-visible, prioritize an E2E test that reproduces it. This project’s E2E suite is designed to validate real extension workflows, avoid timing flake, and support fast TDD cycles.
 
@@ -55,27 +65,30 @@ Read these first:
 - **Close the loop**: update this doc’s “Known bugs” + “Test coverage gaps” once the regression is covered.
 
 ## Current status
+These are the stable behaviors we currently rely on:
 - Force-path operations work: `save!`, `mv!`, `rm!` succeed with `{:fs/force? true}`.
 - Confirmation UI is working in the centralized panel.
 - Badge count updates are working.
 - FS API rejects failed operations (Promise rejects on failure).
 
+E2E confidence:
+- Sharded E2E suite is green: `bb test:e2e` passes (6 shards).
+- Shard 2 contents confirmed via `bb test:e2e --serial -- --list --shard=2/6` (currently the REPL FS write tests).
+
 ## Release scrutiny
 Everything about the REPL FS API must be scrutinized before release. Return maps and their semantics must be treated as stable and cannot change after release.
 
-## Known bugs
-### Confirmation UI interactions (centralized panel)
-**Symptom:** Centralized confirmation panel lacks per-item interactions (highlight, reveal, inspect) to relate confirmations to the affected scripts.
+## Known issues
+Add new, currently failing issues here. If something is fixed, move it to "Resolved issues" and add an entry to the "Fixed log".
 
-**Expected:** Keep the centralized confirmation panel, but:
-- Items being updated are highlighted in the list (same style as approvals).
-- A reveal button exists that scrolls the affected list item into view and briefly highlights it.
-- Confirmation cards include inspect buttons that populate the panel:
-	- Delete: inspect the file being deleted.
-	- Rename: inspect the file being renamed.
-	- Update: two inspect buttons, for the `from` and `to` versions.
-	- Create: inspect the file that would be created.
-- When more than one confirmation is pending, show "Confirm all" and "Cancel all" buttons.
+## Resolved issues
+### Confirmation UI interactions (centralized panel)
+**Status:** Resolved - centralized confirmation UI now supports per-item reveal/highlight/inspect controls and bulk confirm/cancel.
+
+**Covered by E2E:** See [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) for:
+- reveal + temporary highlight
+- inspect from/to versions
+- bulk confirm all / cancel all
 
 ### Confirmations should cancel on content changes
 **Status:** Resolved - confirmations cancel when code or manifest metadata changes.
@@ -87,7 +100,7 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 **Status:** Resolved - failed operations now reject (Promise rejection) and trigger `p/catch`.
 
 ## Test coverage gaps
-- E2E tests should explicitly assert confirmation UI state in the centralized panel (not just force paths).
+None known at the moment - E2E asserts confirmation UI state for non-force paths.
 
 ## Testing process issues
 ### E2E describe blocks are too deep for AI edits
@@ -105,12 +118,19 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 ## Bug log
 Add new findings here as testing continues.
 
+Tip: If the suite is green but you find a manual bug, add it under "Known issues" first, then write an E2E test that fails deterministically (no sleeps).
+
 ## Fixed log
 - Confirmation UI now works in centralized panel
+- Confirmation UI interactions: reveal/highlight/inspect + bulk confirm/cancel
 - Badge count updates for pending confirmations
 - FS API rejects failed operations (Promise rejection)
 - Sharded E2E failure (shard 2) resolved
 - Confirmations cancel on code and metadata changes
+
+### 2026-01-16
+- Shard 2 contents confirmed via `bb test:e2e --serial -- --list --shard=2/6` (REPL FS write tests).
+- `bb test:e2e` passes with 6 shards.
 
 ### Template
 - **Date:** YYYY-MM-DD
