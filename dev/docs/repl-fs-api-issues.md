@@ -5,8 +5,8 @@ This document tracks issues discovered while manually testing the REPL File Syst
 
 ## Snapshot (2026-01-16)
 ### Reality check
-- All user-visible issues currently tracked in this doc are marked **Resolved** and are backed by E2E coverage.
 - The sharded E2E run is currently green: `bb test:e2e` passes with 6 shards.
+- No known issues remain open.
 
 ### What’s left to do (next moves)
 1. **Keep it green:** continue to run `bb test:e2e` as changes land, and treat any sharded failures as blockers.
@@ -81,7 +81,19 @@ Everything about the REPL FS API must be scrutinized before release. Return maps
 ## Known issues
 Add new, currently failing issues here. If something is fixed, move it to "Resolved issues" and add an entry to the "Fixed log".
 
+None at the moment.
+
 ## Resolved issues
+### Confirmation cancellation on non-manifest metadata changes
+**Status:** Resolved - toggling `:script/enabled` no longer cancels pending confirmations.
+
+**Change:** `cancel-pending-fs-confirmations-for-scripts!` now only triggers on changes to:
+- `:script/code`, `:script/match`, `:script/run-at`, `:script/require`, `:script/description`
+
+Internal metadata like `:script/enabled` is excluded.
+
+**Covered by E2E:** `pending_confirmation_not_cancelled_when_enabled_toggled` in [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs)
+
 ### Confirmation UI interactions (centralized panel)
 **Status:** Resolved - centralized confirmation UI now supports per-item reveal/highlight/inspect controls and bulk confirm/cancel.
 
@@ -127,8 +139,11 @@ Tip: If the suite is green but you find a manual bug, add it under "Known issues
 - FS API rejects failed operations (Promise rejection)
 - Sharded E2E failure (shard 2) resolved
 - Confirmations cancel on code and metadata changes
+- Confirmation NOT cancelled when toggling `:script/enabled` (internal metadata)
 
 ### 2026-01-16
+- Fixed: toggling `:script/enabled` no longer cancels pending FS confirmations
+- Fixed: E2E selector ambiguity for `.confirmation-cancel` (scoped to specific confirmation items)
 - Shard 2 contents confirmed via `bb test:e2e --serial -- --list --shard=2/6` (REPL FS write tests).
 - `bb test:e2e` passes with 6 shards.
 
