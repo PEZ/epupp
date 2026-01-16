@@ -124,9 +124,9 @@ Status legend:
 
 - `[SKIP]` [e2e/fs_ui_reactivity_test.cljs](../../e2e/fs_ui_reactivity_test.cljs) - MODEL FILE
 - `[✓]` [e2e/extension_test.cljs](../../e2e/extension_test.cljs)
-- `[ ]` [e2e/fs_read_test.cljs](../../e2e/fs_read_test.cljs)
-- `[ ]` [e2e/fs_write_test.cljs](../../e2e/fs_write_test.cljs)
-- `[ ]` [e2e/integration_test.cljs](../../e2e/integration_test.cljs)
+- `[✓]` [e2e/fs_read_test.cljs](../../e2e/fs_read_test.cljs)
+- `[ ]` [e2e/fs_write_test.cljs](../../e2e/fs_write_test.cljs) - DEFERRED (complex, save for last)
+- `[✓]` [e2e/integration_test.cljs](../../e2e/integration_test.cljs)
 - `[ ]` [e2e/panel_eval_test.cljs](../../e2e/panel_eval_test.cljs)
 - `[ ]` [e2e/panel_save_test.cljs](../../e2e/panel_save_test.cljs)
 - `[ ]` [e2e/panel_state_test.cljs](../../e2e/panel_state_test.cljs)
