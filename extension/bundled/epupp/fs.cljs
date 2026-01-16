@@ -26,6 +26,13 @@
             (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
             "*"))))))
 
+(defn- ensure-success!
+  "Throw when response indicates failure, otherwise pass through msg."
+  [msg]
+  (if (.-success msg)
+    msg
+    (throw (js/Error. (or (.-error msg) "Unknown error")))))
+
 ;TODO: Rename this to not conflict with clojure.core/cat
 #_{:clj-kondo/ignore [:redefined-var]}
 (defn cat
@@ -91,27 +98,31 @@
                  (map-indexed (fn [idx code]
                                 (if force?
                                   (-> (send-and-receive "save-script" {:code code :enabled enabled :force true} "save-script-response")
+                                      (.then ensure-success!)
                                       (.then (fn [msg]
-                                               [idx {:fs/success (.-success msg)
-                                                     :fs/name (.-name msg)
-                                                     :fs/error (.-error msg)}])))
+                                           [idx {:fs/success (.-success msg)
+                                             :fs/name (.-name msg)
+                                             :fs/error (.-error msg)}])))
                                   (-> (send-and-receive "queue-save-script" {:code code :enabled enabled} "queue-save-script-response")
+                                      (.then ensure-success!)
                                       (.then (fn [msg]
-                                               [idx {:fs/success (.-success msg)
-                                                     :fs/pending-confirmation (aget msg "pending-confirmation")
-                                                     :fs/name (.-name msg)
-                                                     :fs/error (.-error msg)}])))))
+                                           [idx {:fs/success (.-success msg)
+                                             :fs/pending-confirmation (aget msg "pending-confirmation")
+                                             :fs/name (.-name msg)
+                                             :fs/error (.-error msg)}])))))
                               codes)))
              (.then (fn [results]
                       (into {} results)))))
        ;; Single mode
        (if force?
          (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force true} "save-script-response")
+                             (.then ensure-success!)
              (.then (fn [msg]
                       {:fs/success (.-success msg)
                        :fs/name (.-name msg)
                        :fs/error (.-error msg)})))
          (-> (send-and-receive "queue-save-script" {:code code-or-codes :enabled enabled} "queue-save-script-response")
+                             (.then ensure-success!)
              (.then (fn [msg]
                       {:fs/success (.-success msg)
                        :fs/pending-confirmation (aget msg "pending-confirmation")
@@ -133,6 +144,7 @@
      (if force?
        ;; Immediate rename (force clears any pending)
        (-> (send-and-receive "rename-script" {:from from-name :to to-name :force true} "rename-script-response")
+           (.then ensure-success!)
            (.then (fn [msg]
                     {:fs/success (.-success msg)
                      :fs/from-name from-name
@@ -140,6 +152,7 @@
                      :fs/error (.-error msg)})))
        ;; Queue for confirmation
        (-> (send-and-receive "queue-rename-script" {:from from-name :to to-name} "queue-rename-script-response")
+           (.then ensure-success!)
            (.then (fn [msg]
                     {:fs/success (.-success msg)
                      :fs/pending-confirmation (aget msg "pending-confirmation")
@@ -170,14 +183,16 @@
                  (map (fn [n]
                         (if force?
                           (-> (send-and-receive "delete-script" {:name n :force true} "delete-script-response")
-                              (.then (fn [msg]
-                                       [n {:fs/success (.-success msg)
-                                           :fs/error (.-error msg)}])))
+                            (.then ensure-success!)
+                            (.then (fn [msg]
+                                 [n {:fs/success (.-success msg)
+                                   :fs/error (.-error msg)}])))
                           (-> (send-and-receive "queue-delete-script" {:name n} "queue-delete-script-response")
-                              (.then (fn [msg]
-                                       [n {:fs/success (.-success msg)
-                                           :fs/pending-confirmation (aget msg "pending-confirmation")
-                                           :fs/error (.-error msg)}])))))
+                            (.then ensure-success!)
+                            (.then (fn [msg]
+                                 [n {:fs/success (.-success msg)
+                                   :fs/pending-confirmation (aget msg "pending-confirmation")
+                                   :fs/error (.-error msg)}])))))
                       names)))
              (.then (fn [results]
                       (into {} results)))))
@@ -185,12 +200,14 @@
        (if force?
          ;; Immediate delete (force clears any pending)
          (-> (send-and-receive "delete-script" {:name name-or-names :force true} "delete-script-response")
+                   (.then ensure-success!)
              (.then (fn [msg]
                       {:fs/success (.-success msg)
                        :fs/name name-or-names
                        :fs/error (.-error msg)})))
          ;; Queue for confirmation
          (-> (send-and-receive "queue-delete-script" {:name name-or-names} "queue-delete-script-response")
+                   (.then ensure-success!)
              (.then (fn [msg]
                       {:fs/success (.-success msg)
                       :fs/pending-confirmation (aget msg "pending-confirmation")

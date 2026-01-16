@@ -265,6 +265,11 @@
                                   url-matching/get-matching-pattern
                                   storage/pattern-approved?))
 
+(defn get-fs-confirmations
+  "Get all pending filesystem confirmations."
+  []
+  (vals (:pending/fs-confirmations @!state)))
+
 (defn update-badge-for-tab!
   "Update badge based on pending count for a specific tab's URL."
   [tab-id]
@@ -272,7 +277,9 @@
                       (fn [tab]
                         (when-not js/chrome.runtime.lastError
                           (let [url (.-url tab)
-                                n (count-pending-for-url url)]
+                                pending-count (count-pending-for-url url)
+                                fs-count (count (get-fs-confirmations))
+                                n (+ pending-count fs-count)]
                             (set-badge! n))))))
 
 (defn ^:async update-badge-for-active-tab!
@@ -339,18 +346,15 @@
                  :confirm/operation operation-type
                  :confirm/timestamp (.now js/Date)}
                 details))
-  (persist-pending-fs-confirmations!))
+  (persist-pending-fs-confirmations!)
+  (update-badge-for-active-tab!))
 
 (defn remove-fs-confirmation!
   "Remove a pending filesystem confirmation by script name."
   [script-name]
   (swap! !state update :pending/fs-confirmations dissoc script-name)
-  (persist-pending-fs-confirmations!))
-
-(defn get-fs-confirmations
-  "Get all pending filesystem confirmations."
-  []
-  (vals (:pending/fs-confirmations @!state)))
+  (persist-pending-fs-confirmations!)
+  (update-badge-for-active-tab!))
 
 (defn broadcast-fs-confirmations-changed!
   "Notify popup/panel that pending confirmations have changed.
@@ -363,6 +367,34 @@
      (fn [_response]
        ;; Ignore errors - expected when no popup/panel is open
        (when js/chrome.runtime.lastError nil)))))
+
+(defn- cancel-pending-fs-confirmations-for-scripts!
+  "Cancel pending confirmations when scripts are removed or code changes in storage."
+  [changes]
+  (let [scripts-change (.-scripts changes)
+        old-scripts (script-utils/parse-scripts (or (.-oldValue scripts-change) []))
+        new-scripts (script-utils/parse-scripts (or (.-newValue scripts-change) []))
+        old-by-name (into {} (map (fn [script] [(:script/name script) script]) old-scripts))
+        new-by-name (into {} (map (fn [script] [(:script/name script) script]) new-scripts))
+        names-to-cancel (keep (fn [[name old-script]]
+                                (let [new-script (get new-by-name name)
+                                      changed? (or (nil? new-script)
+                                                   (not= (:script/code old-script)
+                                                         (:script/code new-script)))]
+                                  (when (and changed?
+                                             (get (:pending/fs-confirmations @!state) name))
+                                    name)))
+                              old-by-name)]
+    (when (seq names-to-cancel)
+      (swap! !state update :pending/fs-confirmations
+             (fn [confirmations]
+               (reduce (fn [acc name]
+                         (dissoc acc name))
+                       confirmations
+                       names-to-cancel)))
+      (persist-pending-fs-confirmations!)
+      (broadcast-fs-confirmations-changed!)
+      (update-badge-for-active-tab!))))
 
 ;; ============================================================
 ;; Toolbar Icon State Management
@@ -1473,6 +1505,7 @@
                   (log/info "Background" nil "Scripts changed, syncing registrations")
                   ((^:async fn []
                      (js-await (ensure-initialized!))
+                     (cancel-pending-fs-confirmations-for-scripts! changes)
                      (js-await (registration/sync-registrations!)))))))
 
 (.addListener js/chrome.runtime.onInstalled
