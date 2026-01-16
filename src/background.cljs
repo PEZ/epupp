@@ -369,7 +369,7 @@
        (when js/chrome.runtime.lastError nil)))))
 
 (defn- cancel-pending-fs-confirmations-for-scripts!
-  "Cancel pending confirmations when scripts are removed or code changes in storage."
+  "Cancel pending confirmations when scripts are removed or change in storage."
   [changes]
   (let [scripts-change (.-scripts changes)
         old-scripts (script-utils/parse-scripts (or (.-oldValue scripts-change) []))
@@ -378,9 +378,19 @@
         new-by-name (into {} (map (fn [script] [(:script/name script) script]) new-scripts))
         names-to-cancel (keep (fn [[name old-script]]
                                 (let [new-script (get new-by-name name)
-                                      changed? (or (nil? new-script)
-                                                   (not= (:script/code old-script)
-                                                         (:script/code new-script)))]
+               changed? (or (nil? new-script)
+                    (not= (:script/code old-script)
+                      (:script/code new-script))
+                    (not= (:script/match old-script)
+                      (:script/match new-script))
+                    (not= (:script/run-at old-script)
+                      (:script/run-at new-script))
+                    (not= (:script/enabled old-script)
+                      (:script/enabled new-script))
+                    (not= (:script/require old-script)
+                      (:script/require new-script))
+                    (not= (:script/description old-script)
+                      (:script/description new-script)))]
                                   (when (and changed?
                                              (get (:pending/fs-confirmations @!state) name))
                                     name)))
