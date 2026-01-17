@@ -596,14 +596,15 @@
 
 (defn- run-docker-shard
   "Run Docker container with Playwright's native sharding.
-   Returns babashka process map for monitoring."
+   Returns map with process and writer for cleanup."
   [shard-idx n-shards log-file]
   (let [writer (io/writer log-file)]
     (.write writer (str "\n=== Shard " (inc shard-idx) "/" n-shards " ===\n\n"))
     (.flush writer)
-    (p/process ["docker" "run" "--rm" "epupp-e2e"
-                (str "--shard=" (inc shard-idx) "/" n-shards)]
-               {:out writer :err writer})))
+    {:process (p/process ["docker" "run" "--rm" "epupp-e2e"
+                          (str "--shard=" (inc shard-idx) "/" n-shards)]
+                         {:out writer :err writer})
+     :writer writer}))
 
 (defn- run-e2e-serial!
   "Run E2E tests sequentially in a single Docker container.
@@ -633,26 +634,30 @@
         _ (fs/create-dirs log-dir)
         start-time (System/currentTimeMillis)
 
-        processes (doall
-                   (for [idx (range n-shards)]
-                     (let [log-file (str log-dir "/shard-" idx ".log")]
-                       (println (format "  Starting shard %d/%d..." (inc idx) n-shards))
-                       {:idx idx
-                        :process (run-docker-shard idx n-shards log-file)
-                        :log-file log-file
-                        :done? (atom false)
-                        :exit-code (atom nil)})))
+        shards (doall
+                (for [idx (range n-shards)]
+                  (let [log-file (str log-dir "/shard-" idx ".log")]
+                    (println (format "  Starting shard %d/%d..." (inc idx) n-shards))
+                    (let [{:keys [process writer]} (run-docker-shard idx n-shards log-file)]
+                      {:idx idx
+                       :process process
+                       :writer writer
+                       :log-file log-file
+                       :done? (atom false)
+                       :exit-code (atom nil)}))))
 
         ;; Poll for completion - report as they finish
         _ (loop []
-            (let [still-running (filter #(not @(:done? %)) processes)]
+            (let [still-running (filter #(not @(:done? %)) shards)]
               (when (seq still-running)
-                (doseq [{:keys [idx process done? exit-code]} still-running]
+                (doseq [{:keys [idx process writer done? exit-code]} still-running]
                   (let [proc (:proc process)
                         alive? (.isAlive proc)]
                     (when-not alive?
                       (let [exit (.exitValue proc)
                             elapsed-s (/ (- (System/currentTimeMillis) start-time) 1000.0)]
+                        ;; Close writer to flush output before we read the log
+                        (.close writer)
                         (reset! exit-code exit)
                         (reset! done? true)
                         (println (format "  Shard %d/%d finished at %.1fs (exit %d)"
@@ -662,7 +667,7 @@
 
         results (map (fn [{:keys [idx exit-code log-file]}]
                        {:idx idx :exit @exit-code :log-file log-file})
-                     processes)
+                     shards)
         elapsed-ms (- (System/currentTimeMillis) start-time)
         failed (filter #(not= 0 (:exit %)) results)]
 
