@@ -15,11 +15,11 @@ Human - AI - REPL
 - **OODA**: Observe deeply, Orient correctly, Decide wisely, Act decisively
 - **Human - AI - REPL**: Collaborative loop - human intent, AI implementation, REPL verification
 
-## Phase 1: Pure FS Decision Logic (Testable Core)
+## Phase 1: Pure FS Decision Logic (Testable Core) ✅ COMPLETE
 
 Create the pure action handlers and prove they work with unit tests before touching existing code.
 
-### 1.1 Create `background_actions.cljs` [DONE]
+### 1.1 Create `background_actions.cljs` ✅
 
 **File:** `src/background_actions.cljs`
 
@@ -52,7 +52,7 @@ Create the pure action handlers and prove they work with unit tests before touch
 {:uf/fxs [[:bg/fx.send-response {:success false :error "reason"}]]}
 ```
 
-### 1.2 Write Unit Tests [DONE]
+### 1.2 Write Unit Tests ✅
 
 **File:** `test/background_actions_test.cljs`
 
@@ -75,7 +75,7 @@ Create the pure action handlers and prove they work with unit tests before touch
 - [x] Allows update when script exists by ID (non-builtin)
 - [x] Allows overwrite when force flag set
 
-### 1.3 Verify Tests Pass [DONE]
+### 1.3 Verify Tests Pass ✅
 
 ```bash
 bb test
@@ -85,27 +85,29 @@ All 330 tests pass including 13 new background-actions tests.
 
 ---
 
-## Phase 2: Integrate with Background Worker
+## Phase 2: Integrate with Background Worker ✅ COMPLETE
 
-Wire the pure actions into background.cljs message handlers.
+Wire the pure actions into background.cljs message handlers. Core FS validation bugs fixed.
 
-### 2.1 Set Up Uniflow in Background
+### 2.1 Set Up Uniflow in Background ✅ COMPLETE
 
 - Add `!state` initialization with storage keys
 - Create `dispatch!` function using event-handler
 - Create `perform-effect!` for background-specific effects
 
-### 2.2 Migrate Message Handlers
+### 2.2 Migrate Message Handlers ✅ PARTIAL
 
 Replace direct storage calls with action dispatches:
 
-| Message Type | Current | New |
-|--------------|---------|-----|
-| `"rename-script"` | Direct `storage/rename-script!` | `dispatch! [[:fs/ax.rename-script ...]]` |
-| `"delete-script"` | Direct `storage/delete-script!` | `dispatch! [[:fs/ax.delete-script ...]]` |
-| `"save-userscript"` | Direct `storage/save-script!` | `dispatch! [[:fs/ax.save-script ...]]` |
+| Message Type | Current | New | Status |
+|--------------|---------|-----|--------|
+| `"rename-script"` | Direct `storage/rename-script!` | `dispatch! [[:fs/ax.rename-script ...]]` | ✅ |
+| `"delete-script"` | Direct `storage/delete-script!` | `dispatch! [[:fs/ax.delete-script ...]]` | ✅ |
+| `"save-userscript"` | Direct `storage/save-script!` | `dispatch! [[:fs/ax.save-script ...]]` | ✅ |
 
-### 2.3 Implement Effects
+**Note:** Direct message handlers migrated. Confirmation handlers still use direct storage calls (see 2.5).
+
+### 2.3 Implement Effects ✅ COMPLETE
 
 Create effect handlers in background.cljs:
 - `:storage/fx.persist!` - write to chrome.storage.local
@@ -113,15 +115,26 @@ Create effect handlers in background.cljs:
 - `:bg/fx.send-response` - call the message response callback
 - `:bg/fx.update-badge-for-active-tab!` - badge update
 
-### 2.4 E2E Test for Bug Fix
+### 2.4 E2E Test for Bug Fix ✅
 
-Add E2E test that verifies:
+E2E test added and passing:
 - `mv!` rejects when target name exists
 - No duplicate script names created
 
+**File:** `e2e/fs_write_test.cljs` - `test_mv_rejects_when_target_name_exists`
+
+### 2.5 Migrate Confirmation Handlers ⏸️ DEFERRED
+
+**Status:** Deferred pending UX redesign of the confirmation system.
+
+The confirmation handlers still use direct storage calls, but:
+- The core FS validation (duplicate names, builtin protection) is handled at operation request time
+- Migrating code destined for redesign is wasteful
+- The confirmation UX will be revisited separately
+
 ---
 
-## Phase 3: Route Panel Through Background
+## Phase 3: Route Panel Through Background ⬅️ NEXT
 
 ### 3.1 Update Panel FS Operations
 
@@ -164,8 +177,8 @@ This phase is optional/future - FS operations are the immediate need.
 
 ## Success Criteria
 
-- [ ] Unit tests cover all FS decision logic
-- [ ] E2E test confirms duplicate-name bug is fixed
+- [x] Unit tests cover all FS decision logic
+- [x] E2E test confirms duplicate-name bug is fixed
 - [ ] Badge updates reliably (co-located with state changes)
 - [ ] No direct storage mutation from panel
-- [ ] All existing E2E tests pass
+- [x] All existing E2E tests pass
