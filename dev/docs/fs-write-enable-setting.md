@@ -1,192 +1,115 @@
-# FS Write Enable Setting - Implementation Plan
+# FS REPL Sync - Remaining Work
 
-**Status: IMPLEMENTED** (see Implementation Summary below)
+The FS REPL Sync setting is implemented. This document tracks remaining bugs and enhancements.
 
-Replace the confirmation UI with a simple "Enable FS REPL Sync" toggle that controls whether REPL connections can write to userscripts.
+## Current State
 
-## Current State Analysis
+The core infrastructure is in place:
+- Toggle in Settings section (default: disabled)
+- When disabled: `save!`, `mv!`, `rm!` return clear error
+- When enabled: operations execute immediately
+- `ls` and `show` always work regardless of setting
+- Panel save bypasses setting (trusted UI)
 
-### Confirmation System Overview
+## Outstanding Bugs
 
-The current system queues destructive operations (save, rename, delete) from the REPL for user confirmation in the popup:
+### BUG: `save!` allows overwriting built-in scripts
 
-1. **epupp.fs functions** (in page context) send queue-* messages by default
-2. **Background worker** stores pending confirmations in `:pending/fs-confirmations`
-3. **Popup UI** displays confirmation cards with Confirm/Cancel buttons
-4. **Badge** shows count of pending confirmations
+**Severity:** High - security issue
 
-### Code Locations
+**Problem:** When calling `(save! "GitHub Gist Installer (Built-in)" code)`, the name gets normalized to `"github_gist_installer_built_in.cljs"` before reaching the action handler. The handler then can't match it against the builtin's display name, so protection is bypassed.
 
-| Component | Files | Purpose |
-|-----------|-------|---------|
-| API surface | `extension/bundled/epupp/fs.cljs` | `save!`, `mv!`, `rm!` with `:fs/force?` option |
-| Queue handlers | `src/background.cljs` L1020-1080 | `queue-save-script`, `queue-delete-script`, `queue-rename-script` |
-| Confirmation state | `src/background.cljs` L315-360 | `add-fs-confirmation!`, `remove-fs-confirmation!`, persistence |
-| Confirm/cancel handlers | `src/background.cljs` L1097-1175 | `confirm-fs-operation`, `cancel-fs-operation`, bulk variants |
-| Popup UI | `src/popup.cljs` L890-960 | `confirmation-item`, `fs-confirmations-section` |
-| Popup state | `src/popup.cljs` L40 | `:pending/fs-confirmations` |
-| Popup effects | `src/popup.cljs` L397-435 | `load-fs-confirmations`, `confirm-fs-operation`, `cancel-fs-operation` |
-| Popup actions | `src/popup_actions.cljs` L159-175 | Action handlers for confirm/cancel |
-| Content bridge | `src/content_bridge.cljs` L219-267 | Forwards queue-* messages, handles `pending-confirmation` response |
-| Badge | `src/background.cljs` L282 | Counts fs-confirmations in badge |
+**Current behavior:** Creates a new file `github_gist_installer_built_in.cljs`
 
-### Message Types to Remove
+**Expected behavior:** Reject with "Cannot overwrite built-in scripts"
 
-- `queue-save-script` → use `save-script` directly
-- `queue-delete-script` → use `delete-script` directly
-- `queue-rename-script` → use `rename-script` directly
-- `confirm-fs-operation`
-- `confirm-all-fs-operations`
-- `cancel-fs-operation`
-- `cancel-all-fs-operations`
-- `get-fs-confirmations`
+**Root cause:** Name normalization happens in `background.cljs` before dispatching to `background-actions/handle-action`. The action handler receives the normalized name and can't detect it targets a builtin.
 
-## Proposed Design
+**Fix approach:** Add a helper in `script-utils` that checks if a normalized name could match any builtin's display name. Call this check in the action handler before allowing save.
 
-### New Setting: "Enable FS REPL Sync"
+**Tests:**
+- Unit: `test/background_actions_test.cljs` - "rejects when creating script with normalized builtin name" (FAILING)
+- E2E: `e2e/fs_write_test.cljs` - "save! rejects built-in script names" (FAILING)
 
-**Storage key:** `fsReplSyncEnabled` (boolean, default: `false`)
+### BUG: `save!` without force overwrites existing scripts
 
-**Behavior:**
-- **Enabled:** REPL operations (`save!`, `mv!`, `rm!`) execute immediately (same as current `:fs/force? true`)
-- **Disabled:** REPL operations return error `{:fs/success false :fs/error "FS REPL Sync is disabled"}`
+**Severity:** Medium - data loss risk
 
-### API Changes
+**Problem:** `(save! "existing-script" code)` should reject when a script with that name already exists (unless `:fs/force? true`).
 
-**epupp.fs functions simplified:**
+**Current behavior:** Overwrites silently
 
-```clojure
-;; Before: complicated queue/force logic
-(epupp.fs/save! code)               ; queues for confirmation
-(epupp.fs/save! code {:fs/force? true}) ; immediate
+**Expected behavior:** Reject with "Script already exists: existing-script.cljs"
 
-;; After: simple enabled/disabled check
-(epupp.fs/save! code)  ; works if enabled, error if disabled
-```
+**Status:** Test added, passing (this bug was already fixed in action handler)
 
-The `:fs/force?` option is repurposed for overwrite semantics (like Unix `-f` flag):
-- `(mv! "a.cljs" "b.cljs")` - fails if "b.cljs" exists
-- `(mv! "a.cljs" "b.cljs" {:fs/force? true})` - overwrites "b.cljs" if it exists
-- Same pattern for `save!` when a script with that name already exists
+## Remaining Enhancements
 
-### Read Operations Unaffected
+### UI Feedback (Lower Priority)
 
-These remain always available:
-- `epupp.fs/ls` - list scripts
-- `epupp.fs/show` - get script code
+These provide better UX but aren't blocking:
 
-## Implementation Phases
+- [ ] Error banner in panel when FS sync disabled
+- [ ] Error banner in popup when FS sync disabled
+- [ ] Extension icon error badge
+- [ ] Panel updates when showing a file modified via REPL
+- [ ] "Update" banner briefly shown after REPL modifications
+- [ ] Extension icon briefly shows "update" badge
 
-### Phase 1: Add Setting Infrastructure
+### Documentation
 
-1. **Storage key:** Add `fsReplSyncEnabled` to chrome.storage.local
-2. **Background getter:** `get-fs-sync-enabled` async function
-3. **Popup state:** `:settings/fs-repl-sync-enabled`
-4. **Popup effects:** `load-fs-sync-setting`, `save-fs-sync-setting`
-5. **Popup UI:** Toggle in Settings section with reminder text ("Remember to disable when done editing from the REPL")
+- [ ] User guide section on FS REPL Sync
+- [ ] Dev docs on the message protocol for FS operations
 
-### Phase 2: Gate Write Operations
+## Test Status
 
-1. **Background check:** Before executing `save-script`, `rename-script`, `delete-script`:
-   - Check `fsReplSyncEnabled` setting
-   - If disabled, reject the promise with error "FS REPL Sync is disabled"
-   - If enabled, execute normally via Uniflow dispatch
+### Unit Tests (background_actions_test.cljs)
 
-2. **Panel unaffected:** Panel saves via `panel-save-script` bypass this check (panel is trusted UI)
+| Test | Status |
+|------|--------|
+| rename-script: rejects when source not found | PASS |
+| rename-script: rejects when source is builtin | PASS |
+| rename-script: rejects when target exists | PASS |
+| rename-script: allows rename when target free | PASS |
+| delete-script: rejects when not found | PASS |
+| delete-script: rejects when builtin | PASS |
+| delete-script: allows delete | PASS |
+| save-script: rejects when updating builtin | PASS |
+| save-script: rejects when name exists (no force) | PASS |
+| save-script: allows create when name new | PASS |
+| save-script: allows update by ID | PASS |
+| save-script: allows overwrite with force | PASS |
+| **save-script: rejects normalized builtin name** | **FAIL** |
+| **save-script: rejects normalized builtin even with force** | **FAIL** |
 
-### Phase 3: Remove Confirmation System
+### E2E Tests (fs_write_test.cljs)
 
-1. **Remove message handlers:**
-   - `queue-save-script`, `queue-delete-script`, `queue-rename-script`
-   - `confirm-fs-operation`, `confirm-all-fs-operations`
-   - `cancel-fs-operation`, `cancel-all-fs-operations`
-   - `get-fs-confirmations`
+| Test | Status |
+|------|--------|
+| save! creates new script | PASS |
+| save! with disabled creates disabled script | PASS |
+| save! bulk returns map of results | PASS |
+| save! rejects when script already exists | PASS |
+| **save! rejects built-in script names** | **FAIL** |
+| **save! with force rejects built-in names** | **FAIL** |
+| mv! renames a script | PASS |
+| mv! returns from/to names | PASS |
+| mv! rejects when target exists | PASS |
+| mv! rejects renaming built-in | PASS |
+| rm! deletes a script | PASS |
+| rm! rejects deleting built-in | PASS |
+| rm! bulk returns map of results | PASS |
+| rm! returns existed flag | PASS |
 
-2. **Remove state:**
-   - `:pending/fs-confirmations` from `!state`
-   - `pending-fs-confirmations-storage-key`
-   - All `*-fs-confirmation!` functions
+## Code Locations
 
-3. **Remove UI:**
-   - `confirmation-item` component
-   - `fs-confirmations-section` component
-   - Popup state `:pending/fs-confirmations`
-   - Badge fs-confirmation count logic
-
-4. **Update content bridge:**
-   - Remove `queue-*` message forwarding
-   - Remove `pending-confirmation` response handling
-
-5. **Simplify epupp.fs:**
-   - Remove queue-* message paths
-   - Direct operations only
-   - Keep `:fs/force?` for overwrite semantics
-
-### Phase 4: Update Tests
-
-1. **Unit tests:** Add tests for setting check in action handlers
-2. **E2E tests:**
-   - Remove confirmation workflow tests
-   - Add tests for enabled/disabled setting behavior
-   - Test that read operations always work
-
-## UI Design
-
-### Settings Section Addition
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Settings (collapsed by default)                              │
-├─────────────────────────────────────────────────────────────┤
-│ ☐ Auto-connect REPL to all pages                            │
-│   Warning: Enabling this will inject...                     │
-│                                                             │
-│ ☐ Enable FS REPL Sync                                       │
-│   Allow connected REPLs to create, modify, and delete       │
-│   userscripts. When disabled, REPL can only read scripts.   │
-│                                                             │
-│ Allowed Userscript-install Base URLs                        │
-│ ...                                                         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Security Considerations
-
-### Simpler Mental Model
-
-The confirmation UI created a false sense of security:
-- Users could accidentally confirm operations
-- Queued operations persisted across sessions
-- Complex state to reason about
-
-The toggle is clearer:
-- **Disabled:** REPL is read-only, no risk
-- **Enabled:** REPL has full write access, user accepts this
-
-### Trust Boundaries
-
-- **Panel:** Always trusted (user is actively editing)
-- **REPL:** Trusted only when setting enabled
-- **Popup:** Always trusted (user is actively managing)
-
-## Migration Notes
-
-**No backward compatibility needed.** The REPL FS sync feature is unreleased. We remove the confirmation system completely - no migration code, no cleanup of old storage keys. Clean slate.
-
-## Success Criteria
-
-- [x] All confirmation UI code, documentation, and tests completely removed (as if never existed)
-- [ ] User and dev documentation updated to describe the setting and behavior
-- [x] Toggle appears in Settings section
-- [x] Default is disabled (safe)
-- [x] When disabled: `save!`, `mv!`, `rm!` return clear error
-- [x] When enabled: operations execute immediately
-- [x] `ls` and `show` always work regardless of setting
-- [x] Panel save unaffected by setting
-- [x] No confirmation UI anywhere
-- [x] Badge shows only script-needs-approval count (no fs-confirmation count)
-- [x] All E2E tests pass
-- [x] Setting persists across sessions
+| Component | File | Purpose |
+|-----------|------|---------|
+| API surface | `extension/bundled/epupp/fs.cljs` | `save!`, `mv!`, `rm!`, `ls`, `show` |
+| Action handlers | `src/background_actions.cljs` | Pure state transition logic |
+| Setting gate | `src/background.cljs` | `fs-repl-sync-enabled?` check |
+| Name normalization | `src/script_utils.cljs` | `normalize-script-name` |
+| Popup toggle | `src/popup.cljs` | Settings UI |
 
 ## Manual Testing Results
 
@@ -206,7 +129,7 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 
 ### Write Operations - Setting Enabled
 - [x] `save!` - creates new script
-- [ ] **BUG**: `save!` - should reject when script with same name exists (currently overwrites!)
+- [x] `save!` - rejects when script with same name exists (no force)
 - [x] `save!` with `:fs/force?` - overwrites existing script
 - [ ] **BUG**: `save!` - should reject for built-in script names (currently creates normalized name file)
 - [ ] `save!` with `:fs/force?` - should reject when trying to overwrite built-in
@@ -225,33 +148,6 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 - [ ] "Update" banner should appear briefly in popup
 - [ ] Extension icon should show briefly show "update" badge
 
-## Implementation Summary
+## Test Infrastructure
 
-### Files Modified
-
-| File | Changes |
-|------|---------|
-| `src/popup.cljs` | Added `:settings/fs-repl-sync-enabled` state, effects, and UI toggle |
-| `src/popup_actions.cljs` | Added `:popup/ax.load-fs-sync-setting` and `:popup/ax.toggle-fs-sync` |
-| `src/background.cljs` | Added `fs-repl-sync-enabled?` check, wrapped write handlers, removed all confirmation code, added `panel-rename-script` handler, added `e2e/set-storage` test helper |
-| `src/panel.cljs` | Updated to use `panel-rename-script` message type (trusted UI bypass) |
-| `src/content_bridge.cljs` | Removed `queue-*` message handlers |
-| `extension/bundled/epupp/fs.cljs` | Simplified to direct operations only, removed queue paths |
-| `extension/popup.css` | Removed confirmation UI styles |
-| `e2e/fs_ui_reactivity_test.cljs` | Removed 9 confirmation-related tests, kept 5 FS reactivity tests, updated setup to enable setting via runtime message |
-| `e2e/fs_write_test.cljs` | Updated setup to enable setting via `e2e/set-storage` runtime message |
-
-### Code Removed
-
-- ~150 lines from `background.cljs` (confirmation state, persistence, handlers)
-- ~100 lines from `popup.cljs` (confirmation UI components, effects, state)
-- ~50 lines from `popup_actions.cljs` (confirmation action handlers)
-- ~70 lines from `content_bridge.cljs` (queue message forwarding)
-- ~100 lines from CSS (confirmation card styles)
-- ~500 lines of E2E tests (confirmation workflow tests)
-
-### Test Infrastructure Notes
-
-See [testing-e2e.md Known Limitations](testing-e2e.md#known-limitations) for the `e2e/set-storage` workaround used to set storage in tests.
-
-**Test stability:** The sharded parallel E2E tests showed some flakiness with storage state between shards. Running individual tests with `--serial` consistently passes. The parallel mode occasionally shows timing-related failures that pass on retry.
+E2E tests use `e2e/set-storage` runtime message to enable the setting before running write tests. See [testing-e2e.md](testing-e2e.md) for details.
