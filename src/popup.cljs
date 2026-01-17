@@ -35,9 +35,9 @@
          :settings/default-origins [] ; Config origins (read-only)
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
+         :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
          :settings/error nil
-         :repl/connections []              ; Active REPL connections
-         :pending/fs-confirmations []}))   ; Pending FS operation confirmations
+         :repl/connections []}))   ; Pending FS operation confirmations
 
 
 
@@ -306,6 +306,19 @@
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:autoReconnectRepl enabled}))
 
+    :popup/fx.load-fs-sync-setting
+    (js/chrome.storage.local.get
+     #js ["fsReplSyncEnabled"]
+     (fn [result]
+       (let [enabled (if (some? (.-fsReplSyncEnabled result))
+                       (.-fsReplSyncEnabled result)
+                       false)]  ; Default to false (safe)
+         (dispatch [[:db/ax.assoc :settings/fs-repl-sync-enabled enabled]]))))
+
+    :popup/fx.save-fs-sync-setting
+    (let [[enabled] args]
+      (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
+
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
     ;; Playwright can capture this via page.on('console')
@@ -384,6 +397,7 @@
             (fn []
               (js/alert "Scripts imported successfully! Reloading...")
               (dispatch [[:popup/ax.load-scripts]])))))))
+
     :popup/fx.load-connections
     (js/chrome.runtime.sendMessage
      #js {:type "get-connections"}
@@ -393,48 +407,6 @@
          ;; Keywords are strings, so {:keys [tab-id]} works with "tab-id" keys
          (let [connections (.-connections response)]
            (dispatch [[:db/ax.assoc :repl/connections connections]])))))
-
-    :popup/fx.load-fs-confirmations
-    (js/chrome.runtime.sendMessage
-     #js {:type "get-fs-confirmations"}
-     (fn [response]
-       (when (and response (.-success response))
-         (let [confirmations (.-confirmations response)]
-           (dispatch [[:db/ax.assoc :pending/fs-confirmations confirmations]])))))
-
-    :popup/fx.confirm-fs-operation
-    (let [[key] args]
-      (js/chrome.runtime.sendMessage
-       #js {:type "confirm-fs-operation" :key key}
-       (fn [_response]
-         ;; Confirmations list will update via broadcast message
-         nil)))
-
-    :popup/fx.confirm-all-fs-operations
-    (do
-      (js/chrome.runtime.sendMessage
-       #js {:type "confirm-all-fs-operations"}
-       (fn [_response]
-         ;; Confirmations list will update via broadcast message
-         nil))
-      nil)
-
-    :popup/fx.cancel-fs-operation
-    (let [[key] args]
-      (js/chrome.runtime.sendMessage
-       #js {:type "cancel-fs-operation" :key key}
-       (fn [_response]
-         ;; Confirmations list will update via broadcast message
-         nil)))
-
-    :popup/fx.cancel-all-fs-operations
-    (do
-      (js/chrome.runtime.sendMessage
-       #js {:type "cancel-all-fs-operations"}
-       (fn [_response]
-         ;; Confirmations list will update via broadcast message
-         nil))
-      nil)
 
     :popup/fx.reveal-script
     (let [[script-name] args
@@ -450,7 +422,7 @@
       (js/chrome.tabs.update numeric-tab-id #js {:active true}
                              (fn [_tab]
                                (when-not js/chrome.runtime.lastError
-            ;; Also focus the window containing the tab
+                                 ;; Also focus the window containing the tab
                                  (js/chrome.tabs.get numeric-tab-id
                                                      (fn [tab]
                                                        (when-not js/chrome.runtime.lastError
@@ -526,10 +498,10 @@
     :else (str pattern)))
 
 (defn script-item [{:keys [script/name script/match script/enabled script/description script/run-at]
-        script-id :script/id
-        :as script}
-       current-url
-       {:keys [editing-hint-script-id fs-confirmation? reveal-highlight?]}]
+                    script-id :script/id
+                    :as script}
+                   current-url
+                   {:keys [editing-hint-script-id reveal-highlight?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         matches-current (some? matching-pattern)
         needs-approval (and matches-current
@@ -544,11 +516,10 @@
                            description))
         builtin? (script-utils/builtin-script? script)]
     [:div
-       [:div.script-item {:data-script-name name
-                :class (str (when builtin? "script-item-builtin ")
-                      (when needs-approval "script-item-approval ")
-                      (when fs-confirmation? "script-item-fs-confirmation ")
-                      (when reveal-highlight? "script-item-reveal-highlight"))}
+     [:div.script-item {:data-script-name name
+                        :class (str (when builtin? "script-item-builtin ")
+                                    (when needs-approval "script-item-approval ")
+                                    (when reveal-highlight? "script-item-reveal-highlight"))}
       [:input {:type "checkbox"
                :checked enabled
                :title (if enabled "Enabled" "Disabled")
@@ -611,11 +582,10 @@
   [scripts]
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name pending/fs-confirmations]}]
+(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
                               sort-scripts)
-  pending-script-names (into #{} (map (fn [c] (aget c "confirm/script-name")) fs-confirmations))
         ;; Filter out built-in scripts to check if user has any custom scripts
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
@@ -626,7 +596,6 @@
          ^{:key (:script/id script)}
          [script-item script current-url
           {:editing-hint-script-id editing-hint-script-id
-           :fs-confirmation? (contains? pending-script-names (:script/name script))
            :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
        [:div.no-scripts
         (if no-user-scripts?
@@ -660,18 +629,16 @@
 ;; Settings Components
 ;; ============================================================
 
-(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name pending/fs-confirmations]}]
+(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name]}]
   (let [other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %)))
-                           sort-scripts)
-  pending-script-names (into #{} (map (fn [c] (aget c "confirm/script-name")) fs-confirmations))]
+                           sort-scripts)]
     [:div.script-list
      (if (seq other-scripts)
        (for [script other-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
           {:editing-hint-script-id editing-hint-script-id
-           :fs-confirmation? (contains? pending-script-names (:script/name script))
            :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
        [:div.no-scripts
         "No other scripts."
@@ -730,7 +697,7 @@
    (when error
      [:div.add-origin-error error])])
 
-(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl settings/auto-reconnect-repl]}]
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled]}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -751,7 +718,16 @@
       "Auto-connect REPL to all pages"]
      [:p.auto-connect-warning
       "Warning: Enabling this will inject the Scittle REPL on every page you visit, "
-      "even tabs never connected before. Only enable if you understand the implications."]]]
+      "even tabs never connected before. Only enable if you understand the implications."]]
+    [:div.auto-connect-setting.fs-repl-sync
+     [:label.checkbox-label
+      [:input#fs-repl-sync {:type "checkbox"
+                            :checked fs-repl-sync-enabled
+                            :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
+      "Enable FS REPL Sync"]
+     [:p.auto-connect-description
+      "Allow connected REPLs to create, modify, and delete userscripts. "
+      "Remember to disable when done editing from the REPL."]]]
    [:div.settings-section
     [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
     [:p.section-description
@@ -875,84 +851,9 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-(defn confirmation-item [confirmation]
-  (let [script-name (aget confirmation "confirm/script-name")
-        operation (aget confirmation "confirm/operation")
-        to-name (aget confirmation "confirm/to-name")
-        key script-name]
-    [:div.confirmation-item {:data-script-name script-name}
-     [:div.confirmation-info
-      [:span.confirmation-op
-       (case operation
-         :delete [:span [icons/trash] " Delete"]
-         :rename [:span [icons/edit] " Rename"]
-         :save-create [:span [icons/plus] " Create"]
-         :save-update [:span [icons/edit] " Update"]
-         [:span "Unknown op"])]
-      [:span.confirmation-details
-       (case operation
-         :delete [:span.script-name script-name]
-         :rename [:span
-                  [:span.script-name script-name]
-                  " → "
-                  [:span.script-name to-name]]
-         :save-create [:span.script-name script-name]
-         :save-update [:span.script-name script-name]
-         script-name)]]
-     [:div.confirmation-actions
-      [view-elements/action-button
-       {:button/variant :secondary
-        :button/class "confirmation-reveal"
-        :button/on-click #(dispatch! [[:popup/ax.reveal-script script-name]])}
-       "Reveal"]
 
-      (when (#{:save-update :rename :delete} operation)
-        [view-elements/action-button
-         {:button/variant :secondary
-          :button/class "confirmation-inspect-from"
-          :button/on-click #(dispatch! [[:popup/ax.inspect-fs-confirmation script-name "from"]])}
-         "Inspect from"])
 
-      (when (#{:save-update :save-create :rename} operation)
-        [view-elements/action-button
-         {:button/variant :secondary
-          :button/class "confirmation-inspect-to"
-          :button/on-click #(dispatch! [[:popup/ax.inspect-fs-confirmation script-name "to"]])}
-         "Inspect to"])
 
-      [view-elements/action-button
-       {:button/variant :success
-        :button/class "confirmation-confirm"
-        :button/on-click #(dispatch! [[:popup/ax.confirm-fs-operation key]])}
-       "Confirm"]
-      [view-elements/action-button
-       {:button/variant :secondary
-        :button/class "confirmation-cancel"
-        :button/on-click #(dispatch! [[:popup/ax.cancel-fs-operation key]])}
-       "Cancel"]]]))
-
-(defn fs-confirmations-section [state]
-  (let [fs-confirmations (:pending/fs-confirmations state)]
-    (when (seq fs-confirmations)
-      [:div.fs-confirmations-section
-       [:div.fs-confirmations-header
-        [icons/alert {:class "warning-icon"}]
-        [:span "Pending Confirmations"]
-        [:div.fs-confirmations-bulk-actions
-         [view-elements/action-button
-          {:button/variant :success
-           :button/class "confirmations-confirm-all"
-           :button/on-click #(dispatch! [[:popup/ax.confirm-all-fs-operations]])}
-          "Confirm all"]
-         [view-elements/action-button
-          {:button/variant :secondary
-           :button/class "confirmations-cancel-all"
-           :button/on-click #(dispatch! [[:popup/ax.cancel-all-fs-operations]])}
-          "Cancel all"]]]
-       [:div.fs-confirmations-list
-        (for [confirmation fs-confirmations]
-          ^{:key (aget confirmation "confirm/script-name")}
-          [confirmation-item confirmation])]])))
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
@@ -964,8 +865,6 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/jack-in {:size 28}]}]
-
-     [fs-confirmations-section state]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
@@ -1015,14 +914,6 @@
      ;; Return false - we don't send async response
      false))
 
-  ;; Listen for FS confirmation changes from background
-  (js/chrome.runtime.onMessage.addListener
-   (fn [message _sender _send-response]
-     (when (= "fs-confirmations-changed" (.-type message))
-       (let [confirmations (.-confirmations message)]
-         (dispatch! [[:db/ax.assoc :pending/fs-confirmations confirmations]])))
-     false))
-
   ;; Listen for storage changes (scripts modified via REPL, panel, etc.)
   (js/chrome.storage.onChanged.addListener
    (fn [changes area]
@@ -1036,8 +927,8 @@
               [:popup/ax.load-user-origins]
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
-              [:popup/ax.load-connections]
-              [:popup/ax.load-fs-confirmations]]))
+              [:popup/ax.load-fs-sync-setting]
+              [:popup/ax.load-connections]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" nil "Script loaded, readyState:" js/document.readyState)

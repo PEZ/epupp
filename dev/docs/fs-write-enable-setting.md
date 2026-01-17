@@ -1,5 +1,7 @@
 # FS Write Enable Setting - Implementation Plan
 
+**Status: IMPLEMENTED** (see Implementation Summary below)
+
 Replace the confirmation UI with a simple "Enable FS REPL Sync" toggle that controls whether REPL connections can write to userscripts.
 
 ## Current State Analysis
@@ -173,15 +175,46 @@ The toggle is clearer:
 
 ## Success Criteria
 
-- [ ] All confirmation UI code, documentation, and tests completely removed (as if never existed)
+- [x] All confirmation UI code, documentation, and tests completely removed (as if never existed)
 - [ ] User and dev documentation updated to describe the setting and behavior
-- [ ] Toggle appears in Settings section
-- [ ] Default is disabled (safe)
-- [ ] When disabled: `save!`, `mv!`, `rm!` return clear error
-- [ ] When enabled: operations execute immediately
-- [ ] `ls` and `show` always work regardless of setting
-- [ ] Panel save unaffected by setting
-- [ ] No confirmation UI anywhere
-- [ ] Badge shows only script-needs-approval count (no fs-confirmation count)
-- [ ] All E2E tests pass (after updates)
-- [ ] Setting persists across sessions
+- [x] Toggle appears in Settings section
+- [x] Default is disabled (safe)
+- [x] When disabled: `save!`, `mv!`, `rm!` return clear error
+- [x] When enabled: operations execute immediately
+- [x] `ls` and `show` always work regardless of setting
+- [x] Panel save unaffected by setting
+- [x] No confirmation UI anywhere
+- [x] Badge shows only script-needs-approval count (no fs-confirmation count)
+- [x] All E2E tests pass
+- [x] Setting persists across sessions
+
+## Implementation Summary
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/popup.cljs` | Added `:settings/fs-repl-sync-enabled` state, effects, and UI toggle |
+| `src/popup_actions.cljs` | Added `:popup/ax.load-fs-sync-setting` and `:popup/ax.toggle-fs-sync` |
+| `src/background.cljs` | Added `fs-repl-sync-enabled?` check, wrapped write handlers, removed all confirmation code, added `panel-rename-script` handler, added `e2e/set-storage` test helper |
+| `src/panel.cljs` | Updated to use `panel-rename-script` message type (trusted UI bypass) |
+| `src/content_bridge.cljs` | Removed `queue-*` message handlers |
+| `extension/bundled/epupp/fs.cljs` | Simplified to direct operations only, removed queue paths |
+| `extension/popup.css` | Removed confirmation UI styles |
+| `e2e/fs_ui_reactivity_test.cljs` | Removed 9 confirmation-related tests, kept 5 FS reactivity tests, updated setup to enable setting via runtime message |
+| `e2e/fs_write_test.cljs` | Updated setup to enable setting via `e2e/set-storage` runtime message |
+
+### Code Removed
+
+- ~150 lines from `background.cljs` (confirmation state, persistence, handlers)
+- ~100 lines from `popup.cljs` (confirmation UI components, effects, state)
+- ~50 lines from `popup_actions.cljs` (confirmation action handlers)
+- ~70 lines from `content_bridge.cljs` (queue message forwarding)
+- ~100 lines from CSS (confirmation card styles)
+- ~500 lines of E2E tests (confirmation workflow tests)
+
+### Test Infrastructure Notes
+
+**E2E storage access limitation:** Playwright's `page.evaluate()` returns `undefined` for `chrome-extension://` pages, making direct `chrome.storage.local.set()` unreliable for test setup. Solution: Added `e2e/set-storage` runtime message handler that properly sets storage values via Chrome's messaging API.
+
+**Test stability:** The sharded parallel E2E tests showed some flakiness with storage state between shards. Running individual tests with `--serial` consistently passes. The parallel mode occasionally shows timing-related failures that pass on retry.

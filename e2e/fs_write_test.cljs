@@ -107,6 +107,8 @@
         (js-await (.goto bg-page
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
+        ;; Enable FS REPL Sync for write tests via runtime message
+        (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
         (let [find-result (js-await (send-runtime-message
                                      bg-page "e2e/find-tab-id"
                                      #js {:urlPattern "http://localhost:*/*"}))]

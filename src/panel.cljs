@@ -232,7 +232,7 @@
     (let [[from-name to-name] args]
       ;; Route through background for centralized FS validation
       (js/chrome.runtime.sendMessage
-       #js {:type "rename-script"
+       #js {:type "panel-rename-script"
             :from from-name
             :to to-name}
        (fn [response]

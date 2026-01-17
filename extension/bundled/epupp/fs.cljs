@@ -1,5 +1,12 @@
- (ns epupp.fs
-  "File system operations for managing userscripts from the REPL.")
+(ns epupp.fs
+  "File system operations for managing userscripts from the REPL.
+
+   Write operations (save!, mv!, rm!) require FS REPL Sync to be enabled in settings.
+   Read operations (ls, show) always work.
+
+   The :fs/force? option enables overwrite behavior (like Unix -f flag):
+   - save! with :fs/force? overwrites existing script with same name
+   - mv! with :fs/force? overwrites target if it exists")
 
 (defonce ^:private !request-id (atom 0))
 
@@ -71,143 +78,95 @@
                  [])))))
 
 (defn save!
-  "Save code(s) to Epupp. Parses manifest from code.
-   Returns promise of result map with :fs/success, :fs/name, :fs/pending-confirmation.
+  "Save code to Epupp. Parses manifest from code.
+   Requires FS REPL Sync to be enabled in settings.
 
-   Opts - :fs/enabled bool - defaults to true
-        - :fs/force?  bool - when true, skip confirmation and clear any pending (default: false)
+   Returns promise of {:fs/success bool :fs/name string :fs/error string?}
 
-   Single mode returns {:fs/success bool :fs/name ... :fs/pending-confirmation bool}
-   Bulk mode returns map of index->{:fs/success ... :fs/name ... :fs/pending-confirmation ...}
+   Opts:
+   - :fs/enabled bool - script enabled state (default: true)
+   - :fs/force?  bool - overwrite existing script with same name (default: false)
 
-   (epupp.fs/save! \"(ns my-script) ...\")
-   (epupp.fs/save! \"(ns my-script) ...\" {:fs/enabled false})
-   (epupp.fs/save! \"(ns my-script) ...\" {:fs/force? true})
-   (epupp.fs/save! [code1 code2])"
+   Examples:
+   (epupp.fs/save! code)
+   (epupp.fs/save! code {:fs/enabled false})
+   (epupp.fs/save! code {:fs/force? true})  ; overwrite existing
+   (epupp.fs/save! [code1 code2])           ; bulk save"
   ([code-or-codes] (save! code-or-codes {}))
   ([code-or-codes opts]
    (let [force? (get opts :fs/force?)
          enabled (get opts :fs/enabled true)]
      (if (vector? code-or-codes)
-       ;; Bulk mode: queue all for confirmation, return map of index->result
-       (let [codes code-or-codes]
-         (-> (js/Promise.all
-               (to-array
-                 (map-indexed (fn [idx code]
-                                (if force?
-                                  (-> (send-and-receive "save-script" {:code code :enabled enabled :force true} "save-script-response")
-                                      (.then ensure-success!)
-                                      (.then (fn [msg]
+       ;; Bulk mode
+       (-> (js/Promise.all
+             (to-array
+               (map-indexed (fn [idx code]
+                              (-> (send-and-receive "save-script" {:code code :enabled enabled :force force?} "save-script-response")
+                                  (.then ensure-success!)
+                                  (.then (fn [msg]
                                            [idx {:fs/success (.-success msg)
-                                             :fs/name (.-name msg)
-                                             :fs/error (.-error msg)}])))
-                                  (-> (send-and-receive "queue-save-script" {:code code :enabled enabled} "queue-save-script-response")
-                                      (.then ensure-success!)
-                                      (.then (fn [msg]
-                                           [idx {:fs/success (.-success msg)
-                                             :fs/pending-confirmation (aget msg "pending-confirmation")
-                                             :fs/name (.-name msg)
-                                             :fs/error (.-error msg)}])))))
-                              codes)))
-             (.then (fn [results]
-                      (into {} results)))))
+                                                 :fs/name (.-name msg)
+                                                 :fs/error (.-error msg)}]))))
+                            code-or-codes)))
+           (.then (fn [results]
+                    (into {} results))))
        ;; Single mode
-       (if force?
-         (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force true} "save-script-response")
-                             (.then ensure-success!)
-             (.then (fn [msg]
-                      {:fs/success (.-success msg)
-                       :fs/name (.-name msg)
-                       :fs/error (.-error msg)})))
-         (-> (send-and-receive "queue-save-script" {:code code-or-codes :enabled enabled} "queue-save-script-response")
-                             (.then ensure-success!)
-             (.then (fn [msg]
-                      {:fs/success (.-success msg)
-                       :fs/pending-confirmation (aget msg "pending-confirmation")
-                       :fs/name (.-name msg)
-                       :fs/error (.-error msg)}))))))))
+       (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force force?} "save-script-response")
+           (.then ensure-success!)
+           (.then (fn [msg]
+                    {:fs/success (.-success msg)
+                     :fs/name (.-name msg)
+                     :fs/error (.-error msg)})))))))
 
 (defn mv!
-  "Rename a script. Returns promise of result map.
-   Opts - :fs/force? bool - when true, skip confirmation and clear pending (default: false)
+  "Rename a script. Requires FS REPL Sync to be enabled in settings.
 
-   Returns {:fs/success bool :fs/pending-confirmation bool :fs/from-name ... :fs/to-name ...}
-   When queued, :fs/success is true (command accepted) and :fs/pending-confirmation is true.
+   Returns promise of {:fs/success bool :fs/from-name ... :fs/to-name ... :fs/error?}
 
-   (epupp.fs/mv! \"old-name.cljs\" \"new-name.cljs\")         ; queues for confirmation
-   (epupp.fs/mv! \"old.cljs\" \"new.cljs\" {:fs/force? true}) ; renames immediately"
+   Opts:
+   - :fs/force? bool - overwrite target if it exists (default: false)
+
+   Examples:
+   (epupp.fs/mv! \"old.cljs\" \"new.cljs\")
+   (epupp.fs/mv! \"old.cljs\" \"existing.cljs\" {:fs/force? true})  ; overwrites"
   ([from-name to-name] (mv! from-name to-name {}))
   ([from-name to-name opts]
    (let [force? (get opts :fs/force?)]
-     (if force?
-       ;; Immediate rename (force clears any pending)
-       (-> (send-and-receive "rename-script" {:from from-name :to to-name :force true} "rename-script-response")
-           (.then ensure-success!)
-           (.then (fn [msg]
-                    {:fs/success (.-success msg)
-                     :fs/from-name from-name
-                     :fs/to-name to-name
-                     :fs/error (.-error msg)})))
-       ;; Queue for confirmation
-       (-> (send-and-receive "queue-rename-script" {:from from-name :to to-name} "queue-rename-script-response")
-           (.then ensure-success!)
-           (.then (fn [msg]
-                    {:fs/success (.-success msg)
-                     :fs/pending-confirmation (aget msg "pending-confirmation")
-                     :fs/from-name from-name
-                     :fs/to-name to-name
-                     :fs/error (.-error msg)})))))))
+     (-> (send-and-receive "rename-script" {:from from-name :to to-name :force force?} "rename-script-response")
+         (.then ensure-success!)
+         (.then (fn [msg]
+                  {:fs/success (.-success msg)
+                   :fs/from-name from-name
+                   :fs/to-name to-name
+                   :fs/error (.-error msg)}))))))
 
 (defn rm!
-  "Delete script(s) by name. Returns promise.
-   Opts - :fs/force? bool - when true, skip confirmation and clear pending (default: false)
+  "Delete script(s) by name. Requires FS REPL Sync to be enabled in settings.
 
-   Returns {:fs/success bool :fs/pending-confirmation bool :fs/name ...}
-   When queued, :fs/success is true (command accepted) and :fs/pending-confirmation is true.
+   Returns promise of {:fs/success bool :fs/name string :fs/error?}
+   Bulk mode returns map of name->{:fs/success ... :fs/error?}
 
-   Bulk mode queues all for confirmation, returns map of name->{:fs/success ... :fs/pending-confirmation ...}
-
-   (epupp.fs/rm! \"my-script.cljs\")                   ; queues for confirmation
-   (epupp.fs/rm! \"my-script.cljs\" {:fs/force? true}) ; deletes immediately
-   (epupp.fs/rm! [\"script1.cljs\" \"script2.cljs\"])    ; queues all for confirmation"
-  ([name-or-names] (rm! name-or-names {}))
-  ([name-or-names opts]
-   (let [force? (get opts :fs/force?)]
-     (if (vector? name-or-names)
-       ;; Bulk mode: queue all for confirmation (or force all)
-       (let [names name-or-names]
-         (-> (js/Promise.all
-               (to-array
-                 (map (fn [n]
-                        (if force?
-                          (-> (send-and-receive "delete-script" {:name n :force true} "delete-script-response")
-                            (.then ensure-success!)
-                            (.then (fn [msg]
-                                 [n {:fs/success (.-success msg)
-                                   :fs/error (.-error msg)}])))
-                          (-> (send-and-receive "queue-delete-script" {:name n} "queue-delete-script-response")
-                            (.then ensure-success!)
-                            (.then (fn [msg]
-                                 [n {:fs/success (.-success msg)
-                                   :fs/pending-confirmation (aget msg "pending-confirmation")
-                                   :fs/error (.-error msg)}])))))
-                      names)))
-             (.then (fn [results]
-                      (into {} results)))))
-       ;; Single mode
-       (if force?
-         ;; Immediate delete (force clears any pending)
-         (-> (send-and-receive "delete-script" {:name name-or-names :force true} "delete-script-response")
-                   (.then ensure-success!)
-             (.then (fn [msg]
-                      {:fs/success (.-success msg)
-                       :fs/name name-or-names
-                       :fs/error (.-error msg)})))
-         ;; Queue for confirmation
-         (-> (send-and-receive "queue-delete-script" {:name name-or-names} "queue-delete-script-response")
-                   (.then ensure-success!)
-             (.then (fn [msg]
-                      {:fs/success (.-success msg)
-                      :fs/pending-confirmation (aget msg "pending-confirmation")
-                       :fs/name name-or-names
-                       :fs/error (.-error msg)}))))))))
+   Examples:
+   (epupp.fs/rm! \"my-script.cljs\")
+   (epupp.fs/rm! [\"script1.cljs\" \"script2.cljs\"])"
+  [name-or-names]
+  (if (vector? name-or-names)
+    ;; Bulk mode
+    (-> (js/Promise.all
+          (to-array
+            (map (fn [n]
+                   (-> (send-and-receive "delete-script" {:name n} "delete-script-response")
+                       (.then ensure-success!)
+                       (.then (fn [msg]
+                                [n {:fs/success (.-success msg)
+                                    :fs/error (.-error msg)}]))))
+                 name-or-names)))
+        (.then (fn [results]
+                 (into {} results))))
+    ;; Single mode
+    (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
+        (.then ensure-success!)
+        (.then (fn [msg]
+                 {:fs/success (.-success msg)
+                  :fs/name name-or-names
+                  :fs/error (.-error msg)})))))

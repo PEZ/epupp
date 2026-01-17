@@ -26,7 +26,7 @@
 
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
 ;; The init-promise ensures all operations wait for storage to load.
-(declare prune-icon-states! load-pending-fs-confirmations!)
+(declare prune-icon-states!)
 
 (def !init-promise (atom nil))
 
@@ -40,7 +40,6 @@
               ;; Set test-mode flag in storage for non-bundled scripts (userscript-loader.js)
               (js-await (test-logger/init-test-mode!))
               (js-await (storage/init!))
-              (js-await (load-pending-fs-confirmations!))
               ;; Ensure built-in userscripts are installed
               (js-await (storage/ensure-gist-installer!))
               ;; Sync content script registrations for early-timing scripts
@@ -70,7 +69,6 @@
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
-                   :pending/fs-confirmations {} ; script-name -> confirmation record
                    :icon/states {}      ; tab-id -> :disconnected | :injected | :connected
                    :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
@@ -266,22 +264,15 @@
                                   url-matching/get-matching-pattern
                                   storage/pattern-approved?))
 
-(defn get-fs-confirmations
-  "Get all pending filesystem confirmations."
-  []
-  (vals (:pending/fs-confirmations @!state)))
-
 (defn update-badge-for-tab!
-  "Update badge based on pending count for a specific tab's URL."
+  "Update badge based on pending script approvals for a specific tab's URL."
   [tab-id]
   (js/chrome.tabs.get tab-id
                       (fn [tab]
                         (when-not js/chrome.runtime.lastError
                           (let [url (.-url tab)
-                                pending-count (count-pending-for-url url)
-                                fs-count (count (get-fs-confirmations))
-                                n (+ pending-count fs-count)]
-                            (set-badge! n))))))
+                                pending-count (count-pending-for-url url)]
+                            (set-badge! pending-count))))))
 
 (defn ^:async update-badge-for-active-tab!
   "Update badge based on pending count for the active tab."
@@ -310,102 +301,6 @@
                 (storage/pattern-approved? script pattern))
         (swap! !state update :pending/approvals dissoc approval-id))))
   (update-badge-for-active-tab!))
-
-;; ============================================================
-;; Pending FS Confirmation Management
-;; ============================================================
-
-(def ^:private pending-fs-confirmations-storage-key "pendingFsConfirmations")
-
-(defn persist-pending-fs-confirmations!
-  "Persist pending filesystem confirmations to chrome.storage.local.
-   Best-effort - ignores errors."
-  []
-  (let [confirmations (:pending/fs-confirmations @!state)
-        payload #js {}]
-    (aset payload pending-fs-confirmations-storage-key confirmations)
-    (js/chrome.storage.local.set
-     payload
-     (fn []
-       ;; Ignore errors - if storage isn't available we'll just lose pending confirmations
-       (when js/chrome.runtime.lastError nil)))))
-
-(defn ^:async load-pending-fs-confirmations!
-  "Load persisted pending filesystem confirmations from chrome.storage.local.
-   Always sets :pending/fs-confirmations to an object (possibly empty)."
-  []
-  (let [result (js-await (js/chrome.storage.local.get #js [pending-fs-confirmations-storage-key]))
-        loaded (aget result pending-fs-confirmations-storage-key)]
-    (swap! !state assoc :pending/fs-confirmations (or loaded #js {}))))
-
-(defn add-fs-confirmation!
-  "Add a pending filesystem operation confirmation.
-   Keyed by script-name - subsequent ops on same script replace existing."
-  [script-name operation-type details]
-  (swap! !state assoc-in [:pending/fs-confirmations script-name]
-         (merge {:confirm/script-name script-name
-                 :confirm/operation operation-type
-                 :confirm/timestamp (.now js/Date)}
-                details))
-  (persist-pending-fs-confirmations!)
-  (update-badge-for-active-tab!))
-
-(defn remove-fs-confirmation!
-  "Remove a pending filesystem confirmation by script name."
-  [script-name]
-  (swap! !state update :pending/fs-confirmations dissoc script-name)
-  (persist-pending-fs-confirmations!)
-  (update-badge-for-active-tab!))
-
-(defn broadcast-fs-confirmations-changed!
-  "Notify popup/panel that pending confirmations have changed.
-   Fire-and-forget: popup/panel may not be open."
-  []
-  (let [confirmations (get-fs-confirmations)]
-    (js/chrome.runtime.sendMessage
-     (clj->js {:type "fs-confirmations-changed"
-               :confirmations confirmations})
-     (fn [_response]
-       ;; Ignore errors - expected when no popup/panel is open
-       (when js/chrome.runtime.lastError nil)))))
-
-(defn- cancel-pending-fs-confirmations-for-scripts!
-  "Cancel pending confirmations when scripts are removed or change in storage."
-  [changes]
-  (let [scripts-change (.-scripts changes)
-        old-scripts (script-utils/parse-scripts (or (.-oldValue scripts-change) []))
-        new-scripts (script-utils/parse-scripts (or (.-newValue scripts-change) []))
-        old-by-name (into {} (map (fn [script] [(:script/name script) script]) old-scripts))
-        new-by-name (into {} (map (fn [script] [(:script/name script) script]) new-scripts))
-        ;; Only cancel confirmations when user-facing manifest fields change.
-        ;; Internal metadata like :script/enabled should NOT trigger cancellation.
-        names-to-cancel (keep (fn [[name old-script]]
-                                (let [new-script (get new-by-name name)
-                                      changed? (or (nil? new-script)
-                                                   (not= (:script/code old-script)
-                                                         (:script/code new-script))
-                                                   (not= (:script/match old-script)
-                                                         (:script/match new-script))
-                                                   (not= (:script/run-at old-script)
-                                                         (:script/run-at new-script))
-                                                   (not= (:script/require old-script)
-                                                         (:script/require new-script))
-                                                   (not= (:script/description old-script)
-                                                         (:script/description new-script)))]
-                                  (when (and changed?
-                                             (get (:pending/fs-confirmations @!state) name))
-                                    name)))
-                              old-by-name)]
-    (when (seq names-to-cancel)
-      (swap! !state update :pending/fs-confirmations
-             (fn [confirmations]
-               (reduce (fn [acc name]
-                         (dissoc acc name))
-                       confirmations
-                       names-to-cancel)))
-      (persist-pending-fs-confirmations!)
-      (broadcast-fs-confirmations-changed!)
-      (update-badge-for-active-tab!))))
 
 ;; ============================================================
 ;; Toolbar Icon State Management
@@ -857,6 +752,18 @@
           ;; Default to true if not set
           (resolve (if (some? value) value true))))))))
 
+(defn ^:async fs-repl-sync-enabled?
+  "Check if FS REPL Sync is enabled in settings.
+   Returns true if enabled, false otherwise (defaults to false)."
+  []
+  (js/Promise.
+   (fn [resolve]
+     (js/chrome.storage.local.get
+      #js ["fsReplSyncEnabled"]
+      (fn [result]
+        (let [value (.-fsReplSyncEnabled result)]
+          (resolve (boolean value))))))))
+
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
   [tab-id]
@@ -960,34 +867,38 @@
 
                     ;; Page context saves script code via epupp/save!
                     "save-script"
-                    (let [code (.-code message)
-                          enabled (if (some? (.-enabled message)) (.-enabled message) true)
-                          force? (.-force message)]
-                      (try
-                        (let [manifest (manifest-parser/extract-manifest code)
-                              raw-name (get manifest "script-name")
-                              normalized-name (when raw-name
-                                                (script-utils/normalize-script-name raw-name))
-                              site-match (get manifest "site-match")
-                              requires (get manifest "require")
-                              run-at (script-utils/normalize-run-at (get manifest "run-at"))]
-                          (if-not normalized-name
-                            (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
-                            (let [existing (storage/get-script-by-name normalized-name)
-                                  script-id (or (:script/id existing)
-                                                (str "script-" (.now js/Date)))
-                                  script {:script/id script-id
-                                          :script/name normalized-name
-                                          :script/code code
-                                          :script/match (if (vector? site-match) site-match [site-match])
-                                          :script/require (or requires [])
-                                          :script/enabled enabled
-                                          :script/run-at run-at
-                                          :script/force? force?}]
-                              (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
-                        (catch :default err
-                          (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
-                      false)
+                    (do
+                      ((^:async fn []
+                         (if-not (js-await (fs-repl-sync-enabled?))
+                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
+                           (let [code (.-code message)
+                                 enabled (if (some? (.-enabled message)) (.-enabled message) true)
+                                 force? (.-force message)]
+                             (try
+                               (let [manifest (manifest-parser/extract-manifest code)
+                                     raw-name (get manifest "script-name")
+                                     normalized-name (when raw-name
+                                                       (script-utils/normalize-script-name raw-name))
+                                     site-match (get manifest "site-match")
+                                     requires (get manifest "require")
+                                     run-at (script-utils/normalize-run-at (get manifest "run-at"))]
+                                 (if-not normalized-name
+                                   (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+                                   (let [existing (storage/get-script-by-name normalized-name)
+                                         script-id (or (:script/id existing)
+                                                       (str "script-" (.now js/Date)))
+                                         script {:script/id script-id
+                                                 :script/name normalized-name
+                                                 :script/code code
+                                                 :script/match (if (vector? site-match) site-match [site-match])
+                                                 :script/require (or requires [])
+                                                 :script/enabled enabled
+                                                 :script/run-at run-at
+                                                 :script/force? force?}]
+                                     (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
+                               (catch :default err
+                                 (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
+                      true) ; Return true - response will be sent asynchronously
 
                     ;; Panel saves script with pre-built script object
                     "panel-save-script"
@@ -1006,184 +917,32 @@
                         (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
                       false)
 
-                    ;; Queue save for confirmation (from save! without :fs/force?)
-                    "queue-save-script"
-                    (let [code (.-code message)
-                          enabled (if (some? (.-enabled message)) (.-enabled message) true)]
-                      (try
-                        (let [manifest (manifest-parser/extract-manifest code)
-                              raw-name (get manifest "script-name")
-                              normalized-name (when raw-name
-                                                (script-utils/normalize-script-name raw-name))
-                              site-match (get manifest "site-match")
-                              requires (get manifest "require")]
-                          (if-not normalized-name
-                            (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
-                            (let [existing (storage/get-script-by-name normalized-name)
-                                  is-update? (boolean existing)
-                                  script-id (or (:script/id existing)
-                                                (str "script-" (.now js/Date)))
-                                  script-data {:script/id script-id
-                                               :script/name normalized-name
-                                               :script/code code
-                                               :script/match (if (vector? site-match) site-match [site-match])
-                                               :script/require (or requires [])
-                                               :script/enabled enabled}]
-                              ;; Queue the save for confirmation
-                              (add-fs-confirmation! normalized-name
-                                                    (if is-update? :save-update :save-create)
-                                                    {:confirm/script-id script-id
-                                                     :confirm/script-data script-data
-                                                     :confirm/is-update? is-update?})
-                              (broadcast-fs-confirmations-changed!)
-                              (send-response #js {:success true
-                                                  :pending-confirmation true
-                                                  :name normalized-name
-                                                  :is-update is-update?}))))
-                        (catch :default err
-                          (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
-                      false)
-
-                    ;; Page context renames script via epupp/mv!
-                    "rename-script"
+                    ;; Panel renames script - trusted, no setting check
+                    "panel-rename-script"
                     (let [from-name (.-from message)
                           to-name (.-to message)]
                       (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])
                       false)
 
-                    ;; Page context deletes script via epupp/rm!
-                    "delete-script"
-                    (let [script-name (.-name message)]
-                      (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.delete-script script-name])
-                      false)
-
-                    ;; Queue delete for confirmation (from rm! with default :confirm true)
-                    "queue-delete-script"
-                    (let [script-name (.-name message)
-                          script (storage/get-script-by-name script-name)]
-                      (if-not script
-                        (send-response #js {:success false :error (str "Script not found: " script-name)})
-                        (if (script-utils/builtin-script-id? (:script/id script))
-                          (send-response #js {:success false :error "Cannot delete built-in scripts"})
-                          (do
-                            (add-fs-confirmation! script-name :delete {:confirm/script-id (:script/id script)})
-                            (broadcast-fs-confirmations-changed!)
-                            (send-response #js {:success true
-                                                :pending-confirmation true
-                                                :name script-name}))))
-                      false)
-
-                    ;; Queue rename for confirmation (from mv! with default :confirm true)
-                    "queue-rename-script"
-                    (let [from-name (.-from message)
-                          to-name (.-to message)
-                          script (storage/get-script-by-name from-name)]
-                      (if-not script
-                        (send-response #js {:success false :error (str "Script not found: " from-name)})
-                        (if (script-utils/builtin-script-id? (:script/id script))
-                          (send-response #js {:success false :error "Cannot rename built-in scripts"})
-                          (do
-                            ;; Key by from-name so subsequent renames replace
-                            (add-fs-confirmation! from-name :rename {:confirm/script-id (:script/id script)
-                                                                     :confirm/to-name to-name})
-                            (broadcast-fs-confirmations-changed!)
-                            (send-response #js {:success true
-                                                :pending-confirmation true
-                                                :from-name from-name
-                                                :to-name to-name}))))
-                      false)
-
-                    ;; Confirm a pending FS operation (execute it)
-                    "confirm-fs-operation"
-                    (let [key (.-key message)
-                          confirmation (get (:pending/fs-confirmations @!state) key)]
-                      (if-not confirmation
-                        (send-response #js {:success false :error "No pending confirmation found"})
-                        (let [op (:confirm/operation confirmation)]
-                          (case op
-                            :delete (do
-                                      (storage/delete-script! (:confirm/script-id confirmation))
-                                      (remove-fs-confirmation! key)
-                                      (broadcast-fs-confirmations-changed!)
-                                      (send-response #js {:success true :operation "delete" :name key}))
-                            :rename (do
-                                      (storage/rename-script! (:confirm/script-id confirmation) (:confirm/to-name confirmation))
-                                      (remove-fs-confirmation! key)
-                                      (broadcast-fs-confirmations-changed!)
-                                      (send-response #js {:success true :operation "rename"
-                                                          :from-name (:confirm/script-name confirmation)
-                                                          :to-name (:confirm/to-name confirmation)}))
-                            :save-update (do
-                                           (storage/save-script! (:confirm/script-data confirmation))
-                                           (remove-fs-confirmation! key)
-                                           (broadcast-fs-confirmations-changed!)
-                                           (send-response #js {:success true :operation "save-update"
-                                                               :name (:confirm/script-name confirmation)}))
-                            :save-create (do
-                                           (storage/save-script! (:confirm/script-data confirmation))
-                                           (remove-fs-confirmation! key)
-                                           (broadcast-fs-confirmations-changed!)
-                                           (send-response #js {:success true :operation "save-create"
-                                                               :name (:confirm/script-name confirmation)}))
-                            (send-response #js {:success false :error (str "Unknown operation: " op)}))))
-                      false)
-
-                    ;; Confirm ALL pending FS operations
-                    "confirm-all-fs-operations"
-                    (let [keys (js/Object.keys (:pending/fs-confirmations @!state))
-                          results #js []]
-                      (loop [idx 0]
-                        (when (< idx (.-length keys))
-                          (let [key (aget keys idx)
-                                confirmation (get (:pending/fs-confirmations @!state) key)]
-                            (when confirmation
-                              (try
-                                (let [op (:confirm/operation confirmation)]
-                                  (case op
-                                    :delete (storage/delete-script! (:confirm/script-id confirmation))
-                                    :rename (storage/rename-script! (:confirm/script-id confirmation) (:confirm/to-name confirmation))
-                                    :save-update (storage/save-script! (:confirm/script-data confirmation))
-                                    :save-create (storage/save-script! (:confirm/script-data confirmation))
-                                    (throw (js/Error. (str "Unknown operation: " op))))
-                                  (remove-fs-confirmation! key)
-                                  (.push results #js {:key key :success true :operation (str op)}))
-                                (catch :default err
-                                  ;; Best-effort: keep confirmation pending on error
-                                  (.push results #js {:key key :success false :error (.-message err)})))))
-                          (recur (inc idx))))
-                      (broadcast-fs-confirmations-changed!)
-                      (send-response #js {:success true :results results})
-                      false)
-
-                    ;; Cancel a pending FS operation
-                    "cancel-fs-operation"
-                    (let [key (.-key message)]
-                      (if-not (get (:pending/fs-confirmations @!state) key)
-                        (send-response #js {:success false :error "No pending confirmation found"})
-                        (do
-                          (remove-fs-confirmation! key)
-                          (broadcast-fs-confirmations-changed!)
-                          (send-response #js {:success true :cancelled key})))
-                      false)
-
-                    ;; Cancel ALL pending FS operations
-                    "cancel-all-fs-operations"
-                    (do
-                      (swap! !state assoc :pending/fs-confirmations #js {})
-                      (persist-pending-fs-confirmations!)
-                      (broadcast-fs-confirmations-changed!)
-                      (update-badge-for-active-tab!)
-                      (send-response #js {:success true})
-                      false)
-
-                    ;; Popup/Panel requests current pending confirmations
-                    "get-fs-confirmations"
+                    ;; Page context renames script via epupp/mv!
+                    "rename-script"
                     (do
                       ((^:async fn []
-                         (js-await (ensure-initialized!))
-                         (let [confirmations (get-fs-confirmations)]
-                           (send-response (clj->js {:success true
-                                                    :confirmations confirmations})))))
+                         (if-not (js-await (fs-repl-sync-enabled?))
+                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
+                           (let [from-name (.-from message)
+                                 to-name (.-to message)]
+                             (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])))))
+                      true)
+
+                    ;; Page context deletes script via epupp/rm!
+                    "delete-script"
+                    (do
+                      ((^:async fn []
+                         (if-not (js-await (fs-repl-sync-enabled?))
+                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
+                           (let [script-name (.-name message)]
+                             (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.delete-script script-name])))))
                       true)
 
                     ;; Page context requests script code by name via epupp/cat
@@ -1296,6 +1055,25 @@
                            (if key
                              (let [result (js-await (js/chrome.storage.local.get #js [key]))]
                                (send-response #js {:success true :key key :value (aget result key)}))
+                             (send-response #js {:success false :error "Missing key"}))))
+                        true)
+                      (do
+                        (send-response #js {:success false :error "Not available"})
+                        false))
+
+                    "e2e/set-storage"
+                    (if (.-dev config)
+                      (let [key (.-key message)
+                            value (.-value message)]
+                        ((^:async fn []
+                           (if key
+                             (do
+                               (js-await (js/Promise.
+                                          (fn [resolve]
+                                            (js/chrome.storage.local.set
+                                             (js-obj key value)
+                                             resolve))))
+                               (send-response #js {:success true :key key :value value}))
                              (send-response #js {:success false :error "Missing key"}))))
                         true)
                       (do
@@ -1572,7 +1350,6 @@
                   (log/info "Background" nil "Scripts changed, syncing registrations")
                   ((^:async fn []
                      (js-await (ensure-initialized!))
-                     (cancel-pending-fs-confirmations-for-scripts! changes)
                      (js-await (registration/sync-registrations!)))))))
 
 (.addListener js/chrome.runtime.onInstalled
