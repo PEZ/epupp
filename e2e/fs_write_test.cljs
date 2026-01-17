@@ -632,6 +632,101 @@
     (js-await (assert-no-errors! popup))
     (js-await (.close popup))))
 
+;; ============== Bug fix test: mv! rejects duplicate names ==============
+
+(defn- ^:async test_mv_rejects_when_target_name_exists []
+  ;; Create two scripts with different names
+  (let [code1 "{:epupp/script-name \"mv-collision-source\"
+               :epupp/site-match \"https://example.com/*\"}
+              (ns collision-source)"
+        code2 "{:epupp/script-name \"mv-collision-target\"
+               :epupp/site-match \"https://example.com/*\"}
+              (ns collision-target)"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !collision-setup (atom :pending))
+                                     (-> (js/Promise.all
+                                           #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})
+                                                (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])
+                                       (.then (fn [_] (reset! !collision-setup :done))))
+                                     :setup-started")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  ;; Wait for setup
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-setup)"))]
+        (when (or (not (.-success check-result))
+                  (empty? (.-values check-result))
+                  (= (first (.-values check-result)) ":pending"))
+          (when (< (- (.now js/Date) start) timeout-ms)
+            (js-await (sleep 50))
+            (recur))))))
+
+
+  ;; Now try to rename source to target - should fail since target exists
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !collision-mv-result (atom :pending))
+                                (-> (epupp.fs/mv! \"mv_collision_source.cljs\" \"mv_collision_target.cljs\" {:fs/force? true})
+                                  (.then (fn [r] (reset! !collision-mv-result {:resolved r})))
+                                  (.catch (fn [e] (reset! !collision-mv-result {:rejected (.-message e)}))))
+                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-mv-result)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            ;; Should be rejected because target already exists
+            (-> (expect (.includes result-str "rejected"))
+                (.toBe true))
+            (-> (expect (or (.includes result-str "already exists")
+                            (.includes result-str "Script already exists")))
+                (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for collision mv! result"))
+            (do
+              (js-await (sleep 50))
+              (recur)))))))
+
+  ;; Verify both scripts still exist (no data corruption)
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !collision-ls (atom :pending))
+                                (-> (epupp.fs/ls)
+                                  (.then (fn [scripts] (reset! !collision-ls scripts))))
+                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-ls)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            ;; Both scripts should still exist
+            (-> (expect (.includes result-str "mv_collision_source.cljs"))
+                (.toBe true))
+            (-> (expect (.includes result-str "mv_collision_target.cljs"))
+                (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls after collision test"))
+            (do
+              (js-await (sleep 50))
+              (recur)))))))
+
+  ;; Cleanup
+  (js-await (eval-in-browser
+             "(-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\" {:fs/force? true})
+                                      (epupp.fs/rm! \"mv_collision_target.cljs\" {:fs/force? true})])
+                (.then (fn [_] :cleaned-up)))"))
+  (js-await (sleep 100)))
+
 (.describe test "REPL File System - Write Operations"
            (fn []
              (.beforeAll test (fn [] (setup-browser!)))
@@ -655,6 +750,9 @@
 
              (test "epupp.fs/mv! with {:fs/force? true} returns result with :fs/from-name and :fs/to-name"
                    test_mv_with_force_returns_from_and_to_names)
+
+             (test "epupp.fs/mv! rejects rename when target name already exists"
+                   test_mv_rejects_when_target_name_exists)
 
              (test "epupp.fs/rm! deletes a script"
                    test_rm_deletes_a_script)

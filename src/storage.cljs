@@ -27,7 +27,7 @@
 ;; Persistence helpers
 ;; ============================================================
 
-(defn- persist!
+(defn persist!
   "Write current !db state to chrome.storage.local"
   []
   (let [{:storage/keys [scripts granted-origins user-allowed-origins]} @!db]

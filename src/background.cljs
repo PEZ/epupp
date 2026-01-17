@@ -10,7 +10,8 @@
             [test-logger :as test-logger]
             [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
-            [log :as log]))
+            [log :as log]
+            [background-actions :as bg-actions]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
@@ -58,6 +59,51 @@
                 (throw err)))]
       (reset! !init-promise (js/Promise.resolve p))
       p)))
+
+;; ============================================================
+;; Uniflow FS Action Dispatch
+;; ============================================================
+
+(defn- perform-fs-effect!
+  "Execute FS effects. Called by dispatch-fs-action! after pure handler runs."
+  [send-response [effect & args]]
+  (case effect
+    :storage/fx.persist!
+    (let [[new-scripts] args]
+      ;; Update storage atom and persist
+      (swap! storage/!db assoc :storage/scripts new-scripts)
+      (storage/persist!))
+
+    :bg/fx.broadcast-scripts-changed!
+    nil ; Storage onChanged listener handles UI updates automatically
+
+    :bg/fx.send-response
+    (let [[response-data] args]
+      (send-response (clj->js response-data)))
+
+    (log/warn "Background" nil "Unknown FS effect:" effect)))
+
+(defn dispatch-fs-action!
+  "Dispatch an FS action through pure handler, then execute effects.
+   Bridges the pure Uniflow pattern with storage side effects."
+  [send-response action]
+  (let [state {:storage/scripts (storage/get-scripts)}
+        uf-data {:system/now (.now js/Date)}
+        result (bg-actions/handle-action state uf-data action)
+        {:uf/keys [db fxs]} result]
+    ;; Execute effects
+    (doseq [fx fxs]
+      (case (first fx)
+        :storage/fx.persist!
+        (when db
+          ;; Pass the new scripts from db to the effect
+          (perform-fs-effect! send-response [:storage/fx.persist! (:storage/scripts db)]))
+
+        :bg/fx.send-response
+        (perform-fs-effect! send-response fx)
+
+        ;; Other effects pass through
+        (perform-fs-effect! send-response fx)))))
 
 ;; ============================================================
 ;; State - WebSocket connections and pending approvals
@@ -960,14 +1006,16 @@
                     ;; Page context saves script code via epupp/save!
                     "save-script"
                     (let [code (.-code message)
-                          enabled (if (some? (.-enabled message)) (.-enabled message) true)]
+                          enabled (if (some? (.-enabled message)) (.-enabled message) true)
+                          force? (.-force message)]
                       (try
                         (let [manifest (manifest-parser/extract-manifest code)
                               raw-name (get manifest "script-name")
                               normalized-name (when raw-name
                                                 (script-utils/normalize-script-name raw-name))
                               site-match (get manifest "site-match")
-                              requires (get manifest "require")]
+                              requires (get manifest "require")
+                              run-at (script-utils/normalize-run-at (get manifest "run-at"))]
                           (if-not normalized-name
                             (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
                             (let [existing (storage/get-script-by-name normalized-name)
@@ -978,9 +1026,10 @@
                                           :script/code code
                                           :script/match (if (vector? site-match) site-match [site-match])
                                           :script/require (or requires [])
-                                          :script/enabled enabled}]
-                              (storage/save-script! script)
-                              (send-response #js {:success true :name normalized-name}))))
+                                          :script/enabled enabled
+                                          :script/run-at run-at
+                                          :script/force? force?}]
+                              (dispatch-fs-action! send-response [:fs/ax.save-script script]))))
                         (catch :default err
                           (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
                       false)
@@ -1026,28 +1075,14 @@
                     ;; Page context renames script via epupp/mv!
                     "rename-script"
                     (let [from-name (.-from message)
-                          to-name (.-to message)
-                          script (storage/get-script-by-name from-name)]
-                      (if-not script
-                        (send-response #js {:success false :error (str "Script not found: " from-name)})
-                        (if (script-utils/builtin-script-id? (:script/id script))
-                          (send-response #js {:success false :error "Cannot rename built-in scripts"})
-                          (do
-                            (storage/rename-script! (:script/id script) to-name)
-                            (send-response #js {:success true}))))
+                          to-name (.-to message)]
+                      (dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])
                       false)
 
                     ;; Page context deletes script via epupp/rm!
                     "delete-script"
-                    (let [script-name (.-name message)
-                          script (storage/get-script-by-name script-name)]
-                      (if-not script
-                        (send-response #js {:success false :error (str "Script not found: " script-name)})
-                        (if (script-utils/builtin-script-id? (:script/id script))
-                          (send-response #js {:success false :error "Cannot delete built-in scripts"})
-                          (do
-                            (storage/delete-script! (:script/id script))
-                            (send-response #js {:success true}))))
+                    (let [script-name (.-name message)]
+                      (dispatch-fs-action! send-response [:fs/ax.delete-script script-name])
                       false)
 
                     ;; Queue delete for confirmation (from rm! with default :confirm true)
