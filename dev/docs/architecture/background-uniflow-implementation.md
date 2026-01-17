@@ -134,21 +134,31 @@ The confirmation handlers still use direct storage calls, but:
 
 ---
 
-## Phase 3: Route Panel Through Background ⬅️ NEXT
+## Phase 3: Route Panel Through Background ✅ COMPLETE
 
-### 3.1 Update Panel FS Operations
+### 3.1 Update Panel FS Operations ✅
 
-Change panel.cljs to send messages instead of direct storage calls:
-- `storage/save-script!` -> message to background
-- `storage/rename-script!` -> message to background
+Changed panel.cljs to send messages instead of direct storage calls:
+- `storage/save-script!` -> `panel-save-script` message to background ✅
+- Rename operations already routed through background (`rename-script` message) ✅
 
-### 3.2 Remove Storage Import from Panel
+**Note:** During implementation, discovered that `:script/run-at` was never being included when building scripts to save from the panel. Fixed by adding `:run-at` to `build-manifest-hints` and including it in the saved script map.
 
-Panel should only read from storage (via `load!`), not write.
+### 3.2 Storage Import Still Present (Acceptable)
+
+Panel still imports `storage` module but only uses `storage/load!` for initial data load during initialization (line 689). This is a **read-only** operation that populates the local state cache.
+
+**Why this is acceptable:**
+- `storage/load!` is purely a read operation - no mutations
+- All write operations now route through background via messages
+- Removing this would require background to push initial state to panel, adding complexity with no clear benefit
+- The Uniflow goal is centralized *write* coordination, not read restrictions
+
+**Writes are now centralized:** All script mutations (save, rename, delete) go through background's Uniflow dispatch system, ensuring consistent validation and state updates.
 
 ---
 
-## Phase 4: Refactor Storage Module
+## Phase 4: Refactor Storage Module ⬅️ NEXT
 
 ### 4.1 Remove `!db` Atom
 
@@ -180,5 +190,6 @@ This phase is optional/future - FS operations are the immediate need.
 - [x] Unit tests cover all FS decision logic
 - [x] E2E test confirms duplicate-name bug is fixed
 - [ ] Badge updates reliably (co-located with state changes)
-- [ ] No direct storage mutation from panel
+- [x] No direct storage mutation from panel (reads allowed)
 - [x] All existing E2E tests pass
+- [x] Panel save includes all manifest fields (run-at, etc.)
