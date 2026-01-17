@@ -884,9 +884,10 @@
                                      run-at (script-utils/normalize-run-at (get manifest "run-at"))]
                                  (if-not normalized-name
                                    (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
-                                   (let [existing (storage/get-script-by-name normalized-name)
-                                         script-id (or (:script/id existing)
-                                                       (str "script-" (.now js/Date)))
+                                   ;; Always use fresh ID for REPL saves - the action handler
+                                   ;; will decide if this is a create (reject if exists, no force)
+                                   ;; or overwrite (allow if force flag is set)
+                                   (let [script-id (str "script-" (.now js/Date))
                                          script {:script/id script-id
                                                  :script/name normalized-name
                                                  :script/code code

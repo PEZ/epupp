@@ -136,6 +136,28 @@
        vec))
 
 ;; ============================================================
+;; Script name normalization
+;; ============================================================
+
+(defn normalize-script-name
+  "Normalize a script name to a consistent format for uniqueness.
+   - Lowercase
+   - Replace spaces, dashes, and dots with underscores
+   - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
+   - Append .cljs extension
+   - Remove invalid characters"
+  [input-name]
+  (let [;; Strip .cljs extension if present (we'll add it back)
+        base-name (if (.endsWith input-name ".cljs")
+                    (.slice input-name 0 -5)
+                    input-name)]
+    (-> base-name
+        (.toLowerCase)
+        (.replace (js/RegExp. "[\\s.-]+" "g") "_")
+        (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
+        (str ".cljs"))))
+
+;; ============================================================
 ;; Built-in script detection
 ;; ============================================================
 
@@ -150,6 +172,14 @@
   "Check if a script is a built-in script by ID prefix."
   [script]
   (builtin-script-id? (:script/id script)))
+
+(defn name-matches-builtin?
+  "Check if a normalized script name matches any builtin script's normalized name.
+   Used to prevent creating scripts with names that would shadow builtins."
+  [scripts script-name]
+  (let [builtins (filter builtin-script? scripts)]
+    (some #(= script-name (normalize-script-name (:script/name %)))
+          builtins)))
 
 ;; ============================================================
 ;; Script ID generation
@@ -175,28 +205,6 @@
     (string? match) [match]
     (vector? match) match
     :else (vec match)))
-
-;; ============================================================
-;; Script name normalization
-;; ============================================================
-
-(defn normalize-script-name
-  "Normalize a script name to a consistent format for uniqueness.
-   - Lowercase
-   - Replace spaces, dashes, and dots with underscores
-   - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
-   - Append .cljs extension
-   - Remove invalid characters"
-  [input-name]
-  (let [;; Strip .cljs extension if present (we'll add it back)
-        base-name (if (.endsWith input-name ".cljs")
-                    (.slice input-name 0 -5)
-                    input-name)]
-    (-> base-name
-        (.toLowerCase)
-        (.replace (js/RegExp. "[\\s.-]+" "g") "_")
-        (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
-        (str ".cljs"))))
 
 ;; ============================================================
 ;; URL to match pattern conversion
@@ -237,6 +245,7 @@
            :get_required_origins get-required-origins
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
+           :name_matches_builtin_QMARK_ name-matches-builtin?
            :generate_script_id generate-script-id
            :normalize_script_name normalize-script-name
            :normalize_match_patterns normalize-match-patterns

@@ -128,6 +128,10 @@
           (and existing-by-name (script-utils/builtin-script? existing-by-name))
           (make-error-response "Cannot overwrite built-in scripts")
 
+          ;; Trying to save with a name that would shadow a builtin (via normalization)
+          (script-utils/name-matches-builtin? scripts script-name)
+          (make-error-response "Cannot overwrite built-in scripts")
+
           ;; Name collision on create (different ID, same name, no force)
           (and (not is-update?)
                existing-by-name

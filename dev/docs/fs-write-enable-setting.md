@@ -11,37 +11,30 @@ The core infrastructure is in place:
 - `ls` and `show` always work regardless of setting
 - Panel save bypasses setting (trusted UI)
 
-## Outstanding Bugs
+## Fixed Bugs
 
-### BUG: `save!` allows overwriting built-in scripts
+### FIXED: `save!` allows overwriting built-in scripts
 
 **Severity:** High - security issue
 
-**Problem:** When calling `(save! "GitHub Gist Installer (Built-in)" code)`, the name gets normalized to `"github_gist_installer_built_in.cljs"` before reaching the action handler. The handler then can't match it against the builtin's display name, so protection is bypassed.
+**Problem:** When calling `(save! "GitHub Gist Installer (Built-in)" code)`, the name gets normalized to `"github_gist_installer_built_in.cljs"` before reaching the action handler. The handler then can't match it against the builtin's display name, so protection was bypassed.
 
-**Current behavior:** Creates a new file `github_gist_installer_built_in.cljs`
-
-**Expected behavior:** Reject with "Cannot overwrite built-in scripts"
-
-**Root cause:** Name normalization happens in `background.cljs` before dispatching to `background-actions/handle-action`. The action handler receives the normalized name and can't detect it targets a builtin.
-
-**Fix approach:** Add a helper in `script-utils` that checks if a normalized name could match any builtin's display name. Call this check in the action handler before allowing save.
+**Fix:** Added `name-matches-builtin?` helper in `script-utils.cljs` that checks if a normalized name would match any builtin's display name. The action handler now calls this check before allowing save.
 
 **Tests:**
-- Unit: `test/background_actions_test.cljs` - "rejects when creating script with normalized builtin name" (FAILING)
-- E2E: `e2e/fs_write_test.cljs` - "save! rejects built-in script names" (FAILING)
+- Unit: `test/background_actions_test.cljs` - "rejects when creating script with normalized builtin name" (PASS)
+- E2E: `e2e/fs_write_test.cljs` - "save! rejects built-in script names" (PASS)
 
-### BUG: `save!` without force overwrites existing scripts
+### FIXED: `save!` without force overwrites existing scripts
 
 **Severity:** Medium - data loss risk
 
 **Problem:** `(save! "existing-script" code)` should reject when a script with that name already exists (unless `:fs/force? true`).
 
-**Current behavior:** Overwrites silently
+**Fix:** Changed REPL save path in `background.cljs` to always generate fresh script IDs. This ensures the action handler correctly detects create operations and applies the "name already exists" check.
 
-**Expected behavior:** Reject with "Script already exists: existing-script.cljs"
-
-**Status:** Test added, passing (this bug was already fixed in action handler)
+**Tests:**
+- E2E: `e2e/fs_write_test.cljs` - "save! rejects when script already exists" (PASS)
 
 ## Remaining Enhancements
 
@@ -71,6 +64,7 @@ These provide better UX but aren't blocking:
 | rename-script: rejects when source is builtin | PASS |
 | rename-script: rejects when target exists | PASS |
 | rename-script: allows rename when target free | PASS |
+| rename-script: updates modified timestamp | PASS |
 | delete-script: rejects when not found | PASS |
 | delete-script: rejects when builtin | PASS |
 | delete-script: allows delete | PASS |
@@ -79,8 +73,8 @@ These provide better UX but aren't blocking:
 | save-script: allows create when name new | PASS |
 | save-script: allows update by ID | PASS |
 | save-script: allows overwrite with force | PASS |
-| **save-script: rejects normalized builtin name** | **FAIL** |
-| **save-script: rejects normalized builtin even with force** | **FAIL** |
+| save-script: rejects normalized builtin name | PASS |
+| save-script: rejects normalized builtin even with force | PASS |
 
 ### E2E Tests (fs_write_test.cljs)
 
@@ -90,8 +84,8 @@ These provide better UX but aren't blocking:
 | save! with disabled creates disabled script | PASS |
 | save! bulk returns map of results | PASS |
 | save! rejects when script already exists | PASS |
-| **save! rejects built-in script names** | **FAIL** |
-| **save! with force rejects built-in names** | **FAIL** |
+| save! rejects built-in script names | PASS |
+| save! with force rejects built-in names | PASS |
 | mv! renames a script | PASS |
 | mv! returns from/to names | PASS |
 | mv! rejects when target exists | PASS |
@@ -112,6 +106,8 @@ These provide better UX but aren't blocking:
 | Popup toggle | `src/popup.cljs` | Settings UI |
 
 ## Manual Testing Results
+
+(Only updaate these after manual testing.)
 
 Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_api_exercise.cljs):
 
