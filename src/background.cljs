@@ -11,7 +11,7 @@
             [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
             [log :as log]
-            [background-actions :as bg-actions]))
+            [bg-fs-dispatch :as fs-dispatch]))
 
 (def ^:private config js/EXTENSION_CONFIG)
 
@@ -59,51 +59,6 @@
                 (throw err)))]
       (reset! !init-promise (js/Promise.resolve p))
       p)))
-
-;; ============================================================
-;; Uniflow FS Action Dispatch
-;; ============================================================
-
-(defn- perform-fs-effect!
-  "Execute FS effects. Called by dispatch-fs-action! after pure handler runs."
-  [send-response [effect & args]]
-  (case effect
-    :storage/fx.persist!
-    (let [[new-scripts] args]
-      ;; Update storage atom and persist
-      (swap! storage/!db assoc :storage/scripts new-scripts)
-      (storage/persist!))
-
-    :bg/fx.broadcast-scripts-changed!
-    nil ; Storage onChanged listener handles UI updates automatically
-
-    :bg/fx.send-response
-    (let [[response-data] args]
-      (send-response (clj->js response-data)))
-
-    (log/warn "Background" nil "Unknown FS effect:" effect)))
-
-(defn dispatch-fs-action!
-  "Dispatch an FS action through pure handler, then execute effects.
-   Bridges the pure Uniflow pattern with storage side effects."
-  [send-response action]
-  (let [state {:storage/scripts (storage/get-scripts)}
-        uf-data {:system/now (.now js/Date)}
-        result (bg-actions/handle-action state uf-data action)
-        {:uf/keys [db fxs]} result]
-    ;; Execute effects
-    (doseq [fx fxs]
-      (case (first fx)
-        :storage/fx.persist!
-        (when db
-          ;; Pass the new scripts from db to the effect
-          (perform-fs-effect! send-response [:storage/fx.persist! (:storage/scripts db)]))
-
-        :bg/fx.send-response
-        (perform-fs-effect! send-response fx)
-
-        ;; Other effects pass through
-        (perform-fs-effect! send-response fx)))))
 
 ;; ============================================================
 ;; State - WebSocket connections and pending approvals
@@ -1029,7 +984,7 @@
                                           :script/enabled enabled
                                           :script/run-at run-at
                                           :script/force? force?}]
-                              (dispatch-fs-action! send-response [:fs/ax.save-script script]))))
+                              (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
                         (catch :default err
                           (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
                       false)
@@ -1076,13 +1031,13 @@
                     "rename-script"
                     (let [from-name (.-from message)
                           to-name (.-to message)]
-                      (dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])
+                      (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])
                       false)
 
                     ;; Page context deletes script via epupp/rm!
                     "delete-script"
                     (let [script-name (.-name message)]
-                      (dispatch-fs-action! send-response [:fs/ax.delete-script script-name])
+                      (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.delete-script script-name])
                       false)
 
                     ;; Queue delete for confirmation (from rm! with default :confirm true)

@@ -23,6 +23,8 @@ Use `--` to separate task options from Playwright options.
 bb test:e2e:headed     # E2E tests (visible browser, requires build first)
 ```
 
+Note: At rare occations Docker build fails for unknowwn reasons. Look closely at failed runs, and see if it is worth trying to just run it again.
+
 When you need help from the human's eyes, you can suggest to run the tests in UI mode: `bb test:e2e:ui:headed`
 
 ## Infrastructure
