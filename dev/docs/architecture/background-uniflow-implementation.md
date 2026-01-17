@@ -19,7 +19,7 @@ Human - AI - REPL
 
 Create the pure action handlers and prove they work with unit tests before touching existing code.
 
-### 1.1 Create `background_actions.cljs`
+### 1.1 Create `background_actions.cljs` [DONE]
 
 **File:** `src/background_actions.cljs`
 
@@ -52,36 +52,36 @@ Create the pure action handlers and prove they work with unit tests before touch
 {:uf/fxs [[:bg/fx.send-response {:success false :error "reason"}]]}
 ```
 
-### 1.2 Write Unit Tests
+### 1.2 Write Unit Tests [DONE]
 
 **File:** `test/background_actions_test.cljs`
 
 **Test cases for `:fs/ax.rename-script`:**
-- [ ] Rejects when source script not found
-- [ ] Rejects when target name already exists
-- [ ] Rejects when source is builtin script
-- [ ] Allows rename when target name is free
-- [ ] Updates script name and modified timestamp in state
+- [x] Rejects when source script not found
+- [x] Rejects when target name already exists
+- [x] Rejects when source is builtin script
+- [x] Allows rename when target name is free
+- [x] Updates script name and modified timestamp in state
 
 **Test cases for `:fs/ax.delete-script`:**
-- [ ] Rejects when script not found
-- [ ] Rejects when script is builtin
-- [ ] Allows delete, removes from state
+- [x] Rejects when script not found
+- [x] Rejects when script is builtin
+- [x] Allows delete, removes from state
 
 **Test cases for `:fs/ax.save-script`:**
-- [ ] Rejects when updating a builtin script
-- [ ] Rejects when name exists and not force (create case)
-- [ ] Allows create when name is new
-- [ ] Allows update when script exists by ID (non-builtin)
-- [ ] Allows overwrite when force flag set
+- [x] Rejects when updating a builtin script
+- [x] Rejects when name exists and not force (create case)
+- [x] Allows create when name is new
+- [x] Allows update when script exists by ID (non-builtin)
+- [x] Allows overwrite when force flag set
 
-### 1.3 Verify Tests Pass
+### 1.3 Verify Tests Pass [DONE]
 
 ```bash
 bb test
 ```
 
-All new tests should pass. Existing tests unaffected (no integration yet).
+All 330 tests pass including 13 new background-actions tests.
 
 ---
 
