@@ -635,34 +635,61 @@
 ;; ============== Bug fix test: mv! rejects duplicate names ==============
 
 (defn- ^:async test_mv_rejects_when_target_name_exists []
-  ;; Create two scripts with different names
+  ;; Create two scripts with different names - save sequentially to avoid races
   (let [code1 "{:epupp/script-name \"mv-collision-source\"
                :epupp/site-match \"https://example.com/*\"}
               (ns collision-source)"
-        code2 "{:epupp/script-name \"mv-collision-target\"
-               :epupp/site-match \"https://example.com/*\"}
-              (ns collision-target)"
-        setup-result (js-await (eval-in-browser
-                                (str "(def !collision-setup (atom :pending))
-                                     (-> (js/Promise.all
-                                           #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})
-                                                (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])
-                                       (.then (fn [_] (reset! !collision-setup :done))))
-                                     :setup-started")))]
-    (-> (expect (.-success setup-result)) (.toBe true)))
+        save1-result (js-await (eval-in-browser
+                                (str "(def !save1 (atom :pending))
+                                     (-> (epupp.fs/save! " (pr-str code1) " {:fs/force? true})
+                                       (.then (fn [r] (reset! !save1 (pr-str r))))
+                                       (.catch (fn [e] (reset! !save1 (str \"ERROR: \" (.-message e))))))
+                                     :started")))]
+    (-> (expect (.-success save1-result)) (.toBe true)))
 
-  ;; Wait for setup
+  ;; Wait for first save
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-setup)"))]
-        (when (or (not (.-success check-result))
-                  (empty? (.-values check-result))
-                  (= (first (.-values check-result)) ":pending"))
-          (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
-            (recur))))))
+      (let [check-result (js-await (eval-in-browser "(pr-str @!save1)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) "\":pending\""))
+          (let [result-str (first (.-values check-result))]
+            (when (.includes result-str "ERROR:")
+              (throw (js/Error. (str "First save failed: " result-str))))
+            (-> (expect (.includes result-str "mv_collision_source.cljs")) (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for first save"))
+            (do (js-await (sleep 50)) (recur)))))))
 
+  ;; Save second script
+  (let [code2 "{:epupp/script-name \"mv-collision-target\"
+               :epupp/site-match \"https://example.com/*\"}
+              (ns collision-target)"
+        save2-result (js-await (eval-in-browser
+                                (str "(def !save2 (atom :pending))
+                                     (-> (epupp.fs/save! " (pr-str code2) " {:fs/force? true})
+                                       (.then (fn [r] (reset! !save2 (pr-str r))))
+                                       (.catch (fn [e] (reset! !save2 (str \"ERROR: \" (.-message e))))))
+                                     :started")))]
+    (-> (expect (.-success save2-result)) (.toBe true)))
+
+  ;; Wait for second save
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!save2)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) "\":pending\""))
+          (let [result-str (first (.-values check-result))]
+            (when (.includes result-str "ERROR:")
+              (throw (js/Error. (str "Second save failed: " result-str))))
+            (-> (expect (.includes result-str "mv_collision_target.cljs")) (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for second save"))
+            (do (js-await (sleep 50)) (recur)))))))
 
   ;; Now try to rename source to target - should fail since target exists
   (let [setup-result (js-await (eval-in-browser
