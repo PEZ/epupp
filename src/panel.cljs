@@ -207,16 +207,41 @@
                         [:editor/ax.do-eval code]]))))))
 
     :editor/fx.save-script
-    (let [[script] args]
-      (storage/save-script! script)
-      ;; Notify background to update badge
-      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
+    (let [[script normalized-name id action-text] args]
+      ;; Route through background for centralized FS validation
+      ;; Use script->js to convert namespaced keys to simple keys
+      (js/chrome.runtime.sendMessage
+       #js {:type "panel-save-script"
+            :script (script-utils/script->js script)}
+       (fn [response]
+         (let [error (or (when js/chrome.runtime.lastError
+                           (.-message js/chrome.runtime.lastError))
+                         (when response (.-error response)))]
+           ;; Dispatch action to handle response and update UI
+           (dispatch [[:editor/ax.handle-save-response
+                       {:success (and (not js/chrome.runtime.lastError)
+                                      response
+                                      (.-success response))
+                        :error error
+                        :name normalized-name
+                        :id id
+                        :action-text action-text
+                        :is-update (when response (.-isUpdate response))}]])))))
 
     :editor/fx.rename-script
-    (let [[script-id new-name] args]
-      (storage/rename-script! script-id new-name)
-      ;; Notify background to update badge
-      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"}))
+    (let [[from-name to-name] args]
+      ;; Route through background for centralized FS validation
+      (js/chrome.runtime.sendMessage
+       #js {:type "rename-script"
+            :from from-name
+            :to to-name}
+       (fn [response]
+         ;; Dispatch action to handle response and update UI
+         (dispatch [[:editor/ax.handle-rename-response
+                     {:success (and response (.-success response))
+                      :error (when response (.-error response))
+                      :from-name from-name
+                      :to-name to-name}]]))))
 
     :editor/fx.clear-persisted-state
     (when-let [hostname (:panel/current-hostname @!state)]

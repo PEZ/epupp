@@ -41,6 +41,7 @@
      :unknown-keys (get manifest "unknown-keys")
      :run-at-invalid? (get manifest "run-at-invalid?")
      :raw-run-at (get manifest "raw-run-at")
+     :run-at (get manifest "run-at")
      :require (get manifest "require")}))
 
 (defn- get-code-to-eval
@@ -143,40 +144,53 @@
                    (script-utils/generate-script-id))
               ;; Normalize match to vector (manifest allows string or vector)
               normalized-match (script-utils/normalize-match-patterns script-match)
-              ;; Get require from manifest hints (already normalized to vector by manifest parser)
+              ;; Get require and run-at from manifest hints
               script-require (:require manifest-hints)
+              script-run-at (:run-at manifest-hints)
               script (cond-> {:script/id id
                               :script/name normalized-name
                               :script/match normalized-match
                               :script/code code
                               :script/enabled true}
                        (seq script-description) (assoc :script/description script-description)
-                       (seq script-require) (assoc :script/require script-require))
+                       (seq script-require) (assoc :script/require script-require)
+                       script-run-at (assoc :script/run-at script-run-at))
               ;; "Created" for new scripts OR when forking (name changed)
               ;; "Saved" only when updating existing script with same name
               action-text (if (or (not script-id) name-changed?) "Created" "Saved")]
-          {:uf/fxs [[:editor/fx.save-script script]
-                    [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]
-           ;; After save/create, update state to reflect the new/saved script
-           :uf/db (assoc state
-                         :panel/save-status {:type :success :text (str action-text " \"" normalized-name "\"")}
-                         :panel/script-name normalized-name
-                         :panel/original-name normalized-name
-                         :panel/script-id id)})))
+          ;; State update happens in response handler - effect dispatches when background responds
+          {:uf/fxs [[:editor/fx.save-script script normalized-name id action-text]]})))
+
+    :editor/ax.handle-save-response
+    (let [[{:keys [success error name is-update id action-text]}] args]
+      (if success
+        {:uf/db (assoc state
+                       :panel/save-status {:type :success :text (str action-text " \"" name "\"")}
+                       :panel/script-name name
+                       :panel/original-name name
+                       :panel/script-id id)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]}
+        {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Save failed")})}))
 
     :editor/ax.rename-script
-    (let [{:panel/keys [script-name script-id original-name]} state]
-      (if (or (empty? script-name) (not script-id))
+    (let [{:panel/keys [script-name original-name]} state]
+      (if (or (empty? script-name) (not original-name))
         {:uf/db (assoc state :panel/save-status {:type :error :text "Cannot rename: no script loaded"})}
         (let [normalized-name (script-utils/normalize-script-name script-name)]
           (if (= normalized-name original-name)
             {:uf/db (assoc state :panel/save-status {:type :error :text "Name unchanged"})}
-            {:uf/fxs [[:editor/fx.rename-script script-id normalized-name]
-                      [:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]
-             :uf/db (assoc state
-                           :panel/save-status {:type :success :text (str "Renamed to \"" normalized-name "\"")}
-                           :panel/script-name normalized-name
-                           :panel/original-name normalized-name)}))))
+            ;; State update happens in response handler
+            {:uf/fxs [[:editor/fx.rename-script original-name normalized-name]]}))))
+
+    :editor/ax.handle-rename-response
+    (let [[{:keys [success error from-name to-name]}] args]
+      (if success
+        {:uf/db (assoc state
+                       :panel/save-status {:type :success :text (str "Renamed to \"" to-name "\"")}
+                       :panel/script-name to-name
+                       :panel/original-name to-name)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]}
+        {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Rename failed")})}))
 
     :editor/ax.load-script-for-editing
     (let [[id name match code description] args

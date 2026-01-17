@@ -989,6 +989,23 @@
                           (send-response #js {:success false :error (str "Parse error: " (.-message err))})))
                       false)
 
+                    ;; Panel saves script with pre-built script object
+                    "panel-save-script"
+                    (let [js-script (.-script message)]
+                      ;; Convert JS script object back to Clojure map with namespaced keys
+                      (let [script {:script/id (.-id js-script)
+                                    :script/name (.-name js-script)
+                                    :script/description (.-description js-script)
+                                    :script/match (vec (.-match js-script))
+                                    :script/code (.-code js-script)
+                                    :script/enabled (.-enabled js-script)
+                                    :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
+                                    :script/require (if (.-require js-script)
+                                                      (vec (.-require js-script))
+                                                      [])}]
+                        (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
+                      false)
+
                     ;; Queue save for confirmation (from save! without :fs/force?)
                     "queue-save-script"
                     (let [code (.-code message)
