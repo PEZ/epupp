@@ -217,7 +217,7 @@
     (let [initial-count (js-await (.count (.locator popup ".script-item")))]
       ;; Delete the script via REPL
       (let [delete-code "(def !rm-ui-result (atom :pending))
-                                  (-> (epupp.fs/rm! \"script_to_delete.cljs\" {:fs/force? true})
+                                  (-> (epupp.fs/rm! \"script_to_delete.cljs\")
                                     (.then (fn [r] (reset! !rm-ui-result r))))
                                   :setup-done"]
         (let [del-result (js-await (eval-in-browser delete-code))]
@@ -277,20 +277,19 @@
     (js-await (.close popup))))
 
 (defn- ^:async failed_fs_operation_rejects_promise []
-  ;; Try to delete a non-existent script - should reject
-  (let [delete-code "(def !reject-result (atom :pending))
-                                        (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\" {:fs/force? true})
-                                            (.then (fn [r] (reset! !reject-result {:resolved r})))
-                                            (.catch (fn [e] (reset! !reject-result {:rejected (.-message e)}))))
+  ;; Try to delete a non-existent script - should succeed with :fs/existed? false
+  (let [delete-code "(def !rm-nonexistent-result (atom :pending))
+                                        (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")
+                                            (.then (fn [r] (reset! !rm-nonexistent-result {:resolved r})))
+                                            (.catch (fn [e] (reset! !rm-nonexistent-result {:rejected (.-message e)}))))
                                         :setup-done"]
     (let [res (js-await (eval-in-browser delete-code))]
       (-> (expect (.-success res)) (.toBe true)))
 
-    (let [out (js-await (wait-for-eval-promise "!reject-result" 3000))]
-      ;; Currently this RESOLVES with {:fs/success false :fs/error ...}
-      ;; The test expects it to REJECT instead
-      ;; This test will FAIL until we implement promise rejection
-      (-> (expect (.includes out "rejected")) (.toBe true)))))
+    (let [out (js-await (wait-for-eval-promise "!rm-nonexistent-result" 3000))]
+      ;; Should resolve (not reject) with :fs/existed? false
+      (-> (expect (.includes out "resolved")) (.toBe true))
+      (-> (expect (.includes out ":existed? false")) (.toBe true)))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage @!context))]

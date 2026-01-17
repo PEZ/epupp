@@ -235,7 +235,7 @@
               (js-await (sleep 50))
               (recur)))))))
 
-  (js-await (eval-in-browser "(epupp.fs/rm! \"disabled_by_default.cljs\" {:fs/force? true})")))
+  (js-await (eval-in-browser "(epupp.fs/rm! \"disabled_by_default.cljs\")")))
 
 (defn- ^:async test_save_with_vector_returns_map_of_results []
   (let [code1 "{:epupp/script-name \"bulk-save-test-1\"
@@ -247,7 +247,8 @@
         setup-result (js-await (eval-in-browser
                                 (str "(def !bulk-save-result (atom :pending))
                                        (-> (epupp.fs/save! [" (pr-str code1) " " (pr-str code2) "] {:fs/force? true})
-                                         (.then (fn [result] (reset! !bulk-save-result result))))
+                                         (.then (fn [result] (reset! !bulk-save-result {:resolved result})))
+                                         (.catch (fn [e] (reset! !bulk-save-result {:rejected (.-message e)}))))
                                        :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -260,6 +261,8 @@
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
             (js/console.log "=== Bulk save result ===" result-str)
+            (-> (expect (.includes result-str "resolved"))
+                (.toBe true))
             (-> (expect (.includes result-str "0"))
                 (.toBe true))
             (-> (expect (.includes result-str "1"))
@@ -277,8 +280,8 @@
               (recur)))))))
 
   (js-await (eval-in-browser
-             "(-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\" {:fs/force? true})
-                                                      (epupp.fs/rm! \"bulk_save_test_2.cljs\" {:fs/force? true})])
+             "(-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")
+                                       (epupp.fs/rm! \"bulk_save_test_2.cljs\")])
                                 (.then (fn [_] :cleaned-up)))"))
   (js-await (sleep 100)))
 
@@ -408,7 +411,7 @@
               (js-await (sleep 50))
               (recur)))))))
 
-  (js-await (eval-in-browser "(epupp.fs/rm! \"mv_renamed.cljs\" {:fs/force? true})"))
+  (js-await (eval-in-browser "(epupp.fs/rm! \"mv_renamed.cljs\")"))
   (js-await (sleep 100)))
 
 ;; ============== rm! tests ==============
@@ -463,7 +466,7 @@
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !rm-result (atom :pending))
-                                (-> (epupp.fs/rm! \"delete_test_script.cljs\" {:fs/force? true})
+                                (-> (epupp.fs/rm! \"delete_test_script.cljs\")
                                   (.then (fn [r] (reset! !rm-result r))))
                                 :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -508,7 +511,7 @@
 (defn- ^:async test_rm_rejects_deleting_builtin_scripts []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !rm-builtin-result (atom :pending))
-                                (-> (epupp.fs/rm! \"GitHub Gist Installer (Built-in)\" {:fs/force? true})
+                                (-> (epupp.fs/rm! \"GitHub Gist Installer (Built-in)\")
                                   (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))
                                   (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))
                                 :setup-done"))]
@@ -540,20 +543,40 @@
         code2 "{:epupp/script-name \"bulk-rm-test-2\"
                                :epupp/site-match \"https://example.com/*\"}
                               (ns bulk-rm-2)"
+        ;; Setup: save two test scripts
         setup-result (js-await (eval-in-browser
-                                (str "(-> (js/Promise.all #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})
-                                                                              (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])
-                                                       (.then (fn [_] :done)))")))]
+                                (str "(def !bulk-rm-setup (atom :pending))
+                                      (-> (js/Promise.all #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})
+                                                               (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])
+                                          (.then (fn [r] (reset! !bulk-rm-setup {:resolved r})))
+                                          (.catch (fn [e] (reset! !bulk-rm-setup {:rejected (.-message e)}))))
+                                      :setup-started")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
-  (js-await (sleep 100))
+  ;; Wait for setup to complete
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-setup)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (js/console.log "=== Bulk rm setup result ===" result-str)
+            (-> (expect (.includes result-str "resolved")) (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for bulk rm setup"))
+            (do
+              (js-await (sleep 50))
+              (recur)))))))
 
+  ;; Delete two existing scripts and one non-existent - all should succeed
   (let [setup-result (js-await (eval-in-browser
                                 "(def !bulk-rm-result (atom :pending))
-                                (-> (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"] {:fs/force? true})
+                                (-> (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"])
                                   (.then (fn [result] (reset! !bulk-rm-result {:resolved result})))
                                   (.catch (fn [e] (reset! !bulk-rm-result {:rejected (.-message e)}))))
-                                :setup-done"))]
+                                :delete-started"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -564,10 +587,19 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "rejected"))
+            (js/console.log "=== Bulk rm result ===" result-str)
+            ;; Should resolve (not reject)
+            (-> (expect (.includes result-str "resolved"))
                 (.toBe true))
-            (-> (expect (or (.includes result-str "does-not-exist")
-                            (.includes result-str "Script not found")))
+            ;; All files should be in the result
+            (-> (expect (.includes result-str "bulk_rm_test_1.cljs"))
+                (.toBe true))
+            (-> (expect (.includes result-str "bulk_rm_test_2.cljs"))
+                (.toBe true))
+            (-> (expect (.includes result-str "does-not-exist.cljs"))
+                (.toBe true))
+            ;; Non-existent file should have :existed? false
+            (-> (expect (.includes result-str ":existed? false"))
                 (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk rm! result"))
@@ -575,21 +607,21 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(defn- ^:async test_rm_with_force_returns_name []
-  (let [test-code "{:epupp/script-name \"confirm-test-rm\"
+(defn- ^:async test_rm_returns_existed_flag []
+  (let [test-code "{:epupp/script-name \"existed-test-rm\"
                                    :epupp/site-match \"https://example.com/*\"}
-                                  (ns confirm-test)"
+                                  (ns existed-test)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !confirm-rm-setup (atom :pending))
+                                (str "(def !existed-rm-setup (atom :pending))
                                        (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})
-                                         (.then (fn [r] (reset! !confirm-rm-setup r))))
+                                         (.then (fn [r] (reset! !existed-rm-setup r))))
                                        :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!confirm-rm-setup)"))]
+      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-rm-setup)"))]
         (when (or (not (.-success check-result))
                   (empty? (.-values check-result))
                   (= (first (.-values check-result)) ":pending"))
@@ -597,17 +629,18 @@
             (js-await (sleep 50))
             (recur))))))
 
+  ;; Delete existing script - should have :existed? true
   (let [setup-result (js-await (eval-in-browser
-                                "(def !confirm-rm-result (atom :pending))
-                                (-> (epupp.fs/rm! \"confirm_test_rm.cljs\" {:fs/force? true})
-                                  (.then (fn [r] (reset! !confirm-rm-result r))))
+                                "(def !existed-rm-result (atom :pending))
+                                (-> (epupp.fs/rm! \"existed_test_rm.cljs\")
+                                  (.then (fn [r] (reset! !existed-rm-result r))))
                                 :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!confirm-rm-result)"))]
+      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-rm-result)"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
@@ -616,7 +649,9 @@
                 (.toBe true))
             (-> (expect (.includes result-str ":name"))
                 (.toBe true))
-            (-> (expect (.includes result-str "confirm_test_rm.cljs"))
+            (-> (expect (.includes result-str "existed_test_rm.cljs"))
+                (.toBe true))
+            (-> (expect (.includes result-str ":existed? true"))
                 (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for rm! result"))
@@ -696,7 +731,7 @@
   ;; Now try to rename source to target - should fail since target exists
   (let [setup-result (js-await (eval-in-browser
                                 "(def !collision-mv-result (atom :pending))
-                                (-> (epupp.fs/mv! \"mv_collision_source.cljs\" \"mv_collision_target.cljs\" {:fs/force? true})
+                                (-> (epupp.fs/mv! \"mv_collision_source.cljs\" \"mv_collision_target.cljs\")
                                   (.then (fn [r] (reset! !collision-mv-result {:resolved r})))
                                   (.catch (fn [e] (reset! !collision-mv-result {:rejected (.-message e)}))))
                                 :setup-done"))]
@@ -751,8 +786,8 @@
 
   ;; Cleanup
   (js-await (eval-in-browser
-             "(-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\" {:fs/force? true})
-                                      (epupp.fs/rm! \"mv_collision_target.cljs\" {:fs/force? true})])
+             "(-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\")
+                                      (epupp.fs/rm! \"mv_collision_target.cljs\")])
                 (.then (fn [_] :cleaned-up)))"))
   (js-await (sleep 100)))
 
@@ -792,8 +827,8 @@
              (test "epupp.fs/rm! with vector returns map of per-item results"
                    test_rm_with_vector_returns_map_of_results)
 
-             (test "epupp.fs/rm! with {:fs/force? true} returns result with :fs/name"
-                   test_rm_with_force_returns_name)
+             (test "epupp.fs/rm! returns result with :fs/existed? flag"
+                   test_rm_returns_existed_flag)
 
              (test "no uncaught errors during fs tests"
                    test_no_uncaught_errors_during_fs_tests)))

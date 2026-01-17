@@ -97,7 +97,7 @@
    (let [force? (get opts :fs/force?)
          enabled (get opts :fs/enabled true)]
      (if (vector? code-or-codes)
-       ;; Bulk mode
+       ;; Bulk mode - use map-indexed (realized by to-array for Promise.all)
        (-> (js/Promise.all
              (to-array
                (map-indexed (fn [idx code]
@@ -143,30 +143,50 @@
 (defn rm!
   "Delete script(s) by name. Requires FS REPL Sync to be enabled in settings.
 
-   Returns promise of {:fs/success bool :fs/name string :fs/error?}
-   Bulk mode returns map of name->{:fs/success ... :fs/error?}
+   Returns promise of {:fs/success bool :fs/name string :fs/existed? bool}
+   - :fs/existed? is false if the script didn't exist (still succeeds)
+   - Fails only for protected scripts (built-in)
+
+   Bulk mode returns map of name->{:fs/success ... :fs/existed? ...}
 
    Examples:
    (epupp.fs/rm! \"my-script.cljs\")
    (epupp.fs/rm! [\"script1.cljs\" \"script2.cljs\"])"
   [name-or-names]
-  (if (vector? name-or-names)
-    ;; Bulk mode
-    (-> (js/Promise.all
-          (to-array
-            (map (fn [n]
-                   (-> (send-and-receive "delete-script" {:name n} "delete-script-response")
-                       (.then ensure-success!)
-                       (.then (fn [msg]
-                                [n {:fs/success (.-success msg)
-                                    :fs/error (.-error msg)}]))))
-                 name-or-names)))
-        (.then (fn [results]
-                 (into {} results))))
-    ;; Single mode
-    (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
-        (.then ensure-success!)
-        (.then (fn [msg]
-                 {:fs/success (.-success msg)
-                  :fs/name name-or-names
-                  :fs/error (.-error msg)})))))
+  (let [not-found-error? (fn [msg]
+                           (let [err (.-error msg)]
+                             (and err (or (.includes err "not found")
+                                          (.includes err "does not exist")))))]
+    (if (vector? name-or-names)
+      ;; Bulk mode - use mapv for eager evaluation before Promise.all
+      (-> (js/Promise.all
+           (to-array
+            (mapv (fn [n]
+                    (-> (send-and-receive "delete-script" {:name n} "delete-script-response")
+                        (.then (fn [msg]
+                                 (cond
+                                   (.-success msg)
+                                   [n {:fs/success true :fs/name n :fs/existed? true}]
+
+                                   (not-found-error? msg)
+                                   [n {:fs/success true :fs/name n :fs/existed? false}]
+
+                                   :else
+                                   (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
+                  name-or-names)))
+          (.then (fn [results]
+                   (into {} results))))
+      ;; Single mode
+      (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
+          (.then (fn [msg]
+                   (cond
+                     (.-success msg)
+                     {:fs/success true :fs/name name-or-names :fs/existed? true}
+
+                     (not-found-error? msg)
+                     {:fs/success true :fs/name name-or-names :fs/existed? false}
+
+                     :else
+                     (throw (js/Error. (or (.-error msg) "Unknown error"))))))))))
+
+

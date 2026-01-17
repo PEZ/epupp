@@ -262,6 +262,7 @@ Full pipeline: `nREPL client -> browser-nrepl -> extension -> Scittle -> page`
 ### 1. page.evaluate() on Extension Pages
 
 Returns `undefined` for `chrome-extension://` pages. Workarounds:
+- Use `e2e/set-storage` runtime message to set storage values (preferred for test setup)
 - Create data through UI (Panel save workflow)
 - Use log-powered assertions
 

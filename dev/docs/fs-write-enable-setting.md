@@ -188,6 +188,40 @@ The toggle is clearer:
 - [x] All E2E tests pass
 - [x] Setting persists across sessions
 
+## Manual Testing Results
+
+Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_api_exercise.cljs):
+
+### Read Operations (always work)
+- [x] `ls` - lists all scripts
+- [x] `show` - returns code for existing script
+- [x] `show` - returns nil for non-existent script
+- [x] `show` bulk - returns map of name to code (nil for missing)
+
+### Write Operations - Setting Disabled
+- [x] All write operations reject when FS REPL Sync is disabled
+- [ ] Error banner should appear in panel (where it shows the update-banner)
+- [ ] Error banner should appear in popup
+- [ ] Extension icon should show error badge
+
+### Write Operations - Setting Enabled
+- [x] `save!` - creates new script
+- [ ] `save!` - rejects when script with same name exists (currently overwrites!)
+- [x] `save!` with `:fs/force?` - overwrites existing script
+- [ ] `save!` - rejects when trying to save built-in script name (currently creates normalized name file)
+- [ ] `save!` with `:fs/force?` - rejects when trying to overwrite built-in
+- [x] `save!` bulk - creates multiple scripts
+- [ ] Panel should update when showing a file that was modified via REPL
+- [x] `mv!` - renames script
+- [x] `mv!` - rejects when source doesn't exist
+- [x] `mv!` - rejects when target already exists (second rename)
+- [ ] `mv!` - rejects when trying to rename built-in
+- [x] `rm!` - deletes script, returns `:fs/existed? true`
+- [x] `rm!` - succeeds for non-existent with `:fs/existed? false` (consider: should mimic Unix `rm` and reject?)
+- [x] `rm!` - rejects when trying to delete built-in
+- [x] `rm!` bulk - handles mixed existing/non-existing
+- [x] `rm!` bulk with built-in - deletes existing, rejects for built-in (Unix `rm` behavior)
+
 ## Implementation Summary
 
 ### Files Modified
@@ -215,6 +249,6 @@ The toggle is clearer:
 
 ### Test Infrastructure Notes
 
-**E2E storage access limitation:** Playwright's `page.evaluate()` returns `undefined` for `chrome-extension://` pages, making direct `chrome.storage.local.set()` unreliable for test setup. Solution: Added `e2e/set-storage` runtime message handler that properly sets storage values via Chrome's messaging API.
+See [testing-e2e.md Known Limitations](testing-e2e.md#known-limitations) for the `e2e/set-storage` workaround used to set storage in tests.
 
 **Test stability:** The sharded parallel E2E tests showed some flakiness with storage state between shards. Running individual tests with `--serial` consistently passes. The parallel mode occasionally shows timing-related failures that pass on retry.

@@ -117,7 +117,7 @@
 
   (p/let [save-result-multi (epupp.fs/save! ["{:epupp/script-name \"1\"}"
                                              "{:epupp/script-name \"2\"}"])]
-    (def save-result-multi save-result))
+    (def save-result-multi save-result-multi))
 
   ;; Verify script appears in ls
   (p/let [ls-after-save (epupp.fs/ls)]
