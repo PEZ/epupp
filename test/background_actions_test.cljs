@@ -235,3 +235,55 @@
           (-> (expect (some #(and (= :bg/fx.send-response (first %))
                                   (-> % second :success)) (:uf/fxs result)))
               (.toBeTruthy)))))))
+
+;; ============================================================
+;; Save Script - Built-in Name Protection Tests
+;; ============================================================
+
+;; Real scenario: Builtin scripts have display names like "GitHub Gist Installer (Built-in)"
+;; but the REPL normalizes names, so an attacker calling:
+;;   (save! "GitHub Gist Installer (Built-in)" code)
+;; sends normalized name "github_gist_installer_built_in.cljs" to the action handler.
+;; The handler must detect this and reject it.
+
+(def builtin-with-display-name
+  (assoc base-script
+         :script/id "epupp-builtin-gist-installer"
+         :script/name "GitHub Gist Installer (Built-in)"))
+
+(describe ":fs/ax.save-script - built-in name protection"
+  (fn []
+    (test "rejects when creating script with normalized builtin name"
+      (fn []
+        ;; Attacker calls (save! "GitHub Gist Installer (Built-in)" code)
+        ;; which normalizes to "github_gist_installer_built_in.cljs"
+        ;; The builtin has :script/name "GitHub Gist Installer (Built-in)"
+        ;; so find-script-by-name won't match - but we need protection!
+        (let [state {:storage/scripts [builtin-with-display-name]}
+              new-script {:script/id "script-attacker"
+                          :script/name "github_gist_installer_built_in.cljs"
+                          :script/code "(malicious code)"}
+              result (bg-actions/handle-action state uf-data
+                       [:fs/ax.save-script new-script])]
+          (-> (expect (-> result :uf/fxs first first))
+              (.toBe :bg/fx.send-response))
+          (-> (expect (-> result :uf/fxs first second :success))
+              (.toBe false))
+          (-> (expect (-> result :uf/fxs first second :error))
+              (.toContain "built-in")))))
+
+    (test "rejects when creating script with normalized builtin name even with force flag"
+      (fn []
+        (let [state {:storage/scripts [builtin-with-display-name]}
+              new-script {:script/id "script-attacker"
+                          :script/name "github_gist_installer_built_in.cljs"
+                          :script/code "(malicious code)"
+                          :script/force? true}
+              result (bg-actions/handle-action state uf-data
+                       [:fs/ax.save-script new-script])]
+          (-> (expect (-> result :uf/fxs first first))
+              (.toBe :bg/fx.send-response))
+          (-> (expect (-> result :uf/fxs first second :success))
+              (.toBe false))
+          (-> (expect (-> result :uf/fxs first second :error))
+              (.toContain "built-in")))))))

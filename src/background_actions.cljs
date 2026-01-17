@@ -120,9 +120,13 @@
             existing-by-name (find-script-by-name scripts script-name)
             is-update? (some? existing-by-id)]
         (cond
-          ;; Trying to update a builtin script
+          ;; Trying to update a builtin script (by ID)
           (and is-update? (script-utils/builtin-script-id? script-id))
           (make-error-response "Cannot modify built-in scripts")
+
+          ;; Trying to overwrite a builtin script (by name, even with force)
+          (and existing-by-name (script-utils/builtin-script? existing-by-name))
+          (make-error-response "Cannot overwrite built-in scripts")
 
           ;; Name collision on create (different ID, same name, no force)
           (and (not is-update?)
