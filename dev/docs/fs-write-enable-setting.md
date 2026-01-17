@@ -200,27 +200,30 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 
 ### Write Operations - Setting Disabled
 - [x] All write operations reject when FS REPL Sync is disabled
-- [ ] Error banner should appear in panel (where it shows the update-banner)
+- [ ] Error banner should appear in panel (where it shows the extension-updated banner)
 - [ ] Error banner should appear in popup
 - [ ] Extension icon should show error badge
 
 ### Write Operations - Setting Enabled
 - [x] `save!` - creates new script
-- [ ] `save!` - rejects when script with same name exists (currently overwrites!)
+- [ ] **BUG**: `save!` - should reject when script with same name exists (currently overwrites!)
 - [x] `save!` with `:fs/force?` - overwrites existing script
-- [ ] `save!` - rejects when trying to save built-in script name (currently creates normalized name file)
-- [ ] `save!` with `:fs/force?` - rejects when trying to overwrite built-in
+- [ ] **BUG**: `save!` - should reject for built-in script names (currently creates normalized name file)
+- [ ] `save!` with `:fs/force?` - should reject when trying to overwrite built-in
 - [x] `save!` bulk - creates multiple scripts
 - [ ] Panel should update when showing a file that was modified via REPL
 - [x] `mv!` - renames script
 - [x] `mv!` - rejects when source doesn't exist
 - [x] `mv!` - rejects when target already exists (second rename)
-- [ ] `mv!` - rejects when trying to rename built-in
+- [x] `mv!` - rejects when trying to rename built-in (verified: "Cannot rename built-in scripts")
 - [x] `rm!` - deletes script, returns `:fs/existed? true`
-- [x] `rm!` - succeeds for non-existent with `:fs/existed? false` (consider: should mimic Unix `rm` and reject?)
+- [x] `rm!` - succeeds for non-existent with `:fs/existed? false`
 - [x] `rm!` - rejects when trying to delete built-in
 - [x] `rm!` bulk - handles mixed existing/non-existing
-- [x] `rm!` bulk with built-in - deletes existing, rejects for built-in (Unix `rm` behavior)
+- [x] `rm!` bulk with built-in - fails early for built-in (verified: "Cannot delete built-in scripts")
+- [ ] "Update" banner should appear briefly in panel (where it shows the extension-updated banner)
+- [ ] "Update" banner should appear briefly in popup
+- [ ] Extension icon should show briefly show "update" badge
 
 ## Implementation Summary
 
