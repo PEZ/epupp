@@ -51,6 +51,56 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `inject-userscript` | `{id, code}` | Inject `<script type="application/x-scittle">` |
 | `clear-userscripts` | - | Remove old userscript tags |
 
+## REPL FS Sync
+
+REPL FS Sync extends the page bridge with file operations. The page sends a request with
+`requestId` and receives a response with the same `requestId` so callers can resolve
+the right promise.
+
+```mermaid
+flowchart LR
+	Page[Page JS<br/>epupp.fs] -->|window.postMessage| Bridge[Content Bridge]
+	Bridge -->|chrome.runtime.sendMessage| BG[Background Worker]
+	BG -->|sendResponse| Bridge
+	Bridge -->|window.postMessage| Page
+```
+
+### Page → Content Bridge (source: "epupp-page")
+
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `list-scripts` | `{lsHidden, requestId}` | List scripts (read-only) |
+| `get-script` | `{name, requestId}` | Get script code by name (read-only) |
+| `save-script` | `{code, enabled, force, requestId}` | Save script code (write) |
+| `rename-script` | `{from, to, force, requestId}` | Rename script (write) |
+| `delete-script` | `{name, force, requestId}` | Delete script (write) |
+
+### Content Bridge → Page (source: "epupp-bridge")
+
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `list-scripts-response` | `{success, scripts, requestId}` | Response for `list-scripts` |
+| `get-script-response` | `{success, code?, error?, requestId}` | Response for `get-script` |
+| `save-script-response` | `{success, name?, error?, requestId}` | Response for `save-script` |
+| `rename-script-response` | `{success, error?, requestId}` | Response for `rename-script` |
+| `delete-script-response` | `{success, error?, requestId}` | Response for `delete-script` |
+
+### Content Bridge → Background
+
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `list-scripts` | `{lsHidden}` | Request list of scripts |
+| `get-script` | `{name}` | Request script code by name |
+| `save-script` | `{code, enabled, force}` | Save script code |
+| `rename-script` | `{from, to, force}` | Rename script |
+| `delete-script` | `{name, force}` | Delete script |
+
+### Background Responses
+
+The background worker replies via `sendResponse` with `{success, ...}` data. Errors
+use `success: false` and an `error` string. Write operations return an error when
+FS REPL Sync is disabled.
+
 ## Popup/Panel → Background
 
 Via `chrome.runtime.sendMessage`.
@@ -60,3 +110,13 @@ Via `chrome.runtime.sendMessage`.
 | `refresh-approvals` | - | - | Reload scripts, sync pending, update badge |
 | `pattern-approved` | `{scriptId, pattern}` | - | Pattern approved, clear pending + execute |
 | `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
+
+## References
+
+### Project Implementation
+- [src/content_bridge.cljs](../../src/content_bridge.cljs)
+- [src/background.cljs](../../src/background.cljs)
+- [extension/bundled/epupp/fs.cljs](../../extension/bundled/epupp/fs.cljs)
+
+### Related Research
+- [docs/repl-fs-sync.md](../../docs/repl-fs-sync.md)
