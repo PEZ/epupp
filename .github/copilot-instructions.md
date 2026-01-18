@@ -238,6 +238,7 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
 4. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle patch works.
 5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler (`src/ws_bridge.cljs`) to prevent reconnection loops.
 6. **Firefox CSP** - `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
+7. **Use of `!` in shell commands** - In Clojure we use the bang to indicate side-effecting functions. In the shell they are history expansion characters. Avoid using `!` in shell commands to prevent unexpected behavior.
 
 ## Use Subagents to protect your contect window and ensure quality
 
