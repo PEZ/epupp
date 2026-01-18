@@ -11,10 +11,8 @@ Read these before working on REPL FS Sync:
 - [architecture/repl-fs-sync.md](architecture/repl-fs-sync.md)
 - [userscripts-architecture.md](userscripts-architecture.md)
 - [docs/repl-fs-sync.md](../docs/repl-fs-sync.md)
+- [testing-e2e.md](testing-e2e.md)
 
-## Test Infrastructure
-
-E2E tests use `e2e/set-storage` runtime message to enable the setting before running write tests. See [testing-e2e.md](testing-e2e.md) for details.
 ## Completion Summary
 
 - **Core infrastructure complete** - Toggle in Settings, write protection, read operations always available
