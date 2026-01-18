@@ -27,6 +27,25 @@
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
+                                "(def !mv-ls (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !mv-ls scripts))))\n                                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-ls)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (.includes (first (.-values check-result)) "mv_rename_test_original.cljs"))
+              (.toBe true))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls before mv"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
+
+  (let [setup-result (js-await (eval-in-browser
                                 "(def !mv-result (atom :pending))\n                                                (-> (epupp.fs/mv! \"mv_rename_test_original.cljs\" \"mv_renamed_script.cljs\" {:fs/force? true})\n                                                    (.then (fn [r] (reset! !mv-result r))))\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -81,6 +100,25 @@
           (when (< (- (.now js/Date) start) timeout-ms)
             (js-await (sleep 20))
             (recur))))))
+
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !confirm-mv-ls (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !confirm-mv-ls scripts))))\n                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!confirm-mv-ls)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (.includes (first (.-values check-result)) "mv_force_confirm.cljs"))
+              (.toBe true))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls before mv"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !confirm-mv-result (atom :pending))\n                                (-> (epupp.fs/mv! \"mv_force_confirm.cljs\" \"mv_force_renamed.cljs\" {:fs/force? true})\n                                  (.then (fn [r] (reset! !confirm-mv-result r))))\n                                :setup-done"))]
@@ -141,7 +179,8 @@
       (let [check-result (js-await (eval-in-browser "(pr-str @!save1)"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
-                 (not= (first (.-values check-result)) "\":pending\""))
+                 (not (or (= (first (.-values check-result)) ":pending")
+                          (= (first (.-values check-result)) "\":pending\""))))
           (let [result-str (first (.-values check-result))]
             (when (.includes result-str "ERROR:")
               (throw (js/Error. (str "First save failed: " result-str))))
@@ -163,13 +202,37 @@
       (let [check-result (js-await (eval-in-browser "(pr-str @!save2)"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
-                 (not= (first (.-values check-result)) "\":pending\""))
+                 (not (or (= (first (.-values check-result)) ":pending")
+                          (= (first (.-values check-result)) "\":pending\""))))
           (let [result-str (first (.-values check-result))]
             (when (.includes result-str "ERROR:")
               (throw (js/Error. (str "Second save failed: " result-str))))
             (-> (expect (.includes result-str "mv_collision_target.cljs")) (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for second save"))
+            (do (js-await (sleep 20)) (recur)))))))
+
+  ;; Ensure both scripts are visible before mv
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !collision-ls-before (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !collision-ls-before scripts))))\n                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-ls-before)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (if (and (.includes result-str "mv_collision_source.cljs")
+                     (.includes result-str "mv_collision_target.cljs"))
+              true
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for ls before collision mv"))
+                (do (js-await (sleep 20)) (recur)))))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls before collision mv"))
             (do (js-await (sleep 20)) (recur)))))))
 
   ;; Now try to rename source to target - should fail since target exists
@@ -241,6 +304,31 @@
 
 (defn- ^:async test_mv_rejects_renaming_builtin_scripts []
   ;; Try to rename a built-in script - should reject
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !mv-builtin-ls (atom :pending))\n                                (-> (epupp.fs/ls {:fs/ls-hidden? true})\n                                  (.then (fn [scripts] (reset! !mv-builtin-ls scripts))))\n                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-builtin-ls)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (if (.includes result-str "GitHub Gist Installer (Built-in)")
+              (-> (expect true) (.toBe true))
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for ls before mv"))
+                (do
+                  (js-await (sleep 20))
+                  (recur)))))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls before mv"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
+
   (let [setup-result (js-await (eval-in-browser
                                 "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"GitHub Gist Installer (Built-in)\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
