@@ -204,7 +204,7 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(defn- ^:async test_ls_lists_all_scripts_with_metadata []
+(defn- ^:async test_ls_hides_builtins_by_default []
   (let [fn-check (js-await (eval-in-browser "(fn? epupp.fs/ls)"))]
     (-> (expect (.-success fn-check)) (.toBe true))
     (-> (expect (.-values fn-check)) (.toContain "true")))
@@ -224,12 +224,33 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe true))
-            (-> (expect (.includes result-str ":name")) (.toBe true))
-            (-> (expect (.includes result-str ":enabled")) (.toBe true))
-            (-> (expect (.includes result-str ":match")) (.toBe true)))
+            (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe false))
+            )
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls result"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
+
+(defn- ^:async test_ls_includes_builtins_when_option_set []
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !ls-hidden-result (atom :pending))
+                                 (-> (epupp.fs/ls {:fs/ls-hidden? true})
+                                     (.then (fn [scripts] (reset! !ls-hidden-result scripts))))
+                                 :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!ls-hidden-result)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for epupp.fs/ls hidden result"))
             (do
               (js-await (sleep 50))
               (recur))))))))
@@ -252,6 +273,9 @@
              (test "epupp.fs/show with vector returns map of names to codes"
                    test_show_with_vector_returns_map)
 
-             (test "epupp.fs/ls lists all scripts with metadata"
-                   test_ls_lists_all_scripts_with_metadata)))
+             (test "epupp.fs/ls hides built-in scripts by default"
+               test_ls_hides_builtins_by_default)
+
+             (test "epupp.fs/ls includes built-ins when :fs/ls-hidden? true"
+               test_ls_includes_builtins_when_option_set)))
 

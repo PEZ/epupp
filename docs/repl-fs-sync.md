@@ -42,6 +42,9 @@ You control when to push and pull. There's no automatic sync - you decide.
 (epupp.fs/ls)
 ;; => [{:fs/name "github_tweaks.cljs" :fs/enabled true :fs/match ["https://github.com/*"]} ...]
 
+;; Include built-in scripts
+(epupp.fs/ls {:fs/ls-hidden? true})
+
 ;; Get script code
 (epupp.fs/show "github_tweaks.cljs")
 ;; => "{:epupp/script-name \"github_tweaks\" ...}\n(ns github-tweaks)\n..."

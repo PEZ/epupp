@@ -381,6 +381,29 @@
                       (-> (expect (script-utils/builtin-script? script))
                           (.toBeFalsy)))))))
 
+(describe "filter-visible-scripts"
+          (fn []
+            (test "excludes built-ins by default"
+                  (fn []
+                    (let [scripts [{:script/id "epupp-builtin-gist-installer"
+                                    :script/name "Builtin"}
+                                   {:script/id "script-1"
+                                    :script/name "User"}]
+                          result (script-utils/filter-visible-scripts scripts false)]
+                      (-> (expect (count result)) (.toBe 1))
+                      (-> (expect (:script/id (first result))) (.toBe "script-1")))))
+
+            (test "includes built-ins when include-hidden? is true"
+                  (fn []
+                    (let [scripts [{:script/id "epupp-builtin-gist-installer"
+                                    :script/name "Builtin"}
+                                   {:script/id "script-1"
+                                    :script/name "User"}]
+                          result (script-utils/filter-visible-scripts scripts true)]
+                      (-> (expect (count result)) (.toBe 2))
+                      (-> (expect (some #(= "epupp-builtin-gist-installer" (:script/id %)) result))
+                          (.toBeTruthy)))))))
+
 ;; ============================================================
 ;; Script Name Normalization Tests
 ;; ============================================================

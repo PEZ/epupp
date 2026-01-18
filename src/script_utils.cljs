@@ -185,6 +185,13 @@
 ;; Script ID generation
 ;; ============================================================
 
+(defn filter-visible-scripts
+  "Filter scripts for ls. When include-hidden? is true, includes built-ins."
+  [scripts include-hidden?]
+  (if include-hidden?
+    scripts
+    (filterv (comp not builtin-script?) scripts)))
+
 (defn generate-script-id
   "Generate a stable, unique script ID based on timestamp.
    The ID is immutable once created - it does not change when the script is renamed."
@@ -246,6 +253,7 @@
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
            :name_matches_builtin_QMARK_ name-matches-builtin?
+           :filter_visible_scripts filter-visible-scripts
            :generate_script_id generate-script-id
            :normalize_script_name normalize-script-name
            :normalize_match_patterns normalize-match-patterns

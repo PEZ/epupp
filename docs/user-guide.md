@@ -531,6 +531,12 @@ Manage userscripts programmatically from the REPL using the `epupp.fs` namespace
 ;;     ...]
 ```
 
+Built-in scripts are hidden by default. Include them with:
+
+```clojure
+(epupp.fs/ls {:fs/ls-hidden? true})
+```
+
 ### Reading Script Code
 
 ```clojure

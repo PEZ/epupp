@@ -95,7 +95,8 @@
             (log/info "Bridge" nil "Forwarding list-scripts request to background")
             (try
               (js/chrome.runtime.sendMessage
-               #js {:type "list-scripts"}
+               #js {:type "list-scripts"
+                    :lsHidden (.-lsHidden msg)}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"

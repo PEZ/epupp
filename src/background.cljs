@@ -855,13 +855,15 @@
 
                     ;; Page context requests script list via epupp.fs/ls
                     "list-scripts"
-                    (let [scripts (storage/get-scripts)
+                    (let [include-hidden? (.-lsHidden message)
+                          scripts (storage/get-scripts)
+                          visible-scripts (script-utils/filter-visible-scripts scripts include-hidden?)
                           public-scripts (mapv (fn [s]
                                                  {:fs/name (:script/name s)
                                                   :fs/enabled (:script/enabled s)
                                                   :fs/match (:script/match s)
                                                   :fs/modified (:script/modified s)})
-                                               scripts)]
+                                               visible-scripts)]
                       (send-response (clj->js {:success true :scripts public-scripts}))
                       false)
 
@@ -887,10 +889,10 @@
                                    ;; Always use fresh ID for REPL saves - the action handler
                                    ;; will decide if this is a create (reject if exists, no force)
                                    ;; or overwrite (allow if force flag is set)
-                                       (let [crypto (.-crypto js/globalThis)
+                                   (let [crypto (.-crypto js/globalThis)
                                          script-id (if (and crypto (.-randomUUID crypto))
-                                             (str "script-" (.randomUUID crypto))
-                                             (str "script-" (.now js/Date) "-" (.random js/Math)))
+                                                     (str "script-" (.randomUUID crypto))
+                                                     (str "script-" (.now js/Date) "-" (.random js/Math)))
                                          script {:script/id script-id
                                                  :script/name normalized-name
                                                  :script/code code

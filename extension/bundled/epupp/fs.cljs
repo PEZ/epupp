@@ -69,13 +69,18 @@
   "List all scripts. Returns promise of vector with script info.
    Each script has :fs/name, :fs/enabled, :fs/match, :fs/modified keys.
 
+   Opts:
+   - :fs/ls-hidden? bool - include built-in scripts (default: false)
+
    Example: (epupp.fs/ls)"
-  []
-  (-> (send-and-receive "list-scripts" {} "list-scripts-response")
-      (.then (fn [msg]
-               (if (.-success msg)
-                 (js->clj (.-scripts msg) :keywordize-keys true)
-                 [])))))
+  ([] (ls {}))
+  ([opts]
+   (let [ls-hidden? (get opts :fs/ls-hidden?)]
+     (-> (send-and-receive "list-scripts" {:lsHidden ls-hidden?} "list-scripts-response")
+         (.then (fn [msg]
+                  (if (.-success msg)
+                    (js->clj (.-scripts msg) :keywordize-keys true)
+                    [])))))))
 
 (defn save!
   "Save code to Epupp. Parses manifest from code.
