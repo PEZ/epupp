@@ -3,7 +3,7 @@
 **Created:** January 2, 2026
 **Status:** Implemented
 
-This document captures design decisions and rationale for the userscript feature. For technical implementation details (message protocols, state schemas, injection flows), see [architecture/overview.md](architecture/overview.md).
+This document captures design decisions and rationale for the userscript feature. For technical implementation details (message protocols, state schemas, injection flows), see [architecture.md](architecture.md).
 
 ## Overview
 
@@ -34,7 +34,7 @@ A minimal DevTools panel serves as the **on-ramp**; jacking in an editor is the 
 
 ## Component Overview
 
-See [architecture/overview.md](architecture/overview.md) for the full component diagram and technical details. Key userscript-related components:
+See [architecture.md](architecture.md) for the full component diagram and technical details. Key userscript-related components:
 
 - **Background Worker** - Handles `webNavigation.onCompleted`, manages pending approvals
 - **Content Bridge** - Injects `<script type="application/x-scittle">` tags
@@ -312,6 +312,6 @@ For scripts loaded from files or shared, support TamperMonkey-style header comme
 ## Related Documents
 
 - [README.md](../../README.md) - Project overview and usage
-- [architecture/overview.md](architecture/overview.md) - Technical reference (state, messages, flows)
+- [architecture.md](architecture.md) - Technical reference (state, messages, flows)
 - [dev.md](dev.md) - Development setup
 - [.github/copilot-instructions.md](../../.github/copilot-instructions.md) - AI agent instructions

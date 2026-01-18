@@ -6,7 +6,7 @@ This document documents the completed FS REPL Sync feature. All core functionali
 
 Read these before working on REPL FS Sync:
 
-- [architecture/overview.md](architecture/overview.md)
+- [../architecture.md](../architecture.md)
 - [architecture/message-protocol.md](architecture/message-protocol.md)
 - [architecture/repl-fs-sync.md](architecture/repl-fs-sync.md)
 - [userscripts-architecture.md](userscripts-architecture.md)

@@ -2,7 +2,7 @@
 
 **Status**: Ready for Implementation
 **Created**: January 8, 2026
-**Related**: [run-at-injection-timing.md](run-at-injection-timing.md), [architecture/overview.md](../architecture/overview.md)
+**Related**: [run-at-injection-timing.md](run-at-injection-timing.md), [architecture.md](../architecture.md)
 
 ## Executive Summary
 
@@ -667,5 +667,5 @@ Recommended order to minimize risk and enable incremental testing:
 - [Chrome scripting.registerContentScripts](https://developer.chrome.com/docs/extensions/reference/api/scripting#method-registerContentScripts)
 - [Chrome RunAt enum](https://developer.chrome.com/docs/extensions/reference/api/extensionTypes#type-RunAt)
 - [TamperMonkey @run-at documentation](https://www.tampermonkey.net/documentation.php#meta:run_at)
-- [Architecture overview](../architecture/overview.md)
+- [Architecture overview](../architecture.md)
 - [edn-data npm package](https://www.npmjs.com/package/edn-data) - EDN parser for JavaScript (used for manifest parsing)

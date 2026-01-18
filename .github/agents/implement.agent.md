@@ -35,7 +35,7 @@ Human - AI - REPL
 - [testing-unit.md](../../dev/docs/testing-unit.md) - Unit test patterns
 
 **Read for context (as needed):**
-- [architecture/overview.md](../../dev/docs/architecture/overview.md) - System architecture
+- [architecture.md](../../dev/docs/architecture.md) - System architecture
 - [squint.instructions.md](../squint.instructions.md) - Squint gotchas
 
 **Fixtures are critical**: Always check e2e/fixtures.cljs for available helpers before writing new wait logic.

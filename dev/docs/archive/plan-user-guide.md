@@ -44,7 +44,7 @@ Created `docs/user-guide.md` with all planned sections:
 ### Developer-Facing (separate)
 | Source | Content | Status |
 |--------|---------|--------|
-| `dev/docs/architecture/overview.md` | Technical internals | Keep for developers |
+| `dev/docs/architecture.md` | Technical internals | Keep for developers |
 | `dev/docs/userscripts-architecture.md` | Design decisions | Keep for developers |
 | `dev/docs/dev.md` | Build/development setup | Keep for developers |
 
@@ -272,6 +272,6 @@ Remove from README (moved to user guide):
 - [README.md](../../README.md) - Current user-facing content
 - [docs/examples.md](../../docs/examples.md) - Script examples
 - [ui.md](ui.md) - UI behavior reference
-- [architecture/overview.md](../architecture/overview.md) - Technical reference
+- [architecture.md](../architecture.md) - Technical reference
 - [userscripts-architecture.md](userscripts-architecture.md) - Design decisions
 

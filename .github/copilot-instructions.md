@@ -97,7 +97,7 @@
 | Doc | Why |
 |-----|-----|
 | [squint.instructions.md](squint.instructions.md) | Squint != ClojureScript - keywords, mutability, and other gotchas |
-| [dev/docs/architecture/overview.md](../dev/docs/architecture/overview.md) | System architecture - understanding how components interact |
+| [dev/docs/architecture.md](../dev/docs/architecture.md) | System architecture - understanding how components interact |
 | [dev/docs/testing.md](../dev/docs/testing.md) | Testing philosophy and patterns |
 | [dev/docs/testing-e2e.md](../dev/docs/testing-e2e.md) | E2E test patterns - polling, assertions, performance |
 

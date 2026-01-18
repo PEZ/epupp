@@ -539,7 +539,7 @@ Created permanent CSS architecture reference for developers.
 - Background layering guidelines
 
 **Updated:**
-- `dev/docs/architecture/overview.md` - Added CSS to navigation table
+- `dev/docs/architecture.md` - Added CSS to navigation table
 - `dev/docs/architecture/components.md` - Added view_elements.cljs, linked to CSS docs
 
 ---

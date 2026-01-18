@@ -177,7 +177,7 @@ REPL callers.
 ## Related Docs
 
 - [docs/repl-fs-sync.md](docs/repl-fs-sync.md)
-- [dev/docs/architecture/overview.md](dev/docs/architecture/overview.md)
+- [../architecture.md](../architecture.md)
 - [dev/docs/architecture/message-protocol.md](dev/docs/architecture/message-protocol.md)
 - [dev/docs/architecture/uniflow.md](dev/docs/architecture/uniflow.md)
 - [dev/docs/architecture/background-uniflow-implementation.md](dev/docs/architecture/background-uniflow-implementation.md)

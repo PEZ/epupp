@@ -19,7 +19,7 @@
 - TamperMonkey documentation: https://www.tampermonkey.net/documentation.php (January 8, 2026)
 - TamperMonkey FAQ: https://www.tampermonkey.net/faq.php (January 8, 2026)
 - Epupp source code: `src/*.cljs`, `extension/manifest.json`
-- Epupp documentation: `dev/docs/architecture/overview.md`, `dev/docs/userscripts-architecture.md`
+- Epupp documentation: `dev/docs/architecture.md`, `dev/docs/userscripts-architecture.md`
 
 ### Categorization Framework
 

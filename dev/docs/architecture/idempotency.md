@@ -128,5 +128,5 @@ Add to `e2e/integration_test.cljs` or a new `e2e/idempotency_test.cljs`:
 
 ## Related
 
-- [architecture/overview.md](architecture/overview.md) - Component overview and injection flows
+- [../architecture.md](../architecture.md) - Component overview and injection flows
 - [repl-manifest-implementation.md](repl-manifest-implementation.md) - `epupp/manifest!` implementation details

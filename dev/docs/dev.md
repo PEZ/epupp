@@ -217,6 +217,6 @@ GitHub Actions will build all three browser versions and create a draft release.
 ## Related Documentation
 
 - [testing.md](testing.md) - Test strategy and utilities
-- [architecture/overview.md](architecture/overview.md) - Overview and navigation to the detailed architecture docs
+- [architecture.md](architecture.md) - Overview and navigation to the detailed architecture docs
 - [userscripts-architecture.md](userscripts-architecture.md) - Userscript design decisions
 - [ui.md](ui.md) - Script editor UX and ID behavior

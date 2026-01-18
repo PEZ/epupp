@@ -60,7 +60,7 @@ Read relevant files to understand:
 
 | Task Type | Read These |
 |-----------|------------|
-| Any code change | [architecture/overview.md](../../dev/docs/architecture/overview.md) |
+| Any code change | [architecture.md](../../dev/docs/architecture.md) |
 | Message handling | [message-protocol.md](../../dev/docs/architecture/message-protocol.md), src/background.cljs |
 | Storage/scripts | [userscripts-architecture.md](../../dev/docs/userscripts-architecture.md), src/storage.cljs |
 | UI changes | [ui.md](../../dev/docs/ui.md), src/popup.cljs or src/panel.cljs |

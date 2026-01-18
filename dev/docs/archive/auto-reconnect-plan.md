@@ -175,4 +175,4 @@ No explicit limit on history size. Each connection requires its own browser-nrep
 - [popup_actions.cljs](../../src/popup_actions.cljs) - Pure action handlers
 - [background.cljs](../../src/background.cljs) - WebSocket management, navigation handling
 - [background_utils.cljs](../../src/background_utils.cljs) - Pure utility functions
-- [architecture/overview.md](../architecture/overview.md) - System design reference
+- [architecture.md](../architecture.md) - System design reference
