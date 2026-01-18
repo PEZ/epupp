@@ -144,9 +144,8 @@ paths still use direct imperative flows.
 
 ## UI Reactivity and Badge Updates
 
-The background emits state changes to update popup and panel script lists,
-pending approvals, and badges. UI reacts to storage updates and explicit
-refresh signals to keep script state consistent.
+UI reactivity is source-agnostic. Popup and panel react to storage changes
+from REPL FS, panel edits, popup edits, and background updates.
 
 ## Error Handling and Return Shapes
 

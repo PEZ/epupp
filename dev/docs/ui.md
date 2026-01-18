@@ -33,7 +33,9 @@ User Event → dispatch!([actions]) → handle-action (pure) → state update �
 
 3. **State drives rendering** - A single atom per view, watched via `add-watch` to trigger re-renders.
 
-4. **Reagami for hiccup** - A minimal React-like library (not Reagent) for rendering hiccup vectors to DOM.
+4. **Reactive, source-agnostic updates** - Popup and panel subscribe to storage changes and refresh regardless of origin (REPL FS, panel edits, popup edits, background).
+
+5. **Reagami for hiccup** - A minimal React-like library (not Reagent) for rendering hiccup vectors to DOM.
 
 ## File Organization
 

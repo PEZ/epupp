@@ -412,6 +412,64 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_panel_rename_triggers_popup_flash []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; === PHASE 1: Create initial script ===
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")
+            save-btn (.locator panel "button.btn-save")]
+        (js-await (clear-storage panel))
+        (js-await (.reload panel))
+        (js-await (wait-for-panel-ready panel))
+        (let [initial-code (code-with-manifest {:name "Flash Rename Script"
+                                                :match "*://example.com/*"
+                                                :code "(println \"v1\")"})]
+          (js-await (.fill textarea initial-code)))
+        (js-await (.click save-btn))
+        (js-await (wait-for-save-status panel "flash_rename_script.cljs"))
+        (js-await (.close panel)))
+
+      ;; === PHASE 2: Open popup and ensure no flash class ===
+      (let [popup (js-await (.newPage context))
+            popup-url (str "chrome-extension://" ext-id "/popup.html")]
+        (js-await (.goto popup popup-url #js {:timeout 1000}))
+        (js-await (wait-for-popup-ready popup))
+        (let [script-item (.locator popup ".script-item:has-text(\"flash_rename_script.cljs\")")
+              inspect-btn (.locator script-item "button.script-inspect")]
+          (js-await (-> (expect script-item) (.toBeVisible #js {:timeout 2000})))
+          (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified"))))
+          (js-await (.click inspect-btn))
+          (js-await (wait-for-edit-hint popup)))
+
+        ;; === PHASE 3: Rename in panel while popup stays open ===
+        (let [panel (js-await (create-panel-page context ext-id))
+              textarea (.locator panel "#code-area")
+              rename-btn (.locator panel "button.btn-rename")
+              save-section (.locator panel ".save-script-section")
+              name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
+          (js-await (-> (expect name-field) (.toContainText "flash_rename_script.cljs")))
+          (let [renamed-code (code-with-manifest {:name "Flash Renamed Script"
+                                                  :match "*://example.com/*"
+                                                  :code "(println \"v1\")"})]
+            (js-await (.fill textarea renamed-code)))
+          (js-await (.click rename-btn))
+          (js-await (wait-for-save-status panel "Renamed"))
+          (js-await (.close panel)))
+
+        ;; === PHASE 4: Popup should flash renamed item ===
+        (let [renamed-item (.locator popup ".script-item:has-text(\"flash_renamed_script.cljs\")")]
+          (js-await (-> (expect renamed-item)
+                        (.toHaveClass (js/RegExp. "script-item-fs-modified")
+                                      #js {:timeout 2000}))))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Panel Save"
            (fn []
              (test "Panel Save: create new script when name changed, save when unchanged"
@@ -422,6 +480,9 @@
 
              (test "Panel Save: rename does not affect other scripts or trigger approvals"
                    test_rename_does_not_affect_other_scripts_or_trigger_approvals)
+
+             (test "Panel Save: rename triggers popup flash"
+                   test_panel_rename_triggers_popup_flash)
 
              (test "Panel Save: multiple renames do not create duplicates"
                    test_multiple_renames_do_not_create_duplicates)))

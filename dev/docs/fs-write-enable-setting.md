@@ -46,7 +46,7 @@ The core infrastructure is in place:
 - [ ] Panel updates when showing a file modified via REPL
 - [ ] "Update" banner briefly shown in popup after REPL modifications
 - [ ] "Update" banner briefly shown in panel after REPL modifications
-- [ ] Flash/highlight modified scripts in popup list
+- [x] Flash/highlight modified scripts in popup list
 - [ ] Extension icon briefly shows "update" badge
 
 ### API
@@ -98,53 +98,6 @@ The core infrastructure is in place:
 | rm! rejects deleting built-in | PASS |
 | rm! bulk rejects when any missing | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
 | rm! returns existed flag | PASS |
-
-### E2E Flakiness Notes (Resolved Jan 17, 2026)
-
-Observed intermittent failures in serial shard 1/6 when running:
-
-- `bb test:e2e --serial -- --shard=1/6`
-
-Failures observed across three consecutive runs:
-
-- `epupp.fs/save! with vector returns map of per-item results`
-- `epupp.fs/rm! with vector returns map of per-item results`
-
-In failing runs, the test log showed:
-
-- `=== Bulk save result === ":pending"`
-- `=== Bulk rm result === ":pending"`
-
-Fixes applied:
-
-- Test: normalize quoted `pr-str` values when polling bulk results in [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs)
-- Implementation: avoid REPL save script ID collisions with UUID-based IDs in [src/background.cljs](src/background.cljs)
-
-Re-run results:
-
-- `bb test:e2e --serial -- --shard=1/6` passed twice in a row after the fixes.
-
-### E2E Flakiness Notes (Observed Jan 18, 2026)
-
-**Symptom:** Rare failure in `epupp.fs/rm! rejects deleting built-in scripts` with output showing a resolved result instead of rejection.
-
-**Observed log snippet:**
-
-```
-Expected: true
-Received: false
-
-expect(result_str.includes("rejected")).toBe(true)
-```
-
-**Likely root cause:** Storage can contain a user script whose `:script/name` matches the built-in display name. The delete handler resolves if it finds a non-built-in script with that name. Because `find-script-by-name` returns the first match and the built-in guard only checks ID prefix, a stale user script can be deleted instead of rejecting. This is consistent with older runs that allowed saving a script named "GitHub Gist Installer (Built-in)" before the built-in name guard was added.
-
-**Flow involved:**
-`epupp.fs/rm!` - page -> content bridge -> background `delete-script` -> `background-actions/handle-action` `:fs/ax.delete-script` -> `find-script-by-name` -> `builtin-script?` guard.
-
-**Why rare:** It depends on persistent storage state and script ordering. If a stale user script with the built-in name exists and appears before the built-in entry, the delete succeeds and the test sees a resolved result.
-
-**Mitigation:** Added a test helper to clear non-built-in scripts during E2E setup. `clear-fs-scripts` preserves built-ins while removing user scripts to prevent leftover state from prior runs.
 
 ## Code Locations
 
