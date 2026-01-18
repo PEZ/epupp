@@ -56,29 +56,24 @@ You control when to push and pull. There's no automatic sync - you decide.
 ;; Delete a script
 (epupp.fs/rm! "script.cljs")
 ```
+**Overwriting existing scripts:**
 
-### The Confirmation Workflow
+Operations that would overwrite existing content fail, by default, but you can override.
 
-When you call `save!`, `mv!`, or `rm!` without `:fs/force? true`, Epupp asks for confirmation in the popup UI:
+```clojure
+(epupp.fs/save! code {:fs/force? true})
+;; Overwrites existing script with same name
+```
+
+### The FS REPL Sync Setting
+
+Write operations (`save!`, `mv!`, `rm!`) require the **FS REPL Sync** setting to be enabled in the popup Settings section. When disabled, these operations return an error:
 
 ```clojure
 (epupp.fs/save! new-code)
-;; => {:fs/success true
-;;     :fs/pending-confirmation true
-;;     :fs/name "my_script.cljs"}
+;; => {:fs/success false :fs/error "FS REPL Sync is disabled"}
 ```
 
-The promise resolves immediately. The operation is queued. You see a **Pending Confirmations** section in the Epupp popup showing what's about to happen. Click Confirm or Cancel.
-
-**Why confirmations?** You're running a REPL server in your browser tabs - that's powerful and slightly dangerous. The confirmation gives you a quick safety check. You just sent the file, so you know what it is. A quick glance and click confirms it's what you intended.
-
-**Skip confirmations:**
-```clojure
-(epupp.fs/save! code {:fs/force? true})
-;; No confirmation - happens immediately
-```
-
-This is useful for automated scripts or when you're confident.
 
 ## Typical Workflows
 
@@ -139,17 +134,6 @@ All FS operations return promises. Use `promesa` for clean async code:
 
 Browser extensions can't expose native filesystems. WebDAV or sync servers add complexity and dependencies. The REPL channel already exists for tampering - extending it with FS primitives is simple and composable.
 
-### What's the difference between "Pending Confirmations" and script "Allow/Deny"?
-
-Good catch - these are currently separate UI patterns:
-- **Pending Confirmations** (yellow section): For FS operations (save, rename, delete). You're modifying Epupp's stored scripts.
-- **Allow/Deny** (inline with scripts): For execution permissions. Should this script auto-run on matching pages?
-
-We're working on unifying these patterns, but the concepts are slightly different.
-
-### Can I disable confirmations entirely?
-
-Currently, use `:fs/force? true` on each operation. A future option might add a global "grant filesystem access" mode for editing sessions where all operations happen immediately without confirmation.
 
 ### What if I rename a script? Does it lose its enabled state or URL match?
 
@@ -189,4 +173,4 @@ For selective fields, filter the result with `select-keys` or use `cljs.pprint/p
 
 ---
 
-**Status:** This feature is under active development. The confirmation workflow is stable. A global "grant access" mode may be added in the future.
+**Status:** This feature is under active development.
