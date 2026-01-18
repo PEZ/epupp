@@ -41,7 +41,7 @@
   (-> (p/let [save-overwrite-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)")]
         (def save-overwrite-result save-overwrite-result))
       (p/catch (fn [e] (def save-overwrite-error (.-message e)))))
-  ;; PEZ: Overwrites! (But I think I saw it working once)
+  ;; PEZ: Checks out!
 
   ;; Save with force overwrites existing
   (-> (p/let [save-force-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)" {:fs/force? true})]
@@ -53,13 +53,13 @@
   (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)")]
         (def save-built-in-result save-built-in-result))
       (p/catch (fn [e] (def save-built-in-error (.-message e)))))
-  ;; PEZ: This creates a normalized name file. Which is wrong. Attempts to saving a built-in should reject the promise.
+  ;; PEZ: Checks out!
 
   ;; Save with force does not overwrite built-in
   (-> (p/let [save-built-in-force-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)" {:fs/force? true})]
         (def save-built-in-force-result save-built-in-force-result))
       (p/catch (fn [e] (def save-built-in-force-error (.-message e)))))
-  ;; PEZ: This creates a normalized name file. Which is wrong. Attempts to saving a built-in should reject the promise.
+  ;; PEZ: Checks out!
 
   ;; Bulk save
   (-> (p/let [bulk-save-result (epupp.fs/save! ["{:epupp/script-name \"bulk-1\"}\n(ns b1)"
