@@ -597,14 +597,72 @@
 (defn- run-docker-shard
   "Run Docker container with Playwright's native sharding.
    Returns map with process and writer for cleanup."
-  [shard-idx n-shards log-file]
-  (let [writer (io/writer log-file)]
+  [shard-idx n-shards log-file extra-args]
+  (let [writer (io/writer log-file)
+        cmd (into ["docker" "run" "--rm" "epupp-e2e"
+                   (str "--shard=" (inc shard-idx) "/" n-shards)]
+                  extra-args)]
     (.write writer (str "\n=== Shard " (inc shard-idx) "/" n-shards " ===\n\n"))
     (.flush writer)
-    {:process (p/process ["docker" "run" "--rm" "epupp-e2e"
-                          (str "--shard=" (inc shard-idx) "/" n-shards)]
-                         {:out writer :err writer})
+    {:process (p/process cmd {:out writer :err writer})
      :writer writer}))
+
+(defn- parse-playwright-summary
+  "Parse Playwright summary line from log output.
+   Returns {:passed N :failed N :skipped N} or nil if not found.
+   Handles formats like:
+     '28 passed (8.8s)'
+     '10 passed, 2 failed (5.2s)'
+     '5 passed, 1 failed, 2 skipped (3.1s)'"
+  [log-content]
+  (let [;; Match the summary line at the end
+        summary-pattern #"(?m)^\s*(\d+)\s+passed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+skipped)?\s+\([^)]+\)\s*$"]
+    (when-let [match (re-find summary-pattern log-content)]
+      {:passed (parse-long (nth match 1))
+       :failed (if-let [f (nth match 2)] (parse-long f) 0)
+       :skipped (if-let [s (nth match 3)] (parse-long s) 0)})))
+
+(defn- count-test-files-in-log
+  "Count unique test files mentioned in Playwright output."
+  [log-content]
+  (let [;; Match file references like "build/e2e/popup_core_test.mjs:123:1" or "build/e2e/repl_ui_spec.mjs:123:1"
+        file-pattern #"build/e2e/([a-z_]+(?:_test|_spec)\.mjs):\d+:\d+"
+        matches (re-seq file-pattern log-content)]
+    (count (distinct (map second matches)))))
+
+(defn- aggregate-shard-results
+  "Aggregate results from all shard log files.
+   Returns {:files N :total N :passed N :failed N}."
+  [log-files]
+  (let [results (for [log-file log-files
+                      :let [content (slurp log-file)
+                            summary (parse-playwright-summary content)
+                            files (count-test-files-in-log content)]
+                      :when summary]
+                  (assoc summary :files files))
+        total-passed (reduce + (map :passed results))
+        total-failed (reduce + (map :failed results))
+        total-skipped (reduce + (map :skipped results))
+        total-files (reduce + (map :files results))]
+    {:files total-files
+     :total (+ total-passed total-failed total-skipped)
+     :passed total-passed
+     :failed total-failed
+     :skipped total-skipped}))
+
+(defn- print-test-summary
+  "Print a summary of test results."
+  [{:keys [files total passed failed skipped]}]
+  (println)
+  (println (format "Files:   %d" files))
+  (println (format "Total:   %d tests" total))
+  (println (format "Passed:  %d" passed))
+  (when (pos? skipped)
+    (println (format "Skipped: %d" skipped)))
+  (println (format "Failed:  %d" failed))
+  (if (zero? failed)
+    (println "Status:  ALL TESTS PASSED")
+    (println "Status:  SOME TESTS FAILED")))
 
 (defn- run-e2e-serial!
   "Run E2E tests sequentially in a single Docker container.
@@ -613,12 +671,15 @@
   (println "Building Docker image...")
   (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
   (let [cmd (into ["docker" "run" "--rm" "epupp-e2e"] extra-args)
-        result (apply p/shell {:continue true} cmd)]
+        ;; Capture output to file while also displaying it
+        result (apply p/shell {:out :inherit :err :inherit :continue true} cmd)]
+    ;; For serial mode, Playwright already prints its own summary
+    ;; We just exit with the appropriate code
     (System/exit (:exit result))))
 
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
-  [n-shards]
+  [n-shards extra-args]
   ;; Step 1: Build
   (println "Building extension and compiling E2E tests...")
   (p/shell "bb build:test")
@@ -630,6 +691,8 @@
 
   ;; Step 3: Run shards in parallel using Playwright's native sharding
   (println (str "Running " n-shards " parallel shards..."))
+  (when (seq extra-args)
+    (println (str "  Extra Playwright args: " (str/join " " extra-args))))
   (let [log-dir "/tmp/epupp-e2e-parallel"
         _ (fs/create-dirs log-dir)
         start-time (System/currentTimeMillis)
@@ -638,7 +701,7 @@
                 (for [idx (range n-shards)]
                   (let [log-file (str log-dir "/shard-" idx ".log")]
                     (println (format "  Starting shard %d/%d..." (inc idx) n-shards))
-                    (let [{:keys [process writer]} (run-docker-shard idx n-shards log-file)]
+                    (let [{:keys [process writer]} (run-docker-shard idx n-shards log-file extra-args)]
                       {:idx idx
                        :process process
                        :writer writer
@@ -669,10 +732,15 @@
                        {:idx idx :exit @exit-code :log-file log-file})
                      shards)
         elapsed-ms (- (System/currentTimeMillis) start-time)
-        failed (filter #(not= 0 (:exit %)) results)]
+        failed (filter #(not= 0 (:exit %)) results)
+        log-files (map :log-file results)
+        summary (aggregate-shard-results log-files)]
 
     (println)
     (println (str "Completed " n-shards " shards in " (format "%.1fs" (/ elapsed-ms 1000.0))))
+
+    ;; Always print test summary
+    (print-test-summary summary)
 
     (if (seq failed)
       (do
@@ -702,7 +770,7 @@
         n-shards (or (:shards opts) 6)]
     (if serial?
       (run-e2e-serial! args)
-      (run-e2e-parallel! n-shards))))
+      (run-e2e-parallel! n-shards args))))
 
 (defn- extract-json-from-output
   "Extract JSON object from mixed output that may have log prefixes.
