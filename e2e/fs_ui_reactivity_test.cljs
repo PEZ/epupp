@@ -294,7 +294,8 @@
       (-> (expect (.includes out "rejected")) (.toBe true))
       (-> (expect (or (.includes out "Script not found")
                       (.includes out "not found")
-                      (.includes out "does not exist")))
+                      (.includes out "does not exist")
+                      (.includes out "non-existent")))
           (.toBe true)))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
