@@ -296,3 +296,199 @@
               (.toBe false))
           (-> (expect (:error error-response))
               (.toContain "built-in")))))))
+
+;; ============================================================
+;; Icon State Tests
+;; ============================================================
+
+(describe ":icon/ax.set-state"
+  (fn []
+    (test "sets icon state and triggers toolbar update"
+      (fn []
+        (let [state {:icon/states {1 :disconnected}}
+              result (bg-actions/handle-action state uf-data
+                       [:icon/ax.set-state 1 :connected])]
+            (-> (expect (get-in result [:uf/db :icon/states 1]))
+              (.toBe :connected))
+          (-> (expect (some #(= [:icon/fx.update-toolbar! 1] %) (:uf/fxs result)))
+              (.toBeTruthy)))))))
+
+(describe ":icon/ax.clear"
+  (fn []
+    (test "removes icon state without effects"
+      (fn []
+        (let [state {:icon/states {1 :connected 2 :injected}}
+              result (bg-actions/handle-action state uf-data
+                       [:icon/ax.clear 1])]
+          (-> (expect (get-in result [:uf/db :icon/states 1]))
+              (.toBeUndefined))
+          (-> (expect (count (:uf/fxs result)))
+              (.toBe 0)))))))
+
+(describe ":icon/ax.prune"
+  (fn []
+    (test "keeps only valid tab ids"
+      (fn []
+        (let [state {:icon/states {1 :connected 2 :injected}}
+              result (bg-actions/handle-action state uf-data
+                       [:icon/ax.prune #{2}])]
+          (-> (expect (get-in result [:uf/db :icon/states 1]))
+              (.toBeUndefined))
+          (-> (expect (get-in result [:uf/db :icon/states 2]))
+              (.toBe :injected))
+          (-> (expect (count (:uf/fxs result)))
+              (.toBe 0)))))))
+
+;; ============================================================
+;; Connection History Tests
+;; ============================================================
+
+(describe ":history/ax.track"
+  (fn []
+    (test "adds tab and port to history"
+      (fn []
+        (let [state {:connected-tabs/history {1 {:port 12345}}}
+              result (bg-actions/handle-action state uf-data
+                       [:history/ax.track 2 23456])]
+          (-> (expect (get-in result [:uf/db :connected-tabs/history 2 :port]))
+              (.toBe 23456))
+          (-> (expect (count (:uf/fxs result)))
+              (.toBe 0)))))))
+
+(describe ":history/ax.forget"
+  (fn []
+    (test "removes tab from history"
+      (fn []
+        (let [state {:connected-tabs/history {1 {:port 12345} 2 {:port 23456}}}
+              result (bg-actions/handle-action state uf-data
+                       [:history/ax.forget 1])]
+          (-> (expect (get-in result [:uf/db :connected-tabs/history 1]))
+              (.toBeUndefined))
+          (-> (expect (get-in result [:uf/db :connected-tabs/history 2 :port]))
+              (.toBe 23456))
+          (-> (expect (count (:uf/fxs result)))
+              (.toBe 0)))))))
+
+;; ============================================================
+;; Pending Approval Tests
+;; ============================================================
+
+(describe ":approval/ax.request"
+  (fn []
+    (test "adds pending approval and triggers badge update"
+      (fn []
+        (let [script (assoc base-script
+                            :script/id "script-1"
+                            :script/name "alpha.cljs")
+              pattern "*://example.com/*"
+              tab-id 7
+              result (bg-actions/handle-action {:pending/approvals {}} uf-data
+                       [:approval/ax.request script pattern tab-id])
+              approval-id "script-1|*://example.com/*"]
+          (-> (expect (get-in result [:uf/db :pending/approvals approval-id :approval/id]))
+              (.toBe approval-id))
+          (-> (expect (some #(= [:approval/fx.update-badge-for-tab! tab-id] %)
+                            (:uf/fxs result)))
+              (.toBeTruthy))
+          (-> (expect (some #(= :approval/fx.log-pending! (first %)) (:uf/fxs result)))
+              (.toBeTruthy)))))
+
+    (test "does not duplicate pending entry"
+      (fn []
+        (let [script (assoc base-script
+                            :script/id "script-1"
+                            :script/name "alpha.cljs")
+              pattern "*://example.com/*"
+              tab-id 7
+              approval-id "script-1|*://example.com/*"
+              pending {approval-id {:approval/id approval-id
+                                    :script/id "script-1"
+                                    :script/name "alpha.cljs"
+                                    :script/code "(println \"hello\")"
+                                    :approval/pattern pattern
+                                    :approval/tab-id tab-id}}
+              result (bg-actions/handle-action {:pending/approvals pending} uf-data
+                       [:approval/ax.request script pattern tab-id])]
+          (-> (expect (count (keys (get-in result [:uf/db :pending/approvals]))))
+              (.toBe 1))
+          (-> (expect (some #(= [:approval/fx.update-badge-for-tab! tab-id] %)
+                            (:uf/fxs result)))
+              (.toBeTruthy))
+          (-> (expect (some #(= :approval/fx.log-pending! (first %)) (:uf/fxs result)))
+              (.toBeFalsy)))))))
+
+(describe ":approval/ax.clear"
+  (fn []
+    (test "removes pending approval and updates badge"
+      (fn []
+        (let [approval-id "script-1|*://example.com/*"
+              pending {approval-id {:approval/id approval-id
+                                    :script/id "script-1"
+                                    :approval/pattern "*://example.com/*"}}
+              result (bg-actions/handle-action {:pending/approvals pending} uf-data
+                       [:approval/ax.clear "script-1" "*://example.com/*"])]
+          (-> (expect (get-in result [:uf/db :pending/approvals approval-id]))
+              (.toBeUndefined))
+          (-> (expect (some #(= :approval/fx.update-badge-active! (first %))
+                            (:uf/fxs result)))
+              (.toBeTruthy)))))))
+
+(describe ":approval/ax.sync"
+  (fn []
+    (test "prunes stale approvals based on script state"
+      (fn []
+        (let [pending {"s1|p1" {:approval/id "s1|p1"
+                                :script/id "s1"
+                                :approval/pattern "p1"}
+                       "s2|p2" {:approval/id "s2|p2"
+                                :script/id "s2"
+                                :approval/pattern "p2"}}
+              scripts-by-id {"s1" {:script/id "s1"
+                                   :script/enabled true
+                                   :script/approved-patterns []}
+                             "s2" {:script/id "s2"
+                                   :script/enabled false
+                                   :script/approved-patterns []}}
+              result (bg-actions/handle-action {:pending/approvals pending} uf-data
+                       [:approval/ax.sync scripts-by-id])]
+          (-> (expect (get-in result [:uf/db :pending/approvals "s2|p2"]))
+              (.toBeUndefined))
+          (-> (expect (get-in result [:uf/db :pending/approvals "s1|p1" :approval/id]))
+              (.toBe "s1|p1"))
+          (-> (expect (some #(= :approval/fx.update-badge-active! (first %))
+                            (:uf/fxs result)))
+              (.toBeTruthy)))))))
+
+;; ============================================================
+;; WebSocket Connection Tests
+;; ============================================================
+
+(describe ":ws/ax.register"
+  (fn []
+    (test "registers connection info without effects"
+      (fn []
+        (let [conn {:ws/socket :dummy-ws
+                    :ws/port 5555
+                    :ws/tab-title "Example"
+                    :ws/tab-favicon "favicon.png"
+                    :ws/tab-url "https://example.com"}
+              result (bg-actions/handle-action {:ws/connections {}} uf-data
+                       [:ws/ax.register 9 conn])]
+          (-> (expect (get-in result [:uf/db :ws/connections 9 :ws/port]))
+              (.toBe 5555))
+          (-> (expect (count (:uf/fxs result)))
+              (.toBe 0)))))))
+
+(describe ":ws/ax.unregister"
+  (fn []
+    (test "removes connection and broadcasts change"
+      (fn []
+        (let [conn {:ws/socket :dummy-ws
+                    :ws/port 5555}
+              result (bg-actions/handle-action {:ws/connections {9 conn}} uf-data
+                       [:ws/ax.unregister 9])]
+          (-> (expect (get-in result [:uf/db :ws/connections 9]))
+              (.toBeUndefined))
+          (-> (expect (some #(= :ws/fx.broadcast-connections-changed! (first %))
+                            (:uf/fxs result)))
+              (.toBeTruthy)))))))

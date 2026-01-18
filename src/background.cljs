@@ -11,6 +11,7 @@
             [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
             [log :as log]
+            [background-actions :as bg-actions]
             [bg-fs-dispatch :as fs-dispatch]))
 
 (def ^:private config js/EXTENSION_CONFIG)
@@ -93,6 +94,23 @@
        (when js/chrome.runtime.lastError nil)))))
 
 
+(defn- dispatch-ws-action!
+  "Dispatch WebSocket actions through pure handler and apply effects."
+  [action]
+  (let [state {:ws/connections (:ws/connections @!state)}
+        uf-data {:system/now (.now js/Date)}
+        result (bg-actions/handle-action state uf-data action)
+        {:uf/keys [db fxs]} result]
+    (when db
+      (swap! !state assoc :ws/connections (:ws/connections db)))
+    (doseq [fx fxs]
+      (case (first fx)
+        :ws/fx.broadcast-connections-changed!
+        (broadcast-connections-changed!)
+
+        (log/warn "Background" nil "Unknown ws effect:" (first fx))))))
+
+
 
 (defn close-ws!
   "Close and remove WebSocket for a tab. Does not send ws-close event."
@@ -104,8 +122,7 @@
       (.close ws)
       (catch :default e
         (log/error "Background" "WS" "Error closing WebSocket:" e))))
-  (swap! !state update :ws/connections dissoc tab-id)
-  (broadcast-connections-changed!))
+  (dispatch-ws-action! [:ws/ax.unregister tab-id]))
 
 (defn send-to-tab
   "Send message to content script in a tab.
@@ -142,12 +159,40 @@
     (js/chrome.action.setIcon
      #js {:path (get-icon-paths display-state)})))
 
+(defn- ^:async dispatch-icon-action!
+  "Dispatch icon actions through pure handler, then apply effects."
+  [action]
+  (let [state {:icon/states (:icon/states @!state)}
+        uf-data {:system/now (.now js/Date)}
+        result (bg-actions/handle-action state uf-data action)
+        {:uf/keys [db fxs]} result]
+    (when db
+      (swap! !state assoc :icon/states (:icon/states db)))
+    (doseq [fx fxs]
+      (case (first fx)
+        :icon/fx.update-toolbar!
+        (let [[tab-id] (rest fx)]
+          (js-await (update-icon-now! tab-id)))
+
+        (log/warn "Background" nil "Unknown icon effect:" (first fx))))))
+
+(defn- dispatch-history-action!
+  "Dispatch connection history actions through pure handler."
+  [action]
+  (let [state {:connected-tabs/history (:connected-tabs/history @!state)}
+        uf-data {:system/now (.now js/Date)}
+        result (bg-actions/handle-action state uf-data action)
+        {:uf/keys [db fxs]} result]
+    (when db
+      (swap! !state assoc :connected-tabs/history (:connected-tabs/history db)))
+    (doseq [fx fxs]
+      (log/warn "Background" nil "Unknown history effect:" (first fx)))))
+
 (defn ^:async update-icon-for-tab!
   "Update icon state for a specific tab, then update the toolbar icon.
    Uses the given tab-id for tab-local state calculation."
   [tab-id state]
-  (swap! !state assoc-in [:icon/states tab-id] state)
-  (js-await (update-icon-now! tab-id)))
+  (js-await (dispatch-icon-action! [:icon/ax.set-state tab-id state])))
 
 (defn handle-ws-connect
   "Create WebSocket connection for a tab.
@@ -179,14 +224,14 @@
        (log/info "Background" "WS" "Connecting to:" ws-url "for tab:" tab-id)
        (try
          (let [ws (js/WebSocket. ws-url)]
-           (swap! !state assoc-in [:ws/connections tab-id]
-                  {:ws/socket ws
-                   :ws/port port
-                   :ws/tab-title tab-title
-                   :ws/tab-favicon tab-favicon
-                   :ws/tab-url tab-url})
+           (dispatch-ws-action! [:ws/ax.register tab-id
+                                 {:ws/socket ws
+                                  :ws/port port
+                                  :ws/tab-title tab-title
+                                  :ws/tab-favicon tab-favicon
+                                  :ws/tab-url tab-url}])
            ;; Track this tab in connection history for auto-reconnect
-           (swap! !state assoc-in [:connected-tabs/history tab-id] {:port port})
+             (dispatch-history-action! [:history/ax.track tab-id port])
 
            (set! (.-onopen ws)
                  (fn []
@@ -213,10 +258,9 @@
                    (send-to-tab tab-id {:type "ws-close"
                                         :code (.-code event)
                                         :reason (.-reason event)})
-                   (swap! !state update :ws/connections dissoc tab-id)
+                   (dispatch-ws-action! [:ws/ax.unregister tab-id])
                    ;; When WS closes, go back to injected state (Scittle still loaded)
-                   (update-icon-for-tab! tab-id :injected)
-                   (broadcast-connections-changed!))))
+                   (update-icon-for-tab! tab-id :injected))))
          (catch :default e
            (log/error "Background" "WS" "Failed to create WebSocket:" e)
            (send-to-tab tab-id {:type "ws-error"
@@ -283,26 +327,43 @@
     (when tab-id
       (update-badge-for-tab! tab-id))))
 
-(defn clear-pending-approval!
+(defn- ^:async dispatch-approval-action!
+  "Dispatch approval actions through pure handler, then apply effects."
+  [action]
+  (let [state {:pending/approvals (:pending/approvals @!state)}
+        uf-data {:system/now (.now js/Date)}
+        result (bg-actions/handle-action state uf-data action)
+        {:uf/keys [db fxs]} result]
+    (when db
+      (swap! !state assoc :pending/approvals (:pending/approvals db)))
+    (doseq [fx fxs]
+      (case (first fx)
+        :approval/fx.update-badge-for-tab!
+        (let [[tab-id] (rest fx)]
+          (update-badge-for-tab! tab-id))
+
+        :approval/fx.update-badge-active!
+        (js-await (update-badge-for-active-tab!))
+
+        :approval/fx.log-pending!
+        (let [[{:keys [script-name pattern]}] (rest fx)]
+          (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
+
+        (log/warn "Background" nil "Unknown approval effect:" (first fx))))))
+
+(defn ^:async clear-pending-approval!
   "Remove a specific script/pattern from pending approvals and update badge."
   [script-id pattern]
-  (let [approval-id (str script-id "|" pattern)]
-    (swap! !state update :pending/approvals dissoc approval-id))
-  (update-badge-for-active-tab!))
+  (js-await (dispatch-approval-action! [:approval/ax.clear script-id pattern])))
 
-(defn sync-pending-approvals!
+(defn ^:async sync-pending-approvals!
   "Sync pending approvals atom with storage state.
    Removes stale entries for deleted/disabled scripts or approved patterns."
   []
-  (doseq [[approval-id context] (:pending/approvals @!state)]
-    (let [script-id (:script/id context)
-          pattern (:approval/pattern context)
-          script (storage/get-script script-id)]
-      (when (or (nil? script)
-                (not (:script/enabled script))
-                (storage/pattern-approved? script pattern))
-        (swap! !state update :pending/approvals dissoc approval-id))))
-  (update-badge-for-active-tab!))
+  (let [scripts-by-id (->> (storage/get-scripts)
+                           (map (fn [script] [(:script/id script) script]))
+                           (into {}))]
+    (js-await (dispatch-approval-action! [:approval/ax.sync scripts-by-id]))))
 
 ;; ============================================================
 ;; FS Event Badge Flash - Brief visual feedback for REPL FS ops
@@ -352,7 +413,7 @@
    Does NOT update the toolbar icon - that's handled by onActivated when
    the user switches to another tab."
   [tab-id]
-  (swap! !state update :icon/states dissoc tab-id))
+  (dispatch-icon-action! [:icon/ax.clear tab-id]))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -365,9 +426,7 @@
   []
   (let [tabs (js-await (js/chrome.tabs.query #js {}))
         valid-ids (set (map #(.-id %) tabs))]
-    (swap! !state update :icon/states
-           (fn [states]
-             (select-keys states valid-ids)))))
+    (js-await (dispatch-icon-action! [:icon/ax.prune valid-ids]))))
 
 (defn execute-in-page
   "Execute a function in page context (MAIN world).
@@ -1046,7 +1105,7 @@
                       ;; Reload scripts from storage, then sync pending + badge
                       ((^:async fn []
                          (js-await (storage/load!))
-                         (sync-pending-approvals!)))
+                          (js-await (sync-pending-approvals!))))
                       false)
 
                     "connect-tab"
@@ -1220,23 +1279,11 @@
                     (do (log/info "Background" nil "Unknown message type:" msg-type)
                         false)))))
 
-(defn request-approval!
+(defn ^:async request-approval!
   "Add script to pending approvals (for popup display) and update badge.
    Uses script-id + pattern as key to prevent duplicates on page reload."
   [script pattern tab-id _url]
-  (let [approval-id (str (:script/id script) "|" pattern)]
-    ;; Only add if not already pending
-    (when-not (get-in @!state [:pending/approvals approval-id])
-      (swap! !state update :pending/approvals assoc approval-id
-             {:approval/id approval-id
-              :script/id (:script/id script)
-              :script/name (:script/name script)
-              :script/code (:script/code script)
-              :approval/pattern pattern
-              :approval/tab-id tab-id})
-      (log/info "Background" "Approval" "Pending approval for" (:script/name script) "on pattern" pattern)))
-  ;; Always update badge from source of truth
-  (update-badge-for-tab! tab-id))
+  (js-await (dispatch-approval-action! [:approval/ax.request script pattern tab-id])))
 
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
@@ -1350,7 +1397,7 @@
                   (close-ws! tab-id))
                 (clear-icon-state! tab-id)
                 ;; Remove from connection history - no point reconnecting a closed tab
-                (swap! !state update :connected-tabs/history dissoc tab-id)))
+                (dispatch-history-action! [:history/ax.forget tab-id])))
 
 (.addListener js/chrome.tabs.onActivated
               (fn [active-info]
