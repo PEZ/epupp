@@ -44,6 +44,7 @@
 * [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
 * [ ] Scittle nrepl injected twice
 * [ ] Enable allow process also for non-matching
+  * [ ] Or remove allow, and instead always add new scripts as disabled
 * [ ] Consider a separate leading section for items that need confirmation of any sort
 * [ ] Have a repl file sync mode that can be enabled and which skips confirmation requirements
 * [ ] Call userscripts via the REPL, even if they are not injected
@@ -54,3 +55,5 @@
 * [ ] Make allow a confirmation thing, make it clear that it is about allowing it to auto-run on url match
 * [ ] We need to be able to Disconnect the REPL.
 * [ ] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics
+* [ ] Consider making `https://example.com/*` also match `https://example.com/` and `https://example.com`
+*
