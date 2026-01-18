@@ -122,11 +122,16 @@ Now execute as if you had received a masterful plan:
 
 ### TDD Cycle (Per Feature)
 
+For each feature in the plan:
+
 1. **Write failing test first** - Lock in expected behavior
 2. **Run test to confirm failure** - bb test or bb test:e2e
-3. **Implement minimal code** - Make test pass
-4. **Verify** - Check problems, run tests
-5. **Refactor if needed** - While tests pass
+3. **Implement minimal code** - Make the test pass
+4. **Run test to confirm pass** - Verify the implementation
+5. **Check problems** - Use get_errors to verify no lint/syntax issues
+6. **Refactor if needed** - Clean up while tests pass
+
+Effective use of e2e testing is a success factor. With smart e2e tests you can verify that small parts of your implementation work, and take iterative steps toward full implementation.
 
 ### Edit Delegation
 
