@@ -2,7 +2,7 @@
   "E2E tests for REPL file system rm! operations"
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [assert-no-errors! get-extension-id]]
-            [e2e.fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
+            [fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
 
 (def ^:private !context (atom nil))
 

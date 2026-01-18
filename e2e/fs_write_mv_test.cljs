@@ -1,7 +1,7 @@
 (ns e2e.fs-write-mv-test
   "E2E tests for REPL file system mv! operations"
   (:require ["@playwright/test" :refer [test expect]]
-            [e2e.fs-write-helpers :refer [sleep eval-in-browser setup-browser!]]))
+            [fs-write-helpers :refer [sleep eval-in-browser setup-browser!]]))
 
 (def ^:private !context (atom nil))
 

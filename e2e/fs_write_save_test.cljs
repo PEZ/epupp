@@ -1,7 +1,7 @@
 (ns e2e.fs-write-save-test
   "E2E tests for REPL file system save! operations"
   (:require ["@playwright/test" :refer [test expect]]
-            [e2e.fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
+            [fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
 
 (def ^:private !context (atom nil))
 
