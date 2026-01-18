@@ -71,6 +71,46 @@ body {
   color: var(--refresh-banner-strong);
 }
 
+/* FS sync feedback banners */
+.fs-success-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-success-banner);
+  border-bottom: 1px solid var(--color-border-fs-success-banner);
+  color: var(--color-text-fs-success-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in 0.2s ease-out;
+}
+
+.fs-success-banner strong {
+  color: var(--color-text-fs-success-banner-strong);
+}
+
+.fs-error-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-error-banner);
+  border-bottom: 1px solid var(--color-border-fs-error-banner);
+  color: var(--color-text-fs-error-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in 0.2s ease-out;
+}
+
+.fs-error-banner strong {
+  color: var(--color-text-fs-error-banner-strong);
+}
+
+@keyframes banner-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Main content area - scrollable container */
 .panel-content {
   display: flex;

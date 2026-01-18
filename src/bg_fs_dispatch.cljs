@@ -2,6 +2,7 @@
   "Uniflow dispatch for background FS operations.
    Bridges pure action handlers with storage side effects."
   (:require [background-actions :as bg-actions]
+            [background :as bg]
             [storage :as storage]
             [log :as log]))
 
@@ -17,8 +18,9 @@
         (swap! storage/!db assoc :storage/scripts new-scripts)
         (storage/persist!))
 
-      :bg/fx.broadcast-scripts-changed!
-      nil ; Storage onChanged listener handles UI updates automatically
+      :bg/fx.broadcast-fs-event!
+      (let [[event-data] args]
+        (bg/broadcast-fs-event! event-data))
 
       :bg/fx.send-response
       (let [[response-data] args]

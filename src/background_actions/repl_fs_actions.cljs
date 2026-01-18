@@ -22,18 +22,26 @@
        first))
 
 (defn- make-error-response
-  "Create a failure response with error message."
-  [error-msg]
-  {:uf/fxs [[:bg/fx.send-response {:success false :error error-msg}]]})
+  "Create a failure response with error message and broadcast error event."
+  ([error-msg]
+   (make-error-response error-msg {}))
+  ([error-msg {:keys [operation script-name]}]
+   {:uf/fxs [[:bg/fx.broadcast-fs-event! {:event-type "error"
+                                          :operation operation
+                                          :script-name script-name
+                                          :error error-msg}]
+             [:bg/fx.send-response {:success false :error error-msg}]]}))
 
 (defn- make-success-response
-  "Create a success response with optional extra data."
-  ([updated-scripts]
-   (make-success-response updated-scripts {}))
-  ([updated-scripts extra]
+  "Create a success response with optional extra data and broadcast success event."
+  ([updated-scripts operation script-name]
+   (make-success-response updated-scripts operation script-name {}))
+  ([updated-scripts operation script-name extra]
    {:uf/db {:storage/scripts updated-scripts}
     :uf/fxs [[:storage/fx.persist!]
-             [:bg/fx.broadcast-scripts-changed!]
+             [:bg/fx.broadcast-fs-event! {:event-type "success"
+                                          :operation operation
+                                          :script-name script-name}]
              [:bg/fx.send-response (merge {:success true} extra)]]}))
 
 (defn- update-script-in-list
@@ -61,21 +69,21 @@
     (cond
       ;; Source not found
       (nil? source-script)
-      (make-error-response (str "Script not found: " from-name))
+      (make-error-response (str "Script not found: " from-name) {:operation "rename" :script-name from-name})
 
       ;; Source is builtin
       (script-utils/builtin-script? source-script)
-      (make-error-response "Cannot rename built-in scripts")
+      (make-error-response "Cannot rename built-in scripts" {:operation "rename" :script-name from-name})
 
       ;; Target name exists
       (find-script-by-name scripts to-name)
-      (make-error-response (str "Script already exists: " to-name))
+      (make-error-response (str "Script already exists: " to-name) {:operation "rename" :script-name from-name})
 
       ;; All checks pass - allow rename
       :else
       (let [updated-scripts (update-script-in-list scripts (:script/id source-script)
                               #(assoc % :script/name to-name :script/modified now-iso))]
-        (make-success-response updated-scripts
+        (make-success-response updated-scripts "rename" to-name
                                {:from-name from-name :to-name to-name})))))
 
 (defn delete-script
@@ -85,16 +93,16 @@
     (cond
       ;; Script not found
       (nil? script)
-      (make-error-response (str "Script not found: " script-name))
+      (make-error-response (str "Script not found: " script-name) {:operation "delete" :script-name script-name})
 
       ;; Script is builtin
       (script-utils/builtin-script? script)
-      (make-error-response "Cannot delete built-in scripts")
+      (make-error-response "Cannot delete built-in scripts" {:operation "delete" :script-name script-name})
 
       ;; All checks pass - allow delete
       :else
       (let [updated-scripts (remove-script-from-list scripts (:script/id script))]
-        (make-success-response updated-scripts
+        (make-success-response updated-scripts "delete" script-name
                                {:name script-name})))))
 
 (defn save-script
@@ -109,21 +117,21 @@
     (cond
       ;; Trying to update a builtin script (by ID)
       (and is-update? (script-utils/builtin-script-id? script-id))
-      (make-error-response "Cannot modify built-in scripts")
+      (make-error-response "Cannot modify built-in scripts" {:operation "save" :script-name script-name})
 
       ;; Trying to overwrite a builtin script (by name, even with force)
       (and existing-by-name (script-utils/builtin-script? existing-by-name))
-      (make-error-response "Cannot overwrite built-in scripts")
+      (make-error-response "Cannot overwrite built-in scripts" {:operation "save" :script-name script-name})
 
       ;; Trying to save with a name that would shadow a builtin (via normalization)
       (script-utils/name-matches-builtin? scripts script-name)
-      (make-error-response "Cannot overwrite built-in scripts")
+      (make-error-response "Cannot overwrite built-in scripts" {:operation "save" :script-name script-name})
 
       ;; Name collision on create (different ID, same name, no force)
       (and (not is-update?)
            existing-by-name
            (not force?))
-      (make-error-response (str "Script already exists: " script-name))
+      (make-error-response (str "Script already exists: " script-name) {:operation "save" :script-name script-name})
 
       ;; All checks pass - create or update
       :else
@@ -143,5 +151,5 @@
                                                (remove-script-from-list scripts (:script/id existing-by-name))
                                                scripts)]
                                 (conj filtered timestamped-script)))]
-        (make-success-response updated-scripts
+        (make-success-response updated-scripts "save" script-name
                                {:name script-name :is-update is-update?})))))

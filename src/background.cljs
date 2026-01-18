@@ -92,6 +92,8 @@
        ;; Ignore errors - expected when no popup/panel is open
        (when js/chrome.runtime.lastError nil)))))
 
+
+
 (defn close-ws!
   "Close and remove WebSocket for a tab. Does not send ws-close event."
   [tab-id]
@@ -303,9 +305,42 @@
   (update-badge-for-active-tab!))
 
 ;; ============================================================
-;; Toolbar Icon State Management
+;; FS Event Badge Flash - Brief visual feedback for REPL FS ops
 ;; ============================================================
 
+(defn flash-fs-badge!
+  "Briefly flash badge to indicate FS operation result.
+   Shows checkmark for success, exclamation for error, then restores normal badge."
+  [event-type]
+  (let [text (if (= event-type "success") "✓" "!")
+        color (if (= event-type "success") "#22c55e" "#ef4444")]
+    ;; Set flash badge
+    (js/chrome.action.setBadgeText #js {:text text})
+    (js/chrome.action.setBadgeBackgroundColor #js {:color color})
+    ;; Restore normal badge after 2 seconds
+    (js/setTimeout
+     (fn []
+       (update-badge-for-active-tab!))
+     2000)))
+
+(defn broadcast-fs-event!
+  "Notify popup/panel about FS operation results and flash toolbar badge.
+   Called after REPL FS operations (save, rename, delete) complete.
+   event should be a map with keys: :event-type (:success/:error),
+   :operation (:save/:rename/:delete), :script-name, and optionally :error"
+  [event]
+  ;; Flash toolbar badge briefly
+  (flash-fs-badge! (:event-type event))
+  ;; Send event to popup/panel
+  (js/chrome.runtime.sendMessage
+   (clj->js (merge {:type "fs-event"} event))
+   (fn [_response]
+     ;; Ignore errors - expected when no popup/panel is open
+     (when js/chrome.runtime.lastError nil))))
+
+;; ============================================================
+;; Toolbar Icon State Management
+;; ============================================================
 
 (defn get-icon-state
   "Get current icon state for a tab."

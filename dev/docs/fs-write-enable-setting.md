@@ -22,8 +22,6 @@ Read these before working on REPL FS Sync:
 
 ## Current State
 
-UI updates not done yet.
-
 The core infrastructure is in place:
 - Toggle in Settings section (default: disabled)
 - When disabled: `save!`, `mv!`, `rm!` return clear error
@@ -31,6 +29,12 @@ The core infrastructure is in place:
 - `ls` and `show` always work regardless of setting
 - `ls` hides built-in scripts by default - use `:fs/ls-hidden?` to include them
 - Panel save bypasses setting (trusted UI)
+
+UI feedback is now complete:
+- Success/error banners in popup and panel (auto-dismiss after 3s)
+- Extension icon badge flashes checkmark or exclamation (restores after 2s)
+- Panel reloads script when current file modified via REPL
+- Script items flash in popup when modified
 
 ## Fixed Bugs
 
@@ -40,14 +44,14 @@ The core infrastructure is in place:
 
 ### UI Feedback
 
-- [ ] Error banner in panel when FS sync disabled
-- [ ] Error banner in popup when FS sync disabled
-- [ ] Extension icon error badge
-- [ ] Panel updates when showing a file modified via REPL
-- [ ] "Update" banner briefly shown in popup after REPL modifications
-- [ ] "Update" banner briefly shown in panel after REPL modifications
+- [x] Error banner in panel when FS sync disabled
+- [x] Error banner in popup when FS sync disabled
+- [x] Extension icon error badge
+- [x] Panel updates when showing a file modified via REPL
+- [x] "Update" banner briefly shown in popup after REPL modifications
+- [x] "Update" banner briefly shown in panel after REPL modifications
 - [x] Flash/highlight modified scripts in popup list
-- [ ] Extension icon briefly shows "update" badge
+- [x] Extension icon briefly shows "update" badge
 
 ### API
 

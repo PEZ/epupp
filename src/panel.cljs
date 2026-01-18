@@ -28,7 +28,8 @@
          :panel/needs-refresh? false
          :panel/current-hostname nil
          :panel/manifest-hints nil  ; Parsed manifest from current code
-         :panel/selection nil}))    ; Current textarea selection {:start :end :text}
+         :panel/selection nil       ; Current textarea selection {:start :end :text}
+         :panel/fs-event nil}))     ; FS sync event banner {:type :success/:error :message "..."}
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -269,6 +270,23 @@
                      (.-description script)]])
          ;; Clear the flag so we don't reload on next panel open
          (js/chrome.storage.local.remove "editingScript"))))
+
+    :editor/fx.reload-script-from-storage
+    (let [[script-name] args]
+      (js/chrome.storage.local.get
+       #js ["scripts"]
+       (fn [result]
+         (when-let [scripts-raw (.-scripts result)]
+           (let [scripts (script-utils/parse-scripts scripts-raw)
+                 script (some #(when (= (:script/name %) script-name) %) scripts)]
+             (when script
+               ;; Reload the script content into the editor
+               (dispatch [[:editor/ax.load-script-for-editing
+                           (:script/id script)
+                           (:script/name script)
+                           (str/join "\n" (:script/match script))
+                           (:script/code script)
+                           (:script/description script)]])))))))
 
     :uf/unhandled-fx))
 
@@ -611,13 +629,18 @@
    [:strong "close and reopen DevTools"]
    [:span " to use the new version of this panel"]])
 
-(defn panel-header [{:panel/keys [needs-refresh?]}]
+(defn fs-event-banner [{:keys [type message]}]
+  [:div {:class (if (= type "success") "fs-success-banner" "fs-error-banner")}
+   [:span message]])
+
+(defn panel-header [{:panel/keys [needs-refresh? fs-event]}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/status "Ready"
-    :elements/banner (when needs-refresh?
-                       [refresh-banner])}])
+    :elements/banner (cond
+                       needs-refresh? [refresh-banner]
+                       fs-event [fs-event-banner fs-event])}])
 
 (defn panel-footer []
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
@@ -717,6 +740,32 @@
  (fn [changes _area]
    (when (.-editingScript changes)
      (dispatch! [[:editor/ax.check-editing-script]]))))
+
+;; Listen for FS sync events from background
+(js/chrome.runtime.onMessage.addListener
+ (fn [message _sender _send-response]
+   (when (= "fs-event" (.-type message))
+     (let [event-type (.-event_type message)
+           operation (.-operation message)
+           script-name (.-script_name message)
+           error-msg (.-error message)
+           current-name (:panel/script-name @!state)
+           ;; Check if this event affects the currently edited script
+           affects-current? (and (= event-type "success")
+                                 (= script-name current-name))]
+       ;; Show banner for errors or when current script is affected
+       (when (or (= event-type "error") affects-current?)
+         (let [banner-msg (if (= event-type "error")
+                            (str "FS sync error: " error-msg)
+                            (str "Script \"" script-name "\" " operation "d via REPL"))]
+           (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+           ;; Auto-dismiss after 3 seconds
+           (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000)))
+       ;; Reload script content if current script was modified
+       (when affects-current?
+         (dispatch! [[:editor/ax.reload-script-from-storage script-name]]))))
+   ;; Return false - we don't send async response
+   false))
 
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)

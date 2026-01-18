@@ -94,11 +94,12 @@
       (p/catch (fn [e] (def rm-error (.-message e)))))
   ;; PEZ: Checks out!
 
-  ;; Delete non-existent - succeeds with :fs/existed? false
+  ;; Delete non-existent - rejects with Script not found
   (-> (p/let [rm-noexist-result (epupp.fs/rm! "does-not-exist.cljs")]
         (def rm-noexist-result rm-noexist-result))
       (p/catch (fn [e] (def rm-noexist-error (.-message e)))))
-  ;; PEZ: Checks out! Though, I wonder if this is correct. We should mimic Unix `rm` and reject the promise. The user is responsible for handling the error.
+  ;; PEZ: UI flashes
+  ;;
 
   ;; Delete built-in rejects
   (-> (p/let [rm-builtin-result (epupp.fs/rm! "GitHub Gist Installer (Built-in)")]
@@ -106,11 +107,17 @@
       (p/catch (fn [e] (def rm-builtin-error (.-message e)))))
   ;; PEZ: Checks out!
 
+  ;; Bulk delete
+  (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "bulk_2.cljs"])]
+        (def bulk-rm-result bulk-rm-result))
+      (p/catch (fn [e] (def bulk-rm-error (.-message e)))))
+  ;; PEZ: Checks out!
+
   ;; Bulk delete - mixed existing/non-existing
   (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "does-not-exist.cljs" "bulk_2.cljs"])]
         (def bulk-rm-result bulk-rm-result))
       (p/catch (fn [e] (def bulk-rm-error (.-message e)))))
-  ;; PEZ: Checks out! But again, we should probably mimic Unix `rm`, which deletes the existing files and results in an error.
+  ;; PEZ: Checks out!
 
   ;; Bulk delete - mixed existing/non-existing (re-create the bulk files first)
   (-> (p/let [bulk-rm-w-built-in-result (epupp.fs/rm! ["bulk_1.cljs" "GitHub Gist Installer (Built-in)" "bulk_2.cljs" "does-not-exist.cljs"])]

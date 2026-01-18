@@ -37,6 +37,7 @@
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
          :settings/error nil
+         :ui/fs-event nil          ; FS sync event banner {:type :success/:error :message "..."}
          :repl/connections []}))   ; Pending FS operation confirmations
 
 
@@ -858,9 +859,9 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-
-
-
+(defn fs-event-banner [{:keys [type message]}]
+  [:div {:class (if (= type "success") "fs-success-banner" "fs-error-banner")}
+   [:span message]])
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
   (let [matching-scripts (->> list
@@ -871,7 +872,9 @@
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
-       :elements/icon [icons/jack-in {:size 28}]}]
+       :elements/icon [icons/jack-in {:size 28}]
+       :elements/banner (when-let [fs-event (:ui/fs-event state)]
+                          [fs-event-banner fs-event])}]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
@@ -918,6 +921,23 @@
      (when (= "connections-changed" (.-type message))
        (let [connections (.-connections message)]
          (dispatch! [[:db/ax.assoc :repl/connections connections]])))
+     ;; Return false - we don't send async response
+     false))
+
+  ;; Listen for FS sync events from background (show errors to user)
+  (js/chrome.runtime.onMessage.addListener
+   (fn [message _sender _send-response]
+     (when (= "fs-event" (.-type message))
+       (let [event-type (.-event_type message)
+             operation (.-operation message)
+             script-name (.-script_name message)
+             error-msg (.-error message)
+             banner-msg (if (= event-type "error")
+                          (str "FS sync error: " error-msg)
+                          (str "Script \"" script-name "\" " operation "d via REPL"))]
+         (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
+         ;; Auto-dismiss after 3 seconds
+         (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000)))
      ;; Return false - we don't send async response
      false))
 

@@ -41,24 +41,26 @@
     (test "rejects when source script not found"
       (fn []
         (let [result (bg-actions/handle-action initial-state uf-data
-                       [:fs/ax.rename-script "nonexistent.cljs" "new-name.cljs"])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.rename-script "nonexistent.cljs" "new-name.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "not found")))))
 
     (test "rejects when source is builtin script"
       (fn []
         (let [state {:storage/scripts [builtin-script]}
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.rename-script "gist-installer.cljs" "renamed.cljs"])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.rename-script "gist-installer.cljs" "renamed.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "built-in")))))
 
     (test "rejects when target name already exists"
@@ -66,12 +68,13 @@
         (let [other-script (assoc base-script :script/id "script-456" :script/name "existing.cljs")
               state {:storage/scripts [base-script other-script]}
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.rename-script "test.cljs" "existing.cljs"])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.rename-script "test.cljs" "existing.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "already exists")))))
 
     (test "allows rename when target name is free"
@@ -110,24 +113,26 @@
     (test "rejects when script not found"
       (fn []
         (let [result (bg-actions/handle-action initial-state uf-data
-                       [:fs/ax.delete-script "nonexistent.cljs"])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.delete-script "nonexistent.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "not found")))))
 
     (test "rejects when script is builtin"
       (fn []
         (let [state {:storage/scripts [builtin-script]}
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.delete-script "gist-installer.cljs"])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.delete-script "gist-installer.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "built-in")))))
 
     (test "allows delete and removes from state"
@@ -159,12 +164,13 @@
         (let [state {:storage/scripts [builtin-script]}
               updated-script (assoc builtin-script :script/code "(new code)")
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.save-script updated-script])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.save-script updated-script])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "built-in")))))
 
     (test "rejects when name exists and not force (create case)"
@@ -173,12 +179,13 @@
                           :script/name "test.cljs"  ;; Same name as existing
                           :script/code "(new code)"}
               result (bg-actions/handle-action initial-state uf-data
-                       [:fs/ax.save-script new-script])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.save-script new-script])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "already exists")))))
 
     (test "allows create when name is new"
@@ -264,12 +271,13 @@
                           :script/name "github_gist_installer_built_in.cljs"
                           :script/code "(malicious code)"}
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.save-script new-script])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.save-script new-script])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "built-in")))))
 
     (test "rejects when creating script with normalized builtin name even with force flag"
@@ -280,10 +288,11 @@
                           :script/code "(malicious code)"
                           :script/force? true}
               result (bg-actions/handle-action state uf-data
-                       [:fs/ax.save-script new-script])]
-          (-> (expect (-> result :uf/fxs first first))
-              (.toBe :bg/fx.send-response))
-          (-> (expect (-> result :uf/fxs first second :success))
+                       [:fs/ax.save-script new-script])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
               (.toBe false))
-          (-> (expect (-> result :uf/fxs first second :error))
+          (-> (expect (:error error-response))
               (.toContain "built-in")))))))

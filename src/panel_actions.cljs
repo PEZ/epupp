@@ -281,4 +281,8 @@
                     (update :panel/results conj {:type :input :text code-to-eval}))
          :uf/fxs [[:editor/fx.inject-and-eval code-to-eval]]}))
 
+    :editor/ax.reload-script-from-storage
+    (let [[script-name] args]
+      {:uf/fxs [[:editor/fx.reload-script-from-storage script-name]]})
+
     :uf/unhandled-ax))

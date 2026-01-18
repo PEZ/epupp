@@ -49,6 +49,17 @@
   --color-text-refresh-banner: #b45309;
   --color-text-refresh-banner-strong: #92400e;
 
+  /* FS sync banners (success/error feedback) */
+  --color-bg-fs-success-banner: #ecfdf5;
+  --color-border-fs-success-banner: #6ee7b7;
+  --color-text-fs-success-banner: #047857;
+  --color-text-fs-success-banner-strong: #065f46;
+
+  --color-bg-fs-error-banner: #fef2f2;
+  --color-border-fs-error-banner: #fca5a5;
+  --color-text-fs-error-banner: #dc2626;
+  --color-text-fs-error-banner-strong: #b91c1c;
+
   /* Spacing scale */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -114,6 +125,17 @@
     --color-border-refresh-banner: #5c4d1f;
     --color-text-refresh-banner: #f0c674;
     --color-text-refresh-banner-strong: #ffd866;
+
+    /* FS sync banners (success/error feedback) */
+    --color-bg-fs-success-banner: #064e3b;
+    --color-border-fs-success-banner: #059669;
+    --color-text-fs-success-banner: #6ee7b7;
+    --color-text-fs-success-banner-strong: #a7f3d0;
+
+    --color-bg-fs-error-banner: #450a0a;
+    --color-border-fs-error-banner: #dc2626;
+    --color-text-fs-error-banner: #fca5a5;
+    --color-text-fs-error-banner-strong: #fecaca;
 
     --scrollbar-thumb: #5a5a5a;
     --scrollbar-thumb-hover: #6a6a6a;
