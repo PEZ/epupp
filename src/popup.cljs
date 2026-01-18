@@ -928,10 +928,10 @@
   (js/chrome.runtime.onMessage.addListener
    (fn [message _sender _send-response]
      (when (= "fs-event" (.-type message))
-       (let [event-type (.-event_type message)
-             operation (.-operation message)
-             script-name (.-script_name message)
-             error-msg (.-error message)
+       (let [event-type (aget message "event-type")
+             operation (aget message "operation")
+             script-name (aget message "script-name")
+             error-msg (aget message "error")
              banner-msg (if (= event-type "error")
                           (str "FS sync error: " error-msg)
                           (str "Script \"" script-name "\" " operation "d via REPL"))]

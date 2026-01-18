@@ -745,10 +745,10 @@
 (js/chrome.runtime.onMessage.addListener
  (fn [message _sender _send-response]
    (when (= "fs-event" (.-type message))
-     (let [event-type (.-event_type message)
-           operation (.-operation message)
-           script-name (.-script_name message)
-           error-msg (.-error message)
+     (let [event-type (aget message "event-type")
+           operation (aget message "operation")
+           script-name (aget message "script-name")
+           error-msg (aget message "error")
            current-name (:panel/script-name @!state)
            ;; Check if this event affects the currently edited script
            affects-current? (and (= event-type "success")
