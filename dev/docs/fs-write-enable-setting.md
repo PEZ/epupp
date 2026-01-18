@@ -2,6 +2,19 @@
 
 This document documents the completed FS REPL Sync feature. All core functionality is implemented and tested.
 
+## Mandatory reading index
+
+Read these before working on REPL FS Sync:
+
+- [architecture/overview.md](architecture/overview.md)
+- [architecture/message-protocol.md](architecture/message-protocol.md)
+- [architecture/repl-fs-sync.md](architecture/repl-fs-sync.md)
+- [userscripts-architecture.md](userscripts-architecture.md)
+- [docs/repl-fs-sync.md](../docs/repl-fs-sync.md)
+
+## Test Infrastructure
+
+E2E tests use `e2e/set-storage` runtime message to enable the setting before running write tests. See [testing-e2e.md](testing-e2e.md) for details.
 ## Completion Summary
 
 - **Core infrastructure complete** - Toggle in Settings, write protection, read operations always available
@@ -185,6 +198,3 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 - [ ] "Update" banner should appear briefly in popup
 - [ ] Extension icon should show briefly show "update" badge
 
-## Test Infrastructure
-
-E2E tests use `e2e/set-storage` runtime message to enable the setting before running write tests. See [testing-e2e.md](testing-e2e.md) for details.
