@@ -7,6 +7,7 @@ The architecture handles three main use cases:
 1. **REPL Connection** - Live code evaluation from editor via nREPL
 2. **Userscript Auto-Injection** - Saved scripts execute on matching URLs
 3. **DevTools Panel Evaluation** - Direct evaluation from the panel UI
+4. **REPL FS Sync** - File operations over the REPL for userscript management
 
 ## Component Architecture
 

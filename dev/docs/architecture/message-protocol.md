@@ -59,10 +59,10 @@ the right promise.
 
 ```mermaid
 flowchart LR
-	Page[Page JS<br/>epupp.fs] -->|window.postMessage| Bridge[Content Bridge]
-	Bridge -->|chrome.runtime.sendMessage| BG[Background Worker]
-	BG -->|sendResponse| Bridge
-	Bridge -->|window.postMessage| Page
+    Page[Page JS<br/>epupp.fs] -->|window.postMessage| Bridge[Content Bridge]
+    Bridge -->|chrome.runtime.sendMessage| BG[Background Worker]
+    BG -->|sendResponse| Bridge
+    Bridge -->|window.postMessage| Page
 ```
 
 ### Page → Content Bridge (source: "epupp-page")
@@ -111,12 +111,12 @@ Via `chrome.runtime.sendMessage`.
 | `pattern-approved` | `{scriptId, pattern}` | - | Pattern approved, clear pending + execute |
 | `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
 
-## References
+## Related
 
-### Project Implementation
+### Source Files
 - [src/content_bridge.cljs](../../src/content_bridge.cljs)
 - [src/background.cljs](../../src/background.cljs)
 - [extension/bundled/epupp/fs.cljs](../../extension/bundled/epupp/fs.cljs)
 
-### Related Research
+### Docs
 - [docs/repl-fs-sync.md](../../docs/repl-fs-sync.md)
