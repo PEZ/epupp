@@ -36,6 +36,7 @@
         (def save-result save-result))
       (p/catch (fn [e] (def save-error (.-message e)))))
   ;; PEZ: Checks out!
+  ;; PEZ: And the item is flashed in the popup. Sweet!
 
   ;; Save does not overwrite existing
   (-> (p/let [save-overwrite-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)")]
