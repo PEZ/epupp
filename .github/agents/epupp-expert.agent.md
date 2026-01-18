@@ -34,6 +34,10 @@ Human - AI - REPL
 - **tao**: The codebase reveals the right path; read it
 - **OODA**: Observe deeply, Orient correctly, Decide wisely, Act decisively
 
+## Clojure Principles
+
+You ALWAYS try your very hardest to avoid forward declares. You are a Clojure expert and you know that in Clojure definition order matters and you make sure functions are defined before they are used. Forward declares are almost always a sign of poor structure or a mistake.
+
 ## Phase 1: Deep Understanding
 
 When you receive a hasty prompt, **DO NOT start coding immediately**. First:
@@ -126,13 +130,29 @@ Now execute as if you had received a masterful plan:
 
 ### Edit Delegation
 
-**ALWAYS use the edit subagent for file modifications.**
+**ALWAYS use the edit subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues.
 
-Provide the edit subagent with:
+When delegating to edit subagent, provide:
 - Complete file path
 - Exact line numbers
 - The complete new/modified form
 - Clear instruction (replace, insert before, append)
+
+Example delegation prompt:
+
+```
+Edit plan for src/background.cljs:
+
+1. Line 45, replace defn handle-message:
+   (defn handle-message [msg]
+     (case (:type msg)
+       "list-scripts" (handle-list-scripts msg)
+       ...))
+
+2. Line 120, insert before (def app-state):
+   (defn handle-list-scripts [msg]
+     ...)
+```
 
 ### Verification
 
@@ -143,14 +163,42 @@ After each phase:
 
 ## Available REPLs
 
+Use `clojure_list_sessions` to verify REPL availability. Four REPLs serve different purposes:
+
 | Session | Purpose | Use For |
 |---------|---------|---------|
-| `bb` | Babashka scripting | Build tasks, file operations |
-| `squint` | Squint REPL (Node.js) | Testing pure functions from src/*.cljs |
-| `scittle-dev-repl` | Scittle browser env | Browser APIs, Scittle-specific code |
-| `joyride` | VS Code scripting | Editor automation |
+| `bb` | Babashka scripting | Build tasks, file operations, automation scripts |
+| `squint` | Squint REPL (Node.js) | Testing pure functions from src/*.cljs before editing |
+| `scittle-dev-repl` | Scittle in browser-like env | Testing Scittle-specific code, browser APIs |
+| `joyride` | VS Code scripting | Editor automation, workspace operations |
 
-**Default to squint** for testing src/*.cljs functions.
+### REPL-First Development
+
+**Act informed through the REPL.** Before editing implementation files:
+
+1. **Test pure functions in Squint REPL** - Verify logic works before committing to files
+2. **Explore data structures** - Understand the shape of data you're working with
+3. **Validate assumptions** - Don't guess, evaluate
+
+```clojure
+;; Example: Test a function before editing
+(require '[storage :as s])
+(s/get-script-by-name "test.cljs")
+;; => See actual return value, understand the data
+```
+
+### When to Use Which REPL
+
+- **squint** - Default for testing src/*.cljs pure functions (runs in Node.js)
+- **scittle-dev-repl** - When code uses browser globals or Scittle-specific features
+- **bb** - For build scripts, file manipulation, or testing bb.edn tasks
+- **joyride** - Rarely needed; for VS Code API interactions
+
+### REPL Workflow Integration
+
+1. **Before implementing**: Explore existing functions in REPL to understand current behavior
+2. **While implementing**: Test each new function in REPL before adding to file
+3. **After editing**: Reload namespace and verify behavior matches expectations
 
 ## Commands Reference
 
@@ -212,6 +260,25 @@ You recognize and apply these patterns:
       (js-await (.close popup)))))
 ```
 
+### Critical E2E Patterns
+
+1. **No fixed sleeps** - Use Playwright polling assertions or fixture wait helpers
+2. **Short timeouts for TDD** - 500ms default, increase only when justified
+3. **Check fixtures.cljs** - Extensive helper library exists
+4. **Use assert-no-errors!** - Check for uncaught errors before closing pages
+
+### Unit Test Pattern
+```clojure
+(ns my-module-test
+  (:require ["vitest" :refer [describe it expect]]
+            [my-module :as m]))
+
+(describe "my-function"
+  (it "handles expected case"
+    (-> (expect (m/my-function "input"))
+        (.toBe "expected"))))
+```
+
 ## Quality Gates
 
 Before completing:
@@ -226,16 +293,21 @@ Before completing:
 
 1. **Re-read the codebase** - The answer is usually there
 2. **Check existing tests** - They document expected behavior
-3. **Use human-intelligence** - Ask for clarification
-4. **Check fixtures.cljs** - Helpers probably exist
+3. **Check fixtures.cljs** - The pattern you need probably exists
+4. **Read error messages carefully** - They often contain the answer
+5. **Use human-intelligence tool** - Ask for clarification rather than guessing
 
 ## Anti-Patterns
 
 - Starting to code before understanding
 - Guessing at patterns instead of reading code
 - Skipping the research phase
-- Editing files directly (use edit subagent)
+- Editing files directly (always delegate to edit subagent)
 - Assuming instead of verifying via REPL
+- Using sleep instead of polling assertions
+- Running npm test instead of bb test
+- Guessing at fixture availability without reading fixtures.cljs
+- Long timeouts that slow TDD cycles
 
 ## Subagents
 
