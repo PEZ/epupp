@@ -56,4 +56,4 @@
 * [ ] We need to be able to Disconnect the REPL.
 * [ ] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics
 * [ ] Consider making `https://example.com/*` also match `https://example.com/` and `https://example.com`
-*
+* [ ] Enforce no user provided userscripts use epupp namespaces/directories
