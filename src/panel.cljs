@@ -751,6 +751,14 @@
            error-msg (aget message "error")
            script-id (aget message "script-id")
            from-name (aget message "from-name")
+           bulk-count (aget message "bulk-count")
+           bulk-index (aget message "bulk-index")
+           bulk-final? (and (some? bulk-count)
+                            (some? bulk-index)
+                            (= bulk-index (dec bulk-count)))
+           bulk-save? (and (= event-type "success")
+                           (= operation "save")
+                           (some? bulk-count))
            current-id (:panel/script-id @!state)
            current-name (:panel/script-name @!state)
            original-name (:panel/original-name @!state)
@@ -762,13 +770,23 @@
            ;; Check if this event affects the currently edited script
            affects-current? (and (= event-type "success")
                                  (or matches-id? matches-name? matches-from?))
-           banner-msg (if (= event-type "error")
+           show-banner? (or (= event-type "error")
+                            (not bulk-save?)
+                            bulk-final?)
+           banner-msg (cond
+                        (= event-type "error")
                         (str "FS sync error: " error-msg)
+
+                        (and bulk-save? bulk-final?)
+                        (str bulk-count (if (= bulk-count 1) " file" " files") " saved via REPL")
+
+                        :else
                         (str "Script \"" script-name "\" " operation "d via REPL"))]
        ;; Show banner for all fs-events
-       (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
-       ;; Auto-dismiss after 3 seconds
-       (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000)
+       (when show-banner?
+         (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+         ;; Auto-dismiss after 3 seconds
+         (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000))
        ;; Reload or clear editor when current script was modified
        (when affects-current?
          (if (= operation "delete")

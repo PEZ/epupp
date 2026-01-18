@@ -116,10 +116,12 @@
             (log/info "Bridge" nil "Forwarding save-script request to background")
             (try
               (js/chrome.runtime.sendMessage
-               #js {:type "save-script"
-                    :code (.-code msg)
-                    :enabled (.-enabled msg)
-                    :force (.-force msg)}
+            #js {:type "save-script"
+              :code (.-code msg)
+              :enabled (.-enabled msg)
+              :force (.-force msg)
+              :bulkIndex (aget msg "bulk-index")
+              :bulkCount (aget msg "bulk-count")}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"

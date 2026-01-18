@@ -932,12 +932,30 @@
              operation (aget message "operation")
              script-name (aget message "script-name")
              error-msg (aget message "error")
-             banner-msg (if (= event-type "error")
+             bulk-count (aget message "bulk-count")
+             bulk-index (aget message "bulk-index")
+             bulk-final? (and (some? bulk-count)
+                              (some? bulk-index)
+                              (= bulk-index (dec bulk-count)))
+             bulk-save? (and (= event-type "success")
+                             (= operation "save")
+                             (some? bulk-count))
+             show-banner? (or (= event-type "error")
+                              (not bulk-save?)
+                              bulk-final?)
+             banner-msg (cond
+                          (= event-type "error")
                           (str "FS sync error: " error-msg)
+
+                          (and bulk-save? bulk-final?)
+                          (str bulk-count (if (= bulk-count 1) " file" " files") " saved via REPL")
+
+                          :else
                           (str "Script \"" script-name "\" " operation "d via REPL"))]
-         (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
-         ;; Auto-dismiss after 3 seconds
-         (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000)))
+         (when show-banner?
+           (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
+           ;; Auto-dismiss after 3 seconds
+           (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000))))
      ;; Return false - we don't send async response
      false))
 

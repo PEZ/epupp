@@ -8,9 +8,9 @@
   ;; ===== READ OPERATIONS (always work) =====
 
   ;; List all scripts
-  (p/let [ls-result (epupp.fs/ls)]
+  (p/let [ls-result (epupp.fs/ls {:fs/ls-hidden? true})]
     (def ls-result ls-result))
-  ;; PEZ: Checks out! But we shouldn't list built-in scripts, unless option `:fs/ls-hidden?` is given
+  ;; PEZ: Checks out!
 
   ;; Show existing script
   (p/let [show-result (epupp.fs/show "GitHub Gist Installer (Built-in)")]
@@ -66,7 +66,7 @@
                                                {:fs/force? true})]
         (def bulk-save-result bulk-save-result))
       (p/catch (fn [e] (def bulk-save-error (.-message e)))))
-  ;; PEZ: Message says
+  ;; PEZ: Message says bulk-2 was saved, should say “2 files" saved
 
   ;; Rename script
   (-> (p/let [mv-result (epupp.fs/mv! "test_save_1.cljs" "test_renamed.cljs")]
@@ -96,8 +96,7 @@
   (-> (p/let [rm-noexist-result (epupp.fs/rm! "does-not-exist.cljs")]
         (def rm-noexist-result rm-noexist-result))
       (p/catch (fn [e] (def rm-noexist-error (.-message e)))))
-  ;; PEZ: Popup UI benner with a confusing message
-  ;; PEZ: Panel gets no banner
+  ;; PEZ: Checks out!
 
   ;; Delete built-in rejects
   (-> (p/let [rm-builtin-result (epupp.fs/rm! "GitHub Gist Installer (Built-in)")]

@@ -117,9 +117,11 @@
 (defn save-script
   "Create or update a script."
   [{:fs/keys [scripts now-iso script]}]
-  (let [script-id (:script/id script)
-        script-name (:script/name script)
-        force? (:script/force? script)
+    (let [script-id (:script/id script)
+      script-name (:script/name script)
+      force? (:script/force? script)
+      bulk-index (:script/bulk-index script)
+      bulk-count (:script/bulk-count script)
         existing-by-id (find-script-by-id scripts script-id)
         existing-by-name (find-script-by-name scripts script-name)
         is-update? (some? existing-by-id)]
@@ -144,8 +146,8 @@
 
       ;; All checks pass - create or update
       :else
-      (let [;; Remove force? flag before storing
-            clean-script (dissoc script :script/force?)
+      (let [;; Remove transient flags before storing
+        clean-script (dissoc script :script/force? :script/bulk-index :script/bulk-count)
             ;; Add timestamps
             timestamped-script (if is-update?
                                  (assoc clean-script :script/modified now-iso)
@@ -161,7 +163,9 @@
                                                scripts)]
                                 (conj filtered timestamped-script)))]
         (make-success-response updated-scripts "save" script-name
-                               {:event-data {:script-id script-id}
-                                :response-data {:name script-name
-                                                :id script-id
-                                                :is-update is-update?}})))))
+                   {:event-data (cond-> {:script-id script-id}
+                      (some? bulk-index) (assoc :bulk-index bulk-index)
+                      (some? bulk-count) (assoc :bulk-count bulk-count))
+              :response-data {:name script-name
+                  :id script-id
+                  :is-update is-update?}})))))

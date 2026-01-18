@@ -908,9 +908,11 @@
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
                            (send-response #js {:success false :error "FS REPL Sync is disabled"})
-                           (let [code (.-code message)
-                                 enabled (if (some? (.-enabled message)) (.-enabled message) true)
-                                 force? (.-force message)]
+                             (let [code (.-code message)
+                               enabled (if (some? (.-enabled message)) (.-enabled message) true)
+                               force? (.-force message)
+                               bulk-index (.-bulkIndex message)
+                               bulk-count (.-bulkCount message)]
                              (try
                                (let [manifest (manifest-parser/extract-manifest code)
                                      raw-name (get manifest "script-name")
@@ -924,18 +926,20 @@
                                    ;; Always use fresh ID for REPL saves - the action handler
                                    ;; will decide if this is a create (reject if exists, no force)
                                    ;; or overwrite (allow if force flag is set)
-                                   (let [crypto (.-crypto js/globalThis)
+                                       (let [crypto (.-crypto js/globalThis)
                                          script-id (if (and crypto (.-randomUUID crypto))
-                                                     (str "script-" (.randomUUID crypto))
-                                                     (str "script-" (.now js/Date) "-" (.random js/Math)))
-                                         script {:script/id script-id
-                                                 :script/name normalized-name
-                                                 :script/code code
-                                                 :script/match (if (vector? site-match) site-match [site-match])
-                                                 :script/require (or requires [])
-                                                 :script/enabled enabled
-                                                 :script/run-at run-at
-                                                 :script/force? force?}]
+                                             (str "script-" (.randomUUID crypto))
+                                             (str "script-" (.now js/Date) "-" (.random js/Math)))
+                                         script (cond-> {:script/id script-id
+                                             :script/name normalized-name
+                                             :script/code code
+                                             :script/match (if (vector? site-match) site-match [site-match])
+                                             :script/require (or requires [])
+                                             :script/enabled enabled
+                                             :script/run-at run-at
+                                             :script/force? force?}
+                                          (some? bulk-index) (assoc :script/bulk-index bulk-index)
+                                          (some? bulk-count) (assoc :script/bulk-count bulk-count))]
                                      (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
                                (catch :default err
                                  (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))

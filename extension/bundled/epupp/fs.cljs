@@ -104,15 +104,20 @@
      (if (vector? code-or-codes)
        ;; Bulk mode - use map-indexed (realized by to-array for Promise.all)
        (-> (js/Promise.all
-             (to-array
-               (map-indexed (fn [idx code]
-                              (-> (send-and-receive "save-script" {:code code :enabled enabled :force force?} "save-script-response")
-                                  (.then ensure-success!)
-                                  (.then (fn [msg]
-                                           [idx {:fs/success (.-success msg)
-                                                 :fs/name (.-name msg)
-                                                 :fs/error (.-error msg)}]))))
-                            code-or-codes)))
+         (to-array
+           (map-indexed (fn [idx code]
+              (-> (send-and-receive "save-script" {:code code
+                           :enabled enabled
+                           :force force?
+                           :bulk-index idx
+                           :bulk-count (count code-or-codes)}
+                       "save-script-response")
+                  (.then ensure-success!)
+                  (.then (fn [msg]
+                   [idx {:fs/success (.-success msg)
+                     :fs/name (.-name msg)
+                     :fs/error (.-error msg)}]))))
+                code-or-codes)))
            (.then (fn [results]
                     (into {} results))))
        ;; Single mode

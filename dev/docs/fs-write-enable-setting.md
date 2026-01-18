@@ -47,8 +47,9 @@ UI feedback - implementation in place (needs manual verification):
 - [~] Error banner in panel when FS sync disabled - implemented, needs testing
 - [~] Error banner in popup when FS sync disabled - implemented, needs testing
 - [~] Extension icon error badge - implemented, needs testing
-- [ ] System-wide banner in panel for all FS events - not fixed, needs verification
-- [ ] Panel editor updates when active script modified via REPL - not fixed, needs verification
+- [~] System-wide banner in panel for all FS events - implemented, needs testing
+- [~] Panel editor updates when active script modified via REPL - implemented, needs testing
+- [~] Bulk save banner shows file count, not last filename - implemented, needs testing
 - [~] "Update" banner briefly shown in popup after REPL modifications - implemented, needs testing
 - [~] "Update" banner briefly shown in panel after REPL modifications - implemented, needs testing
 - [x] Flash/highlight modified scripts in popup list - confirmed working
