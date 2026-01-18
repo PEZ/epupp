@@ -53,6 +53,7 @@ flowchart TB
 | **UI architecture + TDD workflow** | [../ui.md](../ui.md) |
 | Source file map + dependencies | [components.md](components.md) |
 | Message types + payloads | [message-protocol.md](message-protocol.md) |
+| REPL FS Sync architecture | [repl-fs-sync.md](repl-fs-sync.md) |
 | Connected REPL flow + `epupp/manifest!` | [connected-repl.md](connected-repl.md) |
 | State atoms + action/effect tables | [state-management.md](state-management.md) |
 | Uniflow event system | [uniflow.md](uniflow.md) |

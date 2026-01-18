@@ -120,3 +120,4 @@ Via `chrome.runtime.sendMessage`.
 
 ### Docs
 - [docs/repl-fs-sync.md](../../docs/repl-fs-sync.md)
+- [dev/docs/architecture/repl-fs-sync.md](repl-fs-sync.md)
