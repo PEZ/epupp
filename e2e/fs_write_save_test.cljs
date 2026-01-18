@@ -240,7 +240,7 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(.describe test "REPL File System - save! operations"
+(.describe test "REPL FS: save operations"
            (fn []
              (.beforeAll test
                          (^:async fn []
@@ -251,20 +251,20 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "epupp.fs/save! creates new script from code with manifest"
+             (test "REPL FS: save - creates new script from code with manifest"
                    test_save_creates_new_script_from_code_with_manifest)
 
-             (test "epupp.fs/save! with {:fs/enabled false} creates disabled script"
+             (test "REPL FS: save - with {:fs/enabled false} creates disabled script"
                    test_save_with_disabled_creates_disabled_script)
 
-             (test "epupp.fs/save! with vector returns map of per-item results"
+             (test "REPL FS: save - vector returns map of per-item results"
                    test_save_with_vector_returns_map_of_results)
 
-             (test "epupp.fs/save! rejects when script with same name already exists"
+             (test "REPL FS: save - rejects when script with same name already exists"
                    test_save_rejects_when_script_already_exists)
 
-             (test "epupp.fs/save! rejects built-in script names"
+             (test "REPL FS: save - rejects built-in script names"
                    test_save_rejects_builtin_script_names)
 
-             (test "epupp.fs/save! with {:fs/force? true} still rejects built-in script names"
+             (test "REPL FS: save - with {:fs/force? true} still rejects built-in script names"
                    test_save_with_force_rejects_builtin_script_names)))

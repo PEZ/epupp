@@ -239,7 +239,7 @@
     (js-await (assert-no-errors! popup))
     (js-await (.close popup))))
 
-(.describe test "REPL File System - rm! operations"
+(.describe test "REPL FS: rm operations"
            (fn []
              (.beforeAll test
                          (^:async fn []
@@ -250,17 +250,17 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "epupp.fs/rm! deletes a script"
+             (test "REPL FS: rm - deletes a script"
                    test_rm_deletes_a_script)
 
-             (test "epupp.fs/rm! rejects deleting built-in scripts"
+             (test "REPL FS: rm - rejects deleting built-in scripts"
                    test_rm_rejects_deleting_builtin_scripts)
 
-             (test "epupp.fs/rm! with vector rejects when any missing"
+             (test "REPL FS: rm - vector rejects when any missing"
                    test_rm_with_vector_rejects_when_any_missing)
 
-             (test "epupp.fs/rm! returns result with :fs/existed? flag"
+             (test "REPL FS: rm - returns result with :fs/existed? flag"
                    test_rm_returns_existed_flag)
 
-             (test "no uncaught errors during fs tests"
+             (test "REPL FS: rm - no uncaught errors"
                    test_no_uncaught_errors_during_fs_tests)))

@@ -238,7 +238,7 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(.describe test "REPL File System - mv! operations"
+(.describe test "REPL FS: mv operations"
            (fn []
              (.beforeAll test
                          (^:async fn []
@@ -249,14 +249,14 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "epupp.fs/mv! renames a script"
+             (test "REPL FS: mv - renames a script"
                    test_mv_renames_a_script)
 
-             (test "epupp.fs/mv! with {:fs/force? true} returns result with :fs/from-name and :fs/to-name"
+             (test "REPL FS: mv - with {:fs/force? true} returns result with :fs/from-name and :fs/to-name"
                    test_mv_with_force_returns_from_and_to_names)
 
-             (test "epupp.fs/mv! rejects rename when target name already exists"
+             (test "REPL FS: mv - rejects rename when target name already exists"
                    test_mv_rejects_when_target_name_exists)
 
-             (test "epupp.fs/mv! rejects renaming built-in scripts"
+             (test "REPL FS: mv - rejects renaming built-in scripts"
                    test_mv_rejects_renaming_builtin_scripts)))

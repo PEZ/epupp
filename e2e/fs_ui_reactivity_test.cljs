@@ -306,7 +306,7 @@
     (js-await (assert-no-errors! popup))
     (js-await (.close popup))))
 
-(.describe test "REPL FS UI Reactivity"
+(.describe test "REPL FS UI: reactivity"
            (fn []
              (.beforeAll test (fn [] (setup-browser!)))
 
@@ -315,18 +315,18 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "popup refreshes script list after epupp.fs/save!"
+             (test "REPL FS UI: popup refreshes script list after epupp.fs/save"
                    popup_refreshes_script_list_after_save)
 
-             (test "popup refreshes after epupp.fs/rm!"
+             (test "REPL FS UI: popup refreshes after epupp.fs/rm"
                    popup_refreshes_after_rm)
 
-             (test "popup refreshes after epupp.fs/mv!"
+             (test "REPL FS UI: popup refreshes after epupp.fs/mv"
                    popup_refreshes_after_mv)
 
-             (test "failed FS operation rejects promise"
+             (test "REPL FS UI: failed FS operation rejects promise"
                    failed_fs_operation_rejects_promise)
 
              ;; Final error check
-             (test "no uncaught errors during UI reactivity tests"
+             (test "REPL FS UI: no uncaught errors during UI reactivity tests"
                    no_uncaught_errors_during_ui_reactivity_tests)))

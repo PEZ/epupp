@@ -255,7 +255,7 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(.describe test "REPL File System - Read Operations"
+(.describe test "REPL FS: read operations"
            (fn []
              (.beforeAll test (fn [] (setup-browser!)))
 
@@ -264,18 +264,18 @@
                           (when @!context
                             (.close @!context))))
 
-             (test "epupp.fs/show retrieves script code by name"
+             (test "REPL FS: show - retrieves script code by name"
                    test_show_retrieves_script_code_by_name)
 
-             (test "epupp.fs/show returns nil for non-existent script"
+             (test "REPL FS: show - returns nil for non-existent script"
                    test_show_returns_nil_for_nonexistent_script)
 
-             (test "epupp.fs/show with vector returns map of names to codes"
+             (test "REPL FS: show - vector returns map of names to codes"
                    test_show_with_vector_returns_map)
 
-             (test "epupp.fs/ls hides built-in scripts by default"
-               test_ls_hides_builtins_by_default)
+             (test "REPL FS: ls - hides built-in scripts by default"
+                   test_ls_hides_builtins_by_default)
 
-             (test "epupp.fs/ls includes built-ins when :fs/ls-hidden? true"
-               test_ls_includes_builtins_when_option_set)))
+             (test "REPL FS: ls - includes built-ins when :fs/ls-hidden? true"
+                   test_ls_includes_builtins_when_option_set)))
 
