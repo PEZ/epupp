@@ -262,23 +262,23 @@
       (finally
         (js-await (.close context))))))
 
-(.describe test "Panel Evaluation"
-           (fn []
-             (test "Panel: evaluation and save workflow"
-                   test_eval_and_save_workflow)
+(.describe test "Panel Eval"
+       (fn []
+     (test "Panel Eval: evaluation and save workflow"
+       test_eval_and_save_workflow)
 
-             (test "Panel: Ctrl+Enter evaluates selection when text is selected"
-                   test_selection_evaluation)
+     (test "Panel Eval: Ctrl+Enter evaluates selection when text is selected"
+       test_selection_evaluation)
 
-             (test "Panel: Ctrl+Enter evaluates full script when no selection"
-                   test_ctrl_enter_no_selection)
+     (test "Panel Eval: Ctrl+Enter evaluates full script when no selection"
+       test_ctrl_enter_no_selection)
 
-             (test "Panel: Eval button shows play icon and 'Eval script' label"
-                   test_eval_button_shows_icon_and_label)
+     (test "Panel Eval: Eval button shows play icon and 'Eval script' label"
+       test_eval_button_shows_icon_and_label)
 
-             (test "Panel: shortcut hint says 'evals selection'"
-                   test_shortcut_hint_says_evals_selection)
+     (test "Panel Eval: shortcut hint says 'evals selection'"
+       test_shortcut_hint_says_evals_selection)
 
-             (test "Panel: empty results shows keyboard shortcut hint"
-                   test_empty_results_shows_keyboard_hint)))
+     (test "Panel Eval: empty results shows keyboard shortcut hint"
+       test_empty_results_shows_keyboard_hint)))
 

@@ -355,17 +355,17 @@
 
 (.describe test "Userscript"
            (fn []
-             (test "injects on matching URL and logs SCRIPT_INJECTED"
+             (test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
                    test_injects_on_matching_url_and_logs)
 
-             (test "document-start script runs before page scripts"
+             (test "Userscript: document-start script runs before page scripts"
                    test_document_start_runs_before_page_scripts)
 
-             (test "generate performance report from events"
+             (test "Userscript: generate performance report from events"
                    test_generate_performance_report_from_events)
 
-             (test "injection produces no uncaught errors"
+             (test "Userscript: injection produces no uncaught errors"
                    test_injection_produces_no_uncaught_errors)
 
-             (test "gist installer shows Install button and installs script"
+             (test "Userscript: gist installer shows Install button and installs script"
                    test_gist_installer_shows_button_and_installs)))

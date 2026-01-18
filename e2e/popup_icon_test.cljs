@@ -194,10 +194,10 @@
       (finally
         (js-await (.close context))))))
 
-(.describe test "Popup: toolbar icon state"
+(.describe test "Popup Icon"
            (fn []
-             (test "toolbar icon reflects REPL connection state"
+             (test "Popup Icon: toolbar icon reflects REPL connection state"
                    test_toolbar_icon_reflects_connection_state)
 
-             (test "injected state is tab-local, connected state is global"
+             (test "Popup Icon: injected state is tab-local, connected state is global"
                    test_injected_state_is_tab_local)))

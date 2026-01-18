@@ -234,19 +234,19 @@
       (finally
         (js-await (.close context))))))
 
-(.describe test "Popup: Connection Tracking"
+(.describe test "Popup Connection"
            (fn []
-             (test "connection tracking displays connected tabs with reveal buttons"
+             (test "Popup Connection: connection tracking displays connected tabs with reveal buttons"
                    test_connection_tracking_displays_connected_tabs)
 
-             (test "connection failure shows error status near Connect button"
+             (test "Popup Connection: connection failure shows error status near Connect button"
                    test_connection_failure_shows_error_status)
 
-             (test "successful connection via API updates UI correctly"
+             (test "Popup Connection: successful connection via API updates UI correctly"
                    test_successful_connection_via_api_updates_ui)
 
-             (test "get-connections API returns active REPL connections"
+             (test "Popup Connection: get-connections API returns active REPL connections"
                    test_get_connections_returns_active_connections)
 
-             (test "UI updates immediately after connecting (no tab switch needed)"
+             (test "Popup Connection: UI updates immediately after connecting (no tab switch needed)"
                    test_ui_updates_immediately_after_connecting)))

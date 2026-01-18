@@ -97,13 +97,13 @@
 ;; Test Registration
 ;; =============================================================================
 
-(.describe test "Extension Infrastructure"
-  (fn []
-    (test "starts and emits startup event"
-          test_extension_starts_and_emits_startup_event)
+(.describe test "Extension: infrastructure"
+           (fn []
+             (test "Extension: starts and emits startup event"
+                   test_extension_starts_and_emits_startup_event)
 
-    (test "dev log button works and captures console output"
-          test_dev_log_button_works)
+             (test "Extension: dev log button works and captures console output"
+                   test_dev_log_button_works)
 
-    (test "startup produces no uncaught errors"
-          test_startup_produces_no_uncaught_errors)))
+             (test "Extension: startup produces no uncaught errors"
+                   test_startup_produces_no_uncaught_errors)))

@@ -391,14 +391,14 @@
 
 (.describe test "Popup Core"
            (fn []
-             (test "Popup: REPL connection setup"
+             (test "Popup Core: REPL connection setup"
                    test_repl_connection_setup)
 
-             (test "Popup: script management and approval workflow"
+             (test "Popup Core: script management and approval workflow"
                    test_script_management_and_approval_workflow)
 
-             (test "Popup: settings view and origin management"
+             (test "Popup Core: settings view and origin management"
                    test_settings_view_and_origin_management)
 
-             (test "Popup: blank slate hints show contextual guidance"
+             (test "Popup Core: blank slate hints show contextual guidance"
                    test_blank_slate_hints_show_contextual_guidance)))

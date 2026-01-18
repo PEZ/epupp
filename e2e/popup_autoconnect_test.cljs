@@ -383,22 +383,22 @@
       (finally
         (js-await (.close context))))))
 
-(.describe test "Popup: Auto-Connect and Auto-Reconnect REPL"
-           (fn []
-             (test "auto-connect REPL setting"
-                   auto_connect_repl_setting)
+(.describe test "Popup Auto-Connect"
+       (fn []
+     (test "Popup Auto-Connect: auto-connect REPL setting"
+       auto_connect_repl_setting)
 
-             (test "auto-connect REPL triggers Scittle injection on page load"
-                   auto_connect_triggers_scittle_injection_on_page_load)
+     (test "Popup Auto-Connect: auto-connect REPL triggers Scittle injection on page load"
+       auto_connect_triggers_scittle_injection_on_page_load)
 
-             (test "SPA navigation does NOT trigger REPL reconnection"
-                   spa_navigation_does_not_trigger_repl_reconnection)
+     (test "Popup Auto-Connect: SPA navigation does NOT trigger REPL reconnection"
+       spa_navigation_does_not_trigger_repl_reconnection)
 
-             (test "auto-reconnect triggers Scittle injection on page reload of previously connected tab"
-                   auto_reconnect_triggers_scittle_injection_on_page_reload)
+     (test "Popup Auto-Connect: auto-reconnect triggers Scittle injection on page reload of previously connected tab"
+       auto_reconnect_triggers_scittle_injection_on_page_reload)
 
-             (test "auto-reconnect does NOT trigger for tabs never connected"
-                   auto_reconnect_does_not_trigger_for_tabs_never_connected)
+     (test "Popup Auto-Connect: auto-reconnect does NOT trigger for tabs never connected"
+       auto_reconnect_does_not_trigger_for_tabs_never_connected)
 
-             (test "disabled auto-reconnect does NOT trigger on page reload"
-                   disabled_auto_reconnect_does_not_trigger_on_page_reload)))
+     (test "Popup Auto-Connect: disabled auto-reconnect does NOT trigger on page reload"
+       disabled_auto_reconnect_does_not_trigger_on_page_reload)))

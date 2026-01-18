@@ -378,17 +378,17 @@
 
 (.describe test "Require"
            (fn []
-             (test "script with :epupp/require is saved with require field"
+             (test "Require: script with :epupp/require is saved with require field"
                    test_require_field_persisted_to_storage)
 
-             (test "INJECTING_REQUIRES event emitted when script has require"
+             (test "Require: INJECTING_REQUIRES event emitted when script has require"
                    test_injecting_requires_event_emitted)
 
-             (test "Reagent library files are injected into page DOM"
+             (test "Require: Reagent library files are injected into page DOM"
                    test_reagent_library_files_injected)
 
-             (test "no INJECTING_REQUIRES event when script has no require"
+             (test "Require: no INJECTING_REQUIRES event when script has no require"
                    test_no_injecting_requires_when_script_has_no_require)
 
-             (test "pprint library script tags are injected into page DOM"
+             (test "Require: pprint library script tags are injected into page DOM"
                    test_pprint_library_script_tags_injected)))

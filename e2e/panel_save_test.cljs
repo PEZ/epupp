@@ -414,14 +414,14 @@
 
 (.describe test "Panel Save"
            (fn []
-             (test "Panel: create new script when name changed, save when unchanged"
+             (test "Panel Save: create new script when name changed, save when unchanged"
                    test_create_new_script_when_name_changed_save_when_unchanged)
 
-             (test "Panel: rename script does not create duplicate"
+             (test "Panel Save: rename script does not create duplicate"
                    test_rename_script_does_not_create_duplicate)
 
-             (test "Panel: rename does not affect other scripts or trigger approvals"
+             (test "Panel Save: rename does not affect other scripts or trigger approvals"
                    test_rename_does_not_affect_other_scripts_or_trigger_approvals)
 
-             (test "Panel: multiple renames do not create duplicates"
+             (test "Panel Save: multiple renames do not create duplicates"
                    test_multiple_renames_do_not_create_duplicates)))

@@ -259,22 +259,22 @@
       (finally
         (js-await (.close context))))))
 
-(.describe test "Panel State Management"
+(.describe test "Panel State"
            (fn []
-             (test "Panel: initializes with default script when no saved state"
+             (test "Panel State: initializes with default script when no saved state"
                    test_panel_initializes_with_default_script)
 
-             (test "Panel: restores saved state and parses manifest on reload"
+             (test "Panel State: restores saved state and parses manifest on reload"
                    test_panel_restores_saved_state_and_parses_manifest)
 
-             (test "Panel: New button clears editor and resets to default script"
+             (test "Panel State: New button clears editor and resets to default script"
                    test_panel_new_button_clears_editor)
 
-             (test "Panel: New button preserves evaluation results"
+             (test "Panel State: New button preserves evaluation results"
                    test_panel_new_button_preserves_evaluation_results)
 
-             (test "Panel: New button with default script skips confirmation"
+             (test "Panel State: New button with default script skips confirmation"
                    test_panel_new_button_with_default_script_skips_confirmation)
 
-             (test "Panel: undo works in code editor"
+             (test "Panel State: undo works in code editor"
                    test_panel_undo_works_in_code_editor)))
