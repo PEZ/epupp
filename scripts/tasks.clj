@@ -689,19 +689,6 @@
     (println "Status:  ALL TESTS PASSED")
     (println "Status:  SOME TESTS FAILED")))
 
-(defn- run-e2e-serial!
-  "Run E2E tests sequentially in a single Docker container.
-   Provides detailed output for debugging."
-  [extra-args]
-  (println "Building Docker image...")
-  (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-  (let [cmd (into ["docker" "run" "--rm" "epupp-e2e"] extra-args)
-        ;; Capture output to file while also displaying it
-        result (apply p/shell {:out :inherit :err :inherit :continue true} cmd)]
-    ;; For serial mode, Playwright already prints its own summary
-    ;; We just exit with the appropriate code
-    (System/exit (:exit result))))
-
 (defn- run-build-step!
   "Run a build command, capturing output. Returns result map.
    Throws with output on failure."
@@ -714,6 +701,50 @@
                        :out (:out result)
                        :err (:err result)})))
     result))
+
+(defn- run-e2e-serial!
+  "Run E2E tests sequentially in a single Docker container.
+   Suppresses build output, shows test output, then prints summary."
+  [extra-args]
+  ;; Build phase with spinner (output suppressed unless failure)
+  (try
+    (with-spinner "Building tests and Docker image..."
+      (fn []
+        (run-build-step! "bb build:test")
+        (run-build-step! "bb test:e2e:compile")
+        (run-build-step! "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")))
+    (catch clojure.lang.ExceptionInfo e
+      (println "\n\n❌ Build failed!")
+      (let [{:keys [cmd out err]} (ex-data e)]
+        (println (str "Command: " cmd))
+        (when (seq out)
+          (println "\nStdout:")
+          (println out))
+        (when (seq err)
+          (println "\nStderr:")
+          (println err)))
+      (System/exit 1)))
+
+  ;; Run tests - stream output in real-time, also capture for summary
+  (println "Running tests...")
+  (when (seq extra-args)
+    (println (str "  Extra Playwright args: " (str/join " " extra-args))))
+  (let [log-file "/tmp/epupp-e2e-serial.log"
+        ;; Use tee to both display output in real-time and capture to file
+        docker-cmd (str "docker run --rm epupp-e2e " (str/join " " extra-args))
+        tee-cmd (str docker-cmd " 2>&1 | tee " log-file)
+        result (p/shell {:continue true} "bash" "-c" tee-cmd)
+        log-content (slurp log-file)
+        summary (parse-playwright-summary log-content)
+        files (count-test-files-in-log log-content)]
+    (when summary
+      (let [{:keys [passed failed skipped]} summary
+            total (+ passed failed (or skipped 0))]
+        (print-test-summary (assoc summary :files files :total total))))
+    (if (zero? (:exit result))
+      (println "✅ All tests passed!")
+      (println "❌ Some tests failed!"))
+    (System/exit (:exit result))))
 
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
