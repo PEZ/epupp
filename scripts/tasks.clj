@@ -594,6 +594,31 @@
 ;; E2E Testing
 ;; ============================================================
 
+(def ^:private spinner-frames ["⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏"])
+
+(defn- with-spinner
+  "Run a function while displaying an animated spinner with message.
+   Clears the spinner line when done."
+  [message f]
+  (let [stop? (atom false)
+        spinner-thread (Thread.
+                        (fn []
+                          (loop [i 0]
+                            (when-not @stop?
+                              (print (str "\r" (nth spinner-frames (mod i (count spinner-frames))) " " message))
+                              (flush)
+                              (Thread/sleep 80)
+                              (recur (inc i))))))]
+    (.start spinner-thread)
+    (try
+      (f)
+      (finally
+        (reset! stop? true)
+        (.join spinner-thread 200)
+        ;; Clear the spinner line
+        (print (str "\r" (apply str (repeat (+ 3 (count message)) " ")) "\r"))
+        (flush)))))
+
 (defn- run-docker-shard
   "Run Docker container with Playwright's native sharding.
    Returns map with process and writer for cleanup."
@@ -677,19 +702,42 @@
     ;; We just exit with the appropriate code
     (System/exit (:exit result))))
 
+(defn- run-build-step!
+  "Run a build command, capturing output. Returns result map.
+   Throws with output on failure."
+  [cmd]
+  (let [result (p/shell {:out :string :err :string :continue true} cmd)]
+    (when-not (zero? (:exit result))
+      (throw (ex-info (str "Build failed: " cmd)
+                      {:cmd cmd
+                       :exit (:exit result)
+                       :out (:out result)
+                       :err (:err result)})))
+    result))
+
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
   [n-shards extra-args]
-  ;; Step 1: Build
-  (println "Building extension and compiling E2E tests...")
-  (p/shell "bb build:test")
-  (p/shell "bb test:e2e:compile")
+  ;; Build phase with spinner (output suppressed unless failure)
+  (try
+    (with-spinner "Building tests and Docker image..."
+      (fn []
+        (run-build-step! "bb build:test")
+        (run-build-step! "bb test:e2e:compile")
+        (run-build-step! "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")))
+    (catch clojure.lang.ExceptionInfo e
+      (println "\n\n❌ Build failed!")
+      (let [{:keys [cmd out err]} (ex-data e)]
+        (println (str "Command: " cmd))
+        (when (seq out)
+          (println "\nStdout:")
+          (println out))
+        (when (seq err)
+          (println "\nStderr:")
+          (println err)))
+      (System/exit 1)))
 
-  ;; Step 2: Build Docker image
-  (println "Building Docker image...")
-  (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-
-  ;; Step 3: Run shards in parallel using Playwright's native sharding
+  ;; Run shards in parallel using Playwright's native sharding
   (println (str "Running " n-shards " parallel shards..."))
   (when (seq extra-args)
     (println (str "  Extra Playwright args: " (str/join " " extra-args))))
