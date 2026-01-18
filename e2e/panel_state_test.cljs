@@ -129,9 +129,8 @@
         ext-id (js-await (get-extension-id context))]
     (try
       (let [panel (js-await (create-panel-page context ext-id))
-            textarea (.locator panel "#code-area")
-            save-btn (.locator panel "button.btn-save")
-            new-btn (.locator panel "button.btn-new-script")]
+        textarea (.locator panel "#code-area")
+        new-btn (.locator panel "button.btn-new-script")]
         (js-await (clear-storage panel))
         (js-await (.reload panel))
         (js-await (wait-for-panel-ready panel))
@@ -142,9 +141,6 @@
                                              :match "*://custom.example.com/*"
                                              :code "(println \"custom code\")"})]
           (js-await (.fill textarea test-code)))
-
-        (js-await (.click save-btn))
-        (js-await (wait-for-save-status panel "my_custom_script.cljs"))
 
         (.once panel "dialog" (fn [dialog] (.accept dialog)))
 
