@@ -11,6 +11,8 @@ This document documents the completed FS REPL Sync feature. All core functionali
 
 ## Current State
 
+UI updates not done yet.
+
 The core infrastructure is in place:
 - Toggle in Settings section (default: disabled)
 - When disabled: `save!`, `mv!`, `rm!` return clear error
@@ -21,39 +23,7 @@ The core infrastructure is in place:
 
 ## Fixed Bugs
 
-### FIXED: `save!` allows overwriting built-in scripts
-
-**Severity:** High - security issue
-
-**Problem:** When calling `(save! "GitHub Gist Installer (Built-in)" code)`, the name gets normalized to `"github_gist_installer_built_in.cljs"` before reaching the action handler. The handler then can't match it against the builtin's display name, so protection was bypassed.
-
-**Fix:** Added `name-matches-builtin?` helper in `script-utils.cljs` that checks if a normalized name would match any builtin's display name. The action handler now calls this check before allowing save.
-
-**Tests:**
-- Unit: `test/background_actions_test.cljs` - "rejects when creating script with normalized builtin name" (PASS)
-- E2E: `e2e/fs_write_test.cljs` - "save! rejects built-in script names" (PASS)
-
-### FIXED: `save!` without force overwrites existing scripts
-
-**Severity:** Medium - data loss risk
-
-**Problem:** `(save! "existing-script" code)` should reject when a script with that name already exists (unless `:fs/force? true`).
-
-**Fix:** Changed REPL save path in `background.cljs` to always generate fresh script IDs. This ensures the action handler correctly detects create operations and applies the "name already exists" check.
-
-**Tests:**
-- E2E: `e2e/fs_write_test.cljs` - "save! rejects when script already exists" (PASS)
-
-### FIXED: `rm!` rejects when script does not exist
-
-**Severity:** Medium - user expectation mismatch
-
-**Problem:** `rm!` resolved successfully for missing scripts with `:fs/existed? false` instead of rejecting.
-
-**Fix:** `rm!` now rejects for missing scripts. Bulk `rm!` deletes existing scripts, then rejects if any names are missing.
-
-**Tests:**
-- E2E: `e2e/fs_write_test.cljs` - "rm! with vector rejects when any missing" (PASS)
+...
 
 ## Remaining Issues
 
@@ -69,12 +39,12 @@ The core infrastructure is in place:
 
 ### API
 
-- [ ] `ls` should hide built-in scripts unless `:fs/ls-hidden?` is provided
+- [x] `ls` should hide built-in scripts unless `:fs/ls-hidden?` is provided
 
 ### Documentation
 
 - [x] User guide section on FS REPL Sync - DONE (in `user-guide.md` REPL File System API section)
-- [ ] Dev docs on the message protocol for FS operations
+- [x] Dev docs on the message protocol for FS operations - see [architecture/message-protocol.md](architecture/message-protocol.md)
 
 ## Test Status
 
