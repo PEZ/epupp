@@ -14,9 +14,6 @@
 (def test-page-url (get-arg 1))
 (def ws-port (js/parseInt (get-arg 2) 10))
 
-(defn ^:async sleep [ms]
-  (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
-
 (defn ^:async get-extension-id [context]
   (let [workers (.serviceWorkers context)]
     (if (pos? (.-length workers))
@@ -72,10 +69,8 @@
 
       ;; Open test page
       (js-await (.goto test-page test-page-url))
+      (js-await (.waitForLoadState test-page "domcontentloaded"))
       (js/console.log "Test page loaded:" test-page-url)
-
-      ;; Give page a moment to settle
-      (js-await (sleep 500))
 
       ;; Open extension popup page to access chrome.runtime
       (js/console.log "Opening extension helper page...")
@@ -85,9 +80,7 @@
         (js-await (.goto bg-page popup-url #js {:waitUntil "networkidle"}))
         (js-await (.waitForLoadState bg-page "domcontentloaded"))
         (js/console.log "Popup page loaded")
-
-        ;; Wait for popup to initialize
-        (js-await (sleep 2000))
+        (js-await (.waitForSelector bg-page "#nrepl-port" #js {:timeout 500}))
         (js/console.log "Starting find-tab-id call...")
 
         ;; Find test page tab

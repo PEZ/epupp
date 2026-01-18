@@ -208,18 +208,18 @@
 
         (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs") #js {:timeout 500})))
 
-        (let [dialog-appeared (atom false)]
-          (.on panel "dialog" (fn [_dialog]
-                                (reset! dialog-appeared true)))
+        (js-await (.click new-btn))
+        (js-await
+          (-> (.waitForEvent panel "dialog" #js {:timeout 200})
+              (.then (fn [_] (throw (js/Error. "Unexpected confirmation dialog"))))
+              (.catch (fn [err]
+                        (when-not (and (.-message err)
+                                       (.includes (.-message err) "Timeout"))
+                          (throw err))))))
+        (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs"))))
+        (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
 
-          (js-await (.click new-btn))
-
-          (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
-
-          (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "hello_world\\.cljs"))))
-          (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
-
-          (js-await (assert-no-errors! panel))))
+        (js-await (assert-no-errors! panel)))
       (finally
         (js-await (.close context))))))
 
