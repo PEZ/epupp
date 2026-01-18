@@ -18,13 +18,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!save-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!save-result] (cond (= r :pending) :pending (map? r) (str (:fs/success r) \"||\" (:fs/name r)) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str ":success true")) (.toBe true))
-            (-> (expect (.includes result-str "test_script_from_repl.cljs")) (.toBe true)))
+          (-> (expect (unquote-result (first (.-values check-result))))
+              (.toBe "true||test_script_from_repl.cljs"))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/save! result"))
             (do
