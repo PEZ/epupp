@@ -30,7 +30,7 @@ The core infrastructure is in place:
 - `ls` hides built-in scripts by default - use `:fs/ls-hidden?` to include them
 - Panel save bypasses setting (trusted UI)
 
-UI feedback is now complete:
+UI feedback - implementation in place (needs manual verification):
 - Success/error banners in popup and panel (auto-dismiss after 3s)
 - Extension icon badge flashes checkmark or exclamation (restores after 2s)
 - Panel reloads script when current file modified via REPL
@@ -42,16 +42,17 @@ UI feedback is now complete:
 
 ## Remaining Issues
 
-### UI Feedback
+### UI Feedback (Implemented - Awaiting Manual Test Confirmation)
 
-- [x] Error banner in panel when FS sync disabled
-- [x] Error banner in popup when FS sync disabled
-- [x] Extension icon error badge
-- [x] Panel updates when showing a file modified via REPL
-- [x] "Update" banner briefly shown in popup after REPL modifications
-- [x] "Update" banner briefly shown in panel after REPL modifications
-- [x] Flash/highlight modified scripts in popup list
-- [x] Extension icon briefly shows "update" badge
+- [~] Error banner in panel when FS sync disabled - implemented, needs testing
+- [~] Error banner in popup when FS sync disabled - implemented, needs testing
+- [~] Extension icon error badge - implemented, needs testing
+- [ ] System-wide banner in panel for all FS events - not fixed, needs verification
+- [ ] Panel editor updates when active script modified via REPL - not fixed, needs verification
+- [~] "Update" banner briefly shown in popup after REPL modifications - implemented, needs testing
+- [~] "Update" banner briefly shown in panel after REPL modifications - implemented, needs testing
+- [x] Flash/highlight modified scripts in popup list - confirmed working
+- [~] Extension icon briefly shows "update" badge - implemented, needs testing
 
 ### API
 

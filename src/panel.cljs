@@ -749,21 +749,31 @@
            operation (aget message "operation")
            script-name (aget message "script-name")
            error-msg (aget message "error")
+           script-id (aget message "script-id")
+           from-name (aget message "from-name")
+           current-id (:panel/script-id @!state)
            current-name (:panel/script-name @!state)
+           original-name (:panel/original-name @!state)
+           matches-name? (or (= script-name current-name)
+                             (= script-name original-name))
+           matches-from? (or (= from-name current-name)
+                             (= from-name original-name))
+           matches-id? (and script-id current-id (= script-id current-id))
            ;; Check if this event affects the currently edited script
            affects-current? (and (= event-type "success")
-                                 (= script-name current-name))]
-       ;; Show banner for errors or when current script is affected
-       (when (or (= event-type "error") affects-current?)
-         (let [banner-msg (if (= event-type "error")
-                            (str "FS sync error: " error-msg)
-                            (str "Script \"" script-name "\" " operation "d via REPL"))]
-           (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
-           ;; Auto-dismiss after 3 seconds
-           (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000)))
-       ;; Reload script content if current script was modified
+                                 (or matches-id? matches-name? matches-from?))
+           banner-msg (if (= event-type "error")
+                        (str "FS sync error: " error-msg)
+                        (str "Script \"" script-name "\" " operation "d via REPL"))]
+       ;; Show banner for all fs-events
+       (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+       ;; Auto-dismiss after 3 seconds
+       (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000)
+       ;; Reload or clear editor when current script was modified
        (when affects-current?
-         (dispatch! [[:editor/ax.reload-script-from-storage script-name]]))))
+         (if (= operation "delete")
+           (dispatch! [[:editor/ax.new-script]])
+           (dispatch! [[:editor/ax.reload-script-from-storage script-name]])))))
    ;; Return false - we don't send async response
    false))
 

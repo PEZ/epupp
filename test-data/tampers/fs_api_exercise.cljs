@@ -32,23 +32,21 @@
   ;; PEZ: We should show an error banner in both the panel and the popup, and the extension icon should get an error badge.
 
   ;; Save new script
-  (-> (p/let [save-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1)")]
+  (-> (p/let [save-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1)" {:fs/force? true})]
         (def save-result save-result))
       (p/catch (fn [e] (def save-error (.-message e)))))
-  ;; PEZ: Checks out!
-  ;; PEZ: And the item is flashed in the popup. Sweet!
 
   ;; Save does not overwrite existing
   (-> (p/let [save-overwrite-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)")]
         (def save-overwrite-result save-overwrite-result))
       (p/catch (fn [e] (def save-overwrite-error (.-message e)))))
-  ;; PEZ: Checks out!
+  ;; Checks out!
 
   ;; Save with force overwrites existing
   (-> (p/let [save-force-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)" {:fs/force? true})]
         (def save-force-result save-force-result))
       (p/catch (fn [e] (def save-force-error (.-message e)))))
-  ;; PEZ: Checks out! But the panel does not update when it is showing this file. Which it should do.
+  ;; PEZ: Checks out!
 
   ;; Save does not overwrite built-in
   (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)")]
@@ -68,7 +66,7 @@
                                                {:fs/force? true})]
         (def bulk-save-result bulk-save-result))
       (p/catch (fn [e] (def bulk-save-error (.-message e)))))
-  ;; PEZ: Checks out!
+  ;; PEZ: Message says
 
   ;; Rename script
   (-> (p/let [mv-result (epupp.fs/mv! "test_save_1.cljs" "test_renamed.cljs")]
@@ -98,8 +96,8 @@
   (-> (p/let [rm-noexist-result (epupp.fs/rm! "does-not-exist.cljs")]
         (def rm-noexist-result rm-noexist-result))
       (p/catch (fn [e] (def rm-noexist-error (.-message e)))))
-  ;; PEZ: UI flashes
-  ;;
+  ;; PEZ: Popup UI benner with a confusing message
+  ;; PEZ: Panel gets no banner
 
   ;; Delete built-in rejects
   (-> (p/let [rm-builtin-result (epupp.fs/rm! "GitHub Gist Installer (Built-in)")]
@@ -111,7 +109,7 @@
   (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "bulk_2.cljs"])]
         (def bulk-rm-result bulk-rm-result))
       (p/catch (fn [e] (def bulk-rm-error (.-message e)))))
-  ;; PEZ: Checks out!
+  ;; PEZ: Panel UI says file `"""` was deleted, confusing!
 
   ;; Bulk delete - mixed existing/non-existing
   (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "does-not-exist.cljs" "bulk_2.cljs"])]

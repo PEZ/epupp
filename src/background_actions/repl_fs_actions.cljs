@@ -25,24 +25,27 @@
   "Create a failure response with error message and broadcast error event."
   ([error-msg]
    (make-error-response error-msg {}))
-  ([error-msg {:keys [operation script-name]}]
-   {:uf/fxs [[:bg/fx.broadcast-fs-event! {:event-type "error"
-                                          :operation operation
-                                          :script-name script-name
-                                          :error error-msg}]
+  ([error-msg {:keys [operation script-name event-data]}]
+   {:uf/fxs [[:bg/fx.broadcast-fs-event! (merge {:event-type "error"
+                                                 :operation operation
+                                                 :script-name script-name
+                                                 :error error-msg}
+                                                event-data)]
              [:bg/fx.send-response {:success false :error error-msg}]]}))
 
 (defn- make-success-response
   "Create a success response with optional extra data and broadcast success event."
   ([updated-scripts operation script-name]
    (make-success-response updated-scripts operation script-name {}))
-  ([updated-scripts operation script-name extra]
-   {:uf/db {:storage/scripts updated-scripts}
-    :uf/fxs [[:storage/fx.persist!]
-             [:bg/fx.broadcast-fs-event! {:event-type "success"
-                                          :operation operation
-                                          :script-name script-name}]
-             [:bg/fx.send-response (merge {:success true} extra)]]}))
+  ([updated-scripts operation script-name {:keys [event-data response-data] :as extra}]
+   (let [response-data (or response-data (dissoc extra :event-data))]
+     {:uf/db {:storage/scripts updated-scripts}
+      :uf/fxs [[:storage/fx.persist!]
+               [:bg/fx.broadcast-fs-event! (merge {:event-type "success"
+                                                   :operation operation
+                                                   :script-name script-name}
+                                                  event-data)]
+               [:bg/fx.send-response (merge {:success true} response-data)]]})))
 
 (defn- update-script-in-list
   "Update a script in the list by ID, applying update-fn."
@@ -84,7 +87,11 @@
       (let [updated-scripts (update-script-in-list scripts (:script/id source-script)
                               #(assoc % :script/name to-name :script/modified now-iso))]
         (make-success-response updated-scripts "rename" to-name
-                               {:from-name from-name :to-name to-name})))))
+                               {:event-data {:script-id (:script/id source-script)
+                                             :from-name from-name
+                                             :to-name to-name}
+                                :response-data {:from-name from-name
+                                                :to-name to-name}})))))
 
 (defn delete-script
   "Delete a script by name."
@@ -93,7 +100,8 @@
     (cond
       ;; Script not found
       (nil? script)
-      (make-error-response (str "Script not found: " script-name) {:operation "delete" :script-name script-name})
+      (make-error-response (str "Not deleting non-existent file: " script-name)
+               {:operation "delete" :script-name script-name})
 
       ;; Script is builtin
       (script-utils/builtin-script? script)
@@ -103,7 +111,8 @@
       :else
       (let [updated-scripts (remove-script-from-list scripts (:script/id script))]
         (make-success-response updated-scripts "delete" script-name
-                               {:name script-name})))))
+                               {:event-data {:script-id (:script/id script)}
+                                :response-data {:name script-name}})))))
 
 (defn save-script
   "Create or update a script."
@@ -152,4 +161,7 @@
                                                scripts)]
                                 (conj filtered timestamped-script)))]
         (make-success-response updated-scripts "save" script-name
-                               {:name script-name :is-update is-update?})))))
+                               {:event-data {:script-id script-id}
+                                :response-data {:name script-name
+                                                :id script-id
+                                                :is-update is-update?}})))))
