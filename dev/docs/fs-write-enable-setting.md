@@ -46,6 +46,7 @@ The core infrastructure is in place:
 - [ ] Panel updates when showing a file modified via REPL
 - [ ] "Update" banner briefly shown in popup after REPL modifications
 - [ ] "Update" banner briefly shown in panel after REPL modifications
+- [ ] Flash/highlight modified scripts in popup list
 - [ ] Extension icon briefly shows "update" badge
 
 ### API
