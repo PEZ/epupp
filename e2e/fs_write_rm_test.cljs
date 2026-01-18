@@ -189,24 +189,8 @@
 
 (defn- ^:async test_rm_returns_existed_flag []
   (let [test-code "{:epupp/script-name \"existed-test-rm\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns existed-test)"
-        setup-result (js-await (eval-in-browser
-                                (str "(def !existed-rm-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !existed-rm-setup r))))\n                                       :setup-done")))]
-    (-> (expect (.-success setup-result)) (.toBe true)))
-
-  (let [start (.now js/Date)
-        timeout-ms 3000]
-    (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-rm-setup)"))]
-        (when (or (not (.-success check-result))
-                  (empty? (.-values check-result))
-                  (= (first (.-values check-result)) ":pending"))
-          (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
-            (recur))))))
-
-  ;; Ensure script exists
-  (let [save-result (js-await (eval-in-browser
-                               "(def !existed-setup (atom :pending))\n                               (-> (epupp.fs/save! \"{:epupp/script-name \\\"existed-test-rm\\\"}\n(ns existed-test-rm)\" {:fs/force? true})\n                                 (.then (fn [r] (reset! !existed-setup r))))\n                               :setup-done"))]
+        save-result (js-await (eval-in-browser
+                               (str "(def !existed-setup (atom :pending))\n                                      (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                        (.then (fn [r] (reset! !existed-setup r))))\n                                      :setup-done")))]
     (-> (expect (.-success save-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -219,6 +203,25 @@
           true
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save! setup"))
+            (do
+              (js-await (sleep 50))
+              (recur)))))))
+
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !existed-ls (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !existed-ls scripts))))\n                                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-ls)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (.includes (first (.-values check-result)) "existed_test_rm.cljs"))
+              (.toBe true))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls after save"))
             (do
               (js-await (sleep 50))
               (recur)))))))
