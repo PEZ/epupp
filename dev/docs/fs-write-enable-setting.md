@@ -45,6 +45,10 @@ The core infrastructure is in place:
 
 ## Remaining Issues
 
+### Behavior Changes
+
+- [ ] **`rm!` should reject for non-existent files** - Currently `rm!` succeeds with `:fs/existed? false` when deleting a file that doesn't exist. This should instead reject the promise with an error, mimicking Unix `rm` behavior. The user is responsible for handling the error. Same applies to bulk `rm!` - it should delete all existing files and then reject for any non-existent ones. If all files exist, behaviour should stay the same as today, returning the vectore of results.
+
 ### UI Feedback
 
 - [ ] Error banner in panel when FS sync disabled
@@ -99,7 +103,7 @@ The core infrastructure is in place:
 | rm! deletes a script | PASS |
 | rm! rejects deleting built-in | PASS |
 | rm! bulk returns map of results | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
-| rm! returns existed flag | PASS |
+| rm! returns existed flag | PASS - to be changed: should reject for non-existent |
 
 ### E2E Flakiness Notes (Resolved Jan 17, 2026)
 
@@ -166,10 +170,11 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 - [x] `mv!` - rejects when source doesn't exist
 - [x] `mv!` - rejects when target already exists (second rename)
 - [x] `mv!` - rejects when trying to rename built-in (verified: "Cannot rename built-in scripts")
-- [x] `rm!` - deletes script, returns `:fs/existed? true`
-- [x] `rm!` - succeeds for non-existent with `:fs/existed? false`
+- [x] `rm!` - deletes script
+- [ ] **BUG**: `rm!` - should reject for non-existent (currently succeeds with `:fs/existed? false`)
+- [ ] **BUG**: `rm!` bulk - should delete existing files, then reject for non-existent (Unix behavior)
 - [x] `rm!` - rejects when trying to delete built-in
-- [x] `rm!` bulk - handles mixed existing/non-existing
+- [ ] `rm!` bulk - handles mixed existing/non-existing (see BUG above)
 - [x] `rm!` bulk with built-in - fails early for built-in (verified: "Cannot delete built-in scripts")
 - [ ] "Update" banner should appear briefly in panel (where it shows the extension-updated banner)
 - [ ] "Update" banner should appear briefly in popup
