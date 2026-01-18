@@ -1,7 +1,7 @@
 (ns e2e.fs-write-mv-test
   "E2E tests for REPL file system mv! operations"
   (:require ["@playwright/test" :refer [test expect]]
-            [fs-write-helpers :refer [sleep eval-in-browser setup-browser!]]))
+            [fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
 
 (def ^:private !context (atom nil))
 
@@ -221,13 +221,13 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-builtin-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-builtin-result] (cond (= r :pending) :pending (:rejected r) (str \"rejected||\" (:rejected r)) (:resolved r) (str \"resolved||\" (:resolved r)) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
+          (let [result-str (unquote-result (first (.-values check-result)))]
             ;; Should be rejected because it's a built-in script
-            (-> (expect (.includes result-str "rejected"))
+            (-> (expect (.startsWith result-str "rejected||"))
                 (.toBe true))
             (-> (expect (or (.includes result-str "built-in")
                             (.includes result-str "Cannot rename built-in scripts")))
