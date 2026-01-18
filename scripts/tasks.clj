@@ -862,25 +862,40 @@
   "Run E2E tests in Docker with JSON reporter and print timing report.
    Sorted fastest-first so you can tail for slowest tests."
   [_args]
-  (println "Building Docker image...")
-  (p/shell "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")
-  (println "Running E2E tests with JSON reporter in Docker...")
-  ;; Use the standard entrypoint which handles server setup,
-  ;; just override the reporter to get JSON output
-  (let [result (p/shell {:out :string :err :inherit :continue true}
-                        "docker" "run" "--rm" "epupp-e2e"
-                        "--reporter=json")
-        exit-code (:exit result)
-        output (:out result)
-        json-str (extract-json-from-output output)]
-    (if (and (zero? exit-code) json-str)
-      (let [json-data (json/read-str json-str :key-fn keyword)
-            timings (extract-test-timings json-data)]
-        (print-timing-report timings))
-      (do
-        (println "Tests failed or no JSON output - cannot generate timing report")
-        (when-not (str/blank? output)
-          (println "Output preview:")
-          (println (subs output 0 (min 500 (count output)))))
-        (println "Run 'bb test:e2e' to see full test output")
-        (System/exit (if (zero? exit-code) 1 exit-code))))))
+  ;; Build phase with spinner (output suppressed unless failure)
+  (try
+    (with-spinner "Building tests and Docker image..."
+      (fn []
+        (run-build-step! "bb build:test")
+        (run-build-step! "bb test:e2e:compile")
+        (run-build-step! "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")))
+    (catch clojure.lang.ExceptionInfo e
+      (println "\n\n❌ Build failed!")
+      (let [{:keys [cmd out err]} (ex-data e)]
+        (println (str "Command: " cmd))
+        (when (seq out)
+          (println "stdout:")
+          (println out))
+        (when (seq err)
+          (println "stderr:")
+          (println err)))
+      (System/exit 1)))
+  ;; Run tests with spinner (output captured for JSON parsing)
+  (let [result (atom nil)]
+    (with-spinner "Running E2E tests (collecting timing data)..."
+      #(reset! result (p/shell {:out :string :err :string :continue true}
+                               "docker" "run" "--rm" "epupp-e2e"
+                               "--reporter=json")))
+    (let [{:keys [exit out]} @result
+          json-str (extract-json-from-output out)]
+      (if (and (zero? exit) json-str)
+        (let [json-data (json/read-str json-str :key-fn keyword)
+              timings (extract-test-timings json-data)]
+          (print-timing-report timings))
+        (do
+          (println "Tests failed or no JSON output - cannot generate timing report")
+          (when-not (str/blank? out)
+            (println "Output preview:")
+            (println (subs out 0 (min 500 (count out)))))
+          (println "Run 'bb test:e2e' to see full test output")
+          (System/exit (if (zero? exit) 1 exit)))))))
