@@ -53,12 +53,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!rm-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!rm-result] (cond (= r :pending) :pending (map? r) (:fs/success r) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (-> (expect (.includes (first (.-values check-result)) ":success true"))
-              (.toBe true))
+          (-> (expect (first (.-values check-result)))
+              (.toBe "true"))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/rm! result"))
             (do
