@@ -277,7 +277,7 @@
     (js-await (.close popup))))
 
 (defn- ^:async failed_fs_operation_rejects_promise []
-  ;; Try to delete a non-existent script - should succeed with :fs/existed? false
+  ;; Try to delete a non-existent script - should reject
   (let [delete-code "(def !rm-nonexistent-result (atom :pending))
                                         (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")
                                             (.then (fn [r] (reset! !rm-nonexistent-result {:resolved r})))
@@ -287,9 +287,11 @@
       (-> (expect (.-success res)) (.toBe true)))
 
     (let [out (js-await (wait-for-eval-promise "!rm-nonexistent-result" 3000))]
-      ;; Should resolve (not reject) with :fs/existed? false
-      (-> (expect (.includes out "resolved")) (.toBe true))
-      (-> (expect (.includes out ":existed? false")) (.toBe true)))))
+      (-> (expect (.includes out "rejected")) (.toBe true))
+      (-> (expect (or (.includes out "Script not found")
+                      (.includes out "not found")
+                      (.includes out "does not exist")))
+          (.toBe true)))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage @!context))]

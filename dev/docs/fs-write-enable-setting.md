@@ -43,11 +43,18 @@ The core infrastructure is in place:
 **Tests:**
 - E2E: `e2e/fs_write_test.cljs` - "save! rejects when script already exists" (PASS)
 
+### FIXED: `rm!` rejects when script does not exist
+
+**Severity:** Medium - user expectation mismatch
+
+**Problem:** `rm!` resolved successfully for missing scripts with `:fs/existed? false` instead of rejecting.
+
+**Fix:** `rm!` now rejects for missing scripts. Bulk `rm!` deletes existing scripts, then rejects if any names are missing.
+
+**Tests:**
+- E2E: `e2e/fs_write_test.cljs` - "rm! with vector rejects when any missing" (PASS)
+
 ## Remaining Issues
-
-### Behavior Changes
-
-- [ ] **`rm!` should reject for non-existent files** - Currently `rm!` succeeds with `:fs/existed? false` when deleting a file that doesn't exist. This should instead reject the promise with an error, mimicking Unix `rm` behavior. The user is responsible for handling the error. Same applies to bulk `rm!` - it should delete all existing files and then reject for any non-existent ones. If all files exist, behaviour should stay the same as today, returning the vectore of results.
 
 ### UI Feedback
 
@@ -102,8 +109,8 @@ The core infrastructure is in place:
 | mv! rejects renaming built-in | PASS |
 | rm! deletes a script | PASS |
 | rm! rejects deleting built-in | PASS |
-| rm! bulk returns map of results | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
-| rm! returns existed flag | PASS - to be changed: should reject for non-existent |
+| rm! bulk rejects when any missing | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
+| rm! returns existed flag | PASS |
 
 ### E2E Flakiness Notes (Resolved Jan 17, 2026)
 

@@ -544,7 +544,7 @@
               (js-await (sleep 50))
               (recur))))))))
 
-(defn- ^:async test_rm_with_vector_returns_map_of_results []
+(defn- ^:async test_rm_with_vector_rejects_when_any_missing []
   (let [code1 "{:epupp/script-name \"bulk-rm-test-1\"
                                :epupp/site-match \"https://example.com/*\"}
                               (ns bulk-rm-1)"
@@ -579,7 +579,7 @@
               (js-await (sleep 50))
               (recur)))))))
 
-  ;; Delete two existing scripts and one non-existent - all should succeed
+  ;; Delete two existing scripts and one non-existent - should reject
   (let [setup-result (js-await (eval-in-browser
                                 "(def !bulk-rm-result (atom :pending))
                                 (-> (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"])
@@ -598,21 +598,41 @@
                  (not= result-str ":pending"))
           (do
             (js/console.log "=== Bulk rm result ===" result-str)
-            ;; Should resolve (not reject)
-            (-> (expect (.includes result-str "resolved"))
-                (.toBe true))
-            ;; All files should be in the result
-            (-> (expect (.includes result-str "bulk_rm_test_1.cljs"))
-                (.toBe true))
-            (-> (expect (.includes result-str "bulk_rm_test_2.cljs"))
+            (-> (expect (.includes result-str "rejected"))
                 (.toBe true))
             (-> (expect (.includes result-str "does-not-exist.cljs"))
                 (.toBe true))
-            ;; Non-existent file should have :existed? false
-            (-> (expect (.includes result-str ":existed? false"))
+            (-> (expect (or (.includes result-str "Script not found")
+                            (.includes result-str "not found")
+                            (.includes result-str "does not exist")))
                 (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk rm! result"))
+            (do
+              (js-await (sleep 50))
+              (recur)))))))
+
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !bulk-rm-after (atom :pending))
+                                                (-> (epupp.fs/ls)
+                                                    (.then (fn [scripts] (reset! !bulk-rm-after scripts))))
+                                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-after)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "bulk_rm_test_1.cljs"))
+                (.toBe false))
+            (-> (expect (.includes result-str "bulk_rm_test_2.cljs"))
+                (.toBe false)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for ls after bulk rm"))
             (do
               (js-await (sleep 50))
               (recur)))))))
@@ -1015,8 +1035,8 @@
              (test "epupp.fs/rm! rejects deleting built-in scripts"
                    test_rm_rejects_deleting_builtin_scripts)
 
-             (test "epupp.fs/rm! with vector returns map of per-item results"
-                   test_rm_with_vector_returns_map_of_results)
+             (test "epupp.fs/rm! with vector rejects when any missing"
+                   test_rm_with_vector_rejects_when_any_missing)
 
              (test "epupp.fs/rm! returns result with :fs/existed? flag"
                    test_rm_returns_existed_flag)

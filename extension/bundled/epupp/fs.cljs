@@ -144,10 +144,11 @@
   "Delete script(s) by name. Requires FS REPL Sync to be enabled in settings.
 
    Returns promise of {:fs/success bool :fs/name string :fs/existed? bool}
-   - :fs/existed? is false if the script didn't exist (still succeeds)
+   - Rejects when the script does not exist
    - Fails only for protected scripts (built-in)
 
    Bulk mode returns map of name->{:fs/success ... :fs/existed? ...}
+   - Rejects when any script is missing
 
    Examples:
    (epupp.fs/rm! \"my-script.cljs\")
@@ -169,13 +170,20 @@
                                    [n {:fs/success true :fs/name n :fs/existed? true}]
 
                                    (not-found-error? msg)
-                                   [n {:fs/success true :fs/name n :fs/existed? false}]
+                                   [n {:fs/success false :fs/name n :fs/existed? false}]
 
                                    :else
                                    (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
                   name-or-names)))
           (.then (fn [results]
-                   (into {} results))))
+                   (let [result-map (into {} results)
+                         missing (->> results
+                                      (keep (fn [[name result]]
+                                              (when (false? (:fs/existed? result))
+                                                name))))]
+                     (if (seq missing)
+                       (throw (js/Error. (str "Scripts not found: " (.join (to-array missing) ", "))))
+                       result-map)))))
       ;; Single mode
       (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
           (.then (fn [msg]
@@ -184,7 +192,7 @@
                      {:fs/success true :fs/name name-or-names :fs/existed? true}
 
                      (not-found-error? msg)
-                     {:fs/success true :fs/name name-or-names :fs/existed? false}
+                     (throw (js/Error. (or (.-error msg) "Script not found")))
 
                      :else
                      (throw (js/Error. (or (.-error msg) "Unknown error"))))))))))

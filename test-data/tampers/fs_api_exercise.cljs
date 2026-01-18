@@ -10,7 +10,7 @@
   ;; List all scripts
   (p/let [ls-result (epupp.fs/ls)]
     (def ls-result ls-result))
-  ;; PEZ: Checks out! But we probably shouldn't list built-in scripts
+  ;; PEZ: Checks out! But we shouldn't list built-in scripts, unless option `:fs/ls-hidden?` is given
 
   ;; Show existing script
   (p/let [show-result (epupp.fs/show "GitHub Gist Installer (Built-in)")]
@@ -106,7 +106,7 @@
   ;; PEZ: Checks out!
 
   ;; Bulk delete - mixed existing/non-existing
-  (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "bulk_2.cljs" "does-not-exist.cljs"])]
+  (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "does-not-exist.cljs" "bulk_2.cljs"])]
         (def bulk-rm-result bulk-rm-result))
       (p/catch (fn [e] (def bulk-rm-error (.-message e)))))
   ;; PEZ: Checks out! But again, we should probably mimic Unix `rm`, which deletes the existing files and results in an error.
