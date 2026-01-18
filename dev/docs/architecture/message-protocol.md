@@ -13,6 +13,17 @@ Via `window.postMessage` with source identifiers.
 | `ws-connect` | `{port}` | Request WebSocket connection |
 | `ws-send` | `{data}` | Send data through WebSocket |
 | `load-manifest` | `{manifest}` | Request library injection via `epupp/manifest!` |
+| `list-scripts` | `{lsHidden, requestId}` | List scripts (REPL FS read) |
+| `get-script` | `{name, requestId}` | Get script by name (REPL FS read) |
+| `save-script` | `{code, enabled, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Save script (REPL FS write) |
+| `rename-script` | `{from, to, force, requestId}` | Rename script (REPL FS write) |
+| `delete-script` | `{name, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Delete script (REPL FS write) |
+
+**Page → Content Bridge** (`source: "epupp-userscript"`):
+
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin |
 
 **Content Bridge → Page** (`source: "epupp-bridge"`):
 
@@ -24,6 +35,12 @@ Via `window.postMessage` with source identifiers.
 | `ws-error` | `{error}` | WebSocket error |
 | `ws-close` | - | WebSocket closed |
 | `manifest-response` | `{success, error?}` | Library injection result |
+| `list-scripts-response` | `{success, scripts, requestId}` | Response for `list-scripts` |
+| `get-script-response` | `{success, code?, error?, requestId}` | Response for `get-script` |
+| `save-script-response` | `{success, name?, error?, requestId}` | Response for `save-script` |
+| `rename-script-response` | `{success, error?, requestId}` | Response for `rename-script` |
+| `delete-script-response` | `{success, error?, requestId}` | Response for `delete-script` |
+| `install-response` | `{success, error?}` | Install userscript response |
 
 ## Content Bridge ↔ Background
 
@@ -37,6 +54,7 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `ws-send` | `{data}` | Send through tab's WebSocket |
 | `ping` | - | Keepalive (every 5s) |
 | `load-manifest` | `{manifest}` | Forward library injection request |
+| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin |
 
 **Background → Content Bridge**:
 
@@ -107,9 +125,23 @@ Via `chrome.runtime.sendMessage`.
 
 | Type | Payload | Response | Purpose |
 |------|---------|----------|---------|
+| `get-connections` | - | `{success, connections}` | List active REPL connections |
+| `disconnect-tab` | `{tabId}` | - | Disconnect REPL from a tab |
+| `check-status` | `{tabId}` | `{success, status}` | Check Scittle and bridge status |
 | `refresh-approvals` | - | - | Reload scripts, sync pending, update badge |
 | `pattern-approved` | `{scriptId, pattern}` | - | Pattern approved, clear pending + execute |
 | `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
+| `inject-requires` | `{tabId, requires}` | `{success, error?}` | Inject Scittle libraries for eval |
+| `evaluate-script` | `{tabId, scriptId, code, require}` | `{success, error?}` | Run a script in the current tab |
+| `panel-save-script` | `{script}` | `{success, error?, isUpdate?, id?}` | Save script from DevTools panel |
+| `panel-rename-script` | `{from, to}` | `{success, error?}` | Rename script from DevTools panel |
+
+## Background → Popup/Panel
+
+| Type | Payload | Purpose |
+|------|---------|---------|
+| `connections-changed` | `{connections}` | Broadcast connection list updates |
+| `fs-event` | `{event-type, operation, script-name, error?, bulk-id?, bulk-index?, bulk-count?}` | FS operation notification banner |
 
 ## Related
 

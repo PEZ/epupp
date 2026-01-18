@@ -16,9 +16,10 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
    - Inject `ws-bridge.js` (MAIN world) if needed
    - Wait for bridge ready (ping/pong)
    - Ensure Scittle is loaded
-   - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
-   - Inject `vendor/scittle.nrepl.js` (auto-connects)
-   - **Inject Epupp API files** (`bundled/epupp/*.cljs` - provides `epupp.repl/manifest!` and `epupp.fs/*`)
+    - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
+    - Inject `vendor/scittle.nrepl.js` or reconnect existing client
+    - Poll until WebSocket reaches OPEN state
+    - **Inject Epupp API files** (`bundled/epupp/*.cljs` - provides `epupp.repl/manifest!` and `epupp.fs/*`)
 4. `ws-bridge` intercepts WebSocket for `/_nrepl` URLs
 5. Messages flow: Page ↔ Content Bridge ↔ Background ↔ Babashka relay
 
@@ -27,13 +28,15 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
 1. `webNavigation.onCompleted` fires (main frame only)
 2. `handle-navigation!` waits for storage initialization
 3. `process-navigation!` gets matching enabled scripts
-4. For each script, check if matching pattern is approved
-5. **Approved**: `ensure-scittle!` → `execute-scripts!`
-6. **Unapproved**: `request-approval!` (adds to pending, updates badge)
+4. Filters to `document-idle` scripts only
+5. For each script, check if matching pattern is approved
+6. **Approved**: `ensure-scittle!` → `execute-scripts!`
+7. **Unapproved**: `request-approval!` (adds to pending, updates badge)
 7. `execute-scripts!` flow:
    - Inject content bridge
    - Wait for bridge ready (ping/pong)
    - Send `clear-userscripts` message
+    - Inject required Scittle libraries (in dependency order)
    - Send `inject-userscript` for each script
    - Send `inject-script` for `trigger-scittle.js`
 
@@ -43,10 +46,17 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
 2. `:editor/ax.eval` action dispatched
 3. Check `:panel/scittle-status`:
    - If `:loaded`: evaluate directly
-   - Otherwise: send `ensure-scittle` to background, then eval
+    - Otherwise: inject required libraries (if any), then send `ensure-scittle`
 4. `eval-in-page!` uses `chrome.devtools.inspectedWindow.eval`
 5. Wrapper calls `scittle.core.eval_string(code)`
 6. Result returned via `:editor/ax.handle-eval-result`
+
+### Popup Quick Run ("Run" button)
+
+1. User clicks Run on a script in the popup
+2. Popup sends `evaluate-script` to background with `tabId` and script code
+3. Background ensures Scittle is loaded, injects required libraries, and
+    executes the script via userscript tag injection
 
 ## Content Script Registration
 
@@ -64,7 +74,10 @@ Scripts specify timing via the `:epupp/run-at` annotation in code, parsed by `ma
 
 ### Registration Architecture
 
-Early scripts use `chrome.scripting.registerContentScripts` API:
+Early scripts use a browser-specific registration API:
+
+- Chrome: `chrome.scripting.registerContentScripts` (persistent)
+- Firefox: `browser.contentScripts.register` (non-persistent, re-register on startup)
 
 ```mermaid
 flowchart TD
@@ -92,6 +105,10 @@ The loader ([userscript-loader.js](../../../extension/userscript-loader.js)) run
 4. Inject `vendor/scittle.js` synchronously (blocks until loaded)
 5. Inject each matching script as `<script type="application/x-scittle">`
 6. Inject `trigger-scittle.js` to evaluate all Scittle scripts
+
+Note: Registration uses `document_start` for both `document-start` and
+`document-end` scripts. The loader does not delay `document-end` scripts.
+If a script needs DOM-ready semantics, it should handle that in code.
 
 ```mermaid
 sequenceDiagram

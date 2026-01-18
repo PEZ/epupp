@@ -49,9 +49,10 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 
 ```clojure
 ;; Stored in chrome.storage.local under key "scripts"
-{:script/id "github-tweaks"               ; unique identifier
- :script/name "GitHub Tweaks"             ; display name
- :script/match ["https://github.com/*"        ; URL patterns (glob)
+{:script/id "script-1700000000000"        ; immutable identifier
+ :script/name "github_tweaks.cljs"        ; display name (normalized)
+ :script/description "Enhance GitHub UX"  ; optional description
+ :script/match ["https://github.com/*"    ; URL patterns (glob)
                 "https://gist.github.com/*"]
  :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
  :script/enabled true                     ; active flag
@@ -72,10 +73,14 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 - Dependencies are resolved automatically (e.g., `scittle://reagent.js` loads React)
 - See README for available libraries
 
-Scripts specify timing via the `:epupp/run-at` annotation in the code's metadata map:
+Scripts specify timing via a manifest map at the top of the file:
 
 ```clojure
-{:epupp/run-at "document-start"}
+{:epupp/script-name "github_tweaks.cljs"
+ :epupp/site-match "https://github.com/*"
+ :epupp/description "Enhance GitHub UX"
+ :epupp/run-at "document-start"
+ :epupp/require ["scittle://reagent.js"]}
 
 (ns my-userscript)
 
@@ -83,10 +88,13 @@ Scripts specify timing via the `:epupp/run-at` annotation in the code's metadata
 (js/console.log "Intercepting page initialization!")
 ```
 
-The annotation is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
+The manifest is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at` and `:script/require`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
 Per-pattern approval is handled via `:script/approved-patterns` on each script.
+
+**Script IDs are immutable.** Renaming a script updates `:script/name` but
+preserves `:script/id` for stable identity and approvals.
 
 ### Storage Access Pattern
 
@@ -142,6 +150,19 @@ The original plan was to rely on Chrome's "Site access" setting. In practice:
 
 The `granted-origins` storage key is retained for potential future use but currently unused.
 
+## Userscript Installation (from Page)
+
+Epupp supports installing userscripts from the page via a built-in installer
+script. The installer sends an `install-userscript` request through the content
+bridge. The background validates that the script URL starts with an allowed
+origin prefix and then fetches, parses, and saves the script.
+
+Allowed origins come from two sources:
+- Extension config (`allowedScriptOrigins`)
+- User-added origins in popup settings
+
+This prevents arbitrary pages from installing scripts from untrusted origins.
+
 ## Injection Timing
 
 Scripts can run at different points in the page lifecycle. The timing is specified via `:epupp/run-at` in the script's code metadata.
@@ -172,7 +193,7 @@ Use `document-start` when your script needs to:
 (set! js/window.gtag (fn [& _]))
 ```
 
-**Trade-off:** Early scripts use Chrome's `registerContentScripts` API, which means Scittle loads on *all* pages matching *any* early script's approved patterns. This adds ~100ms to page load for those URLs, even if you later disable the script (until the registration is cleaned up).
+**Trade-off:** Early scripts use content script registration, which means Scittle loads on all pages matching any early script's approved patterns. This adds overhead to those URLs, even if you later disable the script (until the registration is cleaned up).
 
 ### document-idle: Default Timing
 
@@ -195,7 +216,7 @@ Most scripts should use the default `document-idle` (or omit `:epupp/run-at`):
 
 | Aspect | Early (`document-start/end`) | Idle (`document-idle`) |
 |--------|------------------------------|------------------------|
-| Trigger | Chrome content script registration | `webNavigation.onCompleted` event |
+| Trigger | Content script registration | `webNavigation.onCompleted` event |
 | Scittle loading | Synchronous, blocks page | On-demand per tab |
 | Registration | Persists across browser restarts | None (event-driven) |
 | Overhead | Scittle loads on all matching URLs | Only when scripts actually run |
@@ -234,7 +255,7 @@ flowchart TD
     ALLOW -->|No| DIS["Disable script"]
 ```
 
-**Key difference:** Early scripts bypass the background worker's orchestration entirely. The loader handles everything synchronously at `document-start`, before page scripts run.
+**Key difference:** Early scripts bypass the background worker's orchestration entirely. The loader handles everything synchronously at document-start. For `document-end` scripts, the loader still runs at document-start, so scripts that require DOM-ready should handle that in code.
 
 For the detailed step-by-step implementation of injection flows, see [architecture/injection-flows.md](architecture/injection-flows.md#injection-flows).
 
@@ -249,6 +270,8 @@ For the detailed step-by-step implementation of injection flows, see [architectu
 - Connection status and REPL connect workflow (unchanged from before)
 - Port configuration for browser-nrepl
 - Badge shows count of pending approvals across all tabs
+- Run button for ad-hoc evaluation of a script in the active tab
+- Settings for auto-connect, auto-reconnect, and FS REPL sync
 
 ### DevTools Panel (Development Focus)
 

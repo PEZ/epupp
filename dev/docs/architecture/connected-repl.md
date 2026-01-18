@@ -34,7 +34,7 @@ When the user clicks "Connect" in the popup:
    - Wait for bridge ready (ping/pong handshake)
    - Ensure Scittle is loaded (`vendor/scittle.js`)
    - Set `SCITTLE_NREPL_WEBSOCKET_PORT` global
-   - Inject `vendor/scittle.nrepl.js` (auto-connects to relay)
+    - Inject `vendor/scittle.nrepl.js` or reconnect existing client
    - Poll until WebSocket reaches OPEN state
    - **Inject Epupp API** (`bundled/epupp/*.cljs` via fetch+inject)
 3. **WebSocket Bridge** intercepts `new WebSocket('ws://localhost:PORT/_nrepl')`
@@ -121,20 +121,24 @@ This allows Scittle's nREPL client to "connect" to the relay server even though:
 When enabled, Epupp automatically connects the REPL on navigation:
 1. `webNavigation.onCompleted` fires
 2. Background checks auto-connect settings
-3. If enabled and relay server is reachable, triggers `connect-tab!`
+3. If auto-connect-all is enabled, it connects every eligible tab
+4. Otherwise, if auto-reconnect is enabled and the tab was previously
+    connected, it reconnects using the saved port
 
 ## Connection Tracking
 
-The background worker tracks active connections in state:
+The background worker tracks active connections and connection history in state:
 
 ```clojure
-{:ws/connections {tab-id {:ws WebSocket
-                          :port port-number
-                          :title "Page Title"
-                          :url "https://..."}}}
+{:ws/connections {tab-id {:ws/socket WebSocket
+                          :ws/port port-number
+                          :ws/tab-title "Page Title"
+                          :ws/tab-url "https://..."}}
+ :connected-tabs/history {tab-id {:port port-number}}}
 ```
 
-The popup queries this via `get-connections` message to display connection status.
+The popup queries this via `get-connections` and listens for
+`connections-changed` broadcasts to display connection status.
 
 ## Related Documentation
 

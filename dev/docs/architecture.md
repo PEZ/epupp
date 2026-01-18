@@ -9,6 +9,10 @@ The architecture handles four main use cases:
 3. **DevTools Panel Evaluation** - Direct evaluation from the panel UI
 4. **REPL FS Sync** - File operations over the REPL for userscript management
 
+Connection management now includes auto-connect-all, auto-reconnect for
+previously connected tabs, and toolbar icon state derived from connection
+and injection status.
+
 Detailed docs live under [architecture/](architecture/). Use the Navigate table below to jump to the relevant reference.
 
 ## Component Architecture
@@ -17,7 +21,8 @@ Detailed docs live under [architecture/](architecture/). Use the Navigate table 
 flowchart TB
     subgraph Browser
         subgraph Extension
-            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Approvals"]
+            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Approvals<br/>- Auto-connect + icon state"]
+            Reg["Registration<br/>- Early script registration"]
             Popup["Popup<br/>- REPL connect<br/>- Script list<br/>- Approvals UI"]
             Panel["DevTools Panel<br/>- Code eval<br/>- Save script"]
 
@@ -26,7 +31,9 @@ flowchart TB
         end
 
         CB["Content Bridge (ISOLATED)<br/>- Relay messages<br/>- Inject scripts<br/>- Keepalive pings"]
+        Loader["Userscript Loader (ISOLATED)<br/>- Early injection"]
         BG -->|"chrome.tabs.sendMessage"| CB
+        Reg -->|"registerContentScripts"| Loader
         Panel -.->|"inspectedWindow.eval"| Page
 
         subgraph Page["Page (MAIN world)"]
@@ -37,6 +44,7 @@ flowchart TB
         end
 
         CB -->|"postMessage"| WSB
+        Loader -->|"inject tags"| Page
     end
 
     Relay["Babashka browser-nrepl<br/>(relay server)"]
@@ -46,7 +54,7 @@ flowchart TB
     Editor -->|"nrepl://localhost:12345"| Relay
 ```
 
-**Note:** Panel evaluates code directly in page context via `chrome.devtools.inspectedWindow.eval` (dotted line), but requests Scittle injection via background worker.
+**Note:** Panel evaluates code directly in page context via `chrome.devtools.inspectedWindow.eval` (dotted line), but requests Scittle injection and library requires via the background worker.
 
 ## Navigate
 

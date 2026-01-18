@@ -10,8 +10,10 @@ Each component maintains its own state atom with namespaced keys.
 
 !init-promise  ; atom - initialization promise (reset per wake)
 !state         ; atom
-  {:ws/connections {}        ; tab-id -> WebSocket instance
-   :pending/approvals {}}    ; approval-id -> approval context map
+  {:ws/connections {}        ; tab-id -> connection info
+   :pending/approvals {}     ; approval-id -> approval context map
+   :icon/states {}           ; tab-id -> :disconnected | :injected | :connected
+   :connected-tabs/history {}} ; tab-id -> {:port ws-port}
 
 ;; Approval context shape:
 {:approval/id "script-id|pattern"
@@ -44,10 +46,10 @@ Each component maintains its own state atom with namespaced keys.
 !state  ; atom, rendered via add-watch
   {:ports/nrepl "1339"
    :ports/ws "1340"
-   :ui/status nil
    :ui/copy-feedback nil
-   :ui/has-connected false
+   :ui/connect-status nil
    :ui/editing-hint-script-id nil
+   :ui/reveal-highlight-script-name nil
    :ui/sections-collapsed {:repl-connect false      ; expanded by default
                            :matching-scripts false  ; expanded by default
                            :other-scripts false     ; expanded by default
@@ -55,9 +57,18 @@ Each component maintains its own state atom with namespaced keys.
    :browser/brave? false
    :scripts/list []
    :scripts/current-url nil
-   :settings/user-origins []    ; User-added allowed script origins
-   :settings/new-origin ""      ; Input field for new origin
-   :settings/default-origins []} ; Config origins (read-only)
+   :scripts/current-tab-id nil
+   :settings/user-origins []       ; User-added allowed origins
+   :settings/new-origin ""         ; Input field for new origin
+   :settings/default-origins []    ; Config origins (read-only)
+   :settings/auto-connect-repl false
+   :settings/auto-reconnect-repl true
+   :settings/fs-repl-sync-enabled false
+   :settings/error nil
+   :ui/fs-event nil
+   :ui/fs-bulk-names {}
+   :ui/recently-modified-scripts #{}
+   :repl/connections []}
 ```
 
 ## Panel (`panel.cljs`)
@@ -69,13 +80,18 @@ Each component maintains its own state atom with namespaced keys.
    :panel/evaluating? false
    :panel/scittle-status :unknown  ; :checking, :loading, :loaded
    :panel/script-name ""
+   :panel/original-name nil
    :panel/script-match ""
+   :panel/script-description ""
    :panel/script-id nil            ; non-nil when editing
    :panel/save-status nil
    :panel/init-version nil
    :panel/needs-refresh? false
    :panel/current-hostname nil
-   :panel/selection nil}           ; {:start int :end int :text string} or nil
+   :panel/manifest-hints nil
+   :panel/selection nil            ; {:start int :end int :text string} or nil
+   :panel/fs-event nil
+   :panel/fs-bulk-names {}}
 ```
 
 ## Storage (`storage.cljs`)
@@ -112,12 +128,26 @@ for the FS-specific background plan.
 | `:popup/ax.approve-script` | `[script-id pattern]` | Add pattern to approved list, execute script |
 | `:popup/ax.deny-script` | `[script-id]` | Disable script (deny approval) |
 | `:popup/ax.inspect-script` | `[script-id]` | Send script to DevTools panel for viewing/editing |
-| `:popup/ax.show-settings` | - | Switch to settings view |
-| `:popup/ax.show-main` | - | Switch to main view |
+| `:popup/ax.evaluate-script` | `[script-id]` | Run script in active tab |
 | `:popup/ax.load-user-origins` | - | Load user origins from storage |
 | `:popup/ax.set-new-origin` | `[value]` | Update new origin input field |
 | `:popup/ax.add-origin` | - | Validate and add origin to user list |
 | `:popup/ax.remove-origin` | `[origin]` | Remove origin from user list |
+| `:popup/ax.load-auto-connect-setting` | - | Load auto-connect setting |
+| `:popup/ax.toggle-auto-connect-repl` | - | Toggle auto-connect-all |
+| `:popup/ax.load-auto-reconnect-setting` | - | Load auto-reconnect setting |
+| `:popup/ax.toggle-auto-reconnect-repl` | - | Toggle auto-reconnect |
+| `:popup/ax.load-fs-sync-setting` | - | Load FS REPL sync setting |
+| `:popup/ax.toggle-fs-sync` | - | Toggle FS REPL sync |
+| `:popup/ax.export-scripts` | - | Export scripts as JSON |
+| `:popup/ax.import-scripts` | - | Import scripts from JSON |
+| `:popup/ax.handle-import` | `[scripts]` | Apply imported scripts |
+| `:popup/ax.load-connections` | - | Load active REPL connections |
+| `:popup/ax.reveal-script` | `[script-name]` | Reveal script in list |
+| `:popup/ax.reveal-tab` | `[tab-id]` | Focus the connected tab |
+| `:popup/ax.disconnect-tab` | `[tab-id]` | Disconnect REPL for tab |
+| `:popup/ax.mark-scripts-modified` | `[script-names]` | Highlight modified scripts |
+| `:popup/ax.clear-modified-scripts` | - | Clear modified highlight |
 
 ### Panel Actions (`:editor/ax.*`)
 
@@ -126,19 +156,26 @@ for the FS-specific background plan.
 | `:editor/ax.set-code` | `[code]` | Update code textarea |
 | `:editor/ax.set-script-name` | `[name]` | Update script name field |
 | `:editor/ax.set-script-match` | `[pattern]` | Update URL pattern field |
+| `:editor/ax.set-script-description` | `[description]` | Update description field |
 | `:editor/ax.set-selection` | `[{:start :end :text}]` | Track current textarea selection |
 | `:editor/ax.eval` | - | Evaluate full code (inject Scittle if needed) |
 | `:editor/ax.eval-selection` | - | Evaluate selection if present, else full code |
 | `:editor/ax.do-eval` | `[code]` | Execute evaluation (internal) |
 | `:editor/ax.handle-eval-result` | `[result]` | Process eval result/error |
 | `:editor/ax.save-script` | - | Save current code as userscript |
-| `:editor/ax.load-script-for-editing` | `[id name match code]` | Load script from popup |
+| `:editor/ax.handle-save-response` | `[result]` | Process save response |
+| `:editor/ax.rename-script` | - | Rename script |
+| `:editor/ax.handle-rename-response` | `[result]` | Process rename response |
+| `:editor/ax.load-script-for-editing` | `[id name match code description]` | Load script from popup |
 | `:editor/ax.clear-results` | - | Clear results area |
 | `:editor/ax.clear-code` | - | Clear code textarea |
 | `:editor/ax.use-current-url` | - | Fill pattern from current page URL |
 | `:editor/ax.check-scittle` | - | Check Scittle status in page |
 | `:editor/ax.update-scittle-status` | `[status]` | Update status (`:unknown`, `:checking`, `:loading`, `:loaded`) |
 | `:editor/ax.check-editing-script` | - | Check for script sent from popup |
+| `:editor/ax.initialize-editor` | `[payload]` | Initialize from persisted state |
+| `:editor/ax.new-script` | - | Reset editor to default script |
+| `:editor/ax.reload-script-from-storage` | `[script-name]` | Reload script after FS changes |
 
 ### Generic Actions (`:db/ax.*`)
 

@@ -51,7 +51,8 @@ routes only the allowed message types into the extension context.
 Primary entities:
 - Script record with `:script/id`, `:script/name`, `:script/match`,
   `:script/code`, `:script/enabled`, `:script/created`, `:script/modified`,
-  and `:script/approved-patterns`.
+  `:script/approved-patterns`, `:script/run-at`, `:script/require`, and
+  optional `:script/description`.
 - Request envelope with `type`, `requestId`, `payload`.
 - Response envelope with `requestId`, `success`, and `error` on failure.
 
@@ -61,6 +62,8 @@ Invariants:
 - Write operations are rejected when the setting gate is off.
 - UI save bypass applies only to extension UI flows, not page API.
 - Wire protocol keys are non-namespaced strings.
+- Bulk operations include `bulk-id`, `bulk-index`, and `bulk-count` so UI can
+   aggregate REPL writes and deletes.
 
 ## Message Flow and Wiring
 
@@ -156,10 +159,12 @@ promise. Error responses use:
 
 Successful responses use:
 - `success` set to true
-- Operation-specific fields such as `name`, `scripts`, or `code`
+- Operation-specific fields such as `name`, `scripts`, `code`, `id`, and
+   `isUpdate` where relevant
 
 The page API converts results to namespaced `:fs/*` keys before returning to
-REPL callers.
+REPL callers. The background also broadcasts `fs-event` messages to popup and
+panel so UI can show success and error banners.
 
 ## Security Considerations
 
