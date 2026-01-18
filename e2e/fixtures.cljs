@@ -154,6 +154,19 @@
                     resolve))))
               #js {:type msg-type :data (or data #js {})})))
 
+(defn ^:async clear-fs-scripts
+  "Clear stored scripts except built-ins.
+   Leaves built-ins intact to avoid races with ensure-gist-installer!."
+  [ext-page]
+  (let [scripts-result (js-await (send-runtime-message ext-page "e2e/get-storage" #js {:key "scripts"}))
+        scripts (or (.-value scripts-result) #js [])
+        builtins (.filter scripts
+                          (fn [s]
+                            (let [id (.-id s)]
+                              (and id (.startsWith id "epupp-builtin-")))))
+        _ (js-await (send-runtime-message ext-page "e2e/set-storage" #js {:key "scripts" :value builtins}))]
+    true))
+
 (defn ^:async find-tab-id
   "Find a tab matching the given URL pattern. Returns tab ID or throws.
    ext-page must be an extension page (popup/panel)."

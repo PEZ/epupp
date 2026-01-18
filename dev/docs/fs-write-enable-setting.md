@@ -16,7 +16,7 @@ The core infrastructure is in place:
 - When disabled: `save!`, `mv!`, `rm!` return clear error
 - When enabled: operations execute immediately
 - `ls` and `show` always work regardless of setting
-- `ls` currently lists built-in scripts - should be hidden unless `:fs/ls-hidden?` is provided
+- `ls` hides built-in scripts by default - use `:fs/ls-hidden?` to include them
 - Panel save bypasses setting (trusted UI)
 
 ## Fixed Bugs
@@ -141,6 +141,28 @@ Fixes applied:
 Re-run results:
 
 - `bb test:e2e --serial -- --shard=1/6` passed twice in a row after the fixes.
+
+### E2E Flakiness Notes (Observed Jan 18, 2026)
+
+**Symptom:** Rare failure in `epupp.fs/rm! rejects deleting built-in scripts` with output showing a resolved result instead of rejection.
+
+**Observed log snippet:**
+
+```
+Expected: true
+Received: false
+
+expect(result_str.includes("rejected")).toBe(true)
+```
+
+**Likely root cause:** Storage can contain a user script whose `:script/name` matches the built-in display name. The delete handler resolves if it finds a non-built-in script with that name. Because `find-script-by-name` returns the first match and the built-in guard only checks ID prefix, a stale user script can be deleted instead of rejecting. This is consistent with older runs that allowed saving a script named "GitHub Gist Installer (Built-in)" before the built-in name guard was added.
+
+**Flow involved:**
+`epupp.fs/rm!` - page -> content bridge -> background `delete-script` -> `background-actions/handle-action` `:fs/ax.delete-script` -> `find-script-by-name` -> `builtin-script?` guard.
+
+**Why rare:** It depends on persistent storage state and script ordering. If a stale user script with the built-in name exists and appears before the built-in entry, the delete succeeds and the test sees a resolved result.
+
+**Mitigation:** Added a test helper to clear non-built-in scripts during E2E setup. `clear-fs-scripts` preserves built-ins while removing user scripts to prevent leftover state from prior runs.
 
 ## Code Locations
 

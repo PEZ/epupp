@@ -3,7 +3,8 @@
   (:require ["@playwright/test" :refer [test expect chromium]]
             ["net" :as net]
             ["path" :as path]
-            [fixtures :refer [http-port nrepl-port-1 ws-port-1 assert-no-errors!]]))
+            [fixtures :refer [http-port nrepl-port-1 ws-port-1
+                              assert-no-errors! clear-fs-scripts]]))
 
 (def ^:private !context (atom nil))
 
@@ -114,6 +115,7 @@
         (js-await (.goto bg-page
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
+        (js-await (clear-fs-scripts bg-page))
         ;; Enable FS REPL Sync for write tests via runtime message
         (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
         (let [find-result (js-await (send-runtime-message
