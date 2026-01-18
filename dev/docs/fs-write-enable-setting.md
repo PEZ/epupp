@@ -175,8 +175,8 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 - [x] `save!` - creates new script
 - [x] `save!` - rejects when script with same name exists (no force)
 - [x] `save!` with `:fs/force?` - overwrites existing script
-- [ ] **BUG**: `save!` - should reject for built-in script names (currently creates normalized name file)
-- [ ] `save!` with `:fs/force?` - should reject when trying to overwrite built-in
+- [x] `save!` - rejects for built-in script names
+- [s] `save!` with `:fs/force?` - rejects when trying to overwrite built-in
 - [x] `save!` bulk - creates multiple scripts
 - [ ] Panel should update when showing a file that was modified via REPL
 - [x] `mv!` - renames script
@@ -184,10 +184,10 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 - [x] `mv!` - rejects when target already exists (second rename)
 - [x] `mv!` - rejects when trying to rename built-in (verified: "Cannot rename built-in scripts")
 - [x] `rm!` - deletes script
-- [ ] **BUG**: `rm!` - should reject for non-existent (currently succeeds with `:fs/existed? false`)
-- [ ] **BUG**: `rm!` bulk - should delete existing files, then reject for non-existent (Unix behavior)
+- [x] `rm!` - rejects for non-existent
+- [x] `rm!` bulk - deletes existing files, then rejects for non-existent (Unix behavior)
 - [x] `rm!` - rejects when trying to delete built-in
-- [ ] `rm!` bulk - handles mixed existing/non-existing (see BUG above)
+- [s] `rm!` bulk - handles mixed existing/non-existing
 - [x] `rm!` bulk with built-in - fails early for built-in (verified: "Cannot delete built-in scripts")
 - [ ] "Update" banner should appear briefly in panel (where it shows the extension-updated banner)
 - [ ] "Update" banner should appear briefly in popup
