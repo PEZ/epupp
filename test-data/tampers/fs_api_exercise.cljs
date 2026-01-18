@@ -108,7 +108,7 @@
   (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "bulk_2.cljs"])]
         (def bulk-rm-result bulk-rm-result))
       (p/catch (fn [e] (def bulk-rm-error (.-message e)))))
-  ;; PEZ: Panel UI says file `"""` was deleted, confusing!
+  ;; PEZ: Reports "bulk_2.cljs" as deleted, should report 2 files as deleted
 
   ;; Bulk delete - mixed existing/non-existing
   (-> (p/let [bulk-rm-result (epupp.fs/rm! ["bulk_1.cljs" "does-not-exist.cljs" "bulk_2.cljs"])]
@@ -120,7 +120,7 @@
   (-> (p/let [bulk-rm-w-built-in-result (epupp.fs/rm! ["bulk_1.cljs" "GitHub Gist Installer (Built-in)" "bulk_2.cljs" "does-not-exist.cljs"])]
         (def bulk-rm-w-built-in-result bulk-rm-w-built-in-result))
       (p/catch (fn [e] (def bulk-rm-w-built-in-error (.-message e)))))
-  ;; PEZ: Checks out! This actually works like Unix `rm`, it deletes the existing files and results in an error.
+  ;; PEZ: Checks out!
 
   ;; ===== CLEANUP =====
   (epupp.fs/rm! ["test_save_1.cljs"

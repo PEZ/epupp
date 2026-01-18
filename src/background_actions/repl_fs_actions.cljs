@@ -95,33 +95,44 @@
 
 (defn delete-script
   "Delete a script by name."
-  [{:fs/keys [scripts script-name]}]
-  (let [script (find-script-by-name scripts script-name)]
+  [{:fs/keys [scripts script-name bulk-id bulk-index bulk-count]}]
+  (let [script (find-script-by-name scripts script-name)
+        bulk-event-data (cond-> {}
+                          (some? bulk-id) (assoc :bulk-id bulk-id)
+                          (some? bulk-index) (assoc :bulk-index bulk-index)
+                          (some? bulk-count) (assoc :bulk-count bulk-count))]
     (cond
       ;; Script not found
       (nil? script)
       (make-error-response (str "Not deleting non-existent file: " script-name)
-               {:operation "delete" :script-name script-name})
+               {:operation "delete"
+                :script-name script-name
+                :event-data bulk-event-data})
 
       ;; Script is builtin
       (script-utils/builtin-script? script)
-      (make-error-response "Cannot delete built-in scripts" {:operation "delete" :script-name script-name})
+      (make-error-response "Cannot delete built-in scripts"
+               {:operation "delete"
+                :script-name script-name
+                :event-data bulk-event-data})
 
       ;; All checks pass - allow delete
       :else
       (let [updated-scripts (remove-script-from-list scripts (:script/id script))]
         (make-success-response updated-scripts "delete" script-name
-                               {:event-data {:script-id (:script/id script)}
+                               {:event-data (merge {:script-id (:script/id script)}
+                                                   bulk-event-data)
                                 :response-data {:name script-name}})))))
 
 (defn save-script
   "Create or update a script."
   [{:fs/keys [scripts now-iso script]}]
-    (let [script-id (:script/id script)
-      script-name (:script/name script)
-      force? (:script/force? script)
-      bulk-index (:script/bulk-index script)
-      bulk-count (:script/bulk-count script)
+      (let [script-id (:script/id script)
+        script-name (:script/name script)
+        force? (:script/force? script)
+        bulk-id (:script/bulk-id script)
+        bulk-index (:script/bulk-index script)
+        bulk-count (:script/bulk-count script)
         existing-by-id (find-script-by-id scripts script-id)
         existing-by-name (find-script-by-name scripts script-name)
         is-update? (some? existing-by-id)]
@@ -164,6 +175,7 @@
                                 (conj filtered timestamped-script)))]
         (make-success-response updated-scripts "save" script-name
                    {:event-data (cond-> {:script-id script-id}
+                      (some? bulk-id) (assoc :bulk-id bulk-id)
                       (some? bulk-index) (assoc :bulk-index bulk-index)
                       (some? bulk-count) (assoc :bulk-count bulk-count))
               :response-data {:name script-name

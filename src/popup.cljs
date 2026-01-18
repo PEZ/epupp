@@ -38,6 +38,7 @@
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
          :settings/error nil
          :ui/fs-event nil          ; FS sync event banner {:type :success/:error :message "..."}
+         :ui/fs-bulk-names {}      ; bulk-id -> [script-name ...]
          :repl/connections []}))   ; Pending FS operation confirmations
 
 
@@ -932,30 +933,42 @@
              operation (aget message "operation")
              script-name (aget message "script-name")
              error-msg (aget message "error")
+             bulk-id (aget message "bulk-id")
              bulk-count (aget message "bulk-count")
              bulk-index (aget message "bulk-index")
              bulk-final? (and (some? bulk-count)
                               (some? bulk-index)
                               (= bulk-index (dec bulk-count)))
-             bulk-save? (and (= event-type "success")
-                             (= operation "save")
-                             (some? bulk-count))
+             bulk-op? (and (= event-type "success")
+                           (some? bulk-count)
+                           (or (= operation "save")
+                               (= operation "delete")))
              show-banner? (or (= event-type "error")
-                              (not bulk-save?)
+                              (not bulk-op?)
                               bulk-final?)
              banner-msg (cond
                           (= event-type "error")
                           (str "FS sync error: " error-msg)
 
-                          (and bulk-save? bulk-final?)
-                          (str bulk-count (if (= bulk-count 1) " file" " files") " saved via REPL")
+                          (and bulk-op? bulk-final?)
+                          (str bulk-count (if (= bulk-count 1) " file " " files ")
+                               (if (= operation "delete") "deleted" "saved")
+                               " via REPL")
 
                           :else
                           (str "Script \"" script-name "\" " operation "d via REPL"))]
+         (when bulk-id
+           (swap! !state update-in [:ui/fs-bulk-names bulk-id] (fnil conj []) script-name))
          (when show-banner?
            (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
+           (let [bulk-names (when bulk-id (get-in @!state [:ui/fs-bulk-names bulk-id]))]
+             (if (and bulk-op? bulk-final? (seq bulk-names))
+               (js/console.log "FS banner:" banner-msg (clj->js {:files bulk-names}))
+               (js/console.log "FS banner:" banner-msg)))
            ;; Auto-dismiss after 3 seconds
-           (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000))))
+           (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000))
+         (when (and bulk-id bulk-final?)
+           (swap! !state update :ui/fs-bulk-names dissoc bulk-id))))
      ;; Return false - we don't send async response
      false))
 

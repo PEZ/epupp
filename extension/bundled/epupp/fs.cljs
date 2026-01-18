@@ -103,23 +103,25 @@
          enabled (get opts :fs/enabled true)]
      (if (vector? code-or-codes)
        ;; Bulk mode - use map-indexed (realized by to-array for Promise.all)
-       (-> (js/Promise.all
-         (to-array
-           (map-indexed (fn [idx code]
-              (-> (send-and-receive "save-script" {:code code
-                           :enabled enabled
-                           :force force?
-                           :bulk-index idx
-                           :bulk-count (count code-or-codes)}
-                       "save-script-response")
-                  (.then ensure-success!)
-                  (.then (fn [msg]
-                   [idx {:fs/success (.-success msg)
-                     :fs/name (.-name msg)
-                     :fs/error (.-error msg)}]))))
-                code-or-codes)))
-           (.then (fn [results]
-                    (into {} results))))
+       (let [bulk-id (str (.now js/Date) "-" (.random js/Math))]
+         (-> (js/Promise.all
+           (to-array
+             (map-indexed (fn [idx code]
+                (-> (send-and-receive "save-script" {:code code
+                             :enabled enabled
+                             :force force?
+                             :bulk-id bulk-id
+                             :bulk-index idx
+                             :bulk-count (count code-or-codes)}
+                         "save-script-response")
+                    (.then ensure-success!)
+                    (.then (fn [msg]
+                     [idx {:fs/success (.-success msg)
+                       :fs/name (.-name msg)
+                       :fs/error (.-error msg)}]))))
+                  code-or-codes)))
+             (.then (fn [results]
+                      (into {} results)))))
        ;; Single mode
        (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force force?} "save-script-response")
            (.then ensure-success!)
@@ -171,30 +173,36 @@
                                           (.includes err "non-existent")))))]
     (if (vector? name-or-names)
       ;; Bulk mode - use mapv for eager evaluation before Promise.all
-      (-> (js/Promise.all
-           (to-array
-            (mapv (fn [n]
-                    (-> (send-and-receive "delete-script" {:name n} "delete-script-response")
-                        (.then (fn [msg]
-                                 (cond
-                                   (.-success msg)
-                                   [n {:fs/success true :fs/name n :fs/existed? true}]
+      (let [bulk-id (str (.now js/Date) "-" (.random js/Math))
+            bulk-count (count name-or-names)]
+        (-> (js/Promise.all
+             (to-array
+              (mapv (fn [idx n]
+                      (-> (send-and-receive "delete-script" {:name n
+                                                             :bulk-id bulk-id
+                                                             :bulk-index idx
+                                                             :bulk-count bulk-count}
+                                          "delete-script-response")
+                          (.then (fn [msg]
+                                   (cond
+                                     (.-success msg)
+                                     [n {:fs/success true :fs/name n :fs/existed? true}]
 
-                                   (not-found-error? msg)
-                                   [n {:fs/success false :fs/name n :fs/existed? false}]
+                                     (not-found-error? msg)
+                                     [n {:fs/success false :fs/name n :fs/existed? false}]
 
-                                   :else
-                                   (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
-                  name-or-names)))
-          (.then (fn [results]
-                   (let [result-map (into {} results)
-                         missing (->> results
-                                      (keep (fn [[name result]]
-                                              (when (false? (:fs/existed? result))
-                                                name))))]
-                     (if (seq missing)
-                       (throw (js/Error. (str "Scripts not found: " (.join (to-array missing) ", "))))
-                       result-map)))))
+                                     :else
+                                     (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
+                    (range bulk-count) name-or-names)))
+            (.then (fn [results]
+                     (let [result-map (into {} results)
+                           missing (->> results
+                                        (keep (fn [[name result]]
+                                                (when (false? (:fs/existed? result))
+                                                  name))))]
+                       (if (seq missing)
+                         (throw (js/Error. (str "Scripts not found: " (.join (to-array missing) ", "))))
+                         result-map))))))
       ;; Single mode
       (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
           (.then (fn [msg]

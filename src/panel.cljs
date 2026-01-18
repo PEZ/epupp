@@ -29,7 +29,8 @@
          :panel/current-hostname nil
          :panel/manifest-hints nil  ; Parsed manifest from current code
          :panel/selection nil       ; Current textarea selection {:start :end :text}
-         :panel/fs-event nil}))     ; FS sync event banner {:type :success/:error :message "..."}
+         :panel/fs-event nil        ; FS sync event banner {:type :success/:error :message "..."}
+         :panel/fs-bulk-names {}})) ; bulk-id -> [script-name ...]
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -751,14 +752,16 @@
            error-msg (aget message "error")
            script-id (aget message "script-id")
            from-name (aget message "from-name")
+           bulk-id (aget message "bulk-id")
            bulk-count (aget message "bulk-count")
            bulk-index (aget message "bulk-index")
            bulk-final? (and (some? bulk-count)
                             (some? bulk-index)
                             (= bulk-index (dec bulk-count)))
-           bulk-save? (and (= event-type "success")
-                           (= operation "save")
-                           (some? bulk-count))
+           bulk-op? (and (= event-type "success")
+                         (some? bulk-count)
+                         (or (= operation "save")
+                             (= operation "delete")))
            current-id (:panel/script-id @!state)
            current-name (:panel/script-name @!state)
            original-name (:panel/original-name @!state)
@@ -771,22 +774,32 @@
            affects-current? (and (= event-type "success")
                                  (or matches-id? matches-name? matches-from?))
            show-banner? (or (= event-type "error")
-                            (not bulk-save?)
+                            (not bulk-op?)
                             bulk-final?)
            banner-msg (cond
                         (= event-type "error")
                         (str "FS sync error: " error-msg)
 
-                        (and bulk-save? bulk-final?)
-                        (str bulk-count (if (= bulk-count 1) " file" " files") " saved via REPL")
+                        (and bulk-op? bulk-final?)
+                        (str bulk-count (if (= bulk-count 1) " file " " files ")
+                             (if (= operation "delete") "deleted" "saved")
+                             " via REPL")
 
                         :else
                         (str "Script \"" script-name "\" " operation "d via REPL"))]
+       (when bulk-id
+         (swap! !state update-in [:panel/fs-bulk-names bulk-id] (fnil conj []) script-name))
        ;; Show banner for all fs-events
        (when show-banner?
          (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+         (let [bulk-names (when bulk-id (get-in @!state [:panel/fs-bulk-names bulk-id]))]
+           (if (and bulk-op? bulk-final? (seq bulk-names))
+             (js/console.log "FS banner:" banner-msg (clj->js {:files bulk-names}))
+             (js/console.log "FS banner:" banner-msg)))
          ;; Auto-dismiss after 3 seconds
          (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000))
+       (when (and bulk-id bulk-final?)
+         (swap! !state update :panel/fs-bulk-names dissoc bulk-id))
        ;; Reload or clear editor when current script was modified
        (when affects-current?
          (if (= operation "delete")

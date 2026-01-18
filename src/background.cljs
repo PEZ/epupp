@@ -908,11 +908,12 @@
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
                            (send-response #js {:success false :error "FS REPL Sync is disabled"})
-                             (let [code (.-code message)
-                               enabled (if (some? (.-enabled message)) (.-enabled message) true)
-                               force? (.-force message)
-                               bulk-index (.-bulkIndex message)
-                               bulk-count (.-bulkCount message)]
+                               (let [code (.-code message)
+                                 enabled (if (some? (.-enabled message)) (.-enabled message) true)
+                                 force? (.-force message)
+                                 bulk-id (.-bulkId message)
+                                 bulk-index (.-bulkIndex message)
+                                 bulk-count (.-bulkCount message)]
                              (try
                                (let [manifest (manifest-parser/extract-manifest code)
                                      raw-name (get manifest "script-name")
@@ -930,7 +931,7 @@
                                          script-id (if (and crypto (.-randomUUID crypto))
                                              (str "script-" (.randomUUID crypto))
                                              (str "script-" (.now js/Date) "-" (.random js/Math)))
-                                         script (cond-> {:script/id script-id
+                                              script (cond-> {:script/id script-id
                                              :script/name normalized-name
                                              :script/code code
                                              :script/match (if (vector? site-match) site-match [site-match])
@@ -938,6 +939,7 @@
                                              :script/enabled enabled
                                              :script/run-at run-at
                                              :script/force? force?}
+                                             (some? bulk-id) (assoc :script/bulk-id bulk-id)
                                           (some? bulk-index) (assoc :script/bulk-index bulk-index)
                                           (some? bulk-count) (assoc :script/bulk-count bulk-count))]
                                      (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
@@ -986,8 +988,16 @@
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
                            (send-response #js {:success false :error "FS REPL Sync is disabled"})
-                           (let [script-name (.-name message)]
-                             (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.delete-script script-name])))))
+                           (let [script-name (.-name message)
+                                 bulk-id (.-bulkId message)
+                                 bulk-index (.-bulkIndex message)
+                                 bulk-count (.-bulkCount message)]
+                             (fs-dispatch/dispatch-fs-action! send-response
+                                                              [:fs/ax.delete-script
+                                                               {:script-name script-name
+                                                                :bulk-id bulk-id
+                                                                :bulk-index bulk-index
+                                                                :bulk-count bulk-count}])))))
                       true)
 
                     ;; Page context requests script code by name via epupp/cat

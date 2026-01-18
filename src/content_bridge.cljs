@@ -120,6 +120,7 @@
               :code (.-code msg)
               :enabled (.-enabled msg)
               :force (.-force msg)
+                  :bulkId (aget msg "bulk-id")
               :bulkIndex (aget msg "bulk-index")
               :bulkCount (aget msg "bulk-count")}
                (fn [response]
@@ -167,7 +168,10 @@
               (js/chrome.runtime.sendMessage
                #js {:type "delete-script"
                     :name (.-name msg)
-                    :force (.-force msg)}
+                    :force (.-force msg)
+                    :bulkId (aget msg "bulk-id")
+                    :bulkIndex (aget msg "bulk-index")
+                    :bulkCount (aget msg "bulk-count")}
                (fn [response]
                  (.postMessage js/window
                                #js {:source "epupp-bridge"

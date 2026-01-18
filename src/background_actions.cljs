@@ -14,10 +14,16 @@
         :fs/to-name to-name}))
 
     :fs/ax.delete-script
-    (let [[script-name] args]
+    (let [[payload] args
+          {:keys [script-name bulk-id bulk-index bulk-count]} (if (map? payload)
+                                                                payload
+                                                                {:script-name payload})]
       (repl-fs-actions/delete-script
        {:fs/scripts (:storage/scripts state)
-        :fs/script-name script-name}))
+        :fs/script-name script-name
+        :fs/bulk-id bulk-id
+        :fs/bulk-index bulk-index
+        :fs/bulk-count bulk-count}))
 
     :fs/ax.save-script
     (let [[script] args]
