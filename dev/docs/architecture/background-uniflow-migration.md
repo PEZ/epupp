@@ -13,6 +13,8 @@ The REPL FS actions (`:fs/ax.save-script`, `:fs/ax.rename-script`, `:fs/ax.delet
 
 This pattern has proven itself - decisions are testable, state transitions are pure, and effects are explicitly declared.
 
+Icon state, connection history, pending approvals, and WebSocket connection state are now routed through Uniflow actions and effects with unit tests in place. End-to-end verification has passed.
+
 ## Migration Candidates
 
 Analysis of `!state` mutations in `background.cljs` reveals five logical subsystems:
@@ -132,37 +134,38 @@ The badge is derived from pending approvals and current tab URL. Not a separate 
 ```
 Phase 1: Icon State
     │
-    ├── bb test:e2e (baseline - all tests must pass)
-    ├── Create background_actions/icon_actions.cljs (pure)
-    ├── Write unit tests
-    ├── Wire into bg-fs-dispatch pattern
-    ├── Update background.cljs callers
-    └── bb test:e2e (verify no regressions)
+  ├── bb test:e2e (baseline - all tests must pass)
+  ├── Create background_actions/icon_actions.cljs (pure)
+  ├── Write unit tests
+  ├── Wire into Uniflow dispatch
+  ├── Update background.cljs callers
+  └── bb test:e2e (verify no regressions)
 
 Phase 2: Connection History
     │
-    ├── bb test:e2e (baseline)
-    ├── Add to background_actions.cljs (simple)
-    ├── Unit tests
-    ├── Wire dispatch
-    └── bb test:e2e (verify)
+  ├── bb test:e2e (baseline)
+  ├── Create background_actions/history_actions.cljs (pure)
+  ├── Unit tests
+  ├── Wire dispatch
+  └── bb test:e2e (verify)
 
 Phase 3: Pending Approvals
     │
-    ├── bb test:e2e (baseline)
-    ├── Create background_actions/approval_actions.cljs
-    ├── Unit tests
-    ├── Wire dispatch
-    ├── Integrate badge effects
-    └── bb test:e2e (verify)
+  ├── bb test:e2e (baseline)
+  ├── Create background_actions/approval_actions.cljs
+  ├── Unit tests
+  ├── Wire dispatch
+  ├── Integrate badge effects
+  └── bb test:e2e (verify)
 
 Phase 4: WebSocket Management
     │
-    ├── bb test:e2e (baseline)
-    ├── Design effect-first approach (WS objects are inherently effectful)
-    ├── Separate decision logic from lifecycle management
-    ├── Integrate with icon state dispatch
-    └── bb test:e2e (verify)
+  ├── bb test:e2e (baseline)
+  ├── Create background_actions/ws_actions.cljs
+  ├── Unit tests
+  ├── Wire dispatch
+  ├── Keep lifecycle management in background.cljs
+  └── bb test:e2e (verify)
 ```
 
 ## Implementation Pattern
@@ -239,6 +242,15 @@ Follow the established FS pattern:
 - [ ] Effects are explicitly declared, not inline
 - [ ] Badge updates are tied to state changes, not scattered
 - [ ] Existing E2E tests continue to pass
+
+## Current Progress
+
+- [x] Icon state migrated to Uniflow actions and effects
+- [x] Connection history migrated to Uniflow actions
+- [x] Pending approvals migrated to Uniflow actions and badge effects
+- [x] WebSocket connection state migrated to Uniflow actions
+- [x] Unit tests cover icon, history, approval, and ws actions
+- [x] E2E tests pass (bb test:e2e)
 
 ## References
 

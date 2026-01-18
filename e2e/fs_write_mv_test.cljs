@@ -10,7 +10,7 @@
     (-> (expect (.-success fn-check)) (.toBe true))
     (-> (expect (.-values fn-check)) (.toContain "true")))
 
-  (let [test-code "{:epupp/script-name \"rename-test-original\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns rename-test)"
+  (let [test-code "{:epupp/script-name \"mv-rename-test-original\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns rename-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !mv-setup r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -27,7 +27,7 @@
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-result (atom :pending))\n                                                (-> (epupp.fs/mv! \"rename_test_original.cljs\" \"renamed_script.cljs\" {:fs/force? true})\n                                                    (.then (fn [r] (reset! !mv-result r))))\n                                                :setup-done"))]
+                                "(def !mv-result (atom :pending))\n                                                (-> (epupp.fs/mv! \"mv_rename_test_original.cljs\" \"mv_renamed_script.cljs\" {:fs/force? true})\n                                                    (.then (fn [r] (reset! !mv-result r))))\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -57,8 +57,8 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "renamed_script.cljs")) (.toBe true))
-            (-> (expect (.includes result-str "rename_test_original.cljs")) (.toBe false)))
+            (-> (expect (.includes result-str "mv_renamed_script.cljs")) (.toBe true))
+            (-> (expect (.includes result-str "mv_rename_test_original.cljs")) (.toBe false)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after mv"))
             (do
@@ -66,7 +66,7 @@
               (recur))))))))
 
 (defn- ^:async test_mv_with_force_returns_from_and_to_names []
-  (let [test-code "{:epupp/script-name \"confirm-test-mv\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns confirm-test)"
+  (let [test-code "{:epupp/script-name \"mv-force-confirm\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns mv-force-confirm)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !confirm-mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !confirm-mv-setup r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -83,7 +83,7 @@
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !confirm-mv-result (atom :pending))\n                                (-> (epupp.fs/mv! \"confirm_test_mv.cljs\" \"mv_renamed.cljs\" {:fs/force? true})\n                                  (.then (fn [r] (reset! !confirm-mv-result r))))\n                                :setup-done"))]
+                                "(def !confirm-mv-result (atom :pending))\n                                (-> (epupp.fs/mv! \"mv_force_confirm.cljs\" \"mv_force_renamed.cljs\" {:fs/force? true})\n                                  (.then (fn [r] (reset! !confirm-mv-result r))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -93,16 +93,16 @@
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
+            (let [result-str (first (.-values check-result))]
             (-> (expect (.includes result-str ":success true"))
                 (.toBe true))
             (-> (expect (.includes result-str ":from-name"))
                 (.toBe true))
-            (-> (expect (.includes result-str "confirm_test_mv.cljs"))
+            (-> (expect (.includes result-str "mv_force_confirm.cljs"))
                 (.toBe true))
             (-> (expect (.includes result-str ":to-name"))
                 (.toBe true))
-            (-> (expect (.includes result-str "mv_renamed.cljs"))
+            (-> (expect (.includes result-str "mv_force_renamed.cljs"))
                 (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv! result"))
@@ -110,7 +110,7 @@
               (js-await (sleep 50))
               (recur)))))))
 
-  (js-await (eval-in-browser "(epupp.fs/rm! \"mv_renamed.cljs\")"))
+        (js-await (eval-in-browser "(epupp.fs/rm! \"mv_force_renamed.cljs\")"))
   (js-await (sleep 100)))
 
 (defn- ^:async test_mv_rejects_when_target_name_exists []
