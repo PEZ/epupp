@@ -131,9 +131,22 @@
                 (js-await (sleep 50))
                 (recur)))))))
 
-  (js-await (eval-in-browser
-             "(-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")\n                                       (epupp.fs/rm! \"bulk_save_test_2.cljs\")])\n                                (.then (fn [_] :cleaned-up)))"))
-  (js-await (sleep 100)))
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(def !bulk-save-cleanup (atom :pending))\n                                 (-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")\n                                                           (epupp.fs/rm! \"bulk_save_test_2.cljs\")])\n                                   (.then (fn [_] (reset! !bulk-save-cleanup :done)))\n                                   (.catch (fn [_] (reset! !bulk-save-cleanup :done))))\n                                 :cleanup-started"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true)))
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-save-cleanup)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          true
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for bulk save cleanup"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
 
 (defn- ^:async test_save_rejects_when_script_already_exists []
   ;; First create a script
@@ -181,8 +194,22 @@
               (recur)))))))
 
   ;; Cleanup
-  (js-await (eval-in-browser "(epupp.fs/rm! \"save_collision_test.cljs\")"))
-  (js-await (sleep 100)))
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(def !save-collision-cleanup (atom :pending))\n                                     (-> (epupp.fs/rm! \"save_collision_test.cljs\")\n                                       (.then (fn [_] (reset! !save-collision-cleanup :done)))\n                                       (.catch (fn [_] (reset! !save-collision-cleanup :done))))\n                                     :cleanup-started"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true)))
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!save-collision-cleanup)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          true
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for save collision cleanup"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
 
 (defn- ^:async test_save_rejects_builtin_script_names []
   ;; Try to save a script with a built-in name - should reject

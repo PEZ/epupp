@@ -110,8 +110,22 @@
               (js-await (sleep 50))
               (recur)))))))
 
-        (js-await (eval-in-browser "(epupp.fs/rm! \"mv_force_renamed.cljs\")"))
-  (js-await (sleep 100)))
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(def !mv-force-cleanup (atom :pending))\n                                 (-> (epupp.fs/rm! \"mv_force_renamed.cljs\")\n                                   (.then (fn [_] (reset! !mv-force-cleanup :done)))\n                                   (.catch (fn [_] (reset! !mv-force-cleanup :done))))\n                                 :cleanup-started"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true)))
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-force-cleanup)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          true
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv force cleanup"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
 
 (defn- ^:async test_mv_rejects_when_target_name_exists []
   ;; Create two scripts with different names - save sequentially to avoid races
@@ -208,9 +222,22 @@
               (recur)))))))
 
   ;; Cleanup
-  (js-await (eval-in-browser
-             "(-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\")\n                                      (epupp.fs/rm! \"mv_collision_target.cljs\")])\n                (.then (fn [_] :cleaned-up)))"))
-  (js-await (sleep 100)))
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(def !mv-collision-cleanup (atom :pending))\n                                     (-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\")\n                                                              (epupp.fs/rm! \"mv_collision_target.cljs\")])\n                                       (.then (fn [_] (reset! !mv-collision-cleanup :done)))\n                                       (.catch (fn [_] (reset! !mv-collision-cleanup :done))))\n                                     :cleanup-started"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true)))
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-collision-cleanup)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          true
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv collision cleanup"))
+            (do
+              (js-await (sleep 50))
+              (recur))))))))
 
 (defn- ^:async test_mv_rejects_renaming_builtin_scripts []
   ;; Try to rename a built-in script - should reject

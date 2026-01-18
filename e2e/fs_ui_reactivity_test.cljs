@@ -278,10 +278,9 @@
 (defn- ^:async failed_fs_operation_rejects_promise []
   ;; Try to delete a non-existent script - should reject
   ;; Ensure the script does not exist (defensive cleanup for parallel runs)
-  (let [cleanup-code "(-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")
-                          (.catch (fn [_] nil)))"]
+  (let [cleanup-code "(def !rm-nonexistent-cleanup (atom :pending))\n                          (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")\n                            (.then (fn [_] (reset! !rm-nonexistent-cleanup :done)))\n                            (.catch (fn [_] (reset! !rm-nonexistent-cleanup :done))))\n                          :cleanup-started"]
     (js-await (eval-in-browser cleanup-code))
-    (js-await (sleep 50)))
+    (js-await (wait-for-eval-promise "!rm-nonexistent-cleanup" 3000)))
   (let [delete-code "(def !rm-nonexistent-result (atom :pending))
                                         (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")
                                             (.then (fn [r] (reset! !rm-nonexistent-result {:resolved r})))
@@ -339,8 +338,9 @@
       (js-await (.close popup)))
 
     ;; Cleanup
-    (js-await (eval-in-browser "(epupp.fs/rm! \"no_overwrite.cljs\")"))
-    (js-await (sleep 100))))
+    (let [cleanup-code "(def !no-overwrite-cleanup (atom :pending))\n                         (-> (epupp.fs/rm! \"no_overwrite.cljs\")\n                           (.then (fn [_] (reset! !no-overwrite-cleanup :done)))\n                           (.catch (fn [_] (reset! !no-overwrite-cleanup :done))))\n                         :cleanup-started"]
+      (js-await (eval-in-browser cleanup-code))
+      (js-await (wait-for-eval-promise "!no-overwrite-cleanup" 3000)))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage @!context))]
@@ -399,8 +399,9 @@
     (js-await (.close popup)))
 
   ;; Cleanup
-  (js-await (eval-in-browser "(epupp.fs/rm! \"flash_test_script.cljs\")"))
-  (js-await (sleep 100)))
+  (let [cleanup-code "(def !flash-cleanup (atom :pending))\n                       (-> (epupp.fs/rm! \"flash_test_script.cljs\")\n                         (.then (fn [_] (reset! !flash-cleanup :done)))\n                         (.catch (fn [_] (reset! !flash-cleanup :done))))\n                       :cleanup-started"]
+    (js-await (eval-in-browser cleanup-code))
+    (js-await (wait-for-eval-promise "!flash-cleanup" 3000))))
 
 (.describe test "REPL FS UI: reactivity"
            (fn []
