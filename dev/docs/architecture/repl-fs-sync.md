@@ -121,6 +121,27 @@ Read operations are always available and do not consult the write gate.
 UI save operations from panel or popup bypass the gate because they are
 trusted extension UI flows. This bypass does not apply to page API requests.
 
+## Background Uniflow Decision Flow
+
+REPL FS write operations are implemented with a Uniflow-shaped decision
+pipeline in the background worker. The background handler performs the gate
+check, then dispatches a pure decision action that returns the state mutation
+and effects to run.
+
+Flow summary:
+1. Message handler receives `save-script`, `rename-script`, or `delete-script`.
+2. Gate check runs in `background.cljs`. If disabled, respond immediately.
+3. If enabled, the handler constructs a script map or names and calls
+   `bg-fs-dispatch/dispatch-fs-action!` with a `:fs/ax.*` action.
+4. `background-actions/handle-action` runs pure decision logic and returns
+   `:uf/db` and `:uf/fxs` effects for persist, broadcast, and response.
+5. `bg-fs-dispatch` executes effects in order, persists storage, and sends the
+   response back to the content bridge.
+
+This keeps validation deterministic and testable. The Uniflow pattern is
+currently scoped to FS operations in the background worker. Other background
+paths still use direct imperative flows.
+
 ## UI Reactivity and Badge Updates
 
 The background emits state changes to update popup and panel script lists,
@@ -159,6 +180,8 @@ REPL callers.
 - [docs/repl-fs-sync.md](docs/repl-fs-sync.md)
 - [dev/docs/architecture/overview.md](dev/docs/architecture/overview.md)
 - [dev/docs/architecture/message-protocol.md](dev/docs/architecture/message-protocol.md)
+- [dev/docs/architecture/uniflow.md](dev/docs/architecture/uniflow.md)
+- [dev/docs/architecture/background-uniflow-implementation.md](dev/docs/architecture/background-uniflow-implementation.md)
 - [dev/docs/architecture/state-management.md](dev/docs/architecture/state-management.md)
 - [dev/docs/testing-e2e.md](dev/docs/testing-e2e.md)
 
@@ -173,6 +196,7 @@ REPL callers.
 
 - [src/content_bridge.cljs](src/content_bridge.cljs)
 - [src/background.cljs](src/background.cljs)
+- [src/background_actions.cljs](src/background_actions.cljs)
 - [src/bg_fs_dispatch.cljs](src/bg_fs_dispatch.cljs)
 - [src/popup_actions.cljs](src/popup_actions.cljs)
 - [src/panel_actions.cljs](src/panel_actions.cljs)
@@ -184,6 +208,8 @@ REPL callers.
 ### Related Research
 
 - [dev/docs/architecture/message-protocol.md](dev/docs/architecture/message-protocol.md)
+- [dev/docs/architecture/uniflow.md](dev/docs/architecture/uniflow.md)
+- [dev/docs/architecture/background-uniflow-implementation.md](dev/docs/architecture/background-uniflow-implementation.md)
 - [dev/docs/architecture/security.md](dev/docs/architecture/security.md)
 - [dev/docs/repl-fs-api-issues.md](dev/docs/repl-fs-api-issues.md)
 - [dev/docs/fs-write-enable-setting.md](dev/docs/fs-write-enable-setting.md)

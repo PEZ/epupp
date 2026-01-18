@@ -89,7 +89,11 @@ Each component maintains its own state atom with namespaced keys.
 
 ## Uniflow Event System
 
-The popup and panel use a Re-frame-inspired unidirectional data flow pattern called Uniflow. See [uniflow.md](uniflow.md) for full documentation.
+The popup and panel use a Re-frame-inspired unidirectional data flow pattern
+called Uniflow. The background worker also uses a scoped Uniflow pipeline for
+REPL FS write operations. See [uniflow.md](uniflow.md) for the event system and
+[background-uniflow-implementation.md](background-uniflow-implementation.md)
+for the FS-specific background plan.
 
 ### Popup Actions (`:popup/ax.*`)
 
