@@ -3,8 +3,8 @@
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
-                                           create-panel-page clear-storage wait-for-popup-ready
-                                           wait-for-save-status wait-for-panel-ready
+                                           create-panel-page wait-for-popup-ready
+                                           wait-for-save-status
                                            assert-no-errors!]]))
 
 (defn- code-with-manifest
@@ -150,12 +150,12 @@
 
             ;; Bring Tab B to focus
             (js-await (.bringToFront tab-b))
-            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
 
             ;; Tab B should show disconnected, and the icon event should be for Tab B
             ;; (i.e. not Tab A's Chrome tab-id)
             (let [popup (js-await (create-popup-page context ext-id))
-                  events (js-await (fixtures/get-test-events popup))
+              _ (js-await (fixtures/wait-for-event popup "ICON_STATE_CHANGED" 1000))
+              events (js-await (fixtures/get-test-events popup))
                   icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
                   last-event (aget icon-events (dec (.-length icon-events)))
                   last-tab-id (aget (.-data last-event) "tab-id")
@@ -169,11 +169,11 @@
 
             ;; Bring Tab A back to focus
             (js-await (.bringToFront tab-a))
-            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 100))))
 
             ;; Tab A should STILL show injected/connected
             (let [popup (js-await (create-popup-page context ext-id))
-                  events (js-await (fixtures/get-test-events popup))
+              _ (js-await (fixtures/wait-for-event popup "ICON_STATE_CHANGED" 1000))
+              events (js-await (fixtures/get-test-events popup))
                   icon-events (.filter events
                                        (fn [e]
                                          (and (= (.-event e) "ICON_STATE_CHANGED")

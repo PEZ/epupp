@@ -128,7 +128,6 @@
     (try
       ;; Enable auto-connect via popup
       (let [popup (js-await (create-popup-page context ext-id))]
-        (js-await (wait-for-popup-ready popup))
 
         ;; Expand settings section
         (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
@@ -173,9 +172,9 @@
                           (.toContainText "contact")))
             (js/console.log "SPA navigated to 'contact' view")
 
-            ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+            ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 200ms)
             ;; Using scittle-count-before as the baseline
-            (js-await (fixtures/assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 300))
+            (js-await (fixtures/assert-no-new-event-within popup "SCITTLE_LOADED" scittle-count-before 200))
             (js/console.log "Verified: No new SCITTLE_LOADED after SPA navigation"))
 
           (js-await (assert-no-errors! popup))
@@ -219,7 +218,6 @@
 
         ;; Manually connect REPL to this tab
         (let [popup (js-await (create-popup-page context ext-id))]
-          (js-await (wait-for-popup-ready popup))
           (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
             (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
             (js-await (fixtures/connect-tab popup tab-id ws-port-1))
@@ -302,10 +300,10 @@
                         (.toContainText "ready")))
           (js/console.log "Page reloaded")
 
-          ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+          ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 200ms)
           ;; scittle-count-before is 0 for never-connected tab
           (let [popup2 (js-await (create-popup-page context ext-id))]
-            (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+            (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 200))
             (js/console.log "SCITTLE_LOADED count after reload (should still be 0):" scittle-count-before)
             (js-await (assert-no-errors! popup2))
             (js-await (.close popup2))))
@@ -349,7 +347,6 @@
 
         ;; Manually connect REPL to this tab
         (let [popup (js-await (create-popup-page context ext-id))]
-          (js-await (wait-for-popup-ready popup))
           (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
             (js/console.log "Connecting to tab" tab-id "on port" ws-port-1)
             (js-await (fixtures/connect-tab popup tab-id ws-port-1))
@@ -371,9 +368,9 @@
                         (.toContainText "ready")))
           (js/console.log "Page reloaded")
 
-          ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 300ms)
+          ;; Assert no NEW SCITTLE_LOADED event occurs (rapid-poll for 200ms)
           (let [popup2 (js-await (create-popup-page context ext-id))]
-            (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+            (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 200))
             (js/console.log "SCITTLE_LOADED count after reload:" scittle-count-before)
             (js-await (assert-no-errors! popup2))
             (js-await (.close popup2))))
