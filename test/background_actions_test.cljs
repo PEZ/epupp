@@ -48,7 +48,7 @@
           (-> (expect (:success error-response))
               (.toBe false))
           (-> (expect (:error error-response))
-              (.toContain "not found")))))
+              (.toContain "Script not found")))))
 
     (test "rejects when source is builtin script"
       (fn []
@@ -120,7 +120,7 @@
           (-> (expect (:success error-response))
               (.toBe false))
           (-> (expect (:error error-response))
-              (.toContain "not found")))))
+              (.toContain "Not deleting non-existent file")))))
 
     (test "rejects when script is builtin"
       (fn []

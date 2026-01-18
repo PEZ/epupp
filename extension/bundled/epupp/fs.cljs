@@ -167,7 +167,8 @@
   (let [not-found-error? (fn [msg]
                            (let [err (.-error msg)]
                              (and err (or (.includes err "not found")
-                                          (.includes err "does not exist")))))]
+                                          (.includes err "does not exist")
+                                          (.includes err "non-existent")))))]
     (if (vector? name-or-names)
       ;; Bulk mode - use mapv for eager evaluation before Promise.all
       (-> (js/Promise.all
