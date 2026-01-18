@@ -386,6 +386,27 @@ button#connect:active {
   border: 1px solid var(--approval-border);
 }
 
+/* FS REPL Sync - flash animation for modified scripts */
+@keyframes fs-modified-flash {
+  0% {
+    background: var(--clojure-green);
+    border-color: var(--clojure-green);
+  }
+  100% {
+    background: var(--bg-subtle);
+    border-color: var(--border-light);
+  }
+}
+
+.script-item-fs-modified {
+  animation: fs-modified-flash 2s ease-out;
+}
+
+/* Reveal highlight - brief flash when script is revealed via panel */
+.script-item-reveal-highlight {
+  animation: fs-modified-flash 1s ease-out;
+}
+
 .approval-allow {
   padding: 6px 12px;
   font-size: 12px;

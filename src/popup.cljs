@@ -501,7 +501,7 @@
                     script-id :script/id
                     :as script}
                    current-url
-                   {:keys [editing-hint-script-id reveal-highlight?]}]
+                   {:keys [editing-hint-script-id reveal-highlight? recently-modified?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         matches-current (some? matching-pattern)
         needs-approval (and matches-current
@@ -519,7 +519,8 @@
      [:div.script-item {:data-script-name name
                         :class (str (when builtin? "script-item-builtin ")
                                     (when needs-approval "script-item-approval ")
-                                    (when reveal-highlight? "script-item-reveal-highlight"))}
+                                    (when reveal-highlight? "script-item-reveal-highlight ")
+                                    (when recently-modified? "script-item-fs-modified"))}
       [:input {:type "checkbox"
                :checked enabled
                :title (if enabled "Enabled" "Disabled")
@@ -582,21 +583,24 @@
   [scripts]
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name]}]
+(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id
+                                        ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
                               sort-scripts)
         ;; Filter out built-in scripts to check if user has any custom scripts
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
-        example-pattern (script-utils/url-to-match-pattern current-url {:wildcard-scheme? true})]
+        example-pattern (script-utils/url-to-match-pattern current-url {:wildcard-scheme? true})
+        modified-set (or recently-modified-scripts #{})]
     [:div.script-list
      (if (seq matching-scripts)
        (for [script matching-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
           {:editing-hint-script-id editing-hint-script-id
-           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
+           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+           :recently-modified? (contains? modified-set (:script/name script))}])
        [:div.no-scripts
         (if no-user-scripts?
           ;; No user scripts at all - guide to create first one
@@ -629,17 +633,20 @@
 ;; Settings Components
 ;; ============================================================
 
-(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id ui/reveal-highlight-script-name]}]
+(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id
+                                      ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
   (let [other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %)))
-                           sort-scripts)]
+                           sort-scripts)
+        modified-set (or recently-modified-scripts #{})]
     [:div.script-list
      (if (seq other-scripts)
        (for [script other-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
           {:editing-hint-script-id editing-hint-script-id
-           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)}])
+           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+           :recently-modified? (contains? modified-set (:script/name script))}])
        [:div.no-scripts
         "No other scripts."
         [:div.no-scripts-hint
@@ -918,7 +925,19 @@
   (js/chrome.storage.onChanged.addListener
    (fn [changes area]
      (when (and (= area "local") (.-scripts changes))
-       (dispatch! [[:popup/ax.load-scripts]]))))
+       (let [scripts-change (.-scripts changes)
+             old-scripts (when (.-oldValue scripts-change)
+                           (script-utils/parse-scripts (.-oldValue scripts-change)))
+             new-scripts (when (.-newValue scripts-change)
+                           (script-utils/parse-scripts (.-newValue scripts-change)))]
+         ;; Always reload scripts to update UI
+         (dispatch! [[:popup/ax.load-scripts]])
+         ;; If we have both old and new, diff to find modified scripts
+         (when (and old-scripts new-scripts)
+           (let [{:keys [added modified]} (script-utils/diff-scripts old-scripts new-scripts)
+                 changed-names (concat added modified)]
+             (when (seq changed-names)
+               (dispatch! [[:popup/ax.mark-scripts-modified (vec changed-names)]]))))))))
 
   (dispatch! [[:popup/ax.load-saved-ports]
               [:popup/ax.check-status]

@@ -241,6 +241,26 @@
 ;; Debug: Expose for console testing
 ;; ============================================================
 
+(defn diff-scripts
+  "Detect changes between old and new script lists.
+   Returns {:added [names], :modified [names], :removed [names]}
+   where modified means the script code changed."
+  [old-scripts new-scripts]
+  (let [old-by-name (into {} (map (juxt :script/name identity) old-scripts))
+        new-by-name (into {} (map (juxt :script/name identity) new-scripts))
+        old-names (set (keys old-by-name))
+        new-names (set (keys new-by-name))
+        added (filterv #(not (contains? old-names %)) new-names)
+        removed (filterv #(not (contains? new-names %)) old-names)
+        common (filterv #(contains? old-names %) new-names)
+        modified (filterv (fn [name]
+                            (not= (:script/code (get old-by-name name))
+                                  (:script/code (get new-by-name name))))
+                          common)]
+    {:added added
+     :modified modified
+     :removed removed}))
+
 (set! js/globalThis.scriptUtils
       #js {:parse_scripts parse-scripts
            :script__GT_js script->js
@@ -260,6 +280,13 @@
            :normalize_run_at normalize-run-at
            :valid_run_at_values valid-run-at-values
            :default_run_at default-run-at
-           :url_to_match_pattern url-to-match-pattern})
+           :url_to_match_pattern url-to-match-pattern
+           :diff_scripts diff-scripts})
+
+
+
+;; ============================================================
+;; Script change detection
+;; ============================================================
 
 

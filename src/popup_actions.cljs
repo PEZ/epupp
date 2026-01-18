@@ -180,4 +180,14 @@
     (let [[tab-id] args]
       {:uf/fxs [[:popup/fx.disconnect-tab tab-id]]})
 
+    :popup/ax.mark-scripts-modified
+    (let [[script-names] args
+          current-modified (or (:ui/recently-modified-scripts state) #{})
+          new-modified (into current-modified script-names)]
+      {:uf/db (assoc state :ui/recently-modified-scripts new-modified)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-modified-scripts]] 2000]]})
+
+    :popup/ax.clear-modified-scripts
+    {:uf/db (assoc state :ui/recently-modified-scripts #{})}
+
     :uf/unhandled-ax))

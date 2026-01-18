@@ -306,6 +306,62 @@
     (js-await (assert-no-errors! popup))
     (js-await (.close popup))))
 
+(defn- ^:async popup_shows_flash_animation_on_script_modification []
+  ;; First create a script to modify
+  (let [test-code "{:epupp/script-name \"flash-test-script\"
+                                       :epupp/site-match \"https://flash-test.com/*\"}
+                                      (ns flash-test)"
+        save-code (str "(def !flash-setup (atom :pending))
+                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})
+                                       (.then (fn [r] (reset! !flash-setup r))))
+                                     :setup-done")]
+    (let [setup-result (js-await (eval-in-browser save-code))]
+      (-> (expect (.-success setup-result)) (.toBe true)))
+    (js-await (wait-for-eval-promise "!flash-setup" 3000)))
+
+  ;; Open popup and verify script exists
+  (let [popup (js-await (.newPage @!context))]
+    (js-await (.goto popup
+                     (str "chrome-extension://" @!ext-id "/popup.html")
+                     #js {:waitUntil "networkidle"}))
+    (js-await (wait-for-popup-ready popup))
+
+    ;; Verify script exists and does NOT have flash class initially
+    (let [script-item (.locator popup ".script-item:has-text(\"flash_test_script.cljs\")")]
+      (js-await (-> (expect script-item) (.toBeVisible #js {:timeout 2000})))
+      (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified")))))
+
+    ;; Modify the script via REPL (save with force to update existing)
+    (let [updated-code "{:epupp/script-name \"flash-test-script\"
+                                       :epupp/site-match \"https://flash-test.com/*\"}
+                                      (ns flash-test)
+                                      (js/console.log \"Updated!\")"
+          update-code (str "(def !flash-update (atom :pending))
+                                     (-> (epupp.fs/save! " (pr-str updated-code) " {:fs/force? true})
+                                       (.then (fn [r] (reset! !flash-update r))))
+                                     :setup-done")]
+      (let [update-result (js-await (eval-in-browser update-code))]
+        (-> (expect (.-success update-result)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!flash-update" 3000)))
+
+    ;; The script item should now have the flash animation class
+    (let [script-item (.locator popup ".script-item:has-text(\"flash_test_script.cljs\")")]
+      (js-await (-> (expect script-item)
+                    (.toHaveClass (js/RegExp. "script-item-fs-modified") #js {:timeout 2000}))))
+
+    ;; Wait for auto-clear (2 seconds) and verify class is removed
+    (js-await (sleep 2500))
+    (let [script-item (.locator popup ".script-item:has-text(\"flash_test_script.cljs\")")]
+      (js-await (-> (expect script-item)
+                    (.not.toHaveClass (js/RegExp. "script-item-fs-modified") #js {:timeout 500}))))
+
+    (js-await (assert-no-errors! popup))
+    (js-await (.close popup)))
+
+  ;; Cleanup
+  (js-await (eval-in-browser "(epupp.fs/rm! \"flash_test_script.cljs\")"))
+  (js-await (sleep 100)))
+
 (.describe test "REPL FS UI: reactivity"
            (fn []
              (.beforeAll test (fn [] (setup-browser!)))
@@ -326,6 +382,9 @@
 
              (test "REPL FS UI: failed FS operation rejects promise"
                    failed_fs_operation_rejects_promise)
+
+             (test "REPL FS UI: popup shows flash animation on script modification"
+                   popup_shows_flash_animation_on_script_modification)
 
              ;; Final error check
              (test "REPL FS UI: no uncaught errors during UI reactivity tests"
