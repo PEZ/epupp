@@ -51,6 +51,7 @@ UI feedback - implementation in place (needs manual verification):
 - [~] Panel editor updates when active script modified via REPL - implemented, needs testing
 - [~] Bulk save banner shows file count, not last filename - implemented, needs testing
 - [~] Bulk delete banner shows file count, not last filename - implemented, needs testing
+- [~] Save conflict flashes existing script in popup - implemented, needs testing
 - [~] "Update" banner briefly shown in popup after REPL modifications - implemented, needs testing
 - [~] "Update" banner briefly shown in panel after REPL modifications - implemented, needs testing
 - [x] Flash/highlight modified scripts in popup list - confirmed working

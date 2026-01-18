@@ -7,32 +7,28 @@
 (comment
   ;; ===== READ OPERATIONS (always work) =====
 
-  ;; List all scripts
-  (p/let [ls-result (epupp.fs/ls {:fs/ls-hidden? true})]
+  ;; List all scripts, exceot built-ins enless hiddens are asked for
+  (p/let [ls-result (epupp.fs/ls #_{:fs/ls-hidden? true})]
     (def ls-result ls-result))
-  ;; PEZ: Checks out!
 
   ;; Show existing script
   (p/let [show-result (epupp.fs/show "GitHub Gist Installer (Built-in)")]
     (def show-result show-result))
-  ;; PEZ: Checks out! And even if we shouldn't list it, it makes sense that we show it.
 
   ;; Show non-existent script returns nil
   (p/let [show-nil (epupp.fs/show "does-not-exist.cljs")]
     (def show-nil show-nil))
-  ;; PEZ: Checks out!
 
   ;; Bulk show - map of name to code (nil for missing)
   (p/let [show-bulk (epupp.fs/show ["GitHub Gist Installer (Built-in)" "does-not-exist.cljs"])]
     (def show-bulk show-bulk))
-  ;; PEZ: Checks out!
 
   ;; ===== WRITE OPERATIONS (require FS REPL Sync enabled) =====
   ;; PEZ: I tested all with the setting disabled and they all rejected the promise correctly
   ;; PEZ: We should show an error banner in both the panel and the popup, and the extension icon should get an error badge.
 
   ;; Save new script
-  (-> (p/let [save-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1)" {:fs/force? true})]
+  (-> (p/let [save-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1)" #_{:fs/force? true})]
         (def save-result save-result))
       (p/catch (fn [e] (def save-error (.-message e)))))
 
@@ -40,19 +36,16 @@
   (-> (p/let [save-overwrite-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)")]
         (def save-overwrite-result save-overwrite-result))
       (p/catch (fn [e] (def save-overwrite-error (.-message e)))))
-  ;; Checks out!
 
   ;; Save with force overwrites existing
   (-> (p/let [save-force-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1-v2)" {:fs/force? true})]
         (def save-force-result save-force-result))
       (p/catch (fn [e] (def save-force-error (.-message e)))))
-  ;; PEZ: Checks out!
 
   ;; Save does not overwrite built-in
   (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)")]
         (def save-built-in-result save-built-in-result))
       (p/catch (fn [e] (def save-built-in-error (.-message e)))))
-  ;; PEZ: Checks out!
 
   ;; Save with force does not overwrite built-in
   (-> (p/let [save-built-in-force-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)" {:fs/force? true})]

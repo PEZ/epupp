@@ -959,6 +959,11 @@
                           (str "Script \"" script-name "\" " operation "d via REPL"))]
          (when bulk-id
            (swap! !state update-in [:ui/fs-bulk-names bulk-id] (fnil conj []) script-name))
+         (when (and (= event-type "error")
+                    (= operation "save")
+                    script-name
+                    (not bulk-id))
+           (dispatch! [[:popup/ax.mark-scripts-modified [script-name]]]))
          (when show-banner?
            (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
            (let [bulk-names (when bulk-id (get-in @!state [:ui/fs-bulk-names bulk-id]))]

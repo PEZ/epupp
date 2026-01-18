@@ -298,6 +298,50 @@
                       (.includes out "non-existent")))
           (.toBe true)))))
 
+(defn- ^:async popup_flashes_on_save_conflict []
+  (let [test-code "{:epupp/script-name \"no-overwrite\"\n                                       :epupp/site-match \"https://no-overwrite.com/*\"}\n                                      (ns no-overwrite)"
+        save-code (str "(def !no-overwrite-setup (atom :pending))\n"
+                       "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
+                       "  (.then (fn [r] (reset! !no-overwrite-setup r))))\n"
+                       ":setup-done")
+        conflict-code (str "(def !no-overwrite-conflict (atom :pending))\n"
+                            "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
+                            "  (.then (fn [r] (reset! !no-overwrite-conflict {:resolved r})))\n"
+                            "  (.catch (fn [e] (reset! !no-overwrite-conflict {:rejected (.-message e)}))))\n"
+                            ":setup-done")]
+    ;; Create a script to conflict with
+    (let [setup-result (js-await (eval-in-browser save-code))]
+      (-> (expect (.-success setup-result)) (.toBe true)))
+    (js-await (wait-for-eval-promise "!no-overwrite-setup" 3000))
+
+    (let [popup (js-await (.newPage @!context))]
+      (js-await (.goto popup
+                       (str "chrome-extension://" @!ext-id "/popup.html")
+                       #js {:waitUntil "networkidle"}))
+      (js-await (wait-for-popup-ready popup))
+
+      ;; Verify script exists and does NOT have flash class initially
+      (let [script-item (.locator popup ".script-item:has-text(\"no_overwrite.cljs\")")]
+        (js-await (-> (expect script-item) (.toBeVisible #js {:timeout 2000})))
+        (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified")))))
+
+      ;; Attempt save without force - should reject and flash
+      (let [conflict-result (js-await (eval-in-browser conflict-code))]
+        (-> (expect (.-success conflict-result)) (.toBe true)))
+      (js-await (wait-for-eval-promise "!no-overwrite-conflict" 3000))
+
+      ;; The script item should now have the flash animation class
+      (let [script-item (.locator popup ".script-item:has-text(\"no_overwrite.cljs\")")]
+        (js-await (-> (expect script-item)
+                      (.toHaveClass (js/RegExp. "script-item-fs-modified") #js {:timeout 2000}))))
+
+      (js-await (assert-no-errors! popup))
+      (js-await (.close popup)))
+
+    ;; Cleanup
+    (js-await (eval-in-browser "(epupp.fs/rm! \"no_overwrite.cljs\")"))
+    (js-await (sleep 100))))
+
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage @!context))]
     (js-await (.goto popup (str "chrome-extension://" @!ext-id "/popup.html")
@@ -378,6 +422,9 @@
 
              (test "REPL FS UI: failed FS operation rejects promise"
                    failed_fs_operation_rejects_promise)
+
+             (test "REPL FS UI: popup flashes on save conflict"
+               popup_flashes_on_save_conflict)
 
              (test "REPL FS UI: popup shows flash animation on script modification"
                    popup_shows_flash_animation_on_script_modification)
