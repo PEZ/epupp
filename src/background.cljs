@@ -887,7 +887,10 @@
                                    ;; Always use fresh ID for REPL saves - the action handler
                                    ;; will decide if this is a create (reject if exists, no force)
                                    ;; or overwrite (allow if force flag is set)
-                                   (let [script-id (str "script-" (.now js/Date))
+                                       (let [crypto (.-crypto js/globalThis)
+                                         script-id (if (and crypto (.-randomUUID crypto))
+                                             (str "script-" (.randomUUID crypto))
+                                             (str "script-" (.now js/Date) "-" (.random js/Math)))
                                          script {:script/id script-id
                                                  :script/name normalized-name
                                                  :script/code code

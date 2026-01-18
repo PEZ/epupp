@@ -82,7 +82,7 @@ These provide better UX but aren't blocking:
 |------|--------|
 | save! creates new script | PASS |
 | save! with disabled creates disabled script | PASS |
-| save! bulk returns map of results | PASS |
+| save! bulk returns map of results | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
 | save! rejects when script already exists | PASS |
 | save! rejects built-in script names | PASS |
 | save! with force rejects built-in names | PASS |
@@ -92,8 +92,33 @@ These provide better UX but aren't blocking:
 | mv! rejects renaming built-in | PASS |
 | rm! deletes a script | PASS |
 | rm! rejects deleting built-in | PASS |
-| rm! bulk returns map of results | PASS |
+| rm! bulk returns map of results | PASS - fixed Jan 17, 2026 (was flaky in serial shard 1/6) |
 | rm! returns existed flag | PASS |
+
+### E2E Flakiness Notes (Resolved Jan 17, 2026)
+
+Observed intermittent failures in serial shard 1/6 when running:
+
+- `bb test:e2e --serial -- --shard=1/6`
+
+Failures observed across three consecutive runs:
+
+- `epupp.fs/save! with vector returns map of per-item results`
+- `epupp.fs/rm! with vector returns map of per-item results`
+
+In failing runs, the test log showed:
+
+- `=== Bulk save result === ":pending"`
+- `=== Bulk rm result === ":pending"`
+
+Fixes applied:
+
+- Test: normalize quoted `pr-str` values when polling bulk results in [e2e/fs_write_test.cljs](e2e/fs_write_test.cljs)
+- Implementation: avoid REPL save script ID collisions with UUID-based IDs in [src/background.cljs](src/background.cljs)
+
+Re-run results:
+
+- `bb test:e2e --serial -- --shard=1/6` passed twice in a row after the fixes.
 
 ## Code Locations
 
@@ -107,7 +132,7 @@ These provide better UX but aren't blocking:
 
 ## Manual Testing Results
 
-(Only updaate these after manual testing.)
+Note: Only upddate these after manual testing.
 
 Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_api_exercise.cljs):
 

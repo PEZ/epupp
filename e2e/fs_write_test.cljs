@@ -67,6 +67,13 @@
        (let [msg (str "d2:op4:eval4:code" (.-length code) ":" code "e")]
          (.write client msg))))))
 
+(defn- unquote-eval-value [value]
+  (if (and value
+           (.startsWith value "\"")
+           (.endsWith value "\""))
+    (.substring value 1 (dec (.-length value)))
+    value))
+
 (defn ^:async wait-for-script-tag
   "Poll the page via nREPL until a script tag matching the pattern appears."
   [pattern timeout-ms]
@@ -255,29 +262,30 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-save-result)"))]
-        (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
-            (js/console.log "=== Bulk save result ===" result-str)
-            (-> (expect (.includes result-str "resolved"))
-                (.toBe true))
-            (-> (expect (.includes result-str "0"))
-                (.toBe true))
-            (-> (expect (.includes result-str "1"))
-                (.toBe true))
-            (-> (expect (.includes result-str ":success true"))
-                (.toBe true))
-            (-> (expect (.includes result-str "bulk_save_test_1.cljs"))
-                (.toBe true))
-            (-> (expect (.includes result-str "bulk_save_test_2.cljs"))
-                (.toBe true)))
-          (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for bulk save! result"))
+        (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-save-result)"))
+              result-str (unquote-eval-value (first (.-values check-result)))]
+          (if (and (.-success check-result)
+                   (seq (.-values check-result))
+                   (not= result-str ":pending"))
             (do
-              (js-await (sleep 50))
-              (recur)))))))
+              (js/console.log "=== Bulk save result ===" result-str)
+              (-> (expect (.includes result-str "resolved"))
+                  (.toBe true))
+              (-> (expect (.includes result-str "0"))
+                  (.toBe true))
+              (-> (expect (.includes result-str "1"))
+                  (.toBe true))
+              (-> (expect (.includes result-str ":success true"))
+                  (.toBe true))
+              (-> (expect (.includes result-str "bulk_save_test_1.cljs"))
+                  (.toBe true))
+              (-> (expect (.includes result-str "bulk_save_test_2.cljs"))
+                  (.toBe true)))
+            (if (> (- (.now js/Date) start) timeout-ms)
+              (throw (js/Error. "Timeout waiting for bulk save! result"))
+              (do
+                (js-await (sleep 50))
+                (recur)))))))
 
   (js-await (eval-in-browser
              "(-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")
@@ -557,11 +565,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-setup)"))]
+      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-setup)"))
+            result-str (unquote-eval-value (first (.-values check-result)))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
+                 (not= result-str ":pending"))
+          (do
             (js/console.log "=== Bulk rm setup result ===" result-str)
             (-> (expect (.includes result-str "resolved")) (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
@@ -582,11 +591,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-result)"))]
+      (let [check-result (js-await (eval-in-browser "(pr-str @!bulk-rm-result)"))
+            result-str (unquote-eval-value (first (.-values check-result)))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
+                 (not= result-str ":pending"))
+          (do
             (js/console.log "=== Bulk rm result ===" result-str)
             ;; Should resolve (not reject)
             (-> (expect (.includes result-str "resolved"))
@@ -605,7 +615,9 @@
             (throw (js/Error. "Timeout waiting for bulk rm! result"))
             (do
               (js-await (sleep 50))
-              (recur))))))))
+              (recur)))))))
+
+  )
 
 (defn- ^:async test_rm_returns_existed_flag []
   (let [test-code "{:epupp/script-name \"existed-test-rm\"
