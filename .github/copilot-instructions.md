@@ -239,6 +239,11 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
 5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler (`src/ws_bridge.cljs`) to prevent reconnection loops.
 6. **Firefox CSP** - `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
 7. **Use of `!` in shell commands** - In Clojure we use the bang to indicate side-effecting functions. In the shell they are history expansion characters. Avoid using `!` in shell commands to prevent unexpected behavior.
+8. **Prefer tools over shell commands** - E.g.:
+   * Use the Problem Report (linter) instead of compiler
+   * There are watchers for Squint and tests - use them instead of manual commands
+   * When tools do not suffice, use bb tasks
+   * When bb tasks do not suffice, use Babashka utilities for file operations, HTTP server, etc.
 
 ## Use Subagents to protect your contect window and ensure quality
 
