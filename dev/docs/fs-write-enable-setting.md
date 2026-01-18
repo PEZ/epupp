@@ -16,6 +16,7 @@ The core infrastructure is in place:
 - When disabled: `save!`, `mv!`, `rm!` return clear error
 - When enabled: operations execute immediately
 - `ls` and `show` always work regardless of setting
+- `ls` currently lists built-in scripts - should be hidden unless `:fs/ls-hidden?` is provided
 - Panel save bypasses setting (trusted UI)
 
 ## Fixed Bugs
@@ -65,6 +66,10 @@ The core infrastructure is in place:
 - [ ] "Update" banner briefly shown in popup after REPL modifications
 - [ ] "Update" banner briefly shown in panel after REPL modifications
 - [ ] Extension icon briefly shows "update" badge
+
+### API
+
+- [ ] `ls` should hide built-in scripts unless `:fs/ls-hidden?` is provided
 
 ### Documentation
 
@@ -155,6 +160,7 @@ Tested via [test-data/tampers/fs_api_exercise.cljs](../../test-data/tampers/fs_a
 
 ### Read Operations (always work)
 - [x] `ls` - lists all scripts
+- [ ] `ls` should hide built-in scripts unless `:fs/ls-hidden?` is provided
 - [x] `show` - returns code for existing script
 - [x] `show` - returns nil for non-existent script
 - [x] `show` bulk - returns map of name to code (nil for missing)
