@@ -213,7 +213,7 @@
           (if (> (- (.now js/Date) start) (or timeout-ms 5000))
             (throw (js/Error. (str "Timeout waiting for connection. Count: " current-count)))
             (do
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
               (recur))))))))
 
 ;; =============================================================================
@@ -338,18 +338,18 @@
             (throw (js/Error. (str "Timeout waiting for event: " event-name
                                    ". Events so far: " (js/JSON.stringify (clj->js (map #(.-event %) events))))))
             (do
-              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
               (recur))))))))
 
 (defn ^:async assert-no-new-event-within
   "Assert that no NEW event with given name occurs within timeout-ms.
-   Polls rapidly (every 50ms) and fails immediately if count increases.
+  Polls rapidly (every 20ms) and fails immediately if count increases.
 
    initial-count: The number of events of this type that existed before the action
    Use for tests that verify something should NOT happen."
   [ext-page event-name initial-count timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 30]
+      poll-interval 20]
     (loop []
       (let [events (js-await (get-test-events ext-page))
             current-count (.-length (.filter events (fn [e] (= (.-event e) event-name))))]

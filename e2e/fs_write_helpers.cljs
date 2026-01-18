@@ -61,7 +61,7 @@
   "Poll the page via nREPL until a script tag matching the pattern appears."
   [pattern timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 30
+  poll-interval 20
         check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
         check-fn (fn check []
                    (js/Promise.

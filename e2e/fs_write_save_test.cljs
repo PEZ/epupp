@@ -27,7 +27,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/save! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -46,7 +46,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after save"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_save_with_disabled_creates_disabled_script []
@@ -67,7 +67,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -91,7 +91,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (js-await (eval-in-browser "(epupp.fs/rm! \"disabled_by_default.cljs\")")))
@@ -128,7 +128,7 @@
             (if (> (- (.now js/Date) start) timeout-ms)
               (throw (js/Error. "Timeout waiting for bulk save! result"))
               (do
-                (js-await (sleep 50))
+                (js-await (sleep 20))
                 (recur)))))))
 
   (let [cleanup-result (js-await (eval-in-browser
@@ -145,7 +145,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk save cleanup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_save_rejects_when_script_already_exists []
@@ -164,7 +164,7 @@
                   (empty? (.-values check-result))
                   (= (first (.-values check-result)) ":pending"))
           (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
+            (js-await (sleep 20))
             (recur))))))
 
   ;; Now try to save again WITHOUT force - should reject
@@ -190,7 +190,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save collision result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   ;; Cleanup
@@ -208,7 +208,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save collision cleanup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_save_rejects_builtin_script_names []
@@ -236,7 +236,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save built-in result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
@@ -264,7 +264,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save built-in with force result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (.describe test "REPL FS: save operations"

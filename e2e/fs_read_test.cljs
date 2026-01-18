@@ -71,7 +71,7 @@
   "Poll the page via nREPL until a script tag matching the pattern appears."
   [pattern timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 30
+  poll-interval 20
         check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
         check-fn (fn check []
                    (js/Promise.
@@ -149,7 +149,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/show result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_show_returns_nil_for_nonexistent_script []
@@ -171,7 +171,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/show nil result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_show_with_vector_returns_map []
@@ -201,7 +201,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk show result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_ls_hides_builtins_by_default []
@@ -229,7 +229,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_ls_includes_builtins_when_option_set []
@@ -252,7 +252,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls hidden result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (.describe test "REPL FS: read operations"

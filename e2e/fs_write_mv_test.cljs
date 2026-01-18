@@ -23,7 +23,7 @@
                   (empty? (.-values check-result))
                   (= (first (.-values check-result)) ":pending"))
           (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
+            (js-await (sleep 20))
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -42,7 +42,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/mv! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -62,7 +62,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after mv"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_mv_with_force_returns_from_and_to_names []
@@ -79,7 +79,7 @@
                   (empty? (.-values check-result))
                   (= (first (.-values check-result)) ":pending"))
           (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
+            (js-await (sleep 20))
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -107,7 +107,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [cleanup-result (js-await (eval-in-browser
@@ -124,7 +124,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv force cleanup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_mv_rejects_when_target_name_exists []
@@ -148,7 +148,7 @@
             (-> (expect (.includes result-str "mv_collision_source.cljs")) (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for first save"))
-            (do (js-await (sleep 50)) (recur)))))))
+            (do (js-await (sleep 20)) (recur)))))))
 
   ;; Save second script
   (let [code2 "{:epupp/script-name \"mv-collision-target\"\n               :epupp/site-match \"https://example.com/*\"}\n              (ns collision-target)"
@@ -170,7 +170,7 @@
             (-> (expect (.includes result-str "mv_collision_target.cljs")) (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for second save"))
-            (do (js-await (sleep 50)) (recur)))))))
+            (do (js-await (sleep 20)) (recur)))))))
 
   ;; Now try to rename source to target - should fail since target exists
   (let [setup-result (js-await (eval-in-browser
@@ -194,7 +194,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for collision mv! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   ;; Verify both scripts still exist (no data corruption)
@@ -218,7 +218,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after collision test"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   ;; Cleanup
@@ -236,7 +236,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv collision cleanup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_mv_rejects_renaming_builtin_scripts []
@@ -262,7 +262,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv! built-in result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (.describe test "REPL FS: mv operations"

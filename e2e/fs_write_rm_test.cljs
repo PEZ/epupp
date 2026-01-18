@@ -24,7 +24,7 @@
                   (empty? (.-values check-result))
                   (= (first (.-values check-result)) ":pending"))
           (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 50))
+            (js-await (sleep 20))
             (recur))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -43,7 +43,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls before rm"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -62,7 +62,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/rm! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -81,7 +81,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after rm"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_rm_rejects_deleting_builtin_scripts []
@@ -105,7 +105,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/rm! built-in result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_rm_with_vector_rejects_when_any_missing []
@@ -131,7 +131,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk rm setup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   ;; Delete two existing scripts and one non-existent - should reject
@@ -160,7 +160,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for bulk rm! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -182,7 +182,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after bulk rm"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   )
@@ -204,7 +204,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save! setup"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
@@ -223,7 +223,30 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for ls after save"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
+              (recur)))))))
+
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !existed-show (atom :pending))\n                                                (-> (epupp.fs/show \"existed_test_rm.cljs\")\n                                                    (.then (fn [r] (reset! !existed-show r)))\n                                                    (.catch (fn [e] (reset! !existed-show {:rejected (.-message e)}))))\n                                                :setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-show)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "rejected"))
+                (.toBe false))
+            (-> (expect (or (.includes result-str "existed-test-rm")
+                            (.includes result-str "existed_test_rm.cljs")))
+                (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for show after save"))
+            (do
+              (js-await (sleep 20))
               (recur)))))))
 
   ;; Delete existing script - should have :existed? true
@@ -250,7 +273,7 @@
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for rm! result"))
             (do
-              (js-await (sleep 50))
+              (js-await (sleep 20))
               (recur))))))))
 
 (defn- ^:async test_no_uncaught_errors_during_fs_tests []

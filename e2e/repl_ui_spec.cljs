@@ -19,7 +19,7 @@
    Much faster than fixed sleep when connections establish quickly."
   [popup expected-count timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 30]
+        poll-interval 20]
     (loop []
       (let [result (js-await
                     (.evaluate popup
@@ -89,7 +89,7 @@
    Returns true when found, throws on timeout."
   [pattern timeout-ms]
   (let [start (.now js/Date)
-        poll-interval 30
+  poll-interval 20
         check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
         check-fn (fn check []
                    (js/Promise.

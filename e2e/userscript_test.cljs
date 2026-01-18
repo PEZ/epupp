@@ -298,7 +298,7 @@
                 (if (> (- (.now js/Date) start) timeout-ms)
                   (throw (js/Error. "Timeout waiting for gist installer with requires"))
                   (do
-                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
         (js-await (.close popup)))
 
