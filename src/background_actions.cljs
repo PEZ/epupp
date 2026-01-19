@@ -155,4 +155,47 @@
     (let [[send-response tab-id code requires script-id] args]
       {:uf/fxs [[:msg/fx.evaluate-script send-response tab-id code requires script-id]]})
 
+    :msg/ax.list-scripts
+    (let [[send-response include-hidden?] args]
+      {:uf/fxs [[:msg/fx.list-scripts send-response include-hidden?]]})
+
+    :msg/ax.get-script
+    (let [[send-response script-name] args]
+      {:uf/fxs [[:msg/fx.get-script send-response script-name]]})
+
+    :msg/ax.load-manifest
+    (let [[send-response tab-id manifest] args]
+      {:uf/fxs [[:msg/fx.load-manifest send-response tab-id manifest]]})
+
+    :msg/ax.get-connections
+    (let [[send-response] args]
+      {:uf/fxs [[:msg/fx.get-connections send-response]]})
+
+    :msg/ax.refresh-approvals
+    {:uf/fxs [[:msg/fx.refresh-approvals]]}
+
+    :msg/ax.e2e-find-tab-id
+    (let [[send-response url-pattern] args]
+      {:uf/fxs [[:msg/fx.e2e-find-tab-id send-response url-pattern]]})
+
+    :msg/ax.e2e-get-test-events
+    (let [[send-response] args]
+      {:uf/fxs [[:msg/fx.e2e-get-test-events send-response]]})
+
+    :msg/ax.e2e-get-storage
+    (let [[send-response key] args]
+      {:uf/fxs [[:msg/fx.e2e-get-storage send-response key]]})
+
+    :msg/ax.e2e-set-storage
+    (let [[send-response key value] args]
+      {:uf/fxs [[:msg/fx.e2e-set-storage send-response key value]]})
+
+    :msg/ax.pattern-approved
+    (let [[script-id pattern] args]
+      {:uf/fxs [[:msg/fx.pattern-approved script-id pattern]]})
+
+    :msg/ax.install-userscript
+    (let [[send-response manifest script-url] args]
+      {:uf/fxs [[:msg/fx.install-userscript send-response manifest script-url]]})
+
     :uf/unhandled-ax))

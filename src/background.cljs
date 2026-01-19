@@ -71,14 +71,20 @@
          update-icon-now!
          update-badge-for-tab!
          update-badge-for-active-tab!
+         clear-pending-approval!
          connect-tab!
+         ensure-initialized!
          ensure-scittle!
          execute-in-page
          check-status-fn
          inject-content-script
+         find-tab-id-by-url-pattern!
          wait-for-bridge-ready
          inject-requires-sequentially!
-         execute-scripts!)
+         execute-scripts!
+         sync-pending-approvals!
+         install-userscript!
+         get-active-tab-id)
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
@@ -178,6 +184,120 @@
                                                 requires (assoc :script/require requires))]))
            (send-response #js {:success true})
            (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.list-scripts
+    (let [[send-response include-hidden?] args
+          scripts (storage/get-scripts)
+          visible-scripts (script-utils/filter-visible-scripts scripts include-hidden?)
+          public-scripts (mapv (fn [s]
+                                 {:fs/name (:script/name s)
+                                  :fs/enabled (:script/enabled s)
+                                  :fs/match (:script/match s)
+                                  :fs/modified (:script/modified s)})
+                               visible-scripts)]
+      (send-response (clj->js {:success true :scripts public-scripts})))
+
+    :msg/fx.get-script
+    (let [[send-response script-name] args
+          script (storage/get-script-by-name script-name)]
+      (if script
+        (send-response #js {:success true :code (:script/code script)})
+        (send-response #js {:success false :error (str "Script not found: " script-name)})))
+
+    :msg/fx.load-manifest
+    (let [[send-response tab-id manifest] args
+          requires (when manifest
+                     (vec (aget manifest "require")))]
+      ((^:async fn []
+         (try
+           (when (seq requires)
+             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+               (when (seq files)
+                 (js-await (inject-requires-sequentially! tab-id files)))))
+           (send-response #js {:success true})
+           (catch :default err
+             (log/error "Background" "Manifest" "load-manifest failed:" err)
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.get-connections
+    (let [[send-response] args
+          connections (:ws/connections @!state)
+          display-list (bg-utils/connections->display-list connections)]
+      (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
+                              {:raw-connection-count (count (keys connections))
+                               :display-list-count (count display-list)
+                               :connections-keys (vec (keys connections))})
+      (send-response (clj->js {:success true
+                               :connections display-list})))
+
+    :msg/fx.refresh-approvals
+    ((^:async fn []
+       (js-await (storage/load!))
+       (js-await (sync-pending-approvals!))))
+
+    :msg/fx.e2e-find-tab-id
+    (let [[send-response url-pattern] args]
+      ((^:async fn []
+         (try
+           (if url-pattern
+             (if-let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
+               (send-response #js {:success true :tabId found-tab-id})
+               (send-response #js {:success false :error "No matching tab"}))
+             (send-response #js {:success false :error "Missing urlPattern"}))
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.e2e-get-test-events
+    (let [[send-response] args]
+      ((^:async fn []
+         (let [events (js-await (test-logger/get-test-events))]
+           (send-response #js {:success true :events events})))))
+
+    :msg/fx.e2e-get-storage
+    (let [[send-response key] args]
+      ((^:async fn []
+         (if key
+           (let [result (js-await (js/chrome.storage.local.get #js [key]))]
+             (send-response #js {:success true :key key :value (aget result key)}))
+           (send-response #js {:success false :error "Missing key"})))))
+
+    :msg/fx.e2e-set-storage
+    (let [[send-response key value] args]
+      ((^:async fn []
+         (if key
+           (do
+             (js-await (js/Promise.
+                        (fn [resolve]
+                          (js/chrome.storage.local.set
+                           (js-obj key value)
+                           resolve))))
+             (send-response #js {:success true :key key :value value}))
+           (send-response #js {:success false :error "Missing key"})))))
+
+    :msg/fx.pattern-approved
+    (let [[script-id pattern] args]
+      (clear-pending-approval! script-id pattern)
+      (when-let [script (storage/get-script script-id)]
+        ((^:async fn []
+           (when-let [active-tab-id (js-await (get-active-tab-id))]
+             (js-await (ensure-scittle! active-tab-id))
+             (js-await (execute-scripts! active-tab-id [script])))))))
+
+    :msg/fx.install-userscript
+    (let [[send-response manifest script-url] args]
+      ((^:async fn []
+         (try
+           (let [saved (js-await (install-userscript!
+                                  {:script-name (:script-name manifest)
+                                   :site-match (:site-match manifest)
+                                   :script-url script-url
+                                   :description (:description manifest)}))]
+             (send-response #js {:success true
+                                 :scriptId (:script/id saved)
+                                 :scriptName (:script/name saved)}))
+           (catch :default err
+             (log/error "Background" "Install" "Install failed:" err)
              (send-response #js {:success false :error (.-message err)}))))))
 
     :uf/unhandled-fx))
@@ -993,16 +1113,8 @@
 
                     ;; Page context requests script list via epupp.fs/ls
                     "list-scripts"
-                    (let [include-hidden? (.-lsHidden message)
-                          scripts (storage/get-scripts)
-                          visible-scripts (script-utils/filter-visible-scripts scripts include-hidden?)
-                          public-scripts (mapv (fn [s]
-                                                 {:fs/name (:script/name s)
-                                                  :fs/enabled (:script/enabled s)
-                                                  :fs/match (:script/match s)
-                                                  :fs/modified (:script/modified s)})
-                                               visible-scripts)]
-                      (send-response (clj->js {:success true :scripts public-scripts}))
+                    (let [include-hidden? (.-lsHidden message)]
+                      (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
                       false)
 
                     ;; Page context saves script code via epupp/save!
@@ -1117,51 +1229,26 @@
 
                     ;; Page context requests script code by name via epupp/cat
                     "get-script"
-                    (let [script-name (.-name message)
-                          script (storage/get-script-by-name script-name)]
-                      (if script
-                        (send-response #js {:success true :code (:script/code script)})
-                        (send-response #js {:success false :error (str "Script not found: " script-name)}))
+                    (let [script-name (.-name message)]
+                      (dispatch! [[:msg/ax.get-script send-response script-name]])
                       false)
 
                     ;; Page context requests library injection via epupp/manifest!
                     "load-manifest"
-                    (let [manifest (.-manifest message)
-                          ;; Note: clj->js in Scittle strips namespace, so :epupp/require becomes "require"
-                          requires (when manifest
-                                     (vec (aget manifest "require")))]
-                      ((^:async fn []
-                         (try
-                           (when (seq requires)
-                             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
-                               (when (seq files)
-                                 (js-await (inject-requires-sequentially! tab-id files)))))
-                           (send-response #js {:success true})
-                           (catch :default err
-                             (log/error "Background" "Manifest" "load-manifest failed:" err)
-                             (send-response #js {:success false :error (.-message err)})))))
+                    (let [manifest (.-manifest message)]
+                      (dispatch! [[:msg/ax.load-manifest send-response tab-id manifest]])
                       true)
 
                     ;; Popup requests active connection info
                     "get-connections"
-                    (let [connections (:ws/connections @!state)
-                          display-list (bg-utils/connections->display-list connections)]
-                      ;; Log for E2E test debugging
-                      (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
-                                              {:raw-connection-count (count (keys connections))
-                                               :display-list-count (count display-list)
-                                               :connections-keys (vec (keys connections))})
-                      (send-response (clj->js {:success true
-                                               :connections display-list}))
+                    (do
+                      (dispatch! [[:msg/ax.get-connections send-response]])
                       false)
 
                     ;; Popup messages
                     "refresh-approvals"
                     (do
-                      ;; Reload scripts from storage, then sync pending + badge
-                      ((^:async fn []
-                         (js-await (storage/load!))
-                          (js-await (sync-pending-approvals!))))
+                      (dispatch! [[:msg/ax.refresh-approvals]])
                       false)
 
                     "connect-tab"
@@ -1183,15 +1270,7 @@
                     "e2e/find-tab-id"
                     (if (.-dev config)
                       (let [url-pattern (.-urlPattern message)]
-                        ((^:async fn []
-                           (try
-                             (if url-pattern
-                               (if-let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
-                                 (send-response #js {:success true :tabId found-tab-id})
-                                 (send-response #js {:success false :error "No matching tab"}))
-                               (send-response #js {:success false :error "Missing urlPattern"}))
-                             (catch :default err
-                               (send-response #js {:success false :error (.-message err)})))))
+                        (dispatch! [[:msg/ax.e2e-find-tab-id send-response url-pattern]])
                         true)
                       (do
                         (send-response #js {:success false :error "Not available"})
@@ -1200,9 +1279,7 @@
                     "e2e/get-test-events"
                     (if (.-dev config)
                       (do
-                        ((^:async fn []
-                           (let [events (js-await (test-logger/get-test-events))]
-                             (send-response #js {:success true :events events}))))
+                        (dispatch! [[:msg/ax.e2e-get-test-events send-response]])
                         true)
                       (do
                         (send-response #js {:success false :error "Not available"})
@@ -1211,11 +1288,7 @@
                     "e2e/get-storage"
                     (if (.-dev config)
                       (let [key (.-key message)]
-                        ((^:async fn []
-                           (if key
-                             (let [result (js-await (js/chrome.storage.local.get #js [key]))]
-                               (send-response #js {:success true :key key :value (aget result key)}))
-                             (send-response #js {:success false :error "Missing key"}))))
+                        (dispatch! [[:msg/ax.e2e-get-storage send-response key]])
                         true)
                       (do
                         (send-response #js {:success false :error "Not available"})
@@ -1225,16 +1298,7 @@
                     (if (.-dev config)
                       (let [key (.-key message)
                             value (.-value message)]
-                        ((^:async fn []
-                           (if key
-                             (do
-                               (js-await (js/Promise.
-                                          (fn [resolve]
-                                            (js/chrome.storage.local.set
-                                             (js-obj key value)
-                                             resolve))))
-                               (send-response #js {:success true :key key :value value}))
-                             (send-response #js {:success false :error "Missing key"}))))
+                        (dispatch! [[:msg/ax.e2e-set-storage send-response key value]])
                         true)
                       (do
                         (send-response #js {:success false :error "Not available"})
@@ -1244,13 +1308,7 @@
                     ;; Clear this script from pending and execute it
                     (let [script-id (.-scriptId message)
                           pattern (.-pattern message)]
-                      (clear-pending-approval! script-id pattern)
-                      ;; Execute the script now
-                      (when-let [script (storage/get-script script-id)]
-                        ((^:async fn []
-                           (when-let [active-tab-id (js-await (get-active-tab-id))]
-                             (js-await (ensure-scittle! active-tab-id))
-                             (js-await (execute-scripts! active-tab-id [script]))))))
+                      (dispatch! [[:msg/ax.pattern-approved script-id pattern]])
                       false)
 
                     "install-userscript"
@@ -1259,19 +1317,7 @@
                     ;; In Squint, keywords work as accessors on JS objects with string keys
                     (let [manifest (.-manifest message)
                           script-url (.-scriptUrl message)]
-                      ((^:async fn []
-                         (try
-                           (let [saved (js-await (install-userscript!
-                                                  {:script-name (:script-name manifest)
-                                                   :site-match (:site-match manifest)
-                                                   :script-url script-url
-                                                   :description (:description manifest)}))]
-                             (send-response #js {:success true
-                                                 :scriptId (:script/id saved)
-                                                 :scriptName (:script/name saved)}))
-                           (catch :default err
-                             (log/error "Background" "Install" "Install failed:" err)
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.install-userscript send-response manifest script-url]])
                       true)
 
                     ;; Panel messages - ensure Scittle is loaded
