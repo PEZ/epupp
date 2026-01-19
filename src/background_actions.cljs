@@ -4,7 +4,8 @@
             [background-actions.history-actions :as history-actions]
             [background-actions.approval-actions :as approval-actions]
             [background-actions.ws-actions :as ws-actions]
-            [scittle-libs :as scittle-libs]))
+            [scittle-libs :as scittle-libs]
+            [script-utils :as script-utils]))
 
 (defn- with-db
   "Ensure :uf/db contains full state by merging the updated slice."
@@ -148,6 +149,53 @@
     (let [[send-response tab-id] args]
       {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id]]})
 
+    :msg/ax.connect-tab-result
+    (let [[send-response {:keys [ok? error]}] args
+          response (cond-> {:success (boolean ok?)}
+                     error (assoc :error error))]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.check-status-result
+    (let [[send-response {:keys [ok? error status]}] args
+          response (cond-> {:success (boolean ok?)}
+                     error (assoc :error error)
+                     ok? (assoc :status status))]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.ensure-scittle-result
+    (let [[send-response {:keys [ok? error]}] args
+          response (cond-> {:success (boolean ok?)}
+                     error (assoc :error error))]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.evaluate-script-result
+    (let [[send-response {:keys [ok? error]}] args
+          response (cond-> {:success (boolean ok?)}
+                     error (assoc :error error))]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.e2e-find-tab-id-result
+    (let [[send-response {:keys [found-tab-id error]}] args
+          response (cond
+                     error {:success false :error error}
+                     found-tab-id {:success true :tabId found-tab-id}
+                     :else {:success false :error "No matching tab"})]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.e2e-get-storage-result
+    (let [[send-response {:keys [key value error]}] args
+          response (if error
+                     {:success false :error error}
+                     {:success true :key key :value value})]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
+    :msg/ax.e2e-set-storage-result
+    (let [[send-response {:keys [key value error]}] args
+          response (if error
+                     {:success false :error error}
+                     {:success true :key key :value value})]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+
     :msg/ax.inject-requires
     (let [[send-response tab-id requires] args
           files (when (seq requires)
@@ -160,8 +208,31 @@
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.evaluate-script
-    (let [[send-response tab-id code requires script-id] args]
-      {:uf/fxs [[:msg/fx.evaluate-script send-response tab-id code requires script-id]]})
+    (let [[send-response tab-id code requires script-id] args
+          script (cond-> {:script/id script-id
+                          :script/name "popup-eval"
+                          :script/code code}
+                   requires (assoc :script/require requires))]
+      {:uf/fxs [[:msg/fx.evaluate-script send-response tab-id script]]})
+
+    :msg/ax.list-scripts-result
+    (let [[send-response {:keys [include-hidden? scripts]}] args
+          visible-scripts (script-utils/filter-visible-scripts scripts include-hidden?)
+          public-scripts (mapv (fn [s]
+                                 {:fs/name (:script/name s)
+                                  :fs/enabled (:script/enabled s)
+                                  :fs/match (:script/match s)
+                                  :fs/modified (:script/modified s)})
+                               visible-scripts)]
+      {:uf/fxs [[:msg/fx.send-response send-response {:success true
+                                                      :scripts public-scripts}]]})
+
+    :msg/ax.get-script-result
+    (let [[send-response {:keys [script-name script]}] args
+          response (if script
+                     {:success true :code (:script/code script)}
+                     {:success false :error (str "Script not found: " script-name)})]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
 
     :msg/ax.list-scripts
     (let [[send-response include-hidden?] args]
@@ -190,7 +261,10 @@
 
     :msg/ax.e2e-find-tab-id
     (let [[send-response url-pattern] args]
-      {:uf/fxs [[:msg/fx.e2e-find-tab-id send-response url-pattern]]})
+      (if url-pattern
+        {:uf/fxs [[:msg/fx.e2e-find-tab-id send-response url-pattern]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "Missing urlPattern"}]]}))
 
     :msg/ax.e2e-get-test-events
     (let [[send-response] args]
@@ -198,18 +272,44 @@
 
     :msg/ax.e2e-get-storage
     (let [[send-response key] args]
-      {:uf/fxs [[:msg/fx.e2e-get-storage send-response key]]})
+      (if key
+        {:uf/fxs [[:msg/fx.e2e-get-storage send-response key]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "Missing key"}]]}))
 
     :msg/ax.e2e-set-storage
     (let [[send-response key value] args]
-      {:uf/fxs [[:msg/fx.e2e-set-storage send-response key value]]})
+      (if key
+        {:uf/fxs [[:msg/fx.e2e-set-storage send-response key value]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "Missing key"}]]}))
 
     :msg/ax.pattern-approved
     (let [[script-id pattern] args]
-      {:uf/fxs [[:msg/fx.pattern-approved script-id pattern]]})
+      {:uf/await-fxs [[:msg/fx.clear-pending-approval script-id pattern]
+                      [:msg/fx.pattern-approved-data script-id]]})
+
+    :msg/ax.pattern-approved-result
+    (let [[{:keys [script active-tab-id]}] args]
+      (if (and script active-tab-id)
+        {:uf/fxs [[:msg/fx.execute-script-in-tab active-tab-id script]]}
+        {:uf/fxs []}))
+
+    :msg/ax.install-userscript-result
+    (let [[send-response {:keys [saved error]}] args
+          response (if error
+                     {:success false :error error}
+                     {:success true
+                      :scriptId (:script/id saved)
+                      :scriptName (:script/name saved)})]
+      {:uf/fxs [[:msg/fx.send-response send-response response]]})
 
     :msg/ax.install-userscript
-    (let [[send-response manifest script-url] args]
-      {:uf/fxs [[:msg/fx.install-userscript send-response manifest script-url]]})
+    (let [[send-response manifest script-url] args
+          install-opts {:script-name (:script-name manifest)
+                        :site-match (:site-match manifest)
+                        :script-url script-url
+                        :description (:description manifest)}]
+      {:uf/fxs [[:msg/fx.install-userscript send-response install-opts]]})
 
     :uf/unhandled-ax))
