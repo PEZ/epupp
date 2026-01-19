@@ -25,7 +25,7 @@ Actions are pure functions that take current state and return new state (plus op
 ```
 
 **Return values:**
-- **Map with keys** - `:uf/db` (new state), `:uf/fxs` (effects), `:uf/dxs` (follow-up actions)
+- **Map with keys** - `:uf/db` (new state), `:uf/fxs` (fire-and-forget effects), `:uf/await-fxs` (sequential async effects), `:uf/dxs` (follow-up actions)
 - **`nil`** - Explicit no-op ("I decided to do nothing"). The framework skips state/effect updates.
 - **`:uf/unhandled-ax`** - Delegate to generic handler
 
@@ -74,6 +74,36 @@ In Squint, effects often need async/await for Chrome APIs. Mark the effect handl
 ```
 
 The callback-based `dispatch` bridges async completion back to the action system.
+
+### Sequential Async Effects (`:uf/await-fxs`)
+
+When actions need to orchestrate multiple async effects that must complete in sequence, use `:uf/await-fxs`. Unlike `:uf/fxs` (fire-and-forget), these effects are awaited one at a time, and the sequence stops on first error.
+
+**Key differences:**
+- `:uf/fxs` - Effects execute immediately, no waiting (fire-and-forget)
+- `:uf/await-fxs` - Effects execute sequentially, each awaited before next
+
+**Use case:** Loading libraries before sending a response:
+
+```clojure
+:msg/ax.load-manifest
+(let [[send-response tab-id manifest] args
+      requires (when manifest (vec (aget manifest "require")))
+      files (when (seq requires)
+              (scittle-libs/collect-require-files [{:script/require requires}]))]
+  ;; Action DECIDES what to do
+  (if (seq files)
+    {:uf/await-fxs (conj (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files)
+                         [:msg/fx.send-response send-response {:success true}])}
+    {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
+```
+
+**Error handling:** The entire `:uf/await-fxs` sequence is wrapped in try/catch. If any effect throws, execution stops and the error propagates. Effects remain primitives - they don't make decisions about what to do on error.
+
+**When to use:**
+- Async operations that must complete before the next starts
+- Operations where order matters (inject dependencies before code)
+- Scenarios where you need guaranteed completion before response
 
 ### Dispatching
 
@@ -189,6 +219,7 @@ Return `:uf/unhandled-ax` or `:uf/unhandled-fx` to delegate to generic handlers 
 |----------|-----|
 | Pure state change | Action returning `:uf/db` |
 | Trigger side effect | Action returning `:uf/fxs` |
+| Sequential async effects | Action returning `:uf/await-fxs` |
 | Sync follow-up actions | Action returning `:uf/dxs` |
 | Conditional no-op | Action returning `nil` |
 | Async callback needs dispatch | Effect with `dispatch` parameter |

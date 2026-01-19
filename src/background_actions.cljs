@@ -3,7 +3,8 @@
             [background-actions.icon-actions :as icon-actions]
             [background-actions.history-actions :as history-actions]
             [background-actions.approval-actions :as approval-actions]
-            [background-actions.ws-actions :as ws-actions]))
+            [background-actions.ws-actions :as ws-actions]
+            [scittle-libs :as scittle-libs]))
 
 (defn- with-db
   "Ensure :uf/db contains full state by merging the updated slice."
@@ -148,8 +149,15 @@
       {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id]]})
 
     :msg/ax.inject-requires
-    (let [[send-response tab-id requires] args]
-      {:uf/fxs [[:msg/fx.inject-requires send-response tab-id requires]]})
+    (let [[send-response tab-id requires] args
+          files (when (seq requires)
+                  (scittle-libs/collect-require-files [{:script/require requires}]))]
+      (if (seq files)
+        {:uf/await-fxs (-> [[:msg/fx.inject-bridge tab-id]
+                            [:msg/fx.wait-bridge-ready tab-id]]
+                           (into (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files))
+                           (conj [:msg/fx.send-response send-response {:success true}]))}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.evaluate-script
     (let [[send-response tab-id code requires script-id] args]
@@ -164,8 +172,14 @@
       {:uf/fxs [[:msg/fx.get-script send-response script-name]]})
 
     :msg/ax.load-manifest
-    (let [[send-response tab-id manifest] args]
-      {:uf/fxs [[:msg/fx.load-manifest send-response tab-id manifest]]})
+    (let [[send-response tab-id manifest] args
+          requires (when manifest (vec (aget manifest "require")))
+          files (when (seq requires)
+                  (scittle-libs/collect-require-files [{:script/require requires}]))]
+      (if (seq files)
+        {:uf/await-fxs (conj (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files)
+                             [:msg/fx.send-response send-response {:success true}])}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.get-connections
     (let [[send-response] args]

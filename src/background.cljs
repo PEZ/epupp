@@ -159,20 +159,6 @@
            (catch :default err
              (send-response #js {:success false :error (.-message err)}))))))
 
-    :msg/fx.inject-requires
-    (let [[send-response tab-id requires] args]
-      ((^:async fn []
-         (try
-           (when (seq requires)
-             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
-               (when (seq files)
-                 (js-await (inject-content-script tab-id "content-bridge.js"))
-                 (js-await (wait-for-bridge-ready tab-id))
-                 (js-await (inject-requires-sequentially! tab-id files)))))
-           (send-response #js {:success true})
-           (catch :default err
-             (send-response #js {:success false :error (.-message err)}))))))
-
     :msg/fx.evaluate-script
     (let [[send-response tab-id code requires script-id] args]
       ((^:async fn []
@@ -198,27 +184,28 @@
                                visible-scripts)]
       (send-response (clj->js {:success true :scripts public-scripts})))
 
+    :msg/fx.inject-bridge
+    (let [[tab-id] args]
+      (inject-content-script tab-id "content-bridge.js"))
+
+    :msg/fx.wait-bridge-ready
+    (let [[tab-id] args]
+      (wait-for-bridge-ready tab-id))
+
+    :msg/fx.inject-require-file
+    (let [[tab-id file] args]
+      (inject-requires-sequentially! tab-id [file]))
+
+    :msg/fx.send-response
+    (let [[send-response response-data] args]
+      (send-response (clj->js response-data)))
+
     :msg/fx.get-script
     (let [[send-response script-name] args
           script (storage/get-script-by-name script-name)]
       (if script
         (send-response #js {:success true :code (:script/code script)})
         (send-response #js {:success false :error (str "Script not found: " script-name)})))
-
-    :msg/fx.load-manifest
-    (let [[send-response tab-id manifest] args
-          requires (when manifest
-                     (vec (aget manifest "require")))]
-      ((^:async fn []
-         (try
-           (when (seq requires)
-             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
-               (when (seq files)
-                 (js-await (inject-requires-sequentially! tab-id files)))))
-           (send-response #js {:success true})
-           (catch :default err
-             (log/error "Background" "Manifest" "load-manifest failed:" err)
-             (send-response #js {:success false :error (.-message err)}))))))
 
     :msg/fx.get-connections
     (let [[send-response] args
