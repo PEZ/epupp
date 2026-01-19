@@ -11,6 +11,7 @@
             [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
             [log :as log]
+            [event-handler :as event-handler]
             [background-actions :as bg-actions]
             [bg-fs-dispatch :as fs-dispatch]))
 
@@ -66,7 +67,10 @@
 
 ;; Note: Use def (not defonce) for state that should reset on script wake.
 ;; WebSocket connections don't survive script termination anyway.
-(declare update-icon-for-tab!)
+(declare update-icon-for-tab!
+         update-icon-now!
+         update-badge-for-tab!
+         update-badge-for-active-tab!)
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
@@ -94,21 +98,37 @@
        (when js/chrome.runtime.lastError nil)))))
 
 
-(defn- dispatch-ws-action!
-  "Dispatch WebSocket actions through pure handler and apply effects."
-  [action]
-  (let [state {:ws/connections (:ws/connections @!state)}
-        uf-data {:system/now (.now js/Date)}
-        result (bg-actions/handle-action state uf-data action)
-        {:uf/keys [db fxs]} result]
-    (when db
-      (swap! !state assoc :ws/connections (:ws/connections db)))
-    (doseq [fx fxs]
-      (case (first fx)
-        :ws/fx.broadcast-connections-changed!
-        (broadcast-connections-changed!)
+(defn ^:async perform-effect! [_dispatch [effect & args]]
+  (case effect
+    :ws/fx.broadcast-connections-changed!
+    (broadcast-connections-changed!)
 
-        (log/warn "Background" nil "Unknown ws effect:" (first fx))))))
+    :icon/fx.update-toolbar!
+    (let [[tab-id] args]
+      (js-await (update-icon-now! tab-id)))
+
+    :approval/fx.update-badge-for-tab!
+    (let [[tab-id] args]
+      (update-badge-for-tab! tab-id))
+
+    :approval/fx.update-badge-active!
+    (js-await (update-badge-for-active-tab!))
+
+    :approval/fx.log-pending!
+    (let [[{:keys [script-name pattern]}] args]
+      (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
+
+    :uf/unhandled-fx))
+
+(defn dispatch!
+  "Dispatch background actions through Uniflow."
+  [actions]
+  (event-handler/dispatch! !state bg-actions/handle-action perform-effect! actions))
+
+(defn- dispatch-ws-action!
+  "Dispatch WebSocket actions through Uniflow."
+  [action]
+  (dispatch! [action]))
 
 
 
@@ -160,33 +180,14 @@
      #js {:path (get-icon-paths display-state)})))
 
 (defn- ^:async dispatch-icon-action!
-  "Dispatch icon actions through pure handler, then apply effects."
+  "Dispatch icon actions through Uniflow."
   [action]
-  (let [state {:icon/states (:icon/states @!state)}
-        uf-data {:system/now (.now js/Date)}
-        result (bg-actions/handle-action state uf-data action)
-        {:uf/keys [db fxs]} result]
-    (when db
-      (swap! !state assoc :icon/states (:icon/states db)))
-    (doseq [fx fxs]
-      (case (first fx)
-        :icon/fx.update-toolbar!
-        (let [[tab-id] (rest fx)]
-          (js-await (update-icon-now! tab-id)))
-
-        (log/warn "Background" nil "Unknown icon effect:" (first fx))))))
+  (dispatch! [action]))
 
 (defn- dispatch-history-action!
-  "Dispatch connection history actions through pure handler."
+  "Dispatch connection history actions through Uniflow."
   [action]
-  (let [state {:connected-tabs/history (:connected-tabs/history @!state)}
-        uf-data {:system/now (.now js/Date)}
-        result (bg-actions/handle-action state uf-data action)
-        {:uf/keys [db fxs]} result]
-    (when db
-      (swap! !state assoc :connected-tabs/history (:connected-tabs/history db)))
-    (doseq [fx fxs]
-      (log/warn "Background" nil "Unknown history effect:" (first fx)))))
+  (dispatch! [action]))
 
 (defn ^:async update-icon-for-tab!
   "Update icon state for a specific tab, then update the toolbar icon.
@@ -328,28 +329,9 @@
       (update-badge-for-tab! tab-id))))
 
 (defn- ^:async dispatch-approval-action!
-  "Dispatch approval actions through pure handler, then apply effects."
+  "Dispatch approval actions through Uniflow."
   [action]
-  (let [state {:pending/approvals (:pending/approvals @!state)}
-        uf-data {:system/now (.now js/Date)}
-        result (bg-actions/handle-action state uf-data action)
-        {:uf/keys [db fxs]} result]
-    (when db
-      (swap! !state assoc :pending/approvals (:pending/approvals db)))
-    (doseq [fx fxs]
-      (case (first fx)
-        :approval/fx.update-badge-for-tab!
-        (let [[tab-id] (rest fx)]
-          (update-badge-for-tab! tab-id))
-
-        :approval/fx.update-badge-active!
-        (js-await (update-badge-for-active-tab!))
-
-        :approval/fx.log-pending!
-        (let [[{:keys [script-name pattern]}] (rest fx)]
-          (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
-
-        (log/warn "Background" nil "Unknown approval effect:" (first fx))))))
+  (dispatch! [action]))
 
 (defn ^:async clear-pending-approval!
   "Remove a specific script/pattern from pending approvals and update badge."
