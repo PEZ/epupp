@@ -51,7 +51,7 @@
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
   <use-edit-tools>
-    YOU should avoid write-capable shell commands like `sed` at all costs. You have perfect tools for editing ansd searching code, files and structures. Use them. And tell the edit subegent about this non-shell approach.
+    YOU should avoid write-capable shell commands like `sed` at all costs. You have perfect tools for editing ansd searching code, files and structures. Use them. And tell the clojure-editor subagent about this non-shell approach.
   </use-edit-tools>
 
   <bb-tasks>
@@ -128,7 +128,7 @@ There are currently three subagents:
 
 * commit: Give the commit subagent a summary of the task (the bigger picture) that has been carried out
 * research: Give the research subagent context of what you are working with and need to know and instruct it how you want it to structure its report.
-* edit: Give the edit subagent a complete task with files, linenumbers, code and what to do with it. It should be very much the same as you would have given to the edit tools if you used them yourself.
+* edit: Give the clojure-editor subagent a complete task with files, linenumbers, code and what to do with it. It should be very much the same as you would have given to the edit tools if you used them yourself.
 
 ## Source Code: Squint ClojureScript
 
@@ -250,5 +250,5 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
 The following subagents are available to you:
 
 - `research` subagent, for gathering information, from the codebase as well as external sources.
-- `edit` subagent, editing can be finicky and waste context, let the edit subagent handle the details.
+- `edit` subagent, editing can be finicky and waste context, let the clojure-editor subagent handle the details.
 - `commit` subagent, for an expert git agent. Give it good and succinct context of the work to be committed.

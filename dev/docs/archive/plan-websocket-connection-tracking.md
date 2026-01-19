@@ -50,7 +50,7 @@ New message types:
 
 **ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
 
-**ALWAYS use the `edit` subagent for file modifications.** The edit subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+**ALWAYS use the `edit` subagent for file modifications.** The clojure-editor subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
 
 - `bb test` - Compile and run unit tests
 - `bb test:e2e` - Compile and run E2E tests (Docker)
