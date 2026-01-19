@@ -63,48 +63,61 @@ Still tangled in `background.cljs`:
 
 Split into focused modules with clear dependency ordering:
 
-```
-                           ┌─────────────────┐
-                           │  background.cljs │ (thin orchestrator)
-                           └────────┬────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-        ▼                           ▼                           ▼
-┌───────────────┐          ┌───────────────┐          ┌───────────────┐
-│ bg-init.cljs  │          │ bg-message.cljs│          │ bg-listeners.cljs│
-│ - init promise │          │ - message router│         │ - Chrome listeners│
-│ - ensure-init  │          │ - onMessage     │          │ - tabs/nav/storage│
-└───────┬───────┘          └───────┬───────┘          └───────────────┘
-        │                           │
-        │                           │ uses
-        │                           ▼
-        │                  ┌───────────────┐
-        │                  │ bg-effects.cljs│
-        │                  │ - perform-effect!│
-        │                  └───────┬───────┘
-        │                           │ uses
-        ▼                           ▼
-┌───────────────┐          ┌───────────────┐
-│ bg-ws.cljs    │          │ bg-inject.cljs │
-│ - ws connect  │          │ - ensure-scittle│
-│ - ws send/close│         │ - inject-content│
-│ - ws handlers │          │ - execute-scripts│
-└───────────────┘          └───────────────┘
-        │                           │
-        │           ┌───────────────┘
-        │           │
-        ▼           ▼
-┌───────────────┐   │
-│ bg-icon.cljs  │◄──┘
-│ - update-icon │
-│ - badge mgmt  │
-└───────────────┘
-        │
-        ▼
-┌─────────────────┐
-│background-utils │ (already exists - pure functions)
-└─────────────────┘
+```mermaid
+flowchart TB
+    subgraph Orchestrator
+        BG[background.cljs<br/>thin orchestrator]
+    end
+
+    subgraph "Top Layer - Entry Points"
+        INIT[bg-init.cljs<br/>- init promise<br/>- ensure-init]
+        MSG[bg-message.cljs<br/>- message router<br/>- onMessage]
+        LISTEN[bg-listeners.cljs<br/>- Chrome listeners<br/>- tabs/nav/storage]
+    end
+
+    subgraph "Middle Layer - Effects & Domain"
+        FX[bg-effects.cljs<br/>- perform-effect!]
+        NAV[bg-navigation.cljs<br/>- handle-navigation<br/>- process-navigation]
+        APPROVAL[bg-approval.cljs<br/>- request-approval<br/>- sync-pending]
+        USERSCRIPT[bg-userscript.cljs<br/>- install-userscript]
+    end
+
+    subgraph "Infrastructure Layer"
+        WS[bg-ws.cljs<br/>- ws connect<br/>- ws send/close<br/>- ws handlers]
+        INJECT[bg-inject.cljs<br/>- ensure-scittle<br/>- inject-content<br/>- execute-scripts]
+    end
+
+    subgraph "Foundation Layer"
+        ICON[bg-icon.cljs<br/>- update-icon<br/>- badge mgmt]
+    end
+
+    subgraph "Pure Functions"
+        UTILS[background-utils.cljs<br/>already exists]
+    end
+
+    BG --> INIT
+    BG --> MSG
+    BG --> LISTEN
+
+    INIT --> FX
+    MSG --> FX
+    MSG --> NAV
+    MSG --> APPROVAL
+    MSG --> USERSCRIPT
+    LISTEN --> NAV
+    LISTEN --> WS
+
+    FX --> WS
+    FX --> INJECT
+    FX --> ICON
+    NAV --> INJECT
+    NAV --> APPROVAL
+    APPROVAL --> ICON
+
+    WS --> ICON
+    INJECT --> ICON
+
+    ICON --> UTILS
 ```
 
 ### Dependency Rules (No Cycles)
@@ -137,8 +150,8 @@ bb test:e2e      # E2E tests must still pass
 ## Phased Execution Plan
 
 ### Phase 0: Baseline Verification
-- [ ] Run `bb test` - document passing count
-- [ ] Run `bb test:e2e` - document passing count
+- [x] Run `bb test` - **349 tests passing**
+- [x] Run `bb test:e2e` - **85 tests passing (20 files, 6 shards)**
 - [ ] Commit current state with message: "chore: baseline before background.cljs decomposition"
 
 ### Phase 1: Extract Icon Management (`bg-icon.cljs`)
