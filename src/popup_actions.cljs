@@ -190,4 +190,23 @@
     :popup/ax.clear-modified-scripts
     {:uf/db (assoc state :ui/recently-modified-scripts #{})}
 
+    ;; FS sync event actions
+    :popup/ax.show-fs-event
+    (let [[event-type message bulk-info] args
+          {:keys [bulk-op? bulk-final? bulk-names]} bulk-info]
+      {:uf/db (assoc state :ui/fs-event {:type event-type :message message})
+       :uf/fxs [[:popup/fx.log-fs-banner message bulk-op? bulk-final? bulk-names]
+                [:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 3000]]})
+
+    :popup/ax.clear-fs-event
+    {:uf/db (assoc state :ui/fs-event nil)}
+
+    :popup/ax.track-bulk-name
+    (let [[bulk-id script-name] args]
+      {:uf/db (update-in state [:ui/fs-bulk-names bulk-id] (fnil conj []) script-name)})
+
+    :popup/ax.clear-bulk-names
+    (let [[bulk-id] args]
+      {:uf/db (update state :ui/fs-bulk-names dissoc bulk-id)})
+
     :uf/unhandled-ax))

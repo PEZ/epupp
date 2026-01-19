@@ -89,3 +89,25 @@
 - Namespace collision handling
 
 **Why not macros:** Attempted using Squint `defmacro` to stringify Clojure forms at compile time, but Squint macros don't receive forms as data in the REPL context (form argument comes in as `nil`). This approach won't work for this use case.
+
+---
+
+## Log Module Needs Console Targeting
+
+**Status:** Future enhancement
+
+**Current state:** The `log` module provides consistent prefixed logging (`[Epupp:Module:Context]`) but all logs go to the extension's console (popup, panel, or background worker depending on where the code runs). Some logs, like FS sync notifications, need to appear in the page console so users see them without inspecting extension pages.
+
+**Workaround:** FS logging currently uses `js/console.info` directly with manual prefix formatting. See TODO comments in:
+- `src/popup.cljs` - `:popup/fx.log-fs-banner` effect
+- `src/panel.cljs` - fs-event listener
+
+**Desired state:** Upgrade the log module to support targeting:
+- Extension console (current behavior)
+- Page console (via content script messaging or `chrome.devtools.inspectedWindow.eval`)
+- Both
+
+**Design considerations:**
+- API: `(log/info "Module" "Context" :target :page "message")` or separate functions?
+- Page console requires routing through content bridge
+- May need different approaches for popup/panel vs background worker

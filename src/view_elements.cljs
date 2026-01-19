@@ -9,10 +9,11 @@
    - :elements/header-class: CSS class for the header div
    - :elements/icon: hiccup for the icon (default: icon-32.png image)
    - :elements/status: optional status text (panel shows 'Ready')
-   - :elements/banner: optional banner element to show above header"
-  [{:elements/keys [wrapper-class header-class icon status banner]}]
+   - :elements/permanent-banner: optional banner element to show above header (e.g., extension update)
+   - :elements/temporary-banner: optional banner element to show below header (e.g., FS sync feedback)"
+  [{:elements/keys [wrapper-class header-class icon status permanent-banner temporary-banner]}]
   [:div {:class (str "app-header-wrapper " wrapper-class)}
-   (when banner banner)
+   (when permanent-banner permanent-banner)
    [:div {:class (str "app-header " header-class)}
     [:div.app-header-title
      (or icon [:img {:src "icons/icon-32.png" :alt ""}])
@@ -20,7 +21,8 @@
       "Epupp"
       [:span.tagline "Live Tamper your Web"]]]
     (when status
-      [:div.app-header-status status])]])
+      [:div.app-header-status status])]
+   (when temporary-banner temporary-banner)])
 
 (defn app-footer
   "Common footer component for both popup and panel.

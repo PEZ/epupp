@@ -639,9 +639,8 @@
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/status "Ready"
-    :elements/banner (cond
-                       needs-refresh? [refresh-banner]
-                       fs-event [fs-event-banner fs-event])}])
+    :elements/permanent-banner (when needs-refresh? [refresh-banner])
+    :elements/temporary-banner (when fs-event [fs-event-banner fs-event])}])
 
 (defn panel-footer []
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
@@ -792,10 +791,11 @@
        ;; Show banner for all fs-events
        (when show-banner?
          (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+         ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
          (let [bulk-names (when bulk-id (get-in @!state [:panel/fs-bulk-names bulk-id]))]
            (if (and bulk-op? bulk-final? (seq bulk-names))
-             (js/console.log "FS banner:" banner-msg (clj->js {:files bulk-names}))
-             (js/console.log "FS banner:" banner-msg)))
+             (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
+             (js/console.info "[Epupp:FS]" banner-msg)))
          ;; Auto-dismiss after 3 seconds
          (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000))
        (when (and bulk-id bulk-final?)

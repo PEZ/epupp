@@ -436,6 +436,13 @@
       (js/chrome.runtime.sendMessage
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
 
+    :popup/fx.log-fs-banner
+    ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
+    (let [[message bulk-op? bulk-final? bulk-names] args]
+      (if (and bulk-op? bulk-final? (seq bulk-names))
+        (js/console.info "[Epupp:FS]" message (clj->js {:files bulk-names}))
+        (js/console.info "[Epupp:FS]" message)))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -874,8 +881,8 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/jack-in {:size 28}]
-       :elements/banner (when-let [fs-event (:ui/fs-event state)]
-                          [fs-event-banner fs-event])}]
+       :elements/temporary-banner (when-let [fs-event (:ui/fs-event state)]
+                                    [fs-event-banner fs-event])}]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
@@ -958,22 +965,20 @@
                           :else
                           (str "Script \"" script-name "\" " operation "d via REPL"))]
          (when bulk-id
-           (swap! !state update-in [:ui/fs-bulk-names bulk-id] (fnil conj []) script-name))
+           (dispatch! [[:popup/ax.track-bulk-name bulk-id script-name]]))
          (when (and (= event-type "error")
                     (= operation "save")
                     script-name
                     (not bulk-id))
            (dispatch! [[:popup/ax.mark-scripts-modified [script-name]]]))
          (when show-banner?
-           (swap! !state assoc :ui/fs-event {:type event-type :message banner-msg})
            (let [bulk-names (when bulk-id (get-in @!state [:ui/fs-bulk-names bulk-id]))]
-             (if (and bulk-op? bulk-final? (seq bulk-names))
-               (js/console.log "FS banner:" banner-msg (clj->js {:files bulk-names}))
-               (js/console.log "FS banner:" banner-msg)))
-           ;; Auto-dismiss after 3 seconds
-           (js/setTimeout #(swap! !state assoc :ui/fs-event nil) 3000))
+             (dispatch! [[:popup/ax.show-fs-event event-type banner-msg
+                          {:bulk-op? bulk-op?
+                           :bulk-final? bulk-final?
+                           :bulk-names bulk-names}]])))
          (when (and bulk-id bulk-final?)
-           (swap! !state update :ui/fs-bulk-names dissoc bulk-id))))
+           (dispatch! [[:popup/ax.clear-bulk-names bulk-id]]))))
      ;; Return false - we don't send async response
      false))
 
