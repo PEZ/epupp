@@ -70,7 +70,15 @@
 (declare update-icon-for-tab!
          update-icon-now!
          update-badge-for-tab!
-         update-badge-for-active-tab!)
+         update-badge-for-active-tab!
+         connect-tab!
+         ensure-scittle!
+         execute-in-page
+         check-status-fn
+         inject-content-script
+         wait-for-bridge-ready
+         inject-requires-sequentially!
+         execute-scripts!)
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
@@ -117,6 +125,60 @@
     :approval/fx.log-pending!
     (let [[{:keys [script-name pattern]}] args]
       (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
+
+    :msg/fx.connect-tab
+    (let [[send-response tab-id ws-port] args]
+      ((^:async fn []
+         (try
+           (js-await (connect-tab! tab-id ws-port))
+           (send-response #js {:success true})
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.check-status
+    (let [[send-response tab-id] args]
+      ((^:async fn []
+         (try
+           (let [status (js-await (execute-in-page tab-id check-status-fn))]
+             (send-response #js {:success true :status status}))
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.ensure-scittle
+    (let [[send-response tab-id] args]
+      ((^:async fn []
+         (try
+           (js-await (ensure-scittle! tab-id))
+           (send-response #js {:success true})
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.inject-requires
+    (let [[send-response tab-id requires] args]
+      ((^:async fn []
+         (try
+           (when (seq requires)
+             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
+               (when (seq files)
+                 (js-await (inject-content-script tab-id "content-bridge.js"))
+                 (js-await (wait-for-bridge-ready tab-id))
+                 (js-await (inject-requires-sequentially! tab-id files)))))
+           (send-response #js {:success true})
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
+
+    :msg/fx.evaluate-script
+    (let [[send-response tab-id code requires script-id] args]
+      ((^:async fn []
+         (try
+           (js-await (ensure-scittle! tab-id))
+           (js-await (execute-scripts! tab-id [(cond-> {:script/id script-id
+                                                       :script/name "popup-eval"
+                                                       :script/code code}
+                                                requires (assoc :script/require requires))]))
+           (send-response #js {:success true})
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
 
     :uf/unhandled-fx))
 
@@ -1105,22 +1167,12 @@
                     "connect-tab"
                     (let [target-tab-id (.-tabId message)
                           ws-port (.-wsPort message)]
-                      ((^:async fn []
-                         (try
-                           (js-await (connect-tab! target-tab-id ws-port))
-                           (send-response #js {:success true})
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.connect-tab send-response target-tab-id ws-port]])
                       true)
 
                     "check-status"
                     (let [target-tab-id (.-tabId message)]
-                      ((^:async fn []
-                         (try
-                           (let [status (js-await (execute-in-page target-tab-id check-status-fn))]
-                             (send-response #js {:success true :status status}))
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.check-status send-response target-tab-id]])
                       true)
 
                     "disconnect-tab"
@@ -1225,12 +1277,7 @@
                     ;; Panel messages - ensure Scittle is loaded
                     "ensure-scittle"
                     (let [target-tab-id (.-tabId message)]
-                      ((^:async fn []
-                         (try
-                           (js-await (ensure-scittle! target-tab-id))
-                           (send-response #js {:success true})
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
                       true)  ; Return true to indicate async response
 
                     ;; Panel - inject required libraries before evaluation
@@ -1238,17 +1285,7 @@
                     (let [target-tab-id (.-tabId message)
                           requires (when (.-requires message)
                                      (vec (.-requires message)))]
-                      ((^:async fn []
-                         (try
-                           (when (seq requires)
-                             (let [files (scittle-libs/collect-require-files [{:script/require requires}])]
-                               (when (seq files)
-                                 (js-await (inject-content-script target-tab-id "content-bridge.js"))
-                                 (js-await (wait-for-bridge-ready target-tab-id))
-                                 (js-await (inject-requires-sequentially! target-tab-id files)))))
-                           (send-response #js {:success true})
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.inject-requires send-response target-tab-id requires]])
                       true)
 
                     ;; Popup/Panel - evaluate a userscript in current tab
@@ -1257,16 +1294,7 @@
                           code (.-code message)
                           requires (when (.-require message)
                                      (vec (.-require message)))]
-                      ((^:async fn []
-                         (try
-                           (js-await (ensure-scittle! target-tab-id))
-                           (js-await (execute-scripts! target-tab-id [(cond-> {:script/id (.-scriptId message)
-                                                                               :script/name "popup-eval"
-                                                                               :script/code code}
-                                                                        requires (assoc :script/require requires))]))
-                           (send-response #js {:success true})
-                           (catch :default err
-                             (send-response #js {:success false :error (.-message err)})))))
+                      (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code requires (.-scriptId message)]])
                       true)  ; Return true to indicate async response
 
                     ;; Unknown

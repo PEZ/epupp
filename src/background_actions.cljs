@@ -135,4 +135,24 @@
           :ws/tab-id tab-id})
         :ws/connections))
 
+    :msg/ax.connect-tab
+    (let [[send-response tab-id ws-port] args]
+      {:uf/fxs [[:msg/fx.connect-tab send-response tab-id ws-port]]})
+
+    :msg/ax.check-status
+    (let [[send-response tab-id] args]
+      {:uf/fxs [[:msg/fx.check-status send-response tab-id]]})
+
+    :msg/ax.ensure-scittle
+    (let [[send-response tab-id] args]
+      {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id]]})
+
+    :msg/ax.inject-requires
+    (let [[send-response tab-id requires] args]
+      {:uf/fxs [[:msg/fx.inject-requires send-response tab-id requires]]})
+
+    :msg/ax.evaluate-script
+    (let [[send-response tab-id code requires script-id] args]
+      {:uf/fxs [[:msg/fx.evaluate-script send-response tab-id code requires script-id]]})
+
     :uf/unhandled-ax))
