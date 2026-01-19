@@ -966,8 +966,12 @@
                     (do
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
-                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
-                               (let [code (.-code message)
+                           (do
+                             (broadcast-fs-event! {:event-type "error"
+                                                   :operation "save"
+                                                   :error "FS REPL Sync is disabled in settings"})
+                             (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+                           (let [code (.-code message)
                                  enabled (if (some? (.-enabled message)) (.-enabled message) true)
                                  force? (.-force message)
                                  bulk-id (.-bulkId message)
@@ -1035,7 +1039,11 @@
                     (do
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
-                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
+                           (do
+                             (broadcast-fs-event! {:event-type "error"
+                                                   :operation "rename"
+                                                   :error "FS REPL Sync is disabled in settings"})
+                             (send-response #js {:success false :error "FS REPL Sync is disabled"}))
                            (let [from-name (.-from message)
                                  to-name (.-to message)]
                              (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])))))
@@ -1046,7 +1054,11 @@
                     (do
                       ((^:async fn []
                          (if-not (js-await (fs-repl-sync-enabled?))
-                           (send-response #js {:success false :error "FS REPL Sync is disabled"})
+                           (do
+                             (broadcast-fs-event! {:event-type "error"
+                                                   :operation "delete"
+                                                   :error "FS REPL Sync is disabled in settings"})
+                             (send-response #js {:success false :error "FS REPL Sync is disabled"}))
                            (let [script-name (.-name message)
                                  bulk-id (.-bulkId message)
                                  bulk-index (.-bulkIndex message)
