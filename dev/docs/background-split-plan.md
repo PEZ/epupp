@@ -147,12 +147,16 @@ bb test:e2e      # E2E tests must still pass
 
 **If tests fail**: Stop, diagnose, fix before proceeding.
 
+## Delegation protocol
+
+Delegate all edits to the clojure-editor subagent.
+
 ## Phased Execution Plan
 
 ### Phase 0: Baseline Verification
 - [x] Run `bb test` - **349 tests passing**
 - [x] Run `bb test:e2e` - **85 tests passing (20 files, 6 shards)**
-- [ ] Commit current state with message: "chore: baseline before background.cljs decomposition"
+- [x] Commit current state with message: "chore: baseline before background.cljs decomposition"
 
 ### Phase 1: Extract Icon Management (`bg-icon.cljs`)
 
@@ -178,6 +182,7 @@ bb test:e2e      # E2E tests must still pass
 1. Create `bg-icon.cljs` with icon functions
 2. Module receives `!state` atom reference (dependency injection)
 3. Update `background.cljs` to require and delegate
+4. Read this plan again
 
 **Declares eliminated**: `update-icon-for-tab!`, `update-icon-now!`, `update-badge-for-tab!`, `update-badge-for-active-tab!`, `prune-icon-states!`
 
