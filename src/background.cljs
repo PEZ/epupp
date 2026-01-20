@@ -19,11 +19,6 @@
 
 (def ^:private config js/EXTENSION_CONFIG)
 
-(log/info "Background" nil "Service worker started")
-
-;; Install global error handlers early so we catch all errors in test mode
-(test-logger/install-global-error-handlers! "background" js/self)
-
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
 ;; ============================================================
@@ -65,9 +60,6 @@
 
 ;; Note: Use def (not defonce) for state that should reset on script wake.
 ;; WebSocket connections don't survive script termination anyway.
-;; dispatch! is declared because it's passed as a parameter to helper functions
-;; defined before its implementation.
-(declare dispatch!)
 
 (def !state (atom {:ws/connections {}
                    :pending/approvals {}
@@ -255,7 +247,7 @@
   "End-to-end connect flow for a specific tab.
    Ensures bridge + Scittle + scittle.nrepl and waits for connection.
    Also injects the Epupp API for manifest! support."
-  [tab-id ws-port]
+  [dispatch! tab-id ws-port]
   (when-not (and tab-id ws-port)
     (throw (js/Error. "connect-tab: Missing tab-id or ws-port")))
   (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
@@ -379,194 +371,10 @@
                    (seq description) (assoc :script/description description))]
       (storage/save-script! script))))
 
-;; ============================================================
-;; Uniflow Dispatch - placed here after all helpers
-;; ============================================================
-
-(defn ^:async perform-effect! [dispatch [effect & args]]
-  (case effect
-    :ws/fx.broadcast-connections-changed!
-    (bg-ws/broadcast-connections-changed! (:ws/connections @!state))
-
-    :icon/fx.update-toolbar!
-    (let [[tab-id] args]
-      (js-await (bg-icon/update-icon-now! !state tab-id)))
-
-    :approval/fx.update-badge-for-tab!
-    (let [[tab-id] args]
-      (bg-icon/update-badge-for-tab! tab-id))
-
-    :approval/fx.update-badge-active!
-    (js-await (bg-icon/update-badge-for-active-tab!))
-
-    :approval/fx.log-pending!
-    (let [[{:keys [script-name pattern]}] args]
-      (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
-
-    :repl/fx.connect-tab
-    (let [[tab-id ws-port] args]
-      (try
-        (js-await (connect-tab! tab-id ws-port))
-        {:success true}
-        (catch :default err
-          {:success false :error (.-message err)})))
-
-    :page/fx.check-status
-    (let [[tab-id] args]
-      (try
-        (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
-          {:success true :status status})
-        (catch :default err
-          {:success false :error (.-message err)})))
-
-    :msg/fx.ensure-scittle
-    (let [[send-response tab-id] args]
-      ((^:async fn []
-         (try
-           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-           (dispatch [[:msg/ax.ensure-scittle-result send-response {:ok? true}]])
-           (catch :default err
-             (dispatch [[:msg/ax.ensure-scittle-result send-response {:ok? false
-                                                                      :error (.-message err)}]]))))))
-
-    :script/fx.evaluate
-    (let [[tab-id script] args]
-      (try
-        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-        (js-await (bg-inject/execute-scripts! tab-id [script]))
-        {:success true}
-        (catch :default err
-          {:success false :error (.-message err)})))
-
-    :msg/fx.list-scripts
-    (let [[send-response include-hidden?] args
-          scripts (storage/get-scripts)]
-      (dispatch [[:msg/ax.list-scripts-result send-response {:include-hidden? include-hidden?
-                                                            :scripts scripts}]]))
-
-    :msg/fx.inject-bridge
-    (let [[tab-id] args]
-      (bg-inject/inject-content-script tab-id "content-bridge.js"))
-
-    :msg/fx.wait-bridge-ready
-    (let [[tab-id] args]
-      (bg-inject/wait-for-bridge-ready tab-id))
-
-    :msg/fx.inject-require-file
-    (let [[tab-id file] args]
-      (bg-inject/inject-requires-sequentially! tab-id [file]))
-
-    :msg/fx.send-response
-    (let [[send-response response-data] args]
-      (send-response (clj->js response-data)))
-
-    :msg/fx.get-script
-    (let [[send-response script-name] args
-          script (storage/get-script-by-name script-name)]
-      (dispatch [[:msg/ax.get-script-result send-response {:script-name script-name
-                                                          :script script}]]))
-
-    :msg/fx.get-connections
-    (let [[send-response] args
-          connections (:ws/connections @!state)
-          display-list (bg-utils/connections->display-list connections)]
-      (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
-                              {:raw-connection-count (count (keys connections))
-                               :display-list-count (count display-list)
-                               :connections-keys (vec (keys connections))})
-      (send-response (clj->js {:success true
-                               :connections display-list})))
-
-    :msg/fx.refresh-approvals
-    ((^:async fn []
-       (js-await (storage/load!))
-       (let [scripts-by-id (->> (storage/get-scripts)
-                                (map (fn [script] [(:script/id script) script]))
-                                (into {}))]
-         (dispatch [[:approval/ax.sync scripts-by-id]]))))
-
-    :tabs/fx.find-by-url-pattern
-    (let [[url-pattern] args]
-      (try
-        (let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
-          (if found-tab-id
-            {:success true :tabId found-tab-id}
-            {:success false :error "No tab found"}))
-        (catch :default err
-          {:success false :error (.-message err)})))
-
-    :msg/fx.e2e-get-test-events
-    (let [[send-response] args]
-      ((^:async fn []
-         (let [events (js-await (test-logger/get-test-events))]
-           (send-response #js {:success true :events events})))))
-
-    :storage/fx.get-local-storage
-    (let [[key] args]
-      (try
-        (let [result (js-await (js/chrome.storage.local.get #js [key]))]
-          {:success true :key key :value (aget result key)})
-        (catch :default err
-          {:success false :key key :error (.-message err)})))
-
-    :storage/fx.set-local-storage
-    (let [[key value] args]
-      (try
-        (js-await (js/Promise.
-                   (fn [resolve]
-                     (js/chrome.storage.local.set
-                      (js-obj key value)
-                      resolve))))
-        {:success true :key key :value value}
-        (catch :default err
-          {:success false :error (.-message err)})))
-
-    :msg/fx.clear-pending-approval
-    (let [[script-id pattern] args]
-      (dispatch [[:approval/ax.clear script-id pattern]]))
-
-    :msg/fx.get-pattern-approved-data
-    ;; Returns data directly - no dispatch needed with result threading
-    (let [[script-id] args
-          script (storage/get-script script-id)]
-      ((^:async fn []
-         (let [active-tab-id (js-await (bg-icon/get-active-tab-id))]
-           {:script script :tab-id active-tab-id}))))
-
-    :msg/fx.execute-approved-script
-    ;; Receives {:script ... :tab-id ...} from previous effect via :uf/prev-result
-    (let [[{:keys [script tab-id]}] args]
-      (when (and script tab-id)
-        ((^:async fn []
-           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-           (js-await (bg-inject/execute-scripts! tab-id [script]))))))
-
-    :msg/fx.execute-script-in-tab
-    (let [[tab-id script] args]
-      ((^:async fn []
-         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-         (js-await (bg-inject/execute-scripts! tab-id [script])))))
-
-    :userscript/fx.install
-    (let [[install-opts] args]
-      (try
-        (let [saved (js-await (install-userscript! install-opts))]
-          {:success true :saved saved})
-        (catch :default err
-          (log/error "Background" "Install" "Install failed:" err)
-          {:success false :error (.-message err)})))
-
-    :uf/unhandled-fx))
-
-(defn dispatch!
-  "Dispatch background actions through Uniflow."
-  [actions]
-  (event-handler/dispatch! !state bg-actions/handle-action perform-effect! actions))
-
 (defn ^:async request-approval!
   "Add script to pending approvals (for popup display) and update badge.
    Uses script-id + pattern as key to prevent duplicates on page reload."
-  [script pattern tab-id _url]
+  [dispatch! script pattern tab-id _url]
   (dispatch! [[:approval/ax.request script pattern tab-id]]))
 
 (defn ^:async process-navigation!
@@ -574,7 +382,7 @@
    Find matching scripts, check approvals, execute or prompt.
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs)."
-  [tab-id url]
+  [dispatch! tab-id url]
   (let [all-scripts (url-matching/get-matching-scripts url)
         ;; Filter to only document-idle scripts (default for scripts without run-at)
         ;; Early-timing scripts (document-start, document-end) are handled by
@@ -616,7 +424,7 @@
               (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))
         (doseq [{:keys [script pattern]} unapproved]
           (log/info "Background" "Approval" "Requesting approval for" (:script/name script))
-          (request-approval! script pattern tab-id url))))))
+          (request-approval! dispatch! script pattern tab-id url))))))
 
 (defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
@@ -628,7 +436,7 @@
    3. Otherwise, no automatic REPL connection
 
    Then processes userscripts as usual."
-  [tab-id url]
+  [dispatch! tab-id url]
   (try
     ;; Log test event for E2E debugging
     (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
@@ -650,7 +458,7 @@
           (log/info "Background" "AutoConnect" "REPL auto-connect-all enabled, connecting to tab:" tab-id)
           (let [ws-port (js-await (get-saved-ws-port tab-id))]
             (try
-              (js-await (connect-tab! tab-id ws-port))
+              (js-await (connect-tab! dispatch! tab-id ws-port))
               (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
               (catch :default err
                 (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err))))))
@@ -660,7 +468,7 @@
         (do
           (log/info "Background" "AutoReconnect" "Reconnecting tab" tab-id "using saved port:" history-port)
           (try
-            (js-await (connect-tab! tab-id history-port))
+            (js-await (connect-tab! dispatch! tab-id history-port))
             (log/info "Background" "AutoReconnect" "Successfully reconnected REPL to tab:" tab-id)
             (catch :default err
               (log/warn "Background" "AutoReconnect" "Failed to reconnect REPL:" (.-message err)))))
@@ -669,17 +477,21 @@
         :else nil))
 
     ;; Continue with normal userscript processing
-    (js-await (process-navigation! tab-id url))
+    (js-await (process-navigation! dispatch! tab-id url))
     (catch :default err
       (log/error "Background" "Inject" "Navigation handler error:" err))))
 
-(defn- activate!
-  []
+(defn- ^:async activate!
+  [dispatch!]
+
+  (log/info "Background" nil "Service worker started")
+
+  ;; Install global error handlers early so we catch all errors in test mode
+  (test-logger/install-global-error-handlers! "background" js/self)
 
   ;; Prune stale icon states from previous session on service worker wake
   ;; This happens after dispatch! is defined so it can use the action system
-  ((^:async fn []
-     (js-await (bg-icon/prune-icon-states-direct! !state))))
+  (js-await (bg-icon/prune-icon-states-direct! !state))
 
   ;; ============================================================
   ;; Message Handlers
@@ -985,7 +797,7 @@
                     (when (and (zero? (.-frameId details))
                                (or (.startsWith url "http://")
                                    (.startsWith url "https://")))
-                      (handle-navigation! (.-tabId details) url)))))
+                      (handle-navigation! dispatch! (.-tabId details) url)))))
 
   ;; ============================================================
   ;; Lifecycle Events
@@ -1019,4 +831,188 @@
 
   (log/info "Background" nil "Listeners registered"))
 
-(activate!)
+;; ============================================================
+;; Uniflow Dispatch - placed here after all helpers
+;; ============================================================
+
+(defn ^:async perform-effect! [dispatch! [effect & args]]
+  (case effect
+    :ws/fx.broadcast-connections-changed!
+    (bg-ws/broadcast-connections-changed! (:ws/connections @!state))
+
+    :icon/fx.update-toolbar!
+    (let [[tab-id] args]
+      (js-await (bg-icon/update-icon-now! !state tab-id)))
+
+    :approval/fx.update-badge-for-tab!
+    (let [[tab-id] args]
+      (bg-icon/update-badge-for-tab! tab-id))
+
+    :approval/fx.update-badge-active!
+    (js-await (bg-icon/update-badge-for-active-tab!))
+
+    :approval/fx.log-pending!
+    (let [[{:keys [script-name pattern]}] args]
+      (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
+
+    :repl/fx.connect-tab
+    (let [[tab-id ws-port] args]
+      (try
+        (js-await (connect-tab! dispatch! tab-id ws-port))
+        {:success true}
+        (catch :default err
+          {:success false :error (.-message err)})))
+
+    :page/fx.check-status
+    (let [[tab-id] args]
+      (try
+        (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
+          {:success true :status status})
+        (catch :default err
+          {:success false :error (.-message err)})))
+
+    :msg/fx.ensure-scittle
+    (let [[send-response tab-id] args]
+      ((^:async fn []
+         (try
+           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+           (dispatch! [[:msg/ax.ensure-scittle-result send-response {:ok? true}]])
+           (catch :default err
+             (dispatch! [[:msg/ax.ensure-scittle-result send-response {:ok? false
+                                                                      :error (.-message err)}]]))))))
+
+    :script/fx.evaluate
+    (let [[tab-id script] args]
+      (try
+        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+        (js-await (bg-inject/execute-scripts! tab-id [script]))
+        {:success true}
+        (catch :default err
+          {:success false :error (.-message err)})))
+
+    :msg/fx.list-scripts
+    (let [[send-response include-hidden?] args
+          scripts (storage/get-scripts)]
+      (dispatch! [[:msg/ax.list-scripts-result send-response {:include-hidden? include-hidden?
+                                                            :scripts scripts}]]))
+
+    :msg/fx.inject-bridge
+    (let [[tab-id] args]
+      (bg-inject/inject-content-script tab-id "content-bridge.js"))
+
+    :msg/fx.wait-bridge-ready
+    (let [[tab-id] args]
+      (bg-inject/wait-for-bridge-ready tab-id))
+
+    :msg/fx.inject-require-file
+    (let [[tab-id file] args]
+      (bg-inject/inject-requires-sequentially! tab-id [file]))
+
+    :msg/fx.send-response
+    (let [[send-response response-data] args]
+      (send-response (clj->js response-data)))
+
+    :msg/fx.get-script
+    (let [[send-response script-name] args
+          script (storage/get-script-by-name script-name)]
+      (dispatch! [[:msg/ax.get-script-result send-response {:script-name script-name
+                                                          :script script}]]))
+
+    :msg/fx.get-connections
+    (let [[send-response] args
+          connections (:ws/connections @!state)
+          display-list (bg-utils/connections->display-list connections)]
+      (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
+                              {:raw-connection-count (count (keys connections))
+                               :display-list-count (count display-list)
+                               :connections-keys (vec (keys connections))})
+      (send-response (clj->js {:success true
+                               :connections display-list})))
+
+    :msg/fx.refresh-approvals
+    ((^:async fn []
+       (js-await (storage/load!))
+       (let [scripts-by-id (->> (storage/get-scripts)
+                                (map (fn [script] [(:script/id script) script]))
+                                (into {}))]
+         (dispatch! [[:approval/ax.sync scripts-by-id]]))))
+
+    :tabs/fx.find-by-url-pattern
+    (let [[url-pattern] args]
+      (try
+        (let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
+          (if found-tab-id
+            {:success true :tabId found-tab-id}
+            {:success false :error "No tab found"}))
+        (catch :default err
+          {:success false :error (.-message err)})))
+
+    :msg/fx.e2e-get-test-events
+    (let [[send-response] args]
+      ((^:async fn []
+         (let [events (js-await (test-logger/get-test-events))]
+           (send-response #js {:success true :events events})))))
+
+    :storage/fx.get-local-storage
+    (let [[key] args]
+      (try
+        (let [result (js-await (js/chrome.storage.local.get #js [key]))]
+          {:success true :key key :value (aget result key)})
+        (catch :default err
+          {:success false :key key :error (.-message err)})))
+
+    :storage/fx.set-local-storage
+    (let [[key value] args]
+      (try
+        (js-await (js/Promise.
+                   (fn [resolve]
+                     (js/chrome.storage.local.set
+                      (js-obj key value)
+                      resolve))))
+        {:success true :key key :value value}
+        (catch :default err
+          {:success false :error (.-message err)})))
+
+    :msg/fx.clear-pending-approval
+    (let [[script-id pattern] args]
+      (dispatch! [[:approval/ax.clear script-id pattern]]))
+
+    :msg/fx.get-pattern-approved-data
+    ;; Returns data directly - no dispatch needed with result threading
+    (let [[script-id] args
+          script (storage/get-script script-id)]
+      ((^:async fn []
+         (let [active-tab-id (js-await (bg-icon/get-active-tab-id))]
+           {:script script :tab-id active-tab-id}))))
+
+    :msg/fx.execute-approved-script
+    ;; Receives {:script ... :tab-id ...} from previous effect via :uf/prev-result
+    (let [[{:keys [script tab-id]}] args]
+      (when (and script tab-id)
+        ((^:async fn []
+           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+           (js-await (bg-inject/execute-scripts! tab-id [script]))))))
+
+    :msg/fx.execute-script-in-tab
+    (let [[tab-id script] args]
+      ((^:async fn []
+         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+         (js-await (bg-inject/execute-scripts! tab-id [script])))))
+
+    :userscript/fx.install
+    (let [[install-opts] args]
+      (try
+        (let [saved (js-await (install-userscript! install-opts))]
+          {:success true :saved saved})
+        (catch :default err
+          (log/error "Background" "Install" "Install failed:" err)
+          {:success false :error (.-message err)})))
+
+    :uf/unhandled-fx))
+
+(defn dispatch!
+  "Dispatch background actions through Uniflow."
+  [actions]
+  (event-handler/dispatch! !state bg-actions/handle-action perform-effect! actions))
+
+(activate! dispatch!)
