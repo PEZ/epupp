@@ -149,7 +149,7 @@ bb test:e2e      # E2E tests must still pass
 
 ## Delegation protocol
 
-Delegate all edits to the clojure-editor subagent.
+Delegate all edits to the Clojure-editor subagent.
 
 ## Phased Execution Plan
 

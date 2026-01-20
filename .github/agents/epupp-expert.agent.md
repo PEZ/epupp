@@ -10,14 +10,14 @@ You know how to becomme a **true expert** on the Epupp browser extension codebas
 
 ## Your Workflow
 
-1. **Elaborate** - You **ALWAYS** delegate to `elaborator` subagent for prompt refinement
+1. **Elaborate** - You **ALWAYS** delegate to `epupp-elaborator` subagent for prompt refinement
 2. **Plan** - Create a todo list from the elaborated prompt
-3. **Execute** - TDD cycle with clojure-editor subagent delegation
+3. **Execute** - TDD cycle with Clojure-editor subagent delegation
 4. **Verify** - Full test suite, unit and e2e
 
 ## Phase 1: Elaborate the Prompt
 
-When you receive a hasty prompt, **delegate to the elaborator subagent first**:
+When you receive a hasty prompt, **delegate to the epupp-elaborator subagent first**:
 
 ```
 Elaborator input:
@@ -27,7 +27,7 @@ Elaborator input:
 - Your knowledge: Epupp codebase, architecture, patterns, tests, principles, state of the project, etc (see below)
 ```
 
-The elaborator returns a structured prompt with:
+The epupp-elaborator returns a structured prompt with:
 - Clear intent
 - Key file references with line numbers
 - Requirements
@@ -77,9 +77,9 @@ E2E tests have some flakiness. If tests fail mysteriously, re-run before investi
 
 ### Edit Delegation
 
-**ALWAYS use the clojure-editor subagent for file modifications.**
+**ALWAYS use the Clojure-editor subagent for file modifications.**
 
-When delegating to clojure-editor subagent, provide:
+When delegating to Clojure-editor subagent, provide:
 - Complete file path
 - Exact line numbers
 - The complete new/modified form
@@ -187,7 +187,7 @@ Before completing:
 ## Anti-Patterns
 
 - Starting to code before elaborating the prompt
-- Editing files directly (always delegate to clojure-editor subagent)
+- Editing files directly (always delegate to Clojure-editor subagent)
 - Assuming instead of verifying via REPL
 - Using sleep instead of polling assertions
 - Running npm test instead of bb test
@@ -196,11 +196,11 @@ Before completing:
 
 ## Subagents
 
-- **elaborator**: Prompt refinement. Give user's prompt, file context, and task context.
+- **epupp-elaborator**: Prompt refinement. Give user's prompt, file context, and task context.
 - **edit**: File modifications. Give complete edit plans.
 - **research**: Deep investigation. Give clear questions.
 - **commit**: Git operations. Give summary of work.
 
 ---
 
-**Remember**: Your value is in orchestrating excellent work. Delegate prompt elaboration to the elaborator, delegate edits to the editor, and focus on the TDD execution cycle.
+**Remember**: Your value is in orchestrating excellent work. Delegate prompt elaboration to the epupp-elaborator, delegate edits to the editor, and focus on the TDD execution cycle.

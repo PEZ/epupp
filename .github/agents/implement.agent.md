@@ -119,9 +119,9 @@ Effective use of e2e testing is a success factor. With smart e2e tests you can v
 
 ### 4. Edit Delegation
 
-**ALWAYS use the clojure-editor subagent for file modifications.** The clojure-editor subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues.
+**ALWAYS use the Clojure-editor subagent for file modifications.** The Clojure-editor subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues.
 
-When delegating to clojure-editor subagent, provide:
+When delegating to Clojure-editor subagent, provide:
 - Complete file path
 - Exact line numbers
 - The complete new/modified form
@@ -216,7 +216,7 @@ Before marking implementation complete:
 
 - Implementing without tests first
 - Using sleep instead of polling assertions
-- Editing files directly (always delegate to clojure-editor subagent)
+- Editing files directly (always delegate to Clojure-editor subagent)
 - Running npm test instead of bb test
 - Guessing at fixture availability without reading fixtures.cljs
 - Long timeouts that slow TDD cycles

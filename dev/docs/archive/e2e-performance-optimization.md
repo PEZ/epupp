@@ -126,7 +126,7 @@ Tests over 1 second (from actual run):
 
 **ALWAYS check lint/problem reports after edits.** Use `get_errors` tool to verify no syntax or bracket errors before running tests.
 
-**ALWAYS use the `edit` subagent for file modifications.** The clojure-editor subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
+**ALWAYS use the `edit` subagent for file modifications.** The Clojure-editor subagent specializes in Clojure/Squint structural editing and avoids bracket balance issues. Provide it with complete context: file paths, line numbers, and the exact changes needed.
 
 **ALWAYS measure**: When starting with a phase of the plan, always make two basline runs, and average the results. Save this result in this plan. Then proceed with the changes. Then make two runs and avarage the results. Save this result and a comparison to the baseline in this document.
 
