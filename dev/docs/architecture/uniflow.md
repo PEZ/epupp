@@ -25,7 +25,7 @@ Actions are pure functions that take current state and return new state (plus op
 ```
 
 **Return values:**
-- **Map with keys** - `:uf/db` (new state), `:uf/fxs` (fire-and-forget effects), `:uf/await-fxs` (sequential async effects), `:uf/dxs` (follow-up actions)
+- **Map with keys** - `:uf/db` (new state), `:uf/fxs` (effects, optionally with `:uf/await`), `:uf/dxs` (follow-up actions)
 - **`nil`** - Explicit no-op ("I decided to do nothing"). The framework skips state/effect updates.
 - **`:uf/unhandled-ax`** - Delegate to generic handler
 
@@ -75,35 +75,54 @@ In Squint, effects often need async/await for Chrome APIs. Mark the effect handl
 
 The callback-based `dispatch` bridges async completion back to the action system.
 
-### Sequential Async Effects (`:uf/await-fxs`)
+### Unified Effect Execution with `:uf/await`
 
-When actions need to orchestrate multiple async effects that must complete in sequence, use `:uf/await-fxs`. Unlike `:uf/fxs` (fire-and-forget), these effects are awaited one at a time, and the sequence stops on first error.
+Effects in `:uf/fxs` execute in declared order. By default, effects are fire-and-forget. To await an effect and optionally chain its result to subsequent effects, wrap it with the `:uf/await` sentinel.
 
-**Key differences:**
-- `:uf/fxs` - Effects execute immediately, no waiting (fire-and-forget)
-- `:uf/await-fxs` - Effects execute sequentially, each awaited before next
-
-**Use case:** Loading libraries before sending a response:
-
+**Syntax:**
 ```clojure
-:msg/ax.load-manifest
-(let [[send-response tab-id manifest] args
-      requires (when manifest (vec (aget manifest "require")))
-      files (when (seq requires)
-              (scittle-libs/collect-require-files [{:script/require requires}]))]
-  ;; Action DECIDES what to do
-  (if (seq files)
-    {:uf/await-fxs (conj (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files)
-                         [:msg/fx.send-response send-response {:success true}])}
-    {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
+;; Fire-and-forget (default)
+[:fx.name arg1 arg2]
+
+;; Awaited effect
+[:uf/await :fx.name arg1 arg2]
 ```
 
-**Error handling:** The entire `:uf/await-fxs` sequence is wrapped in try/catch. If any effect throws, execution stops and the error propagates. Effects remain primitives - they don't make decisions about what to do on error.
+**Result threading with `:uf/prev-result`:**
 
-**When to use:**
-- Async operations that must complete before the next starts
-- Operations where order matters (inject dependencies before code)
-- Scenarios where you need guaranteed completion before response
+When an awaited effect returns a value, subsequent effects can access it via `:uf/prev-result`:
+
+```clojure
+{:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]        ; fire-and-forget
+          [:uf/await :msg/fx.get-data script-id]                    ; await, returns data
+          [:uf/await :msg/fx.process-data :uf/prev-result]]}        ; receives previous result
+```
+
+The `:uf/prev-result` placeholder is substituted with the return value of the most recent awaited effect. Fire-and-forget effects don't update `:uf/prev-result`.
+
+**Recipe-style actions:**
+
+This pattern enables "recipe-style" actions - declarative sequences where each step flows into the next:
+
+```clojure
+:msg/ax.pattern-approved
+(let [[script-id pattern] args]
+  {:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]
+            [:uf/await :msg/fx.get-pattern-approved-data script-id]
+            [:uf/await :msg/fx.execute-approved-script :uf/prev-result]]})
+```
+
+This reads as: "Clear the pending approval, then get the approved data, then execute the script with that data."
+
+**Benefits:**
+- Actions read like recipes with clear intent
+- Shallow event chains - no need for intermediate callback actions
+- Effects behave like function calls with return values
+- Single list maintains declaration order
+
+**Error handling:** The effect sequence is wrapped in try/catch. If any awaited effect throws, execution stops and the error propagates.
+
+**Legacy support:** `:uf/await-fxs` is still supported but deprecated. It's automatically converted to `[:uf/await ...]` wrapped effects internally.
 
 ### Dispatching
 
@@ -218,8 +237,9 @@ Return `:uf/unhandled-ax` or `:uf/unhandled-fx` to delegate to generic handlers 
 | Scenario | Use |
 |----------|-----|
 | Pure state change | Action returning `:uf/db` |
-| Trigger side effect | Action returning `:uf/fxs` |
-| Sequential async effects | Action returning `:uf/await-fxs` |
+| Fire-and-forget effects | `[:fx.name ...]` in `:uf/fxs` |
+| Await effect completion | `[:uf/await :fx.name ...]` in `:uf/fxs` |
+| Chain effect results | `:uf/prev-result` placeholder in subsequent effect |
 | Sync follow-up actions | Action returning `:uf/dxs` |
 | Conditional no-op | Action returning `nil` |
 | Async callback needs dispatch | Effect with `dispatch` parameter |

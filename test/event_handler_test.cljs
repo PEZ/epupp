@@ -142,3 +142,142 @@
                       (event-handler/handle-actions state uf-data handler [[:any-action]])
                       (-> (expect (get @captured-uf-data :system/now))
                           (.toBe 1234567890)))))))
+
+;; ============================================================
+;; await-fx? tests
+;; ============================================================
+
+(describe "await-fx?"
+          (fn []
+            (test "returns true for effects with :uf/await sentinel"
+                  (fn []
+                    (-> (expect (event-handler/await-fx? [:uf/await :fx.something 1 2]))
+                        (.toBe true))))
+
+            (test "returns false for regular effects"
+                  (fn []
+                    (-> (expect (event-handler/await-fx? [:fx.something 1 2]))
+                        (.toBe false))))
+
+            (test "returns false for non-vector inputs"
+                  (fn []
+                    (-> (expect (event-handler/await-fx? nil))
+                        (.toBe false))
+                    (-> (expect (event-handler/await-fx? "string"))
+                        (.toBe false))
+                    (-> (expect (event-handler/await-fx? {:map true}))
+                        (.toBe false))))))
+
+;; ============================================================
+;; unwrap-fx tests
+;; ============================================================
+
+(describe "unwrap-fx"
+          (fn []
+            (test "removes :uf/await sentinel from await effects"
+                  (fn []
+                    (let [result (event-handler/unwrap-fx [:uf/await :fx.something 1 2])]
+                      (-> (expect (first result))
+                          (.toBe :fx.something))
+                      (-> (expect (count result))
+                          (.toBe 3)))))
+
+            (test "returns regular effects unchanged"
+                  (fn []
+                    (let [fx [:fx.something 1 2]
+                          result (event-handler/unwrap-fx fx)]
+                      (-> (expect (first result))
+                          (.toBe :fx.something))
+                      (-> (expect (count result))
+                          (.toBe 3)))))))
+
+;; ============================================================
+;; replace-prev-result tests
+;; ============================================================
+
+(describe "replace-prev-result"
+          (fn []
+            (test "substitutes :uf/prev-result with provided value"
+                  (fn []
+                    (let [fx [:fx.use-result :uf/prev-result :other-arg]
+                          result (event-handler/replace-prev-result fx {:data "from-previous"})]
+                      (-> (expect (first result))
+                          (.toBe :fx.use-result))
+                      (-> (expect (get (second result) :data))
+                          (.toBe "from-previous"))
+                      (-> (expect (nth result 2))
+                          (.toBe :other-arg)))))
+
+            (test "leaves effects without :uf/prev-result unchanged"
+                  (fn []
+                    (let [fx [:fx.normal :arg1 :arg2]
+                          result (event-handler/replace-prev-result fx {:ignored "data"})]
+                      (-> (expect (first result))
+                          (.toBe :fx.normal))
+                      (-> (expect (second result))
+                          (.toBe :arg1))
+                      (-> (expect (nth result 2))
+                          (.toBe :arg2)))))
+
+            (test "handles multiple :uf/prev-result occurrences"
+                  (fn []
+                    (let [fx [:fx.multi :uf/prev-result :other :uf/prev-result]
+                          result (event-handler/replace-prev-result fx "replaced")]
+                      (-> (expect (second result))
+                          (.toBe "replaced"))
+                      (-> (expect (nth result 3))
+                          (.toBe "replaced")))))))
+
+;; ============================================================
+;; handle-actions with await-fxs backward compat
+;; ============================================================
+
+(describe "handle-actions await-fxs backward compat"
+          (fn []
+            (test "converts :uf/await-fxs to [:uf/await ...] format"
+                  (fn []
+                    (let [state {}
+                          handler (fn [s _uf [action & _args]]
+                                    (case action
+                                      :with-await {:uf/db s
+                                                   :uf/await-fxs [[:fx.async-a]
+                                                                  [:fx.async-b 1 2]]}
+                                      :uf/unhandled-ax))
+                          result (event-handler/handle-actions state {} handler [[:with-await]])]
+                      ;; Should have 2 converted effects
+                      (-> (expect (count (:uf/fxs result)))
+                          (.toBe 2))
+                      ;; First should be [:uf/await :fx.async-a]
+                      (let [first-fx (first (:uf/fxs result))]
+                        (-> (expect (first first-fx))
+                            (.toBe :uf/await))
+                        (-> (expect (second first-fx))
+                            (.toBe :fx.async-a)))
+                      ;; Second should be [:uf/await :fx.async-b 1 2]
+                      (let [second-fx (second (:uf/fxs result))]
+                        (-> (expect (first second-fx))
+                            (.toBe :uf/await))
+                        (-> (expect (second second-fx))
+                            (.toBe :fx.async-b))
+                        (-> (expect (count second-fx))
+                            (.toBe 4))))))
+
+            (test "merges :uf/fxs and :uf/await-fxs in order"
+                  (fn []
+                    (let [state {}
+                          handler (fn [s _uf [action & _args]]
+                                    (case action
+                                      :mixed {:uf/db s
+                                              :uf/fxs [[:fx.sync-first]]
+                                              :uf/await-fxs [[:fx.async-second]]}
+                                      :uf/unhandled-ax))
+                          result (event-handler/handle-actions state {} handler [[:mixed]])]
+                      ;; Should have both effects
+                      (-> (expect (count (:uf/fxs result)))
+                          (.toBe 2))
+                      ;; First is sync (no :uf/await)
+                      (-> (expect (first (first (:uf/fxs result))))
+                          (.toBe :fx.sync-first))
+                      ;; Second is converted await
+                      (-> (expect (first (second (:uf/fxs result))))
+                          (.toBe :uf/await)))))))

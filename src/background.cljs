@@ -537,13 +537,21 @@
     (let [[script-id pattern] args]
       (dispatch [[:approval/ax.clear script-id pattern]]))
 
-    :msg/fx.pattern-approved-data
+    :msg/fx.get-pattern-approved-data
+    ;; Returns data directly - no dispatch needed with result threading
     (let [[script-id] args
           script (storage/get-script script-id)]
       ((^:async fn []
          (let [active-tab-id (js-await (bg-icon/get-active-tab-id))]
-           (dispatch [[:msg/ax.pattern-approved-result {:script script
-                                                         :active-tab-id active-tab-id}]])))))
+           {:script script :tab-id active-tab-id}))))
+
+    :msg/fx.execute-approved-script
+    ;; Receives {:script ... :tab-id ...} from previous effect via :uf/prev-result
+    (let [[{:keys [script tab-id]}] args]
+      (when (and script tab-id)
+        ((^:async fn []
+           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+           (js-await (bg-inject/execute-scripts! tab-id [script]))))))
 
     :msg/fx.execute-script-in-tab
     (let [[tab-id script] args]

@@ -3,10 +3,14 @@
 ;; Uniflow event handling
 ;;
 ;; Actions return maps with:
-;;   :uf/db       - new state
-;;   :uf/fxs      - fire-and-forget effects (executed in parallel)
-;;   :uf/await-fxs - sequential async effects (awaited in order, stops on error)
-;;   :uf/dxs      - follow-up actions to dispatch after effects
+;;   :uf/db  - new state
+;;   :uf/fxs - effects to execute in order
+;;             - Regular: [:fx.name arg1 arg2]
+;;             - Await:   [:uf/await :fx.name arg1 arg2]
+;;             - Thread:  [:uf/await :fx.name :uf/prev-result arg2]
+;;   :uf/dxs - follow-up actions to dispatch after effects
+;;
+;; DEPRECATED: :uf/await-fxs (converted to [:uf/await ...] internally)
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -42,17 +46,42 @@
                                                       (let [generic-result (handle-action state uf-data action)]
                                                         (when (= :uf/unhandled-ax generic-result)
                                                           (js/console.warn "Unhandled action:" action))
-                                                        generic-result))]
+                                                        generic-result))
+                  ;; Convert legacy :uf/await-fxs to [:uf/await ...] format
+                  converted-await-fxs (when (seq await-fxs)
+                                        (mapv (fn [fx] (into [:uf/await] fx)) await-fxs))
+                  ;; Merge all effects in order: fxs first, then converted await-fxs
+                  all-fxs (cond-> (vec (or fxs []))
+                            (seq converted-await-fxs) (into converted-await-fxs))]
               (js/console.debug "Triggered action" (first action) action)
               (cond-> acc
                 db (assoc :uf/db db)
                 dxs (assoc :uf/dxs dxs)
-                fxs (update :uf/fxs into fxs)
-                await-fxs (update :uf/await-fxs into await-fxs))))
+                (seq all-fxs) (update :uf/fxs into all-fxs))))
           {:uf/db state
-           :uf/fxs []
-           :uf/await-fxs []}
+           :uf/fxs []}
           (remove nil? actions)))
+
+(defn await-fx?
+  "Check if an effect should be awaited (has :uf/await sentinel)."
+  [fx]
+  (and (vector? fx) (= :uf/await (first fx))))
+
+(defn unwrap-fx
+  "Remove :uf/await sentinel from effect if present."
+  [fx]
+  (if (await-fx? fx)
+    (vec (rest fx))
+    fx))
+
+(defn replace-prev-result
+  "Substitute :uf/prev-result placeholders with actual value."
+  [fx prev-result]
+  (mapv (fn [arg]
+          (if (= :uf/prev-result arg)
+            prev-result
+            arg))
+        fx))
 
 (defn- execute-effect!
   "Execute a single effect, returning result or :uf/unhandled-fx.
@@ -68,29 +97,44 @@
           (js/console.warn "Unhandled effect:" fx))
         generic-result))))
 
-(defn ^:async execute-await-fxs!
-  "Execute effects sequentially, awaiting each one.
-   Wrapped in try/catch - stops and propagates on first error."
-  [dispatch ex-handler await-fxs]
-  (loop [remaining await-fxs]
+(defn ^:async execute-effects!
+  "Execute effects in order. Effects marked with :uf/await are awaited.
+   Supports :uf/prev-result substitution for result threading."
+  [dispatch ex-handler fxs]
+  (loop [remaining fxs
+         prev-result nil]
     (when (seq remaining)
-      (let [fx (first remaining)]
-        (js-await (execute-effect! dispatch ex-handler fx))
-        (recur (rest remaining))))))
+      (let [raw-fx (first remaining)
+            is-await? (await-fx? raw-fx)
+            fx (-> raw-fx unwrap-fx (replace-prev-result prev-result))]
+        (if is-await?
+          (let [result (js-await (execute-effect! dispatch ex-handler fx))]
+            (recur (rest remaining) result))
+          (do
+            (try
+              (execute-effect! dispatch ex-handler fx)
+              (catch :default e
+                (js/console.error (ex-info "Effect failed"
+                                           {:error e :effect fx}
+                                           :event-handler/execute-effects))))
+            (recur (rest remaining) prev-result)))))))
 
 (defn dispatch!
   "Dispatch actions through the Uniflow system.
    Optionally accepts additional-uf-data to merge into the framework context.
 
    Actions can return:
-   - :uf/fxs      - fire-and-forget effects (executed without awaiting)
-   - :uf/await-fxs - sequential async effects (awaited in order, stops on error)
-   - :uf/dxs      - follow-up actions dispatched after effects"
+   - :uf/fxs      - effects to execute (use [:uf/await ...] sentinel for async)
+   - :uf/await-fxs - DEPRECATED: use [:uf/await ...] in :uf/fxs instead
+   - :uf/dxs      - follow-up actions dispatched after effects
+
+   Effects marked with :uf/await are awaited before continuing.
+   Use :uf/prev-result in effect args to receive the previous await result."
   ([!state ax-handler ex-handler actions]
    (dispatch! !state ax-handler ex-handler actions nil))
   ([!state ax-handler ex-handler actions additional-uf-data]
    (let [uf-data (merge {:system/now (.now js/Date)} additional-uf-data)
-         {:uf/keys [fxs await-fxs dxs db]}
+         {:uf/keys [fxs dxs db]}
          (try
            (handle-actions @!state uf-data ax-handler actions)
            (catch :default e
@@ -101,28 +145,8 @@
        (reset! !state db))
      (when dxs
        (dispatch! !state ax-handler ex-handler dxs additional-uf-data))
-     ;; Fire-and-forget effects - no awaiting
+     ;; Execute all effects in order (unified model)
      (when (seq fxs)
-       (try
-         (let [dispatch (fn [actions]
-                          (dispatch! !state ax-handler ex-handler actions additional-uf-data))]
-           (doseq [fx fxs]
-             (when fx
-               (try
-                 (execute-effect! dispatch ex-handler fx)
-                 (catch :default e
-                   (js/console.error (ex-info "perform-effect! Effect failed"
-                                              {:error e
-                                               :effect fx}
-                                              :event-handler/perform-effects))
-                   (throw e))))))
-         (catch :default e
-           (js/console.error (ex-info "perform-effects! error"
-                                      {:error e}
-                                      :event-handler/perform-effects)))))
-     ;; Sequential awaited effects - wrapped in try/catch, stops on error
-     (when (seq await-fxs)
-       (let [dispatch (fn [actions]
-                        (dispatch! !state ax-handler ex-handler actions additional-uf-data))]
-         ;; Return the promise so callers can await if needed
-         (execute-await-fxs! dispatch ex-handler await-fxs))))))
+       (let [dispatch-fn (fn [actions]
+                           (dispatch! !state ax-handler ex-handler actions additional-uf-data))]
+         (execute-effects! dispatch-fn ex-handler fxs))))))

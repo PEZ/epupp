@@ -288,15 +288,14 @@
                                                         :error "Missing key"}]]}))
 
     :msg/ax.pattern-approved
+    ;; Recipe-style action using result threading:
+    ;; 1. Clear pending approval (fire-and-forget)
+    ;; 2. Get approved data (await, returns {:script ... :tab-id ...})
+    ;; 3. Execute script if valid (await, receives prev result)
     (let [[script-id pattern] args]
-      {:uf/await-fxs [[:msg/fx.clear-pending-approval script-id pattern]
-                      [:msg/fx.pattern-approved-data script-id]]})
-
-    :msg/ax.pattern-approved-result
-    (let [[{:keys [script active-tab-id]}] args]
-      (if (and script active-tab-id)
-        {:uf/fxs [[:msg/fx.execute-script-in-tab active-tab-id script]]}
-        {:uf/fxs []}))
+      {:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]
+                [:uf/await :msg/fx.get-pattern-approved-data script-id]
+                [:uf/await :msg/fx.execute-approved-script :uf/prev-result]]})
 
     :msg/ax.install-userscript-result
     (let [[send-response {:keys [saved error]}] args
