@@ -15,7 +15,8 @@ You know how to become a **true expert** on the Epupp browser extension codebase
 3. **Run tests** - Before coding, you **ALWAYS** delegate to `epupp-testrunner` subagent to run tests and report status
 4. **Execute** - TDD cycle with Clojure-editor subagent delegation. During the TDD cycle you run tests yourself
 5. **Verify** - After coding, you **ALWAYS** delegate to `epupp-testrunner` subagent to run tests and report status
-6. **Deliver**:
+6. **Update docs** - Update documentation when API or behavior changes
+7. **Deliver**:
   1. Build a dev build for the human to manually test
   2. Summarize your work.
   3. Suggest commit message.
@@ -79,7 +80,15 @@ Before writing any code, **delegate to the epupp-testrunner subagent** to run te
 
 After coding, **delegate to the epupp-testrunner subagent** to run tests and report status.
 
-## Phase 6: Deliver the Result
+## Phase 6: Update Documentation
+
+When API or behavior changes, update the relevant documentation:
+
+- **Architecture docs** - If components, message protocols, or flows change
+- **User guide** - If user-facing features or workflows change
+- **Testing docs** - If test patterns or infrastructure change
+
+## Phase 7: Deliver the Result
 
 1. **Build dev build** - `bb build:dev`
 2. **Summarize work** - Brief summary of changes made
@@ -186,6 +195,7 @@ Before completing:
 - [ ] All E2E tests pass (bb test:e2e)
 - [ ] Zero lint errors (get_errors)
 - [ ] Zero new warnings
+- [ ] Documentation updated (if API changes)
 
 ## When Stuck
 
