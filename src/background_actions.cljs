@@ -109,28 +109,17 @@
 
     :msg/ax.connect-tab
     (let [[send-response tab-id ws-port] args]
-      {:uf/fxs [[:msg/fx.connect-tab send-response tab-id ws-port]]})
+      {:uf/fxs [[:uf/await :repl/fx.connect-tab tab-id ws-port]
+                [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :msg/ax.check-status
     (let [[send-response tab-id] args]
-      {:uf/fxs [[:msg/fx.check-status send-response tab-id]]})
+      {:uf/fxs [[:uf/await :page/fx.check-status tab-id]
+                [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :msg/ax.ensure-scittle
     (let [[send-response tab-id] args]
       {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id]]})
-
-    :msg/ax.connect-tab-result
-    (let [[send-response {:keys [ok? error]}] args
-          response (cond-> {:success (boolean ok?)}
-                     error (assoc :error error))]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
-
-    :msg/ax.check-status-result
-    (let [[send-response {:keys [ok? error status]}] args
-          response (cond-> {:success (boolean ok?)}
-                     error (assoc :error error)
-                     ok? (assoc :status status))]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
 
     :msg/ax.ensure-scittle-result
     (let [[send-response {:keys [ok? error]}] args
@@ -138,33 +127,30 @@
                      error (assoc :error error))]
       {:uf/fxs [[:msg/fx.send-response send-response response]]})
 
-    :msg/ax.evaluate-script-result
-    (let [[send-response {:keys [ok? error]}] args
-          response (cond-> {:success (boolean ok?)}
-                     error (assoc :error error))]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+    :msg/ax.evaluate-script
+    (let [[send-response tab-id code requires script-id] args
+          script (cond-> {:script/id script-id
+                          :script/name "popup-eval"
+                          :script/code code}
+                   requires (assoc :script/require requires))]
+      {:uf/fxs [[:uf/await :script/fx.evaluate tab-id script]
+                [:msg/fx.send-response send-response :uf/prev-result]]})
 
-    :msg/ax.e2e-find-tab-id-result
-    (let [[send-response {:keys [found-tab-id error]}] args
-          response (cond
-                     error {:success false :error error}
-                     found-tab-id {:success true :tabId found-tab-id}
-                     :else {:success false :error "No matching tab"})]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+    :msg/ax.e2e-get-storage
+    (let [[send-response key] args]
+      (if key
+        {:uf/fxs [[:uf/await :storage/fx.get-local-storage key]
+                  [:msg/fx.send-response send-response :uf/prev-result]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "Missing key"}]]}))
 
-    :msg/ax.e2e-get-storage-result
-    (let [[send-response {:keys [key value error]}] args
-          response (if error
-                     {:success false :error error}
-                     {:success true :key key :value value})]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
-
-    :msg/ax.e2e-set-storage-result
-    (let [[send-response {:keys [key value error]}] args
-          response (if error
-                     {:success false :error error}
-                     {:success true :key key :value value})]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
+    :msg/ax.e2e-set-storage
+    (let [[send-response key value] args]
+      (if key
+        {:uf/fxs [[:uf/await :storage/fx.set-local-storage key value]
+                  [:msg/fx.send-response send-response :uf/prev-result]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "Missing key"}]]}))
 
     :msg/ax.inject-requires
     (let [[send-response tab-id requires] args
@@ -176,14 +162,6 @@
                            (into (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files))
                            (conj [:msg/fx.send-response send-response {:success true}]))}
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
-
-    :msg/ax.evaluate-script
-    (let [[send-response tab-id code requires script-id] args
-          script (cond-> {:script/id script-id
-                          :script/name "popup-eval"
-                          :script/code code}
-                   requires (assoc :script/require requires))]
-      {:uf/fxs [[:msg/fx.evaluate-script send-response tab-id script]]})
 
     :msg/ax.list-scripts-result
     (let [[send-response {:keys [include-hidden? scripts]}] args
@@ -232,27 +210,14 @@
     :msg/ax.e2e-find-tab-id
     (let [[send-response url-pattern] args]
       (if url-pattern
-        {:uf/fxs [[:msg/fx.e2e-find-tab-id send-response url-pattern]]}
+        {:uf/fxs [[:uf/await :tabs/fx.find-by-url-pattern url-pattern]
+                  [:msg/fx.send-response send-response :uf/prev-result]]}
         {:uf/fxs [[:msg/fx.send-response send-response {:success false
                                                         :error "Missing urlPattern"}]]}))
 
     :msg/ax.e2e-get-test-events
     (let [[send-response] args]
       {:uf/fxs [[:msg/fx.e2e-get-test-events send-response]]})
-
-    :msg/ax.e2e-get-storage
-    (let [[send-response key] args]
-      (if key
-        {:uf/fxs [[:msg/fx.e2e-get-storage send-response key]]}
-        {:uf/fxs [[:msg/fx.send-response send-response {:success false
-                                                        :error "Missing key"}]]}))
-
-    :msg/ax.e2e-set-storage
-    (let [[send-response key value] args]
-      (if key
-        {:uf/fxs [[:msg/fx.e2e-set-storage send-response key value]]}
-        {:uf/fxs [[:msg/fx.send-response send-response {:success false
-                                                        :error "Missing key"}]]}))
 
     :msg/ax.pattern-approved
     ;; Recipe-style action using result threading:
@@ -264,21 +229,13 @@
                 [:uf/await :msg/fx.get-pattern-approved-data script-id]
                 [:uf/await :msg/fx.execute-approved-script :uf/prev-result]]})
 
-    :msg/ax.install-userscript-result
-    (let [[send-response {:keys [saved error]}] args
-          response (if error
-                     {:success false :error error}
-                     {:success true
-                      :scriptId (:script/id saved)
-                      :scriptName (:script/name saved)})]
-      {:uf/fxs [[:msg/fx.send-response send-response response]]})
-
     :msg/ax.install-userscript
     (let [[send-response manifest script-url] args
           install-opts {:script-name (:script-name manifest)
                         :site-match (:site-match manifest)
                         :script-url script-url
                         :description (:description manifest)}]
-      {:uf/fxs [[:msg/fx.install-userscript send-response install-opts]]})
+      {:uf/fxs [[:uf/await :userscript/fx.install install-opts]
+                [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :uf/unhandled-ax))

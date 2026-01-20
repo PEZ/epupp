@@ -403,26 +403,21 @@
     (let [[{:keys [script-name pattern]}] args]
       (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
 
-    :msg/fx.connect-tab
-    (let [[send-response tab-id ws-port] args]
-      ((^:async fn []
-         (try
-           (js-await (connect-tab! tab-id ws-port))
-           (dispatch [[:msg/ax.connect-tab-result send-response {:ok? true}]])
-           (catch :default err
-             (dispatch [[:msg/ax.connect-tab-result send-response {:ok? false
-                                                                  :error (.-message err)}]]))))))
+    :repl/fx.connect-tab
+    (let [[tab-id ws-port] args]
+      (try
+        (js-await (connect-tab! tab-id ws-port))
+        {:success true}
+        (catch :default err
+          {:success false :error (.-message err)})))
 
-    :msg/fx.check-status
-    (let [[send-response tab-id] args]
-      ((^:async fn []
-         (try
-           (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
-             (dispatch [[:msg/ax.check-status-result send-response {:ok? true
-                                                                    :status status}]]))
-           (catch :default err
-             (dispatch [[:msg/ax.check-status-result send-response {:ok? false
-                                                                    :error (.-message err)}]]))))))
+    :page/fx.check-status
+    (let [[tab-id] args]
+      (try
+        (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
+          {:success true :status status})
+        (catch :default err
+          {:success false :error (.-message err)})))
 
     :msg/fx.ensure-scittle
     (let [[send-response tab-id] args]
@@ -434,16 +429,14 @@
              (dispatch [[:msg/ax.ensure-scittle-result send-response {:ok? false
                                                                       :error (.-message err)}]]))))))
 
-    :msg/fx.evaluate-script
-    (let [[send-response tab-id script] args]
-      ((^:async fn []
-         (try
-           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-           (js-await (bg-inject/execute-scripts! tab-id [script]))
-           (dispatch [[:msg/ax.evaluate-script-result send-response {:ok? true}]])
-           (catch :default err
-             (dispatch [[:msg/ax.evaluate-script-result send-response {:ok? false
-                                                                      :error (.-message err)}]]))))))
+    :script/fx.evaluate
+    (let [[tab-id script] args]
+      (try
+        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+        (js-await (bg-inject/execute-scripts! tab-id [script]))
+        {:success true}
+        (catch :default err
+          {:success false :error (.-message err)})))
 
     :msg/fx.list-scripts
     (let [[send-response include-hidden?] args
@@ -492,14 +485,15 @@
                                 (into {}))]
          (dispatch [[:approval/ax.sync scripts-by-id]]))))
 
-    :msg/fx.e2e-find-tab-id
-    (let [[send-response url-pattern] args]
-      ((^:async fn []
-         (try
-           (let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
-             (dispatch [[:msg/ax.e2e-find-tab-id-result send-response {:found-tab-id found-tab-id}]]))
-           (catch :default err
-             (dispatch [[:msg/ax.e2e-find-tab-id-result send-response {:error (.-message err)}]]))))))
+    :tabs/fx.find-by-url-pattern
+    (let [[url-pattern] args]
+      (try
+        (let [found-tab-id (js-await (find-tab-id-by-url-pattern! url-pattern))]
+          (if found-tab-id
+            {:success true :tabId found-tab-id}
+            {:success false :error "No tab found"}))
+        (catch :default err
+          {:success false :error (.-message err)})))
 
     :msg/fx.e2e-get-test-events
     (let [[send-response] args]
@@ -507,31 +501,25 @@
          (let [events (js-await (test-logger/get-test-events))]
            (send-response #js {:success true :events events})))))
 
-    :msg/fx.e2e-get-storage
-    (let [[send-response key] args]
-      ((^:async fn []
-         (try
-           (let [result (js-await (js/chrome.storage.local.get #js [key]))]
-             (dispatch [[:msg/ax.e2e-get-storage-result send-response {:key key
-                                                                      :value (aget result key)}]]))
-           (catch :default err
-             (dispatch [[:msg/ax.e2e-get-storage-result send-response {:key key
-                                                                      :error (.-message err)}]]))))))
+    :storage/fx.get-local-storage
+    (let [[key] args]
+      (try
+        (let [result (js-await (js/chrome.storage.local.get #js [key]))]
+          {:success true :key key :value (aget result key)})
+        (catch :default err
+          {:success false :key key :error (.-message err)})))
 
-    :msg/fx.e2e-set-storage
-    (let [[send-response key value] args]
-      ((^:async fn []
-         (try
-           (js-await (js/Promise.
-                      (fn [resolve]
-                        (js/chrome.storage.local.set
-                         (js-obj key value)
-                         resolve))))
-           (dispatch [[:msg/ax.e2e-set-storage-result send-response {:key key
-                                                                    :value value}]])
-           (catch :default err
-             (dispatch [[:msg/ax.e2e-set-storage-result send-response {:key key
-                                                                      :error (.-message err)}]]))))))
+    :storage/fx.set-local-storage
+    (let [[key value] args]
+      (try
+        (js-await (js/Promise.
+                   (fn [resolve]
+                     (js/chrome.storage.local.set
+                      (js-obj key value)
+                      resolve))))
+        {:success true :key key :value value}
+        (catch :default err
+          {:success false :error (.-message err)})))
 
     :msg/fx.clear-pending-approval
     (let [[script-id pattern] args]
@@ -559,15 +547,14 @@
          (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
          (js-await (bg-inject/execute-scripts! tab-id [script])))))
 
-    :msg/fx.install-userscript
-    (let [[send-response install-opts] args]
-      ((^:async fn []
-         (try
-           (let [saved (js-await (install-userscript! install-opts))]
-             (dispatch [[:msg/ax.install-userscript-result send-response {:saved saved}]]))
-           (catch :default err
-             (log/error "Background" "Install" "Install failed:" err)
-             (dispatch [[:msg/ax.install-userscript-result send-response {:error (.-message err)}]]))))))
+    :userscript/fx.install
+    (let [[install-opts] args]
+      (try
+        (let [saved (js-await (install-userscript! install-opts))]
+          {:success true :saved saved})
+        (catch :default err
+          (log/error "Background" "Install" "Install failed:" err)
+          {:success false :error (.-message err)})))
 
     :uf/unhandled-fx))
 

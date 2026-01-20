@@ -14,6 +14,10 @@
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
+    :uf/fx.dispatch
+    (let [[actions] args]
+      (dispatch actions))
+
     :uf/fx.defer-dispatch
     (let [[actions timeout] args]
       (js/setTimeout #(dispatch actions) timeout))
