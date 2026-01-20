@@ -63,9 +63,11 @@ Build a todo list of what to read. Use the documentation index to select wisely:
 | Injection flows | [injection-flows.md](../../dev/docs/architecture/injection-flows.md) |
 | Components/files | [components.md](../../dev/docs/architecture/components.md) |
 
-**Follow the trails.** When you find what looks like relevant documents and code, use your search tools to understand if you read them more fully.
+**Follow the trails.** When you find what looks like relevant documents, code, unit tests, and e2e tests, use your search tools to understand if you should read some particular file more fully.
 
 **Be selective.** Read what illuminates the task.
+
+**Identify good patterns.** Look for existing implementations of similar features or fixes. Use ultrathink to filter out the good patterns from the bad. Use your knowledge about Clojure, data orientation, and Epupp architecture to guide you.
 
 When codebase research is insufficient, consider:
 - External documentation (Context7 for libraries)
