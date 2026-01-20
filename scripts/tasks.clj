@@ -135,8 +135,9 @@
   [manifest browser]
   (case browser
     "firefox" (-> manifest
+                  (dissoc :key) ; Remove Chrome-specific key field
                   (assoc :browser_specific_settings
-                         {:gecko {:id "epupp@example.com"
+                         {:gecko {:id "browser-jack-in@example.com"
                                   :strict_min_version "142.0"
                                   :data_collection_permissions
                                   {:required ["none"]}}})
@@ -144,6 +145,7 @@
                   (assoc :content_security_policy
                          {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
     "safari" (-> manifest
+                 (dissoc :key) ; Remove Chrome-specific key field
                  (assoc :background {:scripts ["background.js"]})
                  (assoc :content_security_policy
                         {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
