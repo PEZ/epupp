@@ -2,8 +2,9 @@
 
 (defn request
   "Add a script/pattern to pending approvals and trigger badge update."
-  [{:approval/keys [pending script pattern tab-id]}]
-  (let [approval-id (str (:script/id script) "|" pattern)
+  [state {:approval/keys [script pattern tab-id]}]
+  (let [pending (or (:pending/approvals state) {})
+        approval-id (str (:script/id script) "|" pattern)
         already-pending? (get pending approval-id)
         pending (if already-pending?
                   pending
@@ -19,21 +20,23 @@
               (conj [:approval/fx.log-pending!
                      {:script-name (:script/name script)
                       :pattern pattern}]))]
-    {:uf/db {:pending/approvals pending}
+    {:uf/db (assoc state :pending/approvals pending)
      :uf/fxs fxs}))
 
 (defn clear
   "Remove a script/pattern from pending approvals and update badge."
-  [{:approval/keys [pending script-id pattern]}]
-  (let [approval-id (str script-id "|" pattern)]
-    {:uf/db {:pending/approvals (dissoc pending approval-id)}
+  [state {:approval/keys [script-id pattern]}]
+  (let [pending (or (:pending/approvals state) {})
+        approval-id (str script-id "|" pattern)]
+    {:uf/db (assoc state :pending/approvals (dissoc pending approval-id))
      :uf/fxs [[:approval/fx.update-badge-active!]]}))
 
 (defn sync
   "Prune pending approvals using current script state.
    Removes entries for missing scripts, disabled scripts, or approved patterns."
-  [{:approval/keys [pending scripts-by-id]}]
-  (let [pruned (reduce-kv
+  [state {:approval/keys [scripts-by-id]}]
+  (let [pending (or (:pending/approvals state) {})
+        pruned (reduce-kv
                 (fn [acc approval-id context]
                   (let [script-id (:script/id context)
                         pattern (:approval/pattern context)
@@ -46,5 +49,5 @@
                       (assoc acc approval-id context))))
                 {}
                 pending)]
-    {:uf/db {:pending/approvals pruned}
+    {:uf/db (assoc state :pending/approvals pruned)
      :uf/fxs [[:approval/fx.update-badge-active!]]}))
