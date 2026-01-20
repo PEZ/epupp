@@ -492,3 +492,50 @@
           (-> (expect (some #(= :ws/fx.broadcast-connections-changed! (first %))
                             (:uf/fxs result)))
               (.toBeTruthy)))))))
+
+;; ============================================================
+;; Initialization Tests
+;; ============================================================
+
+(describe ":init/ax.ensure-initialized"
+  (fn []
+    (test "returns existing promise without effects"
+      (fn []
+        (let [promise (js/Promise.resolve true)
+              state {:init/promise promise}
+              result (bg-actions/handle-action state uf-data
+                       [:init/ax.ensure-initialized])]
+          (-> (expect (get-in result [:uf/db :init/promise]))
+              (.toBe promise))
+          (-> (expect (count (or (:uf/fxs result) [])))
+              (.toBe 0)))))
+
+    (test "creates promise and initialization effect when missing"
+      (fn []
+        (let [result (bg-actions/handle-action {} uf-data
+                       [:init/ax.ensure-initialized])
+              promise (get-in result [:uf/db :init/promise])
+              fxs (:uf/fxs result)
+              fx (first fxs)]
+          (-> (expect promise)
+              (.toBeTruthy))
+          (-> (expect (count fxs))
+              (.toBe 1))
+          (-> (expect (first fx))
+              (.toBe :uf/await))
+          (-> (expect (second fx))
+              (.toBe :init/fx.initialize))
+          (-> (expect (fn? (nth fx 2)))
+              (.toBe true))
+          (-> (expect (fn? (nth fx 3)))
+              (.toBe true)))))))
+
+(describe ":init/ax.clear-promise"
+  (fn []
+    (test "clears init promise"
+      (fn []
+        (let [promise (js/Promise.resolve true)
+              result (bg-actions/handle-action {:init/promise promise} uf-data
+                       [:init/ax.clear-promise])]
+          (-> (expect (get-in result [:uf/db :init/promise]))
+              (.toBe nil)))))))

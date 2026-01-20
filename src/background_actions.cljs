@@ -107,6 +107,20 @@
     :ws/ax.broadcast
     {:uf/fxs [[:ws/fx.broadcast-connections-changed!]]}
 
+    :init/ax.ensure-initialized
+    (if (:init/promise state)
+      {:uf/db state}
+      (let [resolve-fn (volatile! nil)
+            reject-fn (volatile! nil)
+            promise (js/Promise. (fn [resolve reject]
+                                   (vreset! resolve-fn resolve)
+                                   (vreset! reject-fn reject)))]
+        {:uf/db (assoc state :init/promise promise)
+         :uf/fxs [[:uf/await :init/fx.initialize @resolve-fn @reject-fn]]}))
+
+    :init/ax.clear-promise
+    {:uf/db (assoc state :init/promise nil)}
+
     :msg/ax.connect-tab
     (let [[send-response tab-id ws-port] args]
       {:uf/fxs [[:uf/await :repl/fx.connect-tab tab-id ws-port]

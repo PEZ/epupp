@@ -38,29 +38,14 @@
 (defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
    Safe to call multiple times - only initializes once per script lifetime."
-  []
+  [dispatch!]
   (if-let [p (:init/promise @!state)]
     (js-await p)
-    (let [p (try
-              ;; Set test-mode flag in storage for non-bundled scripts (userscript-loader.js)
-              (js-await (test-logger/init-test-mode!))
-              (js-await (storage/init!))
-              ;; Ensure built-in userscripts are installed
-              (js-await (storage/ensure-gist-installer!))
-              ;; Sync content script registrations for early-timing scripts
-              (js-await (registration/sync-registrations!))
-              (log/info "Background" nil "Initialization complete")
-              ;; Log test event for E2E tests
-              (js-await (test-logger/log-event! "EXTENSION_STARTED"
-                                                {:version (.-version (.getManifest js/chrome.runtime))}))
-              true
-              (catch :default err
-                (log/error "Background" nil "Initialization failed:" err)
-                ;; Reset so next call can retry
-                (swap! !state assoc :init/promise nil)
-                (throw err)))]
-      (swap! !state assoc :init/promise (js/Promise.resolve p))
-      p)))
+    (do
+      (dispatch! [[:init/ax.ensure-initialized]])
+      (if-let [p (:init/promise @!state)]
+        (js-await p)
+        (throw (js/Error. "Initialization promise missing"))))))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -337,14 +322,14 @@
    Name is normalized for uniqueness and valid filename format.
    Cannot overwrite built-in scripts.
    Extracts run-at timing from code manifest if present."
-  [{:keys [script-name site-match script-url description]}]
+  [dispatch! {:keys [script-name site-match script-url description]}]
   (when (or (nil? script-name) (nil? site-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
   (when (nil? script-url)
     (throw (js/Error. "Missing script URL")))
   (when-not (url-origin-allowed? script-url)
     (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
-  (js-await (ensure-initialized!))
+  (js-await (ensure-initialized! dispatch!))
   (let [code (js-await (fetch-text! script-url))
         normalized-name (script-utils/normalize-script-name script-name)
         ;; Extract run-at from code manifest (more reliable than passed manifest)
@@ -436,7 +421,7 @@
   (try
     ;; Log test event for E2E debugging
     (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
-    (js-await (ensure-initialized!))
+    (js-await (ensure-initialized! dispatch!))
 
     ;; Reset icon state on navigation (Scittle is not injected on new page)
     (js-await (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))
@@ -809,21 +794,21 @@
                   (when (and (= area "local") (.-scripts changes))
                     (log/info "Background" nil "Scripts changed, syncing registrations")
                     ((^:async fn []
-                       (js-await (ensure-initialized!))
+                       (js-await (ensure-initialized! dispatch!))
                        (js-await (registration/sync-registrations!)))))))
 
   (.addListener js/chrome.runtime.onInstalled
                 (fn [details]
                   (log/info "Background" nil "onInstalled:" (.-reason details))
-                  (ensure-initialized!)))
+                  (ensure-initialized! dispatch!)))
 
   (.addListener js/chrome.runtime.onStartup
                 (fn []
                   (log/info "Background" nil "onStartup")
-                  (ensure-initialized!)))
+                  (ensure-initialized! dispatch!)))
 
   ;; Start initialization immediately for service worker wake scenarios
-  (ensure-initialized!)
+  (ensure-initialized! dispatch!)
 
   (log/info "Background" nil "Listeners registered"))
 
@@ -850,6 +835,23 @@
     :approval/fx.log-pending!
     (let [[{:keys [script-name pattern]}] args]
       (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
+
+    :init/fx.initialize
+    (let [[resolve reject] args]
+      ((^:async fn []
+         (try
+           (js-await (test-logger/init-test-mode!))
+           (js-await (storage/init!))
+           (js-await (storage/ensure-gist-installer!))
+           (js-await (registration/sync-registrations!))
+           (log/info "Background" nil "Initialization complete")
+           (js-await (test-logger/log-event! "EXTENSION_STARTED"
+                                             {:version (.-version (.getManifest js/chrome.runtime))}))
+           (resolve true)
+           (catch :default err
+             (log/error "Background" nil "Initialization failed:" err)
+             (dispatch! [[:init/ax.clear-promise]])
+             (reject err))))))
 
     :repl/fx.connect-tab
     (let [[tab-id ws-port] args]
@@ -998,7 +1000,7 @@
     :userscript/fx.install
     (let [[install-opts] args]
       (try
-        (let [saved (js-await (install-userscript! install-opts))]
+        (let [saved (js-await (install-userscript! dispatch! install-opts))]
           {:success true :saved saved})
         (catch :default err
           (log/error "Background" "Install" "Install failed:" err)
