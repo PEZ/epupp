@@ -111,3 +111,8 @@
 - API: `(log/info "Module" "Context" :target :page "message")` or separate functions?
 - Page console requires routing through content bridge
 - May need different approaches for popup/panel vs background worker
+
+
+## Firefox
+
+* [ ] Script import doesn't work. File dialog opens, but nothing happens when opening a file.
