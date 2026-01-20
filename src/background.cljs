@@ -19,19 +19,27 @@
 
 (def ^:private config js/EXTENSION_CONFIG)
 
+;; Note: Use def (not defonce) for state that should reset on script wake.
+;; WebSocket connections don't survive script termination anyway.
+
+(def !state (atom {:init/promise nil
+                   :ws/connections {}
+                   :pending/approvals {}
+                   :icon/states {}
+                   :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
+
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
 ;; ============================================================
 
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
-;; The init-promise ensures all operations wait for storage to load.
-(def !init-promise (atom nil))
+;; The :init/promise key ensures all operations wait for storage to load.
 
 (defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
    Safe to call multiple times - only initializes once per script lifetime."
   []
-  (if-let [p @!init-promise]
+  (if-let [p (:init/promise @!state)]
     (js-await p)
     (let [p (try
               ;; Set test-mode flag in storage for non-bundled scripts (userscript-loader.js)
@@ -49,22 +57,10 @@
               (catch :default err
                 (log/error "Background" nil "Initialization failed:" err)
                 ;; Reset so next call can retry
-                (reset! !init-promise nil)
+                (swap! !state assoc :init/promise nil)
                 (throw err)))]
-      (reset! !init-promise (js/Promise.resolve p))
+      (swap! !state assoc :init/promise (js/Promise.resolve p))
       p)))
-
-;; ============================================================
-;; State - WebSocket connections and pending approvals
-;; ============================================================
-
-;; Note: Use def (not defonce) for state that should reset on script wake.
-;; WebSocket connections don't survive script termination anyway.
-
-(def !state (atom {:ws/connections {}
-                   :pending/approvals {}
-                   :icon/states {}      ; tab-id -> :disconnected | :injected | :connected
-                   :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
