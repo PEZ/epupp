@@ -157,10 +157,10 @@
           files (when (seq requires)
                   (scittle-libs/collect-require-files [{:script/require requires}]))]
       (if (seq files)
-        {:uf/await-fxs (-> [[:msg/fx.inject-bridge tab-id]
-                            [:msg/fx.wait-bridge-ready tab-id]]
-                           (into (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files))
-                           (conj [:msg/fx.send-response send-response {:success true}]))}
+        {:uf/fxs (-> [[:uf/await :msg/fx.inject-bridge tab-id]
+                      [:uf/await :msg/fx.wait-bridge-ready tab-id]]
+                     (into (mapv (fn [f] [:uf/await :msg/fx.inject-require-file tab-id f]) files))
+                     (conj [:uf/await :msg/fx.send-response send-response {:success true}]))}
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.list-scripts-result
@@ -196,8 +196,8 @@
           files (when (seq requires)
                   (scittle-libs/collect-require-files [{:script/require requires}]))]
       (if (seq files)
-        {:uf/await-fxs (conj (mapv (fn [f] [:msg/fx.inject-require-file tab-id f]) files)
-                             [:msg/fx.send-response send-response {:success true}])}
+        {:uf/fxs (conj (mapv (fn [f] [:uf/await :msg/fx.inject-require-file tab-id f]) files)
+                       [:uf/await :msg/fx.send-response send-response {:success true}])}
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.get-connections
