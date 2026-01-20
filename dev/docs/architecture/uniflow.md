@@ -122,8 +122,6 @@ This reads as: "Clear the pending approval, then get the approved data, then exe
 
 **Error handling:** The effect sequence is wrapped in try/catch. If any awaited effect throws, execution stops and the error propagates.
 
-**Legacy support:** `:uf/await-fxs` is still supported but deprecated. It's automatically converted to `[:uf/await ...]` wrapped effects internally.
-
 ### Dispatching
 
 ```clojure

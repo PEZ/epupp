@@ -9,8 +9,6 @@
 ;;             - Await:   [:uf/await :fx.name arg1 arg2]
 ;;             - Thread:  [:uf/await :fx.name :uf/prev-result arg2]
 ;;   :uf/dxs - follow-up actions to dispatch after effects
-;;
-;; DEPRECATED: :uf/await-fxs (converted to [:uf/await ...] internally)
 
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -45,18 +43,13 @@
 (defn handle-actions [state uf-data handler actions]
   (reduce (fn [{state :uf/db :as acc} action]
             (let [result (handler state uf-data action)
-                  {:uf/keys [fxs await-fxs dxs db]} (if-not (= :uf/unhandled-ax result)
-                                                      result
-                                                      (let [generic-result (handle-action state uf-data action)]
-                                                        (when (= :uf/unhandled-ax generic-result)
-                                                          (js/console.warn "Unhandled action:" action))
-                                                        generic-result))
-                  ;; Convert legacy :uf/await-fxs to [:uf/await ...] format
-                  converted-await-fxs (when (seq await-fxs)
-                                        (mapv (fn [fx] (into [:uf/await] fx)) await-fxs))
-                  ;; Merge all effects in order: fxs first, then converted await-fxs
-                  all-fxs (cond-> (vec (or fxs []))
-                            (seq converted-await-fxs) (into converted-await-fxs))]
+                  {:uf/keys [fxs dxs db]} (if-not (= :uf/unhandled-ax result)
+                                            result
+                                            (let [generic-result (handle-action state uf-data action)]
+                                              (when (= :uf/unhandled-ax generic-result)
+                                                (js/console.warn "Unhandled action:" action))
+                                              generic-result))
+                  all-fxs (vec (or fxs []))]
               (js/console.debug "Triggered action" (first action) action)
               (cond-> acc
                 db (assoc :uf/db db)
@@ -129,7 +122,6 @@
 
    Actions can return:
    - :uf/fxs      - effects to execute (use [:uf/await ...] sentinel for async)
-   - :uf/await-fxs - DEPRECATED: use [:uf/await ...] in :uf/fxs instead
    - :uf/dxs      - follow-up actions dispatched after effects
 
    Effects marked with :uf/await are awaited before continuing.
