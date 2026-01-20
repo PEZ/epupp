@@ -386,7 +386,7 @@
 (defn ^:async perform-effect! [dispatch [effect & args]]
   (case effect
     :ws/fx.broadcast-connections-changed!
-    (bg-ws/broadcast-connections-changed! !state)
+    (bg-ws/broadcast-connections-changed! (:ws/connections @!state))
 
     :icon/fx.update-toolbar!
     (let [[tab-id] args]
@@ -583,12 +583,12 @@
                       msg-type (.-type message)]
                   (case msg-type
                     ;; Content script messages (from content-bridge.cljs)
-                    "ws-connect" (do (bg-ws/handle-ws-connect !state dispatch! tab-id (.-port message)) false)
-                    "ws-send" (do (bg-ws/handle-ws-send !state tab-id (.-data message)) false)
+                    "ws-connect" (do (bg-ws/handle-ws-connect (:ws/connections @!state) dispatch! tab-id (.-port message)) false)
+                    "ws-send" (do (bg-ws/handle-ws-send (:ws/connections @!state) tab-id (.-data message)) false)
                     ;; Note: "ws-close" is currently unused - page-side close() only cleans up
                     ;; locally, and reconnection is handled by ws-connect calling close-ws! first.
                     ;; Kept for potential future use if explicit close-from-page is needed.
-                    "ws-close" (do (bg-ws/handle-ws-close !state dispatch! tab-id) false)
+                    "ws-close" (do (bg-ws/handle-ws-close (:ws/connections @!state) dispatch! tab-id) false)
                     "ping" false
 
                     ;; Page context requests script list via epupp.fs/ls
@@ -744,7 +744,7 @@
 
                     "disconnect-tab"
                     (let [target-tab-id (.-tabId message)]
-                      (bg-ws/close-ws! !state dispatch! target-tab-id)
+                      (bg-ws/close-ws! (:ws/connections @!state) dispatch! target-tab-id)
                       false)
 
                     "e2e/find-tab-id"
@@ -941,8 +941,8 @@
 (.addListener js/chrome.tabs.onRemoved
               (fn [tab-id _remove-info]
                 (log/info "Background" nil "Tab closed, cleaning up:" tab-id)
-                (when (bg-ws/get-ws !state tab-id)
-                  (bg-ws/close-ws! !state dispatch! tab-id))
+                (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
+                  (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))
                 (bg-icon/clear-icon-state! dispatch! tab-id)
                 ;; Remove from connection history - no point reconnecting a closed tab
                 (dispatch! [[:history/ax.forget tab-id]])))
@@ -971,9 +971,9 @@
                 ;; Only handle main frame navigation
                 (when (zero? (.-frameId details))
                   (let [tab-id (.-tabId details)]
-                    (when (bg-ws/get-ws !state tab-id)
+                    (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
                       (log/info "Background" "WS" "Closing connection for navigating tab:" tab-id)
-                      (bg-ws/close-ws! !state dispatch! tab-id))))))
+                      (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))))))
 
 (.addListener js/chrome.webNavigation.onCompleted
               (fn [details]

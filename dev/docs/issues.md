@@ -116,3 +116,12 @@
 ## Firefox
 
 * [ ] Script import doesn't work. File dialog opens, but nothing happens when opening a file.
+
+## Safari
+
+* [ ] No tab icon in the connected tabs list
+* [ ] Can't connect on YouTube
+
+## e2e tests
+
+* [ ] **HIGH PRIORITY**: There is flakyness in fs sync write tests. We have tried to fix it a lot of time, but never fully got rid of it.

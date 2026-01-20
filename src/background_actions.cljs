@@ -137,6 +137,9 @@
           :ws/tab-id tab-id})
         :ws/connections))
 
+    :ws/ax.broadcast
+    {:uf/fxs [[:ws/fx.broadcast-connections-changed!]]}
+
     :msg/ax.connect-tab
     (let [[send-response tab-id ws-port] args]
       {:uf/fxs [[:msg/fx.connect-tab send-response tab-id ws-port]]})

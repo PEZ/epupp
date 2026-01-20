@@ -11,9 +11,9 @@
 ;; ============================================================
 
 (defn get-ws
-  "Get WebSocket for a tab from state atom."
-  [!state tab-id]
-  (get-in @!state [:ws/connections tab-id :ws/socket]))
+  "Get WebSocket for a tab from connections map."
+  [connections tab-id]
+  (get-in connections [tab-id :ws/socket]))
 
 ;; ============================================================
 ;; Connection Broadcasting
@@ -22,9 +22,8 @@
 (defn broadcast-connections-changed!
   "Notify popup/panel that connections have changed.
    Sends message to all extension pages listening for connection updates."
-  [!state]
-  (let [connections (:ws/connections @!state)
-        display-list (bg-utils/connections->display-list connections)]
+  [connections]
+  (let [display-list (bg-utils/connections->display-list connections)]
     ;; Send to all extension pages (popup, panel)
     ;; This is a fire-and-forget - some pages may not be open
     (js/chrome.runtime.sendMessage
@@ -41,8 +40,8 @@
 (defn close-ws!
   "Close and remove WebSocket for a tab. Does not send ws-close event.
    Requires dispatch! function to dispatch unregister action."
-  [!state dispatch! tab-id]
-  (when-let [ws (get-ws !state tab-id)]
+  [connections dispatch! tab-id]
+  (when-let [ws (get-ws connections tab-id)]
     ;; Clear onclose to prevent sending ws-close when deliberately closing
     (set! (.-onclose ws) nil)
     (try
@@ -66,20 +65,20 @@
   "Create WebSocket connection for a tab.
    Closes existing connection for this tab, AND any other tab on the same port
    (browser-nrepl only supports one client per port).
-   
+
    Parameters:
-   - !state: State atom
+   - connections: Current connections map
    - dispatch!: Dispatch function for actions
    - tab-id: Target tab ID
    - port: WebSocket port number"
-  [!state dispatch! tab-id port]
+  [connections dispatch! tab-id port]
   ;; Close existing connection for THIS tab
-  (close-ws! !state dispatch! tab-id)
+  (close-ws! connections dispatch! tab-id)
 
   ;; Close any OTHER tab using the same port (browser-nrepl limitation)
-  (when-let [other-tab-id (bg-utils/find-tab-on-port (:ws/connections @!state) port tab-id)]
+  (when-let [other-tab-id (bg-utils/find-tab-on-port connections port tab-id)]
     (log/info "Background" "WS" "Disconnecting tab" other-tab-id "- port" port "claimed by tab" tab-id)
-    (close-ws! !state dispatch! other-tab-id)
+    (close-ws! connections dispatch! other-tab-id)
     ;; Update icon for the disconnected tab
     (bg-icon/update-icon-for-tab! dispatch! other-tab-id :injected))
 
@@ -113,7 +112,7 @@
                    (test-logger/log-event! "WS_CONNECTED" {:tab-id tab-id :port port})
                    (bg-icon/update-icon-for-tab! dispatch! tab-id :connected)
                    (send-to-tab tab-id {:type "ws-open"})
-                   (broadcast-connections-changed! !state)))
+                   (dispatch! [[:ws/ax.broadcast]])))
 
            (set! (.-onmessage ws)
                  (fn [event]
@@ -142,12 +141,12 @@
 
 (defn handle-ws-send
   "Send data through WebSocket for a tab."
-  [!state tab-id data]
-  (when-let [ws (get-ws !state tab-id)]
+  [connections tab-id data]
+  (when-let [ws (get-ws connections tab-id)]
     (when (= 1 (.-readyState ws))
       (.send ws data))))
 
 (defn handle-ws-close
   "Close WebSocket for a tab."
-  [!state dispatch! tab-id]
-  (close-ws! !state dispatch! tab-id))
+  [connections dispatch! tab-id]
+  (close-ws! connections dispatch! tab-id))
