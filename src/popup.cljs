@@ -504,29 +504,8 @@
                         :class (str (when builtin? "script-item-builtin ")
                                     (when reveal-highlight? "script-item-reveal-highlight ")
                                     (when recently-modified? "script-item-fs-modified"))}
-      (when (seq match)
-        [:input {:type "checkbox"
-                 :checked enabled
-                 :title (if enabled "Auto-run enabled" "Auto-run disabled")
-                 :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
-      [:div.script-info
-       [:span.script-name
-        (when builtin?
-          [:span.builtin-indicator {:title "Built-in script"}
-           [icons/cube]])
-        name]
-       (when truncated-desc
-         [:span.script-description truncated-desc])
-       [:span.script-match (run-at-badge run-at) (or pattern-display "No auto-run")]]
-      [:div.script-actions
-       [view-elements/action-button
-        {:button/variant :secondary
-         :button/class "script-inspect"
-         :button/size :sm
-         :button/icon icons/eye
-         :button/title "Inspect script"
-         :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
-        nil]
+      ;; Column 1: Button column (play + optional checkbox)
+      [:div.script-button-column
        [view-elements/action-button
         {:button/variant :secondary
          :button/class "script-run"
@@ -535,16 +514,50 @@
          :button/title "Run script"
          :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
         nil]
-       (when-not builtin?
+       (when (seq match)
+         [:input {:type "checkbox"
+                  :checked enabled
+                  :title (if enabled "Auto-run enabled" "Auto-run disabled")
+                  :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])]
+      ;; Column 2: Content column (name/actions, pattern, description)
+      [:div.script-content-column
+       ;; Row 1: Name and actions
+       [:div.script-row-header
+        [:span.script-name
+         (when builtin?
+           [:span.builtin-indicator {:title "Built-in script"}
+            [icons/cube]])
+         name]
+        [:div.script-actions
          [view-elements/action-button
-          {:button/variant :danger
-           :button/class "script-delete"
+          {:button/variant :secondary
+           :button/class "script-inspect"
            :button/size :sm
-           :button/icon icons/x
-           :button/title "Delete script"
-           :button/on-click #(when (js/confirm "Delete this script?")
-                               (dispatch! [[:popup/ax.delete-script script-id]]))}
-          nil])]]
+           :button/icon icons/eye
+           :button/title "Inspect script"
+           :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
+          nil]
+         (when-not builtin?
+           [view-elements/action-button
+            {:button/variant :danger
+             :button/class "script-delete"
+             :button/size :sm
+             :button/icon icons/x
+             :button/title "Delete script"
+             :button/on-click #(when (js/confirm "Delete this script?")
+                                 (dispatch! [[:popup/ax.delete-script script-id]]))}
+            nil])]]
+       ;; Row 2: Pattern
+       [:div.script-row-pattern
+        [:span.script-match
+         (run-at-badge run-at)
+         (if (seq match)
+           pattern-display
+           "No auto-run (manual only)")]]
+       ;; Row 3: Description
+       (when truncated-desc
+         [:div.script-row-description
+          [:span.script-description truncated-desc]])]]
      (when show-edit-hint
        [:div.script-edit-hint
         "Open the Epupp panel in Developer Tools"])]))

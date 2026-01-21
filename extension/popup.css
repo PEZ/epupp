@@ -278,10 +278,9 @@ button#connect:active {
 }
 
 .script-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 8px;
   padding: 10px 12px;
   background: var(--bg-subtle);
   border-radius: var(--radius);
@@ -292,12 +291,36 @@ button#connect:active {
   border-left: 3px solid var(--text-muted);
 }
 
-.script-info {
+.script-button-column {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
+  grid-row: 1 / -1;
+}
+
+.script-content-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
-  flex: 1;
+}
+
+.script-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.script-row-pattern {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.script-row-description {
+  padding-left: 0;
 }
 
 .script-name {
@@ -310,6 +333,7 @@ button#connect:active {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .builtin-indicator {
@@ -339,13 +363,14 @@ button#connect:active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 .script-actions {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding-top: 2px;
+  gap: 4px;
 }
 
 .script-delete {
