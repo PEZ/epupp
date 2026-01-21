@@ -81,6 +81,17 @@
     };
   }"))
 
+(def trigger-scittle-fn
+  "JavaScript function to trigger Scittle evaluation of script tags.
+   Called directly via chrome.scripting.executeScript."
+  (js* "function() {
+    if (window.scittle && window.scittle.core && window.scittle.core.eval_script_tags) {
+      window.scittle.core.eval_script_tags();
+      return true;
+    }
+    return false;
+  }"))
+
 ;; ============================================================
 ;; Polling Utilities
 ;; ============================================================
@@ -199,8 +210,7 @@
   (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_START" {:tab-id tab-id :count (count scripts)}))
   (when (seq scripts)
     (try
-      (let [trigger-url (js/chrome.runtime.getURL "trigger-scittle.js")
-            ;; Collect all required library files from scripts
+      (let [;; Collect all required library files from scripts
             require-files (scittle-libs/collect-require-files scripts)]
         ;; First ensure content bridge is loaded
         (js-await (inject-content-script tab-id "content-bridge.js"))
@@ -232,8 +242,9 @@
                                                         :timing (or (:script/run-at script) "document-idle")
                                                         :tab-id tab-id})))))
                 scripts))))
-        ;; Trigger Scittle to evaluate them
-        (js-await (send-tab-message tab-id {:type "inject-script" :url trigger-url})))
+        ;; Trigger Scittle to evaluate them - use direct execution to avoid
+        ;; duplicate script injection check which would skip if already injected
+        (js-await (execute-in-page tab-id trigger-scittle-fn)))
       (catch :default err
         (log/error "Background" "Inject" "Userscript injection error:" err)
         (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_ERROR" {:error (.-message err)}))))))
