@@ -5,6 +5,7 @@
    - document-start scripts run before page scripts
    - document-start scripts are injected via registration system"
   (:require ["@playwright/test" :refer [test expect]]
+            [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-panel-page
                               create-popup-page wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count
@@ -17,7 +18,15 @@
 
 (defn- ^:async test_document_start_script_runs_before_page_script []
   (let [context (js-await (launch-browser))
-        ext-id (js-await (get-extension-id context))]
+        ext-id (js-await (get-extension-id context))
+        ;; Capture console logs from background worker for registration verification
+        bg-logs (atom [])
+        workers (.serviceWorkers context)
+        bg-worker (aget workers 0)]
+    ;; Listen to background console (for registration logs)
+    (.on bg-worker "console"
+         (fn [msg]
+           (swap! bg-logs conj (.text msg))))
     (try
       ;; === PHASE 1: Create and ENABLE a document-start script ===
       (let [panel (js-await (create-panel-page context ext-id))
@@ -51,6 +60,19 @@
           (js-await (-> (expect checkbox) (.toBeChecked #js {:timeout 1000}))))
         (js-await (.close popup)))
 
+      ;; === PHASE 2.5: Check registration logs ===
+      ;; Give registration time to complete and Chrome to process it
+      (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+      (let [bg-logs-text (str/join "\n" @bg-logs)]
+        ;; Should see successful registration in background logs
+        (when (str/includes? bg-logs-text "Sync failed")
+          (throw (js/Error. (str "Registration failed! Logs:\n" bg-logs-text))))
+        ;; Should see registration for the pattern
+        (js-await (-> (expect bg-logs-text)
+                      (.toMatch "Creating registration for patterns"))))
+      ;; Give Chrome additional time to process registration
+      (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+
       ;; === PHASE 3: Navigate to test page and verify timing ===
       (let [page (js-await (.newPage context))]
         (js-await (.goto page "http://localhost:18080/timing-test.html" #js {:timeout 2000}))
@@ -62,8 +84,6 @@
         (let [timings (js-await (.evaluate page (fn []
                                                   #js {:epuppPerf js/window.__EPUPP_SCRIPT_PERF
                                                        :pagePerf js/window.__PAGE_SCRIPT_PERF})))]
-          (js/console.log "Timing comparison - Epupp:" (aget timings "epuppPerf") "Page:" (aget timings "pagePerf"))
-
           ;; Epupp script should run before page script
           (when (and (aget timings "epuppPerf") (aget timings "pagePerf"))
             (js-await (-> (expect (aget timings "epuppPerf"))

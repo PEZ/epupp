@@ -73,13 +73,22 @@
   []
   (filterv needs-early-injection? (storage/get-scripts)))
 
+(defn normalize-pattern-for-chrome
+  "Normalize a match pattern to Chrome's registerContentScripts format.
+   Our URL matching allows '*' to match all URLs, but Chrome requires '<all_urls>'."
+  [pattern]
+  (if (= pattern "*")
+    "<all_urls>"
+    pattern))
+
 (defn collect-patterns
-  "Collect all unique URL patterns from early scripts."
+  "Collect all unique URL patterns from early scripts.
+   Normalizes patterns to Chrome's registerContentScripts format."
   [scripts]
   (->> scripts
        (mapcat :script/match)
        distinct
-       vec))
+       (mapv normalize-pattern-for-chrome)))
 
 ;; ============================================================
 ;; Chrome API wrappers

@@ -38,7 +38,7 @@
                {:script/id (.-id s)
                 :script/name (.-name s)
                 :script/description (.-description s)
-                :script/match (.-match s)
+                :script/match (js-arr->vec (.-match s))
                 :script/code (.-code s)
                 :script/enabled (.-enabled s)
                 :script/created (.-created s)
