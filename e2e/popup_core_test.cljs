@@ -96,10 +96,13 @@
           (js-await (-> (expect (.locator item "button.script-run")) (.toBeVisible)))
           (js-await (-> (expect (.locator item "button.script-delete")) (.toBeVisible))))
 
-        ;; Toggle disable (using normalized name)
+        ;; Toggle enable then disable (using normalized name)
+        ;; Script starts disabled by default (auto-run script with match pattern)
         (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")
               checkbox (.locator item "input[type='checkbox']")]
-          (js-await (-> (expect checkbox) (.toBeChecked)))
+          (js-await (-> (expect checkbox) (.not.toBeChecked)))
+          (js-await (.click checkbox))
+          (js-await (wait-for-checkbox-state checkbox true))
           (js-await (.click checkbox))
           (js-await (wait-for-checkbox-state checkbox false)))
 

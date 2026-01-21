@@ -147,11 +147,11 @@
               ;; Get require and run-at from manifest hints
               script-require (:require manifest-hints)
               script-run-at (:run-at manifest-hints)
+              ;; Don't set :script/enabled here - let storage.cljs default it appropriately
               script (cond-> {:script/id id
                               :script/name normalized-name
                               :script/match normalized-match
-                              :script/code code
-                              :script/enabled true}
+                              :script/code code}
                        (seq script-description) (assoc :script/description script-description)
                        (seq script-require) (assoc :script/require script-require)
                        script-run-at (assoc :script/run-at script-run-at))

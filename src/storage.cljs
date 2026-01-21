@@ -106,7 +106,8 @@
 
 (defn save-script!
   "Create or update a script. Merges with existing if id matches.
-   Extracts run-at timing from code manifest if present."
+   Extracts run-at timing from code manifest if present.
+   New scripts default to disabled for safety (built-in scripts always enabled)."
   [script]
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
@@ -119,13 +120,17 @@
         run-at (script-utils/normalize-run-at (get manifest "run-at"))
         ;; Merge script with extracted run-at
         script-with-run-at (assoc script :script/run-at run-at)
+        ;; Determine default enabled state: built-in scripts enabled, all others disabled
+        ;; (Enabled state only matters for scripts with match patterns - auto-injection)
+        is-builtin? (script-utils/builtin-script-id? script-id)
+        default-enabled (if is-builtin? true false)
         updated-script (if existing
                          (-> (merge existing script-with-run-at)
                              (assoc :script/modified now))
                          (-> script-with-run-at
                              (assoc :script/created now)
                              (assoc :script/modified now)
-                             (update :script/enabled #(if (some? %) % true))))]
+                             (update :script/enabled #(if (some? %) % default-enabled))))]
     (swap! !db update :storage/scripts
            (fn [scripts]
              (if existing

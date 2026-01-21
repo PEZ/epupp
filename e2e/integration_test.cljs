@@ -64,12 +64,12 @@
         (js-await (-> (expect script-item) (.toContainText "lifecycle_test.cljs")))
         (js-await (-> (expect script-item) (.toContainText "*://lifecycle.test/*")))
 
-        ;; Toggle enable/disable
-        (js-await (-> (expect checkbox) (.toBeChecked)))
-        (js-await (.click checkbox))
-        (js-await (wait-for-checkbox-state checkbox false))
+        ;; Toggle enable/disable - starts DISABLED by default (auto-run script)
+        (js-await (-> (expect checkbox) (.not.toBeChecked)))
         (js-await (.click checkbox))
         (js-await (wait-for-checkbox-state checkbox true))
+        (js-await (.click checkbox))
+        (js-await (wait-for-checkbox-state checkbox false))
 
         ;; Edit hint appears on click
         (js-await (-> (expect hint) (.toHaveCount 0)))

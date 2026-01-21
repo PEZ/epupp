@@ -71,14 +71,14 @@
     return runAt === 'document-start' || runAt === 'document-end';
   }
 
-  // Check if script is enabled and has approved pattern matching current URL
+  // Check if script is enabled and has pattern matching current URL
   function scriptMatchesUrl(script, url) {
     if (!script.enabled) return false;
     if (!shouldRunNow(script)) return false;
 
-    // Only run on approved patterns
-    const approvedPatterns = script.approvedPatterns || [];
-    return urlMatchesAnyPattern(url, approvedPatterns);
+    // Check if URL matches any of the script's patterns
+    const matchPatterns = script.match || [];
+    return urlMatchesAnyPattern(url, matchPatterns);
   }
 
   // Inject a script tag into the page (synchronous by default)

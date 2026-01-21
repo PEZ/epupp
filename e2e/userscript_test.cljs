@@ -45,6 +45,14 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
+      ;; Enable the script (defaults to disabled for auto-run)
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+        (let [script-item (.locator popup ".script-item:has-text(\"injection_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
+          (js-await (.click checkbox)))
+        (js-await (.close popup)))
+
       ;; Navigate to matching page
       (let [page (js-await (.newPage context))]
         (js/console.log "Navigating to localhost:18080/basic.html...")
@@ -88,6 +96,14 @@
         (js-await (.click (.locator panel "button.btn-save")))
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
+
+      ;; Enable the script (defaults to disabled for auto-run)
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+        (let [script-item (.locator popup ".script-item:has-text(\"timing_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
+          (js-await (.click checkbox)))
+        (js-await (.close popup)))
 
       ;; Navigate to timing test page
       (let [page (js-await (.newPage context))]

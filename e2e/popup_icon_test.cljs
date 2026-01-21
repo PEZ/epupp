@@ -101,12 +101,15 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Enable script via popup
+      ;; Enable script via popup checkbox
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
-        ;; (Approval UI removed - scripts auto-inject when enabled)
+        ;; Script starts disabled - enable it
+        (let [script-item (.locator popup ".script-item:has-text(\"tab_local_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
+          (js-await (.click checkbox)))
         (js-await (.close popup)))
 
       ;; Navigate Tab A - script should inject when enabled and matching
