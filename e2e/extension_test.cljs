@@ -7,7 +7,8 @@
    - Error checking during normal operation"
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              get-test-events wait-for-popup-ready assert-no-errors!]]))
+                              get-test-events wait-for-event wait-for-popup-ready
+                              assert-no-errors!]]))
 
 ;; =============================================================================
 ;; Extension Startup
@@ -24,13 +25,10 @@
         (js-await (wait-for-popup-ready popup))
         (js/console.log "Popup ready")
 
-        ;; Get all events - EXTENSION_STARTED should be there from startup
-        (let [events (js-await (get-test-events popup))]
-          (js/console.log "All events:" (js/JSON.stringify events))
-          (let [started-events (.filter events (fn [e] (= (.-event e) "EXTENSION_STARTED")))]
-            ;; Should have at least one EXTENSION_STARTED event
-            (js-await (-> (expect (.-length started-events))
-                          (.toBeGreaterThanOrEqual 1)))))
+        ;; Wait for EXTENSION_STARTED event from background init
+        (let [event (js-await (wait-for-event popup "EXTENSION_STARTED" 5000))]
+          (js-await (-> (expect (.-event event))
+                        (.toBe "EXTENSION_STARTED"))))
 
         ;; Assert no errors before closing
         (js-await (assert-no-errors! popup))

@@ -330,7 +330,7 @@
   [ext-page event-name timeout-ms]
   (let [start (.now js/Date)]
     (loop []
-      (let [events (js-await (get-test-events ext-page))
+      (let [events (js-await (get-test-events-via-message ext-page))
             found (first (filter #(= (.-event %) event-name) events))]
         (if found
           found

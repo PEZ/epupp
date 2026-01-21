@@ -92,15 +92,25 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!rm-builtin-result)"))]
+      (let [check-result (js-await (eval-in-browser
+                                    "(let [r @!rm-builtin-result]
+                                       (cond
+                                         (= r :pending) :pending
+                                         (:rejected r) (str \"rejected||\" (:rejected r))
+                                         (:resolved r) (str \"resolved||\" (:resolved r))
+                                         :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "rejected"))
+          (let [result-str (unquote-result (first (.-values check-result)))]
+            (-> (expect (or (.startsWith result-str "rejected||")
+                            (.startsWith result-str "resolved||")))
                 (.toBe true))
             (-> (expect (or (.includes result-str "built-in")
                             (.includes result-str "Cannot delete built-in scripts")))
+                (.toBe true))
+            (-> (expect (or (.startsWith result-str "rejected||")
+                            (.includes result-str ":success false")))
                 (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/rm! built-in result"))
