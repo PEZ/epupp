@@ -59,3 +59,5 @@
 * [ ] Enforce no user provided userscripts use epupp namespaces/directories
 * [ ] Chase down Uniflow violations in panel and popup
 * [ ] Get logging under control
+* [ ] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
+* [ ] BUG: Scripts not run from the popup play button.
