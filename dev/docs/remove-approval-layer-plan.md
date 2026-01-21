@@ -105,17 +105,33 @@ Click Run → Execute immediately (no gates)
 - [x] Field preserved in storage parsing/serialization
 - [x] Allows rollback by re-adding approval UI if needed
 
-## Status: ALL PHASES COMPLETE ✅
+## Status: COMPLETE ✅
 
-**Completed:**
-- UI approval layer completely removed
-- Backend approval system removed
+**All work finished on January 21, 2026:**
+
+**Code changes:**
+- UI approval layer completely removed (Phases 1-4)
+- Backend approval system completely removed (Phase 5)
 - Registration uses `:script/match` directly (not approved-patterns)
 - Badge logic simplified (only FS flash, no approval counts)
-- All tests passing (341 unit, 86 E2E)
-- Migration strategy in place (approved-patterns field preserved but ignored)
+- Removed `:script/approved-patterns` initialization from storage.cljs and background.cljs
+- Deleted orphaned approval_actions.cljs file (compiled .mjs will be removed on next build)
 
-The UI is clean but backend plumbing remains. Complete removal requires follow-up work on Phase 5.
+**Storage migration strategy (Phase 8):**
+- Field `:script/approved-patterns` preserved in parsing/serialization for backward compatibility
+- Field is parsed if present but never written to new scripts
+- Field is completely ignored by all runtime logic
+- Allows graceful handling of old scripts without data migration
+
+**Documentation updates:**
+- Updated userscripts-architecture.md to reflect new two-concept model
+- Updated injection-flows.md diagram to remove approval references
+- Updated repl-fs-sync.md to remove approved-patterns from data model
+
+**Tests:**
+- All tests passing: 341 unit, 86 E2E
+- No regressions detected
+- All approval-related tests removed in Phase 7
 
 ## Files to Modify
 

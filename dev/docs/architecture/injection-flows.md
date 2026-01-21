@@ -81,10 +81,10 @@ Early scripts use a browser-specific registration API:
 
 ```mermaid
 flowchart TD
-    ST["Storage change or<br/>approval granted"] --> SYNC["sync-registrations!"]
+    ST["Storage change"] --> SYNC["sync-registrations!"]
     SYNC --> EARLY{"Has early<br/>scripts?"}
     EARLY -->|No| UNREG["Unregister if exists"]
-    EARLY -->|Yes| PATTERNS["Collect approved-patterns<br/>from all early scripts"]
+    EARLY -->|Yes| PATTERNS["Collect patterns<br/>from all early scripts"]
     PATTERNS --> BUILD["Build registration:<br/>id: epupp-early-injection<br/>matches: [patterns...]<br/>js: [userscript-loader.js]<br/>runAt: document_start"]
     BUILD --> REG["Register/update with Chrome"]
 ```

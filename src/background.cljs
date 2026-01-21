@@ -346,8 +346,7 @@
                           :script/match (script-utils/normalize-match-patterns site-match)
                           :script/code code
                           :script/run-at run-at
-                          :script/enabled true
-                          :script/approved-patterns []}
+                          :script/enabled true}
                    (seq description) (assoc :script/description description))]
       (storage/save-script! script))))
 

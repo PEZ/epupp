@@ -55,10 +55,9 @@ See [architecture/state-management.md](architecture/state-management.md) for com
  :script/match ["https://github.com/*"    ; URL patterns (glob)
                 "https://gist.github.com/*"]
  :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
- :script/enabled true                     ; active flag
+ :script/enabled true                     ; auto-run enabled flag
  :script/created "2026-01-02T..."         ; ISO timestamp
  :script/modified "2026-01-02T..."        ; ISO timestamp
- :script/approved-patterns ["https://github.com/*"]  ; patterns user has approved
  :script/run-at "document-idle"           ; injection timing (see below)
  :script/require ["scittle://reagent.js"]}  ; Scittle libraries to load
 ```
@@ -91,10 +90,9 @@ Scripts specify timing via a manifest map at the top of the file:
 The manifest is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at` and `:script/require`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
-Per-pattern approval is handled via `:script/approved-patterns` on each script.
 
 **Script IDs are immutable.** Renaming a script updates `:script/name` but
-preserves `:script/id` for stable identity and approvals.
+preserves `:script/id` for stable identity.
 
 ### Storage Access Pattern
 
@@ -230,7 +228,7 @@ flowchart TD
     subgraph Early["Early Injection (document-start/end)"]
         REG["Chrome triggers\nregistered content script"] --> LOADER["userscript-loader.js\n(ISOLATED world)"]
         LOADER --> READ["Read scripts from storage"]
-        READ --> FILTER_E["Filter: early timing +\nmatching URL + approved"]
+        READ --> FILTER_E["Filter: early timing +\nmatching URL + enabled"]
         FILTER_E --> INJECT_E["Inject Scittle (sync)\nInject matching scripts\nTrigger evaluation"]
     end
 
@@ -242,17 +240,9 @@ flowchart TD
         LS --> FI["Filter: url-matches-pattern?"]
         FI --> F3{"No matches?"}
         F3 -->|Yes| DONE1[Done]
-        F3 -->|No| CHECK["Check pattern approval"]
-        CHECK --> APPROVED{"Approved?"}
-        APPROVED -->|Yes| EXEC["Execute script"]
-        APPROVED -->|No| PEND["Add to pending\n(update badge)"]
+        F3 -->|No| EXEC["Execute script"]
         EXEC --> INJ["Inject content-bridge\nInject Scittle\nInject userscript\nTrigger evaluation"]
     end
-
-    PEND --> POPUP["User sees pending\nin popup"]
-    POPUP --> ALLOW{"Allow?"}
-    ALLOW -->|Yes| SAVE["Add to approved-patterns\nExecute script"]
-    ALLOW -->|No| DIS["Disable script"]
 ```
 
 **Key difference:** Early scripts bypass the background worker's orchestration entirely. The loader handles everything synchronously at document-start. For `document-end` scripts, the loader still runs at document-start, so scripts that require DOM-ready should handle that in code.
@@ -263,13 +253,12 @@ For the detailed step-by-step implementation of injection flows, see [architectu
 
 ### Popup (Lightweight Management)
 
-- List all scripts with enable/disable checkboxes and delete buttons
+- List all scripts with enable/disable checkboxes (for scripts with patterns only) and delete buttons
 - Built-in scripts have a grey left border (`.script-item-builtin`) and cube icon
-- Scripts needing approval highlighted with amber border (`.script-item-approval`)
-- **Allow/Deny buttons** for scripts matching current URL but not yet approved
+- Scripts without patterns show "No auto-run (manual only)" instead of checkbox
+- Checkbox tooltip indicates "Auto-run enabled" or "Auto-run disabled" status
 - Connection status and REPL connect workflow (unchanged from before)
 - Port configuration for browser-nrepl
-- Badge shows count of pending approvals across all tabs
 - Run button for ad-hoc evaluation of a script in the active tab
 - Settings for auto-connect, auto-reconnect, and FS REPL sync
 

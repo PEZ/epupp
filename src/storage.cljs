@@ -260,9 +260,7 @@
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code
                          :script/enabled true
-                         :script/require requires
-                         :script/approved-patterns ["https://gist.github.com/*"
-                                                    "http://localhost:18080/mock-gist.html"]})
+                         :script/require requires})
           (log/info "Storage" nil "Installed/updated built-in gist installer")))
       (catch :default err
         (log/error "Storage" nil "Failed to load gist installer:" err)))))

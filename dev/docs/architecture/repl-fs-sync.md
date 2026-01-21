@@ -51,8 +51,7 @@ routes only the allowed message types into the extension context.
 Primary entities:
 - Script record with `:script/id`, `:script/name`, `:script/match`,
   `:script/code`, `:script/enabled`, `:script/created`, `:script/modified`,
-  `:script/approved-patterns`, `:script/run-at`, `:script/require`, and
-  optional `:script/description`.
+  `:script/run-at`, `:script/require`, and optional `:script/description`.
 - Request envelope with `type`, `requestId`, `payload`.
 - Response envelope with `requestId`, `success`, and `error` on failure.
 
