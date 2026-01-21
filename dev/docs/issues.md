@@ -1,5 +1,17 @@
 # Known Issues
 
+## Auto-run document-start Scripts Don't Execute
+
+**Status**: Not a regression (pre-existing issue)
+
+**Symptom**: Scripts with `:epupp/run-at "document-start"` in their manifest do not auto-run when the pattern matches and auto-run is enabled.
+
+**Expected**: Script should inject at document-start timing when enabled and pattern matches.
+
+**Impact**: Medium - affects userscripts that need early DOM access.
+
+**Workaround**: Use manual run button or default run-at timing.
+
 ## Safari: Limited Extension Functionality
 
 **Status:** Not investigated

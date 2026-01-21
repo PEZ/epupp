@@ -83,9 +83,10 @@ Click Run → Execute immediately (no gates)
 - [ ] Remove `pattern-approved` message handler (background_actions.cljs line 211)
 - [ ] Delete `approval_actions.cljs` file entirely
 - [ ] Remove `:pending/approvals` state from background.cljs
-- [ ] Remove approval badge logic from bg_icon.cljs
+- [ ] Remove approval badge logic from bg_icon.cljs (shows checkmark, no longer needed)
 - [ ] Remove approval effects (`:msg/fx.clear-pending-approval`, `:msg/fx.execute-approved-script`)
 - [ ] Clean up registration.cljs `collect-approved-patterns` usage
+- [ ] **BUG**: New scripts saved from panel default to enabled:true, should be disabled:false
 
 ### Phase 6: Update Panel ✅ COMPLETE (with deviation)
 - [x] Panel defaults to `enabled: true` (not `false` as originally planned)
