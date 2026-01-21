@@ -798,7 +798,7 @@
              (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
              (js/console.info "[Epupp:FS]" banner-msg)))
          ;; Auto-dismiss after 3 seconds
-         (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 3000))
+         (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 2000))
        (when (and bulk-id bulk-final?)
          (swap! !state update :panel/fs-bulk-names dissoc bulk-id))
        ;; Reload or clear editor when current script was modified

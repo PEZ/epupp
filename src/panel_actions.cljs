@@ -169,7 +169,7 @@
                        :panel/script-name name
                        :panel/original-name name
                        :panel/script-id id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]}
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 2000]]}
         {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Save failed")})}))
 
     :editor/ax.rename-script
@@ -189,7 +189,7 @@
                        :panel/save-status {:type :success :text (str "Renamed to \"" to-name "\"")}
                        :panel/script-name to-name
                        :panel/original-name to-name)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 3000]]}
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 2000]]}
         {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Rename failed")})}))
 
     :editor/ax.load-script-for-editing
