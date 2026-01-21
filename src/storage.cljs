@@ -180,32 +180,6 @@
 ;; Granted Origins CRUD
 ;; ============================================================
 
-(defn approve-pattern!
-  "Add a pattern to a script's approved-patterns list.
-   Logs warning and returns nil if script doesn't exist."
-  [script-id pattern]
-  (if-not (get-script script-id)
-    (log/warn "Storage" nil "approve-pattern! called for non-existent script:" script-id)
-    (do
-      (swap! !db update :storage/scripts
-             (fn [scripts]
-               (mapv (fn [s]
-                       (if (= (:script/id s) script-id)
-                         (update s :script/approved-patterns
-                                 (fn [patterns]
-                                   (let [patterns (or patterns [])]
-                                     (if (some #(= % pattern) patterns)
-                                       patterns
-                                       (conj patterns pattern)))))
-                         s))
-                     scripts)))
-      (persist!))))
-
-(defn pattern-approved?
-  "Check if a pattern is approved for a script"
-  [script pattern]
-  (some #(= % pattern) (:script/approved-patterns script)))
-
 (defn get-granted-origins
   "Get all granted origins"
   []
@@ -305,8 +279,6 @@
            :delete_script_BANG_ delete-script!
            :clear_user_scripts_BANG_ clear-user-scripts!
            :toggle_script_BANG_ toggle-script!
-           :approve_pattern_BANG_ approve-pattern!
-           :pattern_approved_QMARK_ pattern-approved?
            :get_granted_origins get-granted-origins
            :add_granted_origin_BANG_ add-granted-origin!
            :remove_granted_origin_BANG_ remove-granted-origin!

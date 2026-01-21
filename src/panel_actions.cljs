@@ -129,8 +129,8 @@
 
     :editor/ax.save-script
     (let [{:panel/keys [code script-name script-match script-description script-id original-name manifest-hints]} state]
-      (if (or (empty? code) (empty? script-name) (empty? script-match))
-        {:uf/db (assoc state :panel/save-status {:type :error :text "Name, match pattern, and code are required"})}
+      (if (or (empty? code) (empty? script-name))
+        {:uf/db (assoc state :panel/save-status {:type :error :text "Name and code are required"})}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
               ;; Check if name changed from original (means create new/copy, not update)

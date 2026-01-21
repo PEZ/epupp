@@ -208,16 +208,6 @@
     (let [[send-response] args]
       {:uf/fxs [[:msg/fx.e2e-get-test-events send-response]]})
 
-    :msg/ax.pattern-approved
-    ;; Recipe-style action using result threading:
-    ;; 1. Clear pending approval (fire-and-forget)
-    ;; 2. Get approved data (await, returns {:script ... :tab-id ...})
-    ;; 3. Execute script if valid (await, receives prev result)
-    (let [[script-id pattern] args]
-      {:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]
-                [:uf/await :msg/fx.get-pattern-approved-data script-id]
-                [:uf/await :msg/fx.execute-approved-script :uf/prev-result]]})
-
     :msg/ax.install-userscript
     (let [[send-response manifest script-url] args
           install-opts {:script-name (:script-name manifest)

@@ -200,10 +200,12 @@
 (defn normalize-match-patterns
   "Normalize match patterns to a vector.
    Accepts a string (single pattern) or vector of patterns.
+   Empty string or nil means no patterns (manual-only script).
    Returns a vector of pattern strings."
   [match]
   (cond
     (nil? match) []
+    (and (string? match) (empty? match)) []
     (string? match) [match]
     (vector? match) match
     :else (vec match)))

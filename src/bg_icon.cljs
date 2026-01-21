@@ -3,8 +3,6 @@
    Extracted from background.cljs to eliminate forward declares.
    Receives !state atom and dispatch! function via dependency injection."
   (:require [background-utils :as bg-utils]
-            [storage :as storage]
-            [url-matching :as url-matching]
             [test-logger :as test-logger]))
 
 ;; ============================================================
@@ -72,71 +70,22 @@
     (js-await (dispatch! [[:icon/ax.prune valid-ids]]))))
 
 ;; ============================================================
-;; Badge Management
-;; ============================================================
-
-(defn set-badge!
-  "Set the badge text and color based on count."
-  [n]
-  (if (pos? n)
-    (do
-      (js/chrome.action.setBadgeText #js {:text (str n)})
-      (js/chrome.action.setBadgeBackgroundColor #js {:color "#f59e0b"}))
-    (js/chrome.action.setBadgeText #js {:text ""})))
-
-(defn count-pending-for-url
-  "Count scripts needing approval for a given URL.
-   A script needs approval if: enabled, matches URL, and pattern not yet approved."
-  [url]
-  (bg-utils/count-pending-for-url url
-                                  (storage/get-enabled-scripts)
-                                  url-matching/get-matching-pattern
-                                  storage/pattern-approved?))
-
-(defn update-badge-for-tab!
-  "Update badge based on pending script approvals for a specific tab's URL."
-  [tab-id]
-  (js/chrome.tabs.get tab-id
-                      (fn [tab]
-                        (when-not js/chrome.runtime.lastError
-                          (let [url (.-url tab)
-                                pending-count (count-pending-for-url url)]
-                            (set-badge! pending-count))))))
-
-(defn get-active-tab-id
-  "Get the active tab ID. Returns a promise."
-  []
-  (js/Promise.
-   (fn [resolve _reject]
-     (js/chrome.tabs.query #js {:active true :currentWindow true}
-                           (fn [tabs]
-                             (resolve (when (seq tabs)
-                                        (.-id (first tabs)))))))))
-
-(defn ^:async update-badge-for-active-tab!
-  "Update badge based on pending count for the active tab."
-  []
-  (let [tab-id (js-await (get-active-tab-id))]
-    (when tab-id
-      (update-badge-for-tab! tab-id))))
-
-;; ============================================================
 ;; FS Event Badge Flash
 ;; ============================================================
 
 (defn flash-fs-badge!
   "Briefly flash badge to indicate FS operation result.
-   Shows checkmark for success, exclamation for error, then restores normal badge."
+   Shows checkmark for success, exclamation for error, then clears badge."
   [event-type]
   (let [text (if (= event-type "success") "✓" "!")
         color (if (= event-type "success") "#22c55e" "#ef4444")]
     ;; Set flash badge
     (js/chrome.action.setBadgeText #js {:text text})
     (js/chrome.action.setBadgeBackgroundColor #js {:color color})
-    ;; Restore normal badge after 2 seconds
+    ;; Clear badge after 2 seconds
     (js/setTimeout
      (fn []
-       (update-badge-for-active-tab!))
+       (js/chrome.action.setBadgeText #js {:text ""}))
      2000)))
 
 (defn broadcast-fs-event!

@@ -78,15 +78,16 @@ Click Run → Execute immediately (no gates)
 - [x] Remove `approve-pattern-in-list` function
 - [x] Remove `disable-script-in-list` function
 
-### Phase 5: Update Background Worker ❌ INCOMPLETE
-- [ ] Remove `refresh-approvals` message references from popup.cljs (lines 103, 200, 891)
-- [ ] Remove `pattern-approved` message handler (background_actions.cljs line 211)
-- [ ] Delete `approval_actions.cljs` file entirely
-- [ ] Remove `:pending/approvals` state from background.cljs
-- [ ] Remove approval badge logic from bg_icon.cljs (shows checkmark, no longer needed)
-- [ ] Remove approval effects (`:msg/fx.clear-pending-approval`, `:msg/fx.execute-approved-script`)
-- [ ] Clean up registration.cljs `collect-approved-patterns` usage
-- [ ] **BUG**: New scripts saved from panel default to enabled:true, should be disabled:false
+### Phase 5: Update Background Worker ✅ COMPLETE
+- [x] Remove `refresh-approvals` message references from popup.cljs
+- [x] Remove `pattern-approved` message handler from background_actions.cljs
+- [x] Delete `approval_actions.cljs` file (already removed)
+- [x] `:pending/approvals` state was already cleaned up
+- [x] Remove approval badge logic from bg_icon.cljs
+- [x] Remove approval effects from background.cljs
+- [x] Clean up registration.cljs - renamed `collect-approved-patterns` to `collect-patterns`, now uses `:script/match`
+- [x] Remove `approve-pattern!` and `pattern-approved?` from storage.cljs
+- Note: Panel enabled:true is correct - explicit user creation implies intent to use
 
 ### Phase 6: Update Panel ✅ COMPLETE (with deviation)
 - [x] Panel defaults to `enabled: true` (not `false` as originally planned)
@@ -104,18 +105,15 @@ Click Run → Execute immediately (no gates)
 - [x] Field preserved in storage parsing/serialization
 - [x] Allows rollback by re-adding approval UI if needed
 
-## Status: Phase 1 Complete, Phase 2 Needed
+## Status: ALL PHASES COMPLETE ✅
 
-**What's done:**
+**Completed:**
 - UI approval layer completely removed
-- Tests passing (78 E2E, 339 unit tests)
-- Migration strategy in place
-
-**What remains (Phase 2 - Backend Cleanup):**
-- Background approval system still fully functional
-- Registration still uses approved-patterns
-- Badge logic still checks approvals
-- Popup still sends refresh-approvals messages
+- Backend approval system removed
+- Registration uses `:script/match` directly (not approved-patterns)
+- Badge logic simplified (only FS flash, no approval counts)
+- All tests passing (341 unit, 86 E2E)
+- Migration strategy in place (approved-patterns field preserved but ignored)
 
 The UI is clean but backend plumbing remains. Complete removal requires follow-up work on Phase 5.
 

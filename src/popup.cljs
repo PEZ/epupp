@@ -96,12 +96,9 @@
      (clj->js {key {:nreplPort nrepl :wsPort ws}}))))
 
 (defn persist-and-notify-scripts!
-  "Save scripts to storage and notify background worker."
-  [scripts notify-type]
-  (save-scripts! scripts)
-  (case notify-type
-    :refresh (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
-    nil))
+  "Save scripts to storage."
+  [scripts _notify-type]
+  (save-scripts! scripts))
 
 ;; ============================================================
 ;; Uniflow Dispatch
@@ -196,8 +193,6 @@
     (let [[scripts script-id] args
           updated (popup-utils/remove-script-from-list scripts script-id)]
       (save-scripts! updated)
-      ;; Notify background to update badge
-      (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
     :popup/fx.inspect-script
@@ -887,8 +882,6 @@
   (swap! !state assoc :browser/brave? (some? (.-brave js/navigator)))
 
   (render!)
-  ;; Refresh badge on popup open
-  (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
 
   ;; Listen for connection changes from background
   (js/chrome.runtime.onMessage.addListener

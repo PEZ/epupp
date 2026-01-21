@@ -60,10 +60,10 @@
 
 (defn needs-early-injection?
   "Check if a script needs early injection via content script registration.
-   Only enabled scripts with document-start or document-end timing need this."
+   Only enabled scripts with patterns and document-start or document-end timing need this."
   [script]
   (and (:script/enabled script)
-       (seq (:script/approved-patterns script))
+       (seq (:script/match script))
        (let [run-at (:script/run-at script)]
          (or (= run-at "document-start")
              (= run-at "document-end")))))
@@ -73,11 +73,11 @@
   []
   (filterv needs-early-injection? (storage/get-scripts)))
 
-(defn collect-approved-patterns
-  "Collect all unique approved patterns from early scripts."
+(defn collect-patterns
+  "Collect all unique URL patterns from early scripts."
   [scripts]
   (->> scripts
-       (mapcat :script/approved-patterns)
+       (mapcat :script/match)
        distinct
        vec))
 
@@ -154,7 +154,7 @@
    - Creates registration if none exists"
   []
   (let [early-scripts (get-early-scripts)
-        target-patterns (collect-approved-patterns early-scripts)
+        target-patterns (collect-patterns early-scripts)
         registered (js-await (get-registered-scripts))
         existing (->> registered
                       (filter #(= (.-id %) registration-id))
@@ -188,7 +188,7 @@
    Firefox registrations are non-persistent, so we always re-register."
   []
   (let [early-scripts (get-early-scripts)
-        target-patterns (collect-approved-patterns early-scripts)]
+        target-patterns (collect-patterns early-scripts)]
     ;; Always unregister first (Firefox doesn't support updating)
     (js-await (unregister-firefox!))
     ;; Register if we have patterns
@@ -225,7 +225,7 @@
       #js {:sync_registrations_BANG_ sync-registrations!
            :get_registered_scripts get-registered-scripts
            :get_early_scripts get-early-scripts
-           :collect_approved_patterns collect-approved-patterns
+           :collect_patterns collect-patterns
            :needs_early_injection_QMARK_ needs-early-injection?
            :chrome_QMARK_ chrome?
            :firefox_QMARK_ firefox?})

@@ -4,21 +4,21 @@
 
 (describe "needs-early-injection?"
           (fn []
-            (test "returns true for enabled document-start script with approved patterns"
+            (test "returns true for enabled document-start script with patterns"
                   (fn []
                     (let [script {:script/id "test"
                                   :script/enabled true
                                   :script/run-at "document-start"
-                                  :script/approved-patterns ["https://example.com/*"]}]
+                                  :script/match ["https://example.com/*"]}]
                       (-> (expect (reg/needs-early-injection? script))
                           (.toBeTruthy)))))
 
-            (test "returns true for enabled document-end script with approved patterns"
+            (test "returns true for enabled document-end script with patterns"
                   (fn []
                     (let [script {:script/id "test"
                                   :script/enabled true
                                   :script/run-at "document-end"
-                                  :script/approved-patterns ["https://example.com/*"]}]
+                                  :script/match ["https://example.com/*"]}]
                       (-> (expect (reg/needs-early-injection? script))
                           (.toBeTruthy)))))
 
@@ -27,7 +27,7 @@
                     (let [script {:script/id "test"
                                   :script/enabled true
                                   :script/run-at "document-idle"
-                                  :script/approved-patterns ["https://example.com/*"]}]
+                                  :script/match ["https://example.com/*"]}]
                       (-> (expect (reg/needs-early-injection? script))
                           (.toBeFalsy)))))
 
@@ -36,31 +36,31 @@
                     (let [script {:script/id "test"
                                   :script/enabled false
                                   :script/run-at "document-start"
-                                  :script/approved-patterns ["https://example.com/*"]}]
+                                  :script/match ["https://example.com/*"]}]
                       (-> (expect (reg/needs-early-injection? script))
                           (.toBeFalsy)))))
 
-            (test "returns false for script without approved patterns"
+            (test "returns false for script without patterns"
                   (fn []
                     (let [script {:script/id "test"
                                   :script/enabled true
                                   :script/run-at "document-start"
-                                  :script/approved-patterns []}]
+                                  :script/match []}]
                       (-> (expect (reg/needs-early-injection? script))
                           (.toBeFalsy)))))))
 
-(describe "collect-approved-patterns"
+(describe "collect-patterns"
           (fn []
             (test "collects unique patterns from multiple scripts"
                   (fn []
-                    (let [scripts [{:script/approved-patterns ["https://a.com/*" "https://b.com/*"]}
-                                   {:script/approved-patterns ["https://b.com/*" "https://c.com/*"]}]]
-                      (-> (expect (reg/collect-approved-patterns scripts))
+                    (let [scripts [{:script/match ["https://a.com/*" "https://b.com/*"]}
+                                   {:script/match ["https://b.com/*" "https://c.com/*"]}]]
+                      (-> (expect (reg/collect-patterns scripts))
                           (.toEqual #js ["https://a.com/*" "https://b.com/*" "https://c.com/*"])))))
 
             (test "returns empty vector for empty scripts list"
                   (fn []
-                    (-> (expect (reg/collect-approved-patterns []))
+                    (-> (expect (reg/collect-patterns []))
                         (.toEqual #js []))))))
 
 (describe "build-registration"
