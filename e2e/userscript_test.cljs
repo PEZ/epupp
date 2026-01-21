@@ -197,6 +197,14 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
+      ;; Enable the script (defaults to disabled for auto-run)
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+        (let [script-item (.locator popup ".script-item:has-text(\"error_check_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
+          (js-await (.click checkbox)))
+        (js-await (.close popup)))
+
       ;; Navigate to trigger injection
       (let [page (js-await (.newPage context))]
         (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
