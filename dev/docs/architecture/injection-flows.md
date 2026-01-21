@@ -29,10 +29,8 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
 2. `handle-navigation!` waits for storage initialization
 3. `process-navigation!` gets matching enabled scripts
 4. Filters to `document-idle` scripts only
-5. For each script, check if matching pattern is approved
-6. **Approved**: `ensure-scittle!` → `execute-scripts!`
-7. **Unapproved**: `request-approval!` (adds to pending, updates badge)
-7. `execute-scripts!` flow:
+5. `ensure-scittle!` → `execute-scripts!`
+6. `execute-scripts!` flow:
    - Inject content bridge
    - Wait for bridge ready (ping/pong)
    - Send `clear-userscripts` message
@@ -91,7 +89,7 @@ flowchart TD
 
 **Key design decisions:**
 - Single registration ID (`epupp-early-injection`) covers all early scripts
-- Registration fires the loader for union of all approved patterns
+- Registration fires the loader for union of all match patterns
 - Loader filters to scripts matching current URL at runtime
 - `persistAcrossSessions: true` survives browser restarts
 
@@ -101,7 +99,7 @@ The loader ([userscript-loader.js](../../../extension/userscript-loader.js)) run
 
 1. Guard against multiple injections (`window.__epuppLoaderInjected`)
 2. Read all scripts from `chrome.storage.local`
-3. Filter to enabled scripts with early timing and approved pattern matching current URL
+3. Filter to enabled scripts with early timing matching current URL
 4. Inject `vendor/scittle.js` synchronously (blocks until loaded)
 5. Inject each matching script as `<script type="application/x-scittle">`
 6. Inject `trigger-scittle.js` to evaluate all Scittle scripts

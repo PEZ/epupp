@@ -22,7 +22,7 @@ The content bridge ([content_bridge.cljs](../../../src/content_bridge.cljs)) is 
 | `epupp-page` | `ws-send` | Background | WebSocket relay for REPL |
 | `epupp-userscript` | `install-userscript` | Background | Script installation (with origin validation) |
 
-**Any message type not in this whitelist is silently dropped.** This prevents userscripts from spoofing popup/panel messages like `pattern-approved` or `evaluate-script`.
+**Any message type not in this whitelist is silently dropped.** This prevents userscripts from spoofing popup/panel messages like `evaluate-script`.
 
 When adding new forwarded message types, consider: "What if any page script could call this?" If the answer involves privilege escalation, don't forward it.
 
@@ -37,15 +37,6 @@ Our solution:
 1. **Background worker** makes WebSocket connections (extension context bypasses page CSP)
 2. **Content bridge** in ISOLATED world can inject script tags
 3. **Scittle patched** to remove `eval()` usage (see `bb bundle-scittle`)
-
-## Per-Pattern Approval
-
-Despite having `<all_urls>` host permission (required for `scripting.executeScript`), we implement additional user control:
-
-1. Each script tracks `:script/approved-patterns`
-2. New URL patterns require explicit user approval
-3. Disabling a script revokes all pattern approvals
-4. Badge shows count of pending approvals
 
 ## Injection Guards
 

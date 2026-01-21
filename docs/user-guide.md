@@ -42,7 +42,7 @@ Very silly examples...
 To install:
 1. Visit the gist
 2. Click the **Install to Epupp** button (that should appear)
-3. Allow or Deny from the popup UI (on sites where the script matches)
+3. Script appears in the popup - enable the checkbox to auto-run on matching sites
 
 ### Save as Userscript
 
@@ -57,7 +57,7 @@ To save your code as an auto-running userscript:
    ```
 2. Click **Save Script**
 3. The script appears in the popup's script list
-4. Enable it and approve it for the current site
+4. Enable the checkbox to auto-run on matching sites
 
 ---
 
@@ -267,21 +267,10 @@ Within each section: user scripts alphabetically, then built-in scripts (grey bo
 
 | Icon | Action |
 |------|--------|
-| Checkbox | Enable/disable the script |
+| Checkbox | Enable/disable auto-run |
 | Eye | Load into DevTools panel for viewing/editing |
 | Play | Run on current page (one-time) |
 | X | Delete (not available for built-in scripts) |
-
-### Approval Workflow
-
-When you visit a page matching an enabled script's pattern for the first time:
-
-1. The script shows an amber border
-2. **Allow** and **Deny** buttons appear
-3. Click **Allow** to approve and run the script
-4. Click **Deny** to disable the script
-
-Approvals are per-pattern. A script with multiple patterns needs approval for each.
 
 ### Built-in Scripts
 
@@ -563,20 +552,7 @@ Save code with an embedded manifest:
 
 If a script with that name exists, it's updated. Otherwise, a new script is created.
 
-### Script Approval Requirement
-
-Scripts created via `epupp.fs/save!` start with no approved patterns. Before they run automatically on matching sites, you must approve them in the popup UI:
-
-1. Navigate to a page matching the script's pattern
-2. Open the Epupp popup
-3. The script shows an amber border indicating pending approval
-4. Click **Allow** to approve and run the script
-
-This security measure ensures you explicitly authorize each script to run on specific sites. The approval is per-pattern - a script with multiple `:epupp/site-match` patterns needs individual approval for each.
-
-For immediate testing without approval workflow, use one-time evaluation:
-- Click the **Play** button in the popup to run the script once on the current page
-- Or evaluate code directly in the DevTools panel
+Scripts created via `epupp.fs/save!` default to disabled (`enabled: false`). Enable them in the popup to auto-run on matching sites, or use the **Play** button for one-time evaluation.
 
 ### Renaming Scripts
 
@@ -646,10 +622,9 @@ Same cause. Browser security prevents extensions from accessing internal pages.
 
 ### Script Doesn't Run
 
-1. Is the script enabled? (checkbox in popup)
-2. Is the pattern approved? (amber border means pending approval)
-3. Does the pattern match the URL? Check for typos
-4. Open DevTools console for error messages
+1. Is auto-run enabled? (checkbox in popup)
+2. Does the pattern match the URL? Check for typos
+3. Open DevTools console for error messages
 
 ### CSP Errors
 

@@ -21,9 +21,9 @@ Detailed docs live under [architecture/](architecture/). Use the Navigate table 
 flowchart TB
     subgraph Browser
         subgraph Extension
-            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Approvals<br/>- Auto-connect + icon state"]
+            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Auto-connect + icon state"]
             Reg["Registration<br/>- Early script registration"]
-            Popup["Popup<br/>- REPL connect<br/>- Script list<br/>- Approvals UI"]
+            Popup["Popup<br/>- REPL connect<br/>- Script list"]
             Panel["DevTools Panel<br/>- Code eval<br/>- Save script"]
 
             Popup -->|"chrome.runtime"| BG

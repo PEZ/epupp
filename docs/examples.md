@@ -151,7 +151,7 @@ This script runs **after** the page loads and displays the data collected by Scr
 
 **To test:**
 1. Save both scripts in the Epupp panel
-2. Approve both for a site (e.g., `*`)
+2. Enable both scripts in the popup (checkbox)
 3. Navigate to any page that makes fetch requests
 4. The dashboard shows intercepted URLs
 

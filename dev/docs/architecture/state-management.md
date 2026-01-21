@@ -5,7 +5,7 @@ isolated. The architecture coordinates through message passing.
 
 ## State Domains
 
-- Background worker: connection lifecycle, approvals, toolbar icon state, and
+- Background worker: connection lifecycle, toolbar icon state, and
   auto-connect tracking for tabs.
 - Content bridge: ephemeral relay state and keepalive behavior.
 - Popup: UI state, connection status, settings, and script list derived from
@@ -19,8 +19,8 @@ isolated. The architecture coordinates through message passing.
   settings.
 - UI contexts mirror storage in memory and react to `storage.onChanged` for
   updates.
-- Background is the only place that orchestrates injection and approvals, so
-  storage changes are normalized there for policy decisions.
+- Background is the only place that orchestrates injection, so storage changes
+  are normalized there for policy decisions.
 
 ## Uniflow as the Local Decision Engine
 

@@ -93,9 +93,9 @@ Effects in `:uf/fxs` execute in declared order. By default, effects are fire-and
 When an awaited effect returns a value, subsequent effects can access it via `:uf/prev-result`:
 
 ```clojure
-{:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]        ; fire-and-forget
-          [:uf/await :msg/fx.get-data script-id]                    ; await, returns data
-          [:uf/await :msg/fx.process-data :uf/prev-result]]}        ; receives previous result
+{:uf/fxs [[:log/fx.log :info "Loading data..."]                     ; fire-and-forget
+          [:uf/await :data/fx.fetch script-id]                      ; await, returns data
+          [:uf/await :data/fx.process :uf/prev-result]]}            ; receives previous result
 ```
 
 The `:uf/prev-result` placeholder is substituted with the return value of the most recent awaited effect. Fire-and-forget effects don't update `:uf/prev-result`.
@@ -105,14 +105,15 @@ The `:uf/prev-result` placeholder is substituted with the return value of the mo
 This pattern enables "recipe-style" actions - declarative sequences where each step flows into the next:
 
 ```clojure
-:msg/ax.pattern-approved
-(let [[script-id pattern] args]
-  {:uf/fxs [[:msg/fx.clear-pending-approval script-id pattern]
-            [:uf/await :msg/fx.get-pattern-approved-data script-id]
-            [:uf/await :msg/fx.execute-approved-script :uf/prev-result]]})
+:data/ax.load-and-process
+(let [[resource-id] args]
+  {:uf/fxs [[:log/fx.log :info "Starting data load" resource-id]
+            [:uf/await :data/fx.fetch resource-id]
+            [:uf/await :data/fx.transform :uf/prev-result]
+            [:uf/await :data/fx.save :uf/prev-result]]})
 ```
 
-This reads as: "Clear the pending approval, then get the approved data, then execute the script with that data."
+This reads as: "Log the operation, then fetch the data, then transform it, then save the result."
 
 **Benefits:**
 - Actions read like recipes with clear intent

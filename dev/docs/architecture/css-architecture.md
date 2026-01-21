@@ -95,7 +95,6 @@ Light/dark themes are handled via `prefers-color-scheme`:
 .status-bar--success    /* Green left border */
 .status-bar--error      /* Red left border */
 .status-bar--warning    /* Amber left border */
-.status-bar--pending    /* Amber, for approval states */
 
 .status-text            /* Inline status message */
 .status-text--success   /* Green text */

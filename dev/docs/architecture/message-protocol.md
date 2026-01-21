@@ -128,8 +128,6 @@ Via `chrome.runtime.sendMessage`.
 | `get-connections` | - | `{success, connections}` | List active REPL connections |
 | `disconnect-tab` | `{tabId}` | - | Disconnect REPL from a tab |
 | `check-status` | `{tabId}` | `{success, status}` | Check Scittle and bridge status |
-| `refresh-approvals` | - | - | Reload scripts, sync pending, update badge |
-| `pattern-approved` | `{scriptId, pattern}` | - | Pattern approved, clear pending + execute |
 | `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
 | `inject-requires` | `{tabId, requires}` | `{success, error?}` | Inject Scittle libraries for eval |
 | `evaluate-script` | `{tabId, scriptId, code, require}` | `{success, error?}` | Run a script in the current tab |

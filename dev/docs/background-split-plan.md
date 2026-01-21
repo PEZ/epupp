@@ -1,3 +1,5 @@
+> **Note**: This document describes historical architecture that has been significantly refactored. The approval system described here has been removed. See remove-approval-layer-plan.md for details.
+
 # Background.cljs Decomposition Plan
 
 ## Operating Principles

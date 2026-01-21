@@ -36,9 +36,9 @@ A minimal DevTools panel serves as the **on-ramp**; jacking in an editor is the 
 
 See [architecture.md](architecture.md) for the full component diagram and technical details. Key userscript-related components:
 
-- **Background Worker** - Handles `webNavigation.onCompleted`, manages pending approvals
+- **Background Worker** - Handles `webNavigation.onCompleted`
 - **Content Bridge** - Injects `<script type="application/x-scittle">` tags
-- **Popup** - Script list with Allow/Deny approval workflow
+- **Popup** - Script list with enable/disable controls
 - **DevTools Panel** - Script editing and "Save as Userscript" functionality
 
 ## Data Model
@@ -118,7 +118,7 @@ Nested arrays cannot occur in normal operation. If future import functionality i
 
 ### Implemented Approach
 
-We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScript` requires host permissions to be declared at install time. However, auto-injection is controlled by a **per-pattern approval system** stored in each script:
+We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScript` requires host permissions to be declared at install time:
 
 ```json
 {
@@ -129,22 +129,11 @@ We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScr
 
 **How it works:**
 1. Extension installs with permission to access all URLs (required for `scripting.executeScript`)
-2. When a page loads matching a script's URL pattern, we check `:script/approved-patterns`
-3. If the matching pattern is NOT in approved-patterns, we prompt the user via the popup
-4. User sees "Allow" / "Deny" buttons for the specific script on that pattern
-5. On "Allow": pattern is added to `:script/approved-patterns` and script executes
-6. On "Deny": script is disabled
-7. A badge shows the count of pending approvals
+2. Scripts specify which URLs they match via `:script/match` patterns
+3. Auto-injection is controlled by the `:script/enabled` checkbox in the popup
+4. When enabled, scripts automatically run on matching URLs; when disabled, they don't
 
-**Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality. Our per-pattern approval provides additional user control beyond Chrome's built-in settings.
-
-### Why Per-Pattern Approval?
-
-The original plan was to rely on Chrome's "Site access" setting. In practice:
-- `chrome.permissions.request()` requires a user gesture (can't call from background worker)
-- We wanted more granular control than "all or nothing"
-- Per-pattern approval lets users allow a script on `github.com/*` but not yet on `gist.github.com/*`
-- Disabling a script also revokes its pattern approvals, so re-enabling requires re-approval
+**Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality.
 
 The `granted-origins` storage key is retained for potential future use but currently unused.
 
@@ -237,7 +226,7 @@ flowchart TD
         WN --> F1{"Main frame?"}
         F1 -->|No| IGN[Ignore]
         F1 -->|Yes| LS["Load enabled scripts\n(idle timing only)"]
-        LS --> FI["Filter: url-matches-pattern?"]
+        LS --> FI["Filter: url-matches-pattern? + enabled"]
         FI --> F3{"No matches?"}
         F3 -->|Yes| DONE1[Done]
         F3 -->|No| EXEC["Execute script"]

@@ -1,3 +1,5 @@
+> **Note**: This document describes historical architecture that has been significantly refactored. The approval system described here has been removed. See remove-approval-layer-plan.md for details.
+
 # Background Module Uniflow Cleanup Plan
 
 This document outlines a phased approach to bring `src/background.cljs` into proper Uniflow compliance.

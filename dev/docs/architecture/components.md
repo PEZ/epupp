@@ -6,10 +6,10 @@ This document is a map of where the architecture lives in code.
 
 | File | Context | Purpose |
 |------|---------|---------|
-| `background.cljs` | Service Worker | WebSocket management, script injection orchestration, approvals, icon state |
-| `background_actions.cljs` | Service Worker | Pure background action router (WS, approval, icon, history, FS) |
-| `background_actions/*.cljs` | Service Worker | Pure handlers for approvals, history, icon state, WS, REPL FS |
-| `background_utils.cljs` | Shared | Background helper functions (icon, connections, approvals) |
+| `background.cljs` | Service Worker | WebSocket management, script injection orchestration, icon state |
+| `background_actions.cljs` | Service Worker | Pure background action router (WS, icon, history, FS) |
+| `background_actions/*.cljs` | Service Worker | Pure handlers for history, icon state, WS, REPL FS |
+| `background_utils.cljs` | Shared | Background helper functions (icon, connections) |
 | `bg_fs_dispatch.cljs` | Service Worker | FS Uniflow dispatcher and effect bridge |
 | `registration.cljs` | Service Worker | Content script registration for early-timing scripts |
 | `content_bridge.cljs` | Content Script (ISOLATED) | Message relay, DOM injection, keepalive, FS forwarder |

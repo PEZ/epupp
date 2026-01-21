@@ -45,7 +45,6 @@ Lead new work with tests to lock in intent and expose regressions early.
 **Filter tests:** Pass `--grep "pattern"` to any Playwright test:
 ```bash
 bb test:e2e --grep "popup"
-bb test:e2e --grep "approval"
 ```
 
 ## What Goes Where?
@@ -63,7 +62,7 @@ bb test:e2e --grep "approval"
 ### E2E Tests (`e2e/*_test.cljs`, `e2e/*_spec.cljs`)
 
 - Extension loading and initialization
-- Popup UI workflows (REPL setup, script management, approvals)
+- Popup UI workflows (REPL setup, script management)
 - Panel evaluation and save workflows
 - Cross-component storage flows
 - Internal behavior via log-powered tests

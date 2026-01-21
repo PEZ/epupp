@@ -17,10 +17,10 @@ Read these first:
 
 ### Step-by-step workflow
 1. **Name the user journey**
-	- Write the scenario in one sentence: “From REPL, call `epupp.fs/save!` without force, then confirm Allow/Deny in popup.”
+	- Write the scenario in one sentence: "From REPL, call `epupp.fs/save!` and verify the script appears in the popup list."
 
 2. **Find the closest existing E2E test file and extend it**
-	- Start by searching under `e2e/` for keywords: `fs`, `save!`, `pending-confirmation`, `approval`, `popup`, `Allow`, `Deny`.
+	- Start by searching under `e2e/` for keywords: `fs`, `save!`, `pending-confirmation`, `popup`.
 	- Prefer adding to an existing journey test over creating a brand new file - it keeps coverage cohesive.
 	- Run a tight loop while developing: use `bb test:e2e --serial -- --grep "fs"` (or similar) to focus.
 

@@ -176,21 +176,7 @@ Prefer comprehensive workflow tests over isolated clicks:
 
     ;; === PHASE 3: Verify and toggle ===
     ;; ... check list, enable/disable
-
-    ;; === PHASE 4: Approval workflow ===
-    ;; ... test allow/deny
     ))
-```
-
-### Test URL Override
-
-For approval workflow tests, override the "current URL":
-
-```clojure
-(let [popup (js-await (.newPage context))]
-  (js-await (.addInitScript popup
-    "window.__scittle_tamper_test_url = 'https://example.com/';"))
-  (js-await (.goto popup popup-url)))
 ```
 
 ## UI Tests vs Log-Powered Tests
