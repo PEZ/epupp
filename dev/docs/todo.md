@@ -37,16 +37,15 @@
 * [x] Blank slates for different sections of the UI
 * [x] Unify css between panel and popup
 * [ ] Consider if a version of Uniflow could be included as an Epupp library
-* [ ] Solve download of files from the repl
-* [ ] Solve upload of files from the repl
+* [x] Solve download of files from the repl
+* [x] Solve upload of files from the repl
 * [ ] Create a template Epupp REPL project
 * [ ] Fix fallback port scittle behaviour in Calva
 * [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
 * [ ] Scittle nrepl injected twice
 * [ ] Enable allow process also for non-matching
   * [ ] Or remove allow, and instead always add new scripts as disabled
-* [ ] Consider a separate leading section for items that need confirmation of any sort
-* [ ] Have a repl file sync mode that can be enabled and which skips confirmation requirements
+* [x] Have a repl file sync mode that can be enabled and which skips confirmation requirements
 * [ ] Call userscripts via the REPL, even if they are not injected
 * [ ] Should we evaluate the epupp.fs/* stuff inte existance instead of injecting?
 * [ ] Is there a way to make println print in the repl output?
@@ -57,8 +56,8 @@
 * [ ] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics
 * [ ] Consider making `https://example.com/*` also match `https://example.com/` and `https://example.com`
 * [ ] Enforce no user provided userscripts use epupp namespaces/directories
-* [ ] Chase down Uniflow violations in panel and popup
 * [ ] Get logging under control
-* [ ] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
+* [x] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
 * [x] BUG: Scripts not run from the popup play button.
-* [ ] There are some non-Uniflow attrocities in panel.cljs
+* [ ] Chase down Uniflow violations in panel and popup
+    * [ ] There are some non-Uniflow attrocities in panel.cljs
