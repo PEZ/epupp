@@ -76,7 +76,7 @@
       (when script
         {:uf/db (assoc state :ui/editing-hint-script-id script-id)
          :uf/fxs [[:popup/fx.inspect-script script]
-                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 3000]]}))
+                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 2000]]}))
 
     :popup/ax.evaluate-script
     (let [[script-id] args
@@ -98,11 +98,11 @@
       (cond
         (not (popup-utils/valid-origin? origin))
         {:uf/db (assoc state :settings/error "Must start with http:// or https:// and end with / or :")
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 3000]]}
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 2000]]}
 
         (popup-utils/origin-already-exists? origin default-origins user-origins)
         {:uf/db (assoc state :settings/error "Origin already exists")
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 3000]]}
+         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :settings/error nil]] 2000]]}
 
         :else
         {:uf/db (-> state
@@ -196,7 +196,7 @@
           {:keys [bulk-op? bulk-final? bulk-names]} bulk-info]
       {:uf/db (assoc state :ui/fs-event {:type event-type :message message})
        :uf/fxs [[:popup/fx.log-fs-banner message bulk-op? bulk-final? bulk-names]
-                [:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 3000]]})
+                [:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 2000]]})
 
     :popup/ax.clear-fs-event
     {:uf/db (assoc state :ui/fs-event nil)}
