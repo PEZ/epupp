@@ -60,4 +60,5 @@
 * [ ] Chase down Uniflow violations in panel and popup
 * [ ] Get logging under control
 * [ ] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
-* [ ] BUG: Scripts not run from the popup play button.
+* [x] BUG: Scripts not run from the popup play button.
+* [ ] There are some non-Uniflow attrocities in panel.cljs
