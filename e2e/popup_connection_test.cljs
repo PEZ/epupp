@@ -234,6 +234,58 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_disconnect_button_disconnects_current_tab []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+
+        (let [popup (js-await (create-popup-page context ext-id))]
+          (js-await (wait-for-popup-ready popup))
+
+          ;; Connect via direct API
+          (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
+            (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+            (js-await (wait-for-connection popup 5000))
+            (js-await (.reload popup))
+            (js-await (wait-for-popup-ready popup))
+
+            ;; Should show disconnect button (not connect button)
+            (js-await (-> (expect (.locator popup "#disconnect"))
+                          (.toBeVisible #js {:timeout 500})))
+            (js-await (-> (expect (.locator popup "#connect"))
+                          (.not.toBeVisible)))
+
+            ;; Click disconnect button
+            (js-await (.click (.locator popup "#disconnect")))
+
+            ;; Wait a bit for disconnect to process
+            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+            ;; Reload to see updated state
+            (js-await (.reload popup))
+            (js-await (wait-for-popup-ready popup))
+
+            ;; Should now show connect button (not disconnect button)
+            (js-await (-> (expect (.locator popup "#connect"))
+                          (.toBeVisible #js {:timeout 500})))
+            (js-await (-> (expect (.locator popup "#disconnect"))
+                          (.not.toBeVisible)))
+
+            ;; Connected tabs list should be empty
+            (js-await (-> (expect (.locator popup ".no-connections"))
+                          (.toBeVisible #js {:timeout 500}))))
+
+          (js-await (assert-no-errors! popup))
+          (js-await (.close popup)))
+        (js-await (.close page)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Popup Connection"
            (fn []
              (test "Popup Connection: connection tracking displays connected tabs with reveal buttons"
@@ -249,4 +301,7 @@
                    test_get_connections_returns_active_connections)
 
              (test "Popup Connection: UI updates immediately after connecting (no tab switch needed)"
-                   test_ui_updates_immediately_after_connecting)))
+                   test_ui_updates_immediately_after_connecting)
+
+             (test "Popup Connection: disconnect button disconnects current tab"
+                   test_disconnect_button_disconnects_current_tab)))

@@ -823,10 +823,11 @@
        [view-elements/action-button
         (if is-connected
           {:button/variant :danger
+           :button/id "disconnect"
            :button/class "disconnect-btn"
            :button/icon icons/debug-disconnect
            :button/title "Disconnect this tab"
-           :button/on-click #(dispatch! [[:popup/ax.disconnect-tab state :scripts/current-tab-id]])}
+           :button/on-click #(dispatch! [[:popup/ax.disconnect-tab (:scripts/current-tab-id state)]])}
           {:button/variant :primary
            :button/id "connect"
            :button/title "Connect this tab to the REPL server"
