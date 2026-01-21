@@ -542,7 +542,7 @@
         name]
        (when truncated-desc
          [:span.script-description truncated-desc])
-       [:span.script-match (run-at-badge run-at) pattern-display]]
+       [:span.script-match (run-at-badge run-at) (or pattern-display "No auto-run")]]
       [:div.script-actions
        ;; Show approval buttons when script matches current URL but pattern not approved
        (when needs-approval
@@ -615,13 +615,13 @@
           ;; No user scripts at all - guide to create first one
           "No userscripts yet!"
           ;; Scripts exist but none match
-          "No scripts match this page.")
+          "No scripts auto-run for this page.")
         [:div.no-scripts-hint
          (if no-user-scripts?
            "Create your first script in DevTools → Epupp panel."
            (if example-pattern
-             [:span "Scripts use URL patterns like " [:code example-pattern]]
-             "Check your script URL patterns in DevTools → Epupp panel."))]])]))
+             [:span "Auto-run patterns look like " [:code example-pattern]]
+             "Check your script patterns in DevTools → Epupp panel."))]])]))
 
 ;; =============================================================================
 ;; Dev Log Button (only shown in dev/test mode)
@@ -659,7 +659,7 @@
        [:div.no-scripts
         "No other scripts."
         [:div.no-scripts-hint
-         "Scripts that don't match this page appear here."]])]))
+         "Scripts that won't auto-run for this page appear here."]])]))
 
 (defn origin-item [{:keys [origin editable on-delete]}]
   [:div.origin-item {:class (when-not editable "origin-item-default")}
@@ -889,12 +889,12 @@
                            :expanded? (not (:repl-connect sections-collapsed))}
       [repl-connect-content state]]
      [collapsible-section {:id :matching-scripts
-                           :title "Matching Scripts"
+                           :title "Auto-run for This Page"
                            :expanded? (not (:matching-scripts sections-collapsed))
                            :badge-count (count matching-scripts)}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
-                           :title "Other Scripts"
+                           :title "Not for This Page"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-scripts)}
       [other-scripts-section state]]

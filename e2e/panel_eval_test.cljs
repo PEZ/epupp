@@ -34,7 +34,7 @@
             ;; Property table selectors
             save-section (.locator panel ".save-script-section")
             name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
-            match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")]
+            match-field (.locator save-section ".property-row:has(th:text('Auto-run')) .property-value")]
 
         ;; Clear storage for clean slate
         (js-await (clear-storage panel))

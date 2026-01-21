@@ -391,11 +391,14 @@
    text])
 
 (defn- format-site-match
-  "Format site-match for display, handling both string and vector."
+  "Format site-match for display, handling both string and vector.
+   Empty strings and empty collections are treated as nil (no auto-run)."
   [site-match]
   (cond
     (nil? site-match) nil
+    (and (string? site-match) (empty? site-match)) nil
     (string? site-match) [site-match]
+    (and (sequential? site-match) (empty? site-match)) nil
     (sequential? site-match) (vec site-match)
     :else [site-match]))
 
@@ -516,7 +519,6 @@
         ;; - No manifest present (can't save without manifest)
         save-disabled? (or (empty? code)
                            (empty? script-name)
-                           (empty? script-match)
                            (not has-manifest?)
                            (and editing-builtin? (not name-changed?)))
         ;; Button text: "Create Script" when name changed, otherwise "Save Script"
@@ -545,10 +547,11 @@
             :hint (when name-normalized?
                     {:type "info" :text (str "Normalized from: " raw-script-name)})}]
 
-          ;; URL Pattern row - always shown
+          ;; Auto-run row - shows patterns or "No auto-run" when empty
           [property-row
-           {:label "URL Pattern"
-            :values site-matches}]
+           {:label "Auto-run"
+            :values (when (seq site-matches) site-matches)
+            :value (when (empty? site-matches) "No auto-run (manual only)")}]
 
           ;; Description row - always shown
           [property-row
@@ -591,8 +594,6 @@
                            "Cannot overwrite built-in script - change the name to create a copy"
                            (empty? script-name)
                            "Add :epupp/script-name to manifest"
-                           (empty? script-match)
-                           "Add :epupp/site-match to manifest"
                            :else nil)}
           save-button-text]
          ;; Rename button - appears after Save to keep layout stable

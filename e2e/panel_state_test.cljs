@@ -33,7 +33,7 @@
             textarea (.locator panel "#code-area")
             save-section (.locator panel ".save-script-section")
             name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
-            match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")]
+            match-field (.locator save-section ".property-row:has(th:text('Auto-run')) .property-value")]
         (js-await (clear-storage panel))
         (js-await (.reload panel))
         (js-await (wait-for-panel-ready panel))
@@ -43,7 +43,8 @@
         (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(defn hello \\[s\\]"))))
 
         (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
-        (js-await (-> (expect match-field) (.toContainText "https://example.com/*")))
+        ;; Default script has no site-match (manual only)
+        (js-await (-> (expect match-field) (.toContainText "No auto-run (manual only)")))
 
         (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled)))
 
@@ -83,7 +84,7 @@
             textarea (.locator panel "#code-area")
             save-section (.locator panel ".save-script-section")
             name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
-            match-field (.locator save-section ".property-row:has(th:text('URL Pattern')) .property-value")
+            match-field (.locator save-section ".property-row:has(th:text('Auto-run')) .property-value")
             description-field (.locator save-section ".property-row:has(th:text('Description')) .property-value")]
 
         (js-await (wait-for-panel-ready panel))

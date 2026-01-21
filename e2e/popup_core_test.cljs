@@ -346,10 +346,10 @@
         (js-await (wait-for-popup-ready popup))
 
         ;; Matching Scripts section should show "no match" with hostname hint
-        (let [matching-section (.locator popup ".collapsible-section:has(.section-title:text(\"Matching Scripts\"))")
+        (let [matching-section (.locator popup ".collapsible-section:has(.section-title:text(\"Auto-run for This Page\"))")
               no-scripts (.locator matching-section ".no-scripts")
               no-scripts-hint (.locator matching-section ".no-scripts-hint")]
-          (js-await (-> (expect no-scripts) (.toContainText "No scripts match")))
+          (js-await (-> (expect no-scripts) (.toContainText "No scripts auto-run")))
           ;; Hint should show URL pattern example with the current hostname
           (js-await (-> (expect no-scripts-hint) (.toContainText "localhost"))))
 
@@ -376,8 +376,8 @@
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Expand "Other Scripts" section to see the hint
-        (let [other-section-header (.locator popup ".collapsible-section:has(.section-title:text(\"Other Scripts\")) .section-header")]
+        ;; Expand "Not for This Page" section to see the hint
+        (let [other-section-header (.locator popup ".collapsible-section:has(.section-title:text(\"Not for This Page\")) .section-header")]
           (js-await (.click other-section-header)))
 
         ;; Other Scripts hint should explain what appears there

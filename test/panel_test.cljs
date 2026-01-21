@@ -320,9 +320,39 @@
     (-> (expect (:script/require script))
         (.toEqual ["scittle://reagent.js"]))))
 
+(defn- test_save_script_succeeds_without_site_match []
+  (let [state (-> initial-state
+                  (assoc :panel/code "(println \"hi\")")
+                  (assoc :panel/script-name "My Script")
+                  (assoc :panel/script-match ""))  ;; No site-match
+        result (panel-actions/handle-action state uf-data [:editor/ax.save-script])]
+    ;; Should NOT show error - save should proceed
+    (-> (expect (:uf/db result))
+        (.toBeUndefined))
+    ;; Should trigger save effect
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :editor/fx.save-script))
+    ;; Script should have empty match vector
+    (let [[_fx script] (first (:uf/fxs result))]
+      (-> (expect (:script/match script))
+          (.toEqual [])))))
+
+(defn- test_save_script_without_site_match_uses_empty_vector []
+  (let [state (-> initial-state
+                  (assoc :panel/code "(println \"hi\")")
+                  (assoc :panel/script-name "My Script")
+                  (assoc :panel/script-match nil))  ;; nil site-match
+        result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
+        [_fx script] (first (:uf/fxs result))]
+    ;; nil should normalize to empty vector
+    (-> (expect (:script/match script))
+        (.toEqual []))))
+
 (describe "panel save action"
           (fn []
             (test ":editor/ax.save-script with missing fields shows error" test_save_script_with_missing_fields_shows_error)
+            (test ":editor/ax.save-script succeeds without site-match" test_save_script_succeeds_without_site_match)
+            (test ":editor/ax.save-script without site-match uses empty vector" test_save_script_without_site_match_uses_empty_vector)
             (test ":editor/ax.save-script with complete fields triggers save effect" test_save_script_with_complete_fields_triggers_save_effect)
             (test ":editor/ax.save-script uses existing script-id when editing with unchanged name" test_save_script_uses_existing_script_id_when_editing_with_unchanged_name)
             (test ":editor/ax.save-script creates new script when name changed (fork/copy)" test_save_script_creates_new_script_when_name_changed)
@@ -629,10 +659,9 @@
 (defn- test_new_script_returns_dxs_to_parse_default_manifest []
   (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.new-script])
         dxs (:uf/dxs result)]
-    ;; Should have dxs to set fields from default manifest
+    ;; Should have dxs to set script name from default manifest
+    ;; Note: No set-script-match expected - default script has no site-match (manual-only)
     (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
-        (.toBeTruthy))
-    (-> (expect (some #(= (first %) :editor/ax.set-script-match) dxs))
         (.toBeTruthy))))
 
 (defn- test_new_script_preserves_results_array []
