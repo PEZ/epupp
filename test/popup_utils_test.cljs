@@ -76,21 +76,17 @@
           (fn []
             (test "enables a disabled script"
                   (fn []
-                    (let [scripts [{:script/id "s1" :script/enabled false :script/approved-patterns ["*://a.com/*"]}]
+                    (let [scripts [{:script/id "s1" :script/enabled false}]
                           result (popup-utils/toggle-script-in-list scripts "s1")]
                       (-> (expect (:script/enabled (first result)))
                           (.toBe true)))))
 
-            (test "disables an enabled script and clears approvals"
+            (test "disables an enabled script"
                   (fn []
-                    (let [scripts [{:script/id "s1"
-                                    :script/enabled true
-                                    :script/approved-patterns ["*://a.com/*" "*://b.com/*"]}]
+                    (let [scripts [{:script/id "s1" :script/enabled true}]
                           result (popup-utils/toggle-script-in-list scripts "s1")]
                       (-> (expect (:script/enabled (first result)))
-                          (.toBe false))
-                      (-> (expect (count (:script/approved-patterns (first result))))
-                          (.toBe 0)))))
+                          (.toBe false)))))
 
             (test "does not modify other scripts"
                   (fn []
@@ -99,72 +95,6 @@
                           result (popup-utils/toggle-script-in-list scripts "s1")]
                       (-> (expect (:script/enabled (second result)))
                           (.toBe false)))))))
-
-;; ============================================================
-;; approve-pattern-in-list tests
-;; ============================================================
-
-(describe "approve-pattern-in-list"
-          (fn []
-            (test "adds pattern to empty approved-patterns"
-                  (fn []
-                    (let [scripts [{:script/id "s1" :script/approved-patterns []}]
-                          result (popup-utils/approve-pattern-in-list scripts "s1" "*://example.com/*")]
-                      (-> (expect (count (:script/approved-patterns (first result))))
-                          (.toBe 1))
-                      (-> (expect (first (:script/approved-patterns (first result))))
-                          (.toBe "*://example.com/*")))))
-
-            (test "adds pattern to nil approved-patterns"
-                  (fn []
-                    (let [scripts [{:script/id "s1"}]
-                          result (popup-utils/approve-pattern-in-list scripts "s1" "*://example.com/*")]
-                      (-> (expect (count (:script/approved-patterns (first result))))
-                          (.toBe 1)))))
-
-            (test "does not duplicate existing pattern"
-                  (fn []
-                    (let [scripts [{:script/id "s1"
-                                    :script/approved-patterns ["*://example.com/*"]}]
-                          result (popup-utils/approve-pattern-in-list scripts "s1" "*://example.com/*")]
-                      (-> (expect (count (:script/approved-patterns (first result))))
-                          (.toBe 1)))))
-
-            (test "adds new pattern alongside existing"
-                  (fn []
-                    (let [scripts [{:script/id "s1"
-                                    :script/approved-patterns ["*://a.com/*"]}]
-                          result (popup-utils/approve-pattern-in-list scripts "s1" "*://b.com/*")]
-                      (-> (expect (count (:script/approved-patterns (first result))))
-                          (.toBe 2)))))))
-
-;; ============================================================
-;; disable-script-in-list tests
-;; ============================================================
-
-(describe "disable-script-in-list"
-          (fn []
-            (test "disables an enabled script"
-                  (fn []
-                    (let [scripts [{:script/id "s1" :script/enabled true}]
-                          result (popup-utils/disable-script-in-list scripts "s1")]
-                      (-> (expect (:script/enabled (first result)))
-                          (.toBe false)))))
-
-            (test "keeps disabled script disabled"
-                  (fn []
-                    (let [scripts [{:script/id "s1" :script/enabled false}]
-                          result (popup-utils/disable-script-in-list scripts "s1")]
-                      (-> (expect (:script/enabled (first result)))
-                          (.toBe false)))))
-
-            (test "does not modify other scripts"
-                  (fn []
-                    (let [scripts [{:script/id "s1" :script/enabled true}
-                                   {:script/id "s2" :script/enabled true}]
-                          result (popup-utils/disable-script-in-list scripts "s1")]
-                      (-> (expect (:script/enabled (second result)))
-                          (.toBe true)))))))
 
 ;; ============================================================
 ;; remove-script-from-list tests

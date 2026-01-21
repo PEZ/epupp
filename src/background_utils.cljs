@@ -38,19 +38,7 @@
          :48 (str "icons/icon-" suffix "-48.png")
          :128 (str "icons/icon-" suffix "-128.png")}))
 
-(defn count-pending-for-url
-  "Count scripts needing approval for a given URL.
-   A script needs approval if: enabled, matches URL, and pattern not yet approved.
 
-   Pure function - takes url, scripts list, and functions to check matching/approval."
-  [url scripts get-matching-pattern-fn pattern-approved?-fn]
-  (if (or (nil? url) (= "" url))
-    0
-    (->> scripts
-         (filter (fn [script]
-                   (when-let [pattern (get-matching-pattern-fn url script)]
-                     (not (pattern-approved?-fn script pattern)))))
-         count)))
 
 (defn url-origin-allowed?
   "Check if a URL starts with any allowed origin prefix.

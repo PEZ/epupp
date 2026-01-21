@@ -43,8 +43,8 @@
         (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(defn hello \\[s\\]"))))
 
         (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
-        ;; Default script has no site-match (manual only)
-        (js-await (-> (expect match-field) (.toContainText "No auto-run (manual only)")))
+        ;; Default script has example.com match pattern
+        (js-await (-> (expect match-field) (.toContainText "https://example.com/*")))
 
         (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled)))
 

@@ -101,20 +101,15 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script using test URL override
+      ;; Enable script via popup
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
-        (let [script-item (.locator popup ".script-item:has-text(\"tab_local_test.cljs\")")]
-          (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible)))))
-          (js-await (.close popup))))
+        ;; (Approval UI removed - scripts auto-inject when enabled)
+        (js-await (.close popup)))
 
-      ;; Navigate Tab A - script is pre-approved, should inject
+      ;; Navigate Tab A - script should inject when enabled and matching
       (let [tab-a (js-await (.newPage context))]
         (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 1000}))
         (js-await (-> (expect (.locator tab-a "#test-marker"))

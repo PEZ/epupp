@@ -129,22 +129,6 @@
                       (-> (expect (script-utils/get-matching-pattern nil script))
                           (.toBeUndefined)))))))
 
-(describe "pattern-approved?"
-          (fn []
-            (test "returns true when pattern is approved"
-                  (fn []
-                    (let [script {:script/id "test"
-                                  :script/approved-patterns ["*://github.com/*"]}]
-                      (-> (expect (script-utils/pattern-approved? script "*://github.com/*"))
-                          (.toBeTruthy)))))
-
-            (test "returns false when pattern is not approved"
-                  (fn []
-                    (let [script {:script/id "test"
-                                  :script/approved-patterns ["*://gitlab.com/*"]}]
-                      (-> (expect (script-utils/pattern-approved? script "*://github.com/*"))
-                          (.toBeFalsy)))))))
-
 (describe "get-required-origins"
           (fn []
             (test "extracts unique patterns from multiple scripts"

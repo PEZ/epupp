@@ -97,19 +97,17 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script
+      ;; Enable script via popup
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"require_event_test.cljs\")")]
+        (let [script-item (.locator popup ".script-item:has-text(\"require_event_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Clicking Allow button...")
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+          (when-not (js-await (.isChecked checkbox))
+            (js-await (.click checkbox))))
 
         ;; Clear test events before navigation
         (js-await (clear-test-events! popup))
@@ -168,19 +166,17 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script
+      ;; Enable script via popup
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"reagent_dom_test.cljs\")")]
+        (let [script-item (.locator popup ".script-item:has-text(\"reagent_dom_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Clicking Allow button...")
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+          (when-not (js-await (.isChecked checkbox))
+            (js-await (.click checkbox))))
         (js-await (.close popup)))
 
       ;; Navigate to trigger injection
@@ -254,19 +250,17 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script
+      ;; Enable script via popup
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"no_require_test.cljs\")")]
+        (let [script-item (.locator popup ".script-item:has-text(\"no_require_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Clicking Allow button...")
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+          (when-not (js-await (.isChecked checkbox))
+            (js-await (.click checkbox))))
 
         ;; Clear test events before navigation
         (js-await (clear-test-events! popup))
@@ -314,19 +308,17 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script
+      ;; Enable script via popup
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"pprint_dom_test.cljs\")")]
+        (let [script-item (.locator popup ".script-item:has-text(\"pprint_dom_test.cljs\")")
+              checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Clicking Allow button...")
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
+          (when-not (js-await (.isChecked checkbox))
+            (js-await (.click checkbox))))
         (js-await (.close popup)))
 
       ;; Navigate to trigger injection

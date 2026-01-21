@@ -60,16 +60,6 @@
     :popup/ax.load-current-url
     {:uf/fxs [[:popup/fx.load-current-url]]}
 
-    :popup/ax.approve-script
-    (let [[script-id pattern] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.approve-script scripts script-id pattern]]})
-
-    :popup/ax.deny-script
-    (let [[script-id] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.deny-script scripts script-id]]})
-
     :popup/ax.inspect-script
     (let [[script-id] args
           script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]

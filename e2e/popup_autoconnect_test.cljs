@@ -34,7 +34,7 @@
           (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
 
         ;; Warning text is visible
-        (js-await (-> (expect (.locator popup ".auto-connect-warning"))
+        (js-await (-> (expect (.locator popup ".setting:has(#auto-connect-repl) .description.warning"))
                       (.toContainText "inject the Scittle REPL")))
 
         (js-await (.close popup)))

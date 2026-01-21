@@ -164,30 +164,6 @@
                       (-> (expect fx-name)
                           (.toBe :popup/fx.delete-script))
                       (-> (expect fx-id)
-                          (.toBe "test-1")))))
-
-            (test ":popup/ax.approve-script passes scripts, id, and pattern to effect"
-                  (fn []
-                    (let [scripts [{:script/id "test-1" :script/approved-patterns []}]
-                          state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.approve-script "test-1" "*://github.com/*"])
-                          [fx-name _fx-scripts fx-id fx-pattern] (first (:uf/fxs result))]
-                      (-> (expect fx-name)
-                          (.toBe :popup/fx.approve-script))
-                      (-> (expect fx-id)
-                          (.toBe "test-1"))
-                      (-> (expect fx-pattern)
-                          (.toBe "*://github.com/*")))))
-
-            (test ":popup/ax.deny-script passes scripts and id to effect"
-                  (fn []
-                    (let [scripts [{:script/id "test-1" :script/enabled true}]
-                          state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.deny-script "test-1"])
-                          [fx-name _fx-scripts fx-id] (first (:uf/fxs result))]
-                      (-> (expect fx-name)
-                          (.toBe :popup/fx.deny-script))
-                      (-> (expect fx-id)
                           (.toBe "test-1")))))))
 
 (describe "popup inspect action"

@@ -121,11 +121,6 @@
          (filter #(url-matches-pattern? url %))
          first)))
 
-(defn pattern-approved?
-  "Check if a pattern is in the script's approved list"
-  [script pattern]
-  (some #(= % pattern) (:script/approved-patterns script)))
-
 (defn get-required-origins
   "Extract unique origin patterns from a list of scripts.
    Used to determine which permissions need to be requested."
@@ -268,7 +263,6 @@
            :url_matches_pattern_QMARK_ url-matches-pattern?
            :url_matches_any_pattern_QMARK_ url-matches-any-pattern?
            :get_matching_pattern get-matching-pattern
-           :pattern_approved_QMARK_ pattern-approved?
            :get_required_origins get-required-origins
            :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?

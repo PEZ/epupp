@@ -84,7 +84,7 @@
 ;; Panel User Journey: Rename with Multiple Scripts
 ;; =============================================================================
 
-(defn- ^:async test_rename_does_not_affect_other_scripts_or_trigger_approvals []
+(defn- ^:async test_rename_does_not_affect_other_scripts []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -123,8 +123,6 @@
         (js-await (wait-for-popup-ready popup))
         ;; 3 scripts: built-in + script1 + script2
         (js-await (wait-for-script-count popup 3))
-        ;; No approval buttons visible (all scripts already approved by saving)
-        (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
         (js-await (.close popup)))
 
       ;; === PHASE 4: Edit and rename first script ===
@@ -172,8 +170,6 @@
         ;; Note: :has-text is substring match, so we check .script-name text content directly
         (let [script-names (js-await (.allTextContents (.locator popup ".script-item .script-name")))]
           (js-await (-> (expect (some #(= % "first_script.cljs") script-names)) (.toBeFalsy))))
-        ;; CRITICAL: No approval buttons should appear (other scripts should be unaffected)
-        (js-await (-> (expect (.locator popup "button:has-text(\"Allow\")")) (.toHaveCount 0)))
         ;; Assert no errors before closing
         (js-await (assert-no-errors! popup))
         (js-await (.close popup)))
@@ -346,8 +342,8 @@
              (test "Panel Save: rename script does not create duplicate"
                    test_rename_script_does_not_create_duplicate)
 
-             (test "Panel Save: rename does not affect other scripts or trigger approvals"
-                   test_rename_does_not_affect_other_scripts_or_trigger_approvals)
+             (test "Panel Save: rename does not affect other scripts"
+                   test_rename_does_not_affect_other_scripts)
 
              (test "Panel Save: rename triggers popup flash"
                    test_panel_rename_triggers_popup_flash)

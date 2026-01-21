@@ -40,41 +40,11 @@
 ;; ============================================================
 
 (defn toggle-script-in-list
-  "Toggle enabled state. When disabling, revoke ALL pattern approvals.
-   This ensures re-enabling requires fresh approval for each pattern,
-   preventing scripts from silently running on forgotten sites."
+  "Toggle enabled state for a script."
   [scripts script-id]
   (mapv (fn [s]
           (if (= (:script/id s) script-id)
-            (let [new-enabled (not (:script/enabled s))]
-              (if new-enabled
-                (assoc s :script/enabled true)
-                (-> s
-                    (assoc :script/enabled false)
-                    (assoc :script/approved-patterns []))))
-            s))
-        scripts))
-
-(defn approve-pattern-in-list
-  "Add pattern to script's approved-patterns if not already present."
-  [scripts script-id pattern]
-  (mapv (fn [s]
-          (if (= (:script/id s) script-id)
-            (update s :script/approved-patterns
-                    (fn [patterns]
-                      (let [patterns (or patterns [])]
-                        (if (some #(= % pattern) patterns)
-                          patterns
-                          (conj patterns pattern)))))
-            s))
-        scripts))
-
-(defn disable-script-in-list
-  "Disable a script by setting enabled to false."
-  [scripts script-id]
-  (mapv (fn [s]
-          (if (= (:script/id s) script-id)
-            (assoc s :script/enabled false)
+            (assoc s :script/enabled (not (:script/enabled s)))
             s))
         scripts))
 

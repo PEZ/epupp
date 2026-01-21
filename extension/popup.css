@@ -802,8 +802,7 @@ button#connect:active {
   transform: translateY(0);
 }
 
-/* Auto-connect REPL setting */
-.auto-connect-setting {
+.setting {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -823,16 +822,21 @@ button#connect:active {
   cursor: pointer;
 }
 
-.auto-connect-warning {
+.settings-section .description {
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
   padding: 8px 10px;
-  background: var(--approval-bg);
-  border-left: 3px solid var(--approval-border);
+  border-left: 3px solid var(--color-blue);
   border-radius: 0 var(--radius) var(--radius) 0;
 }
+
+.settings-section .description.warning {
+  background: var(--approval-bg);
+  border-left: 3px solid var(--approval-border);
+}
+
 
 /* Export / Import buttons */
 .export-import-buttons {

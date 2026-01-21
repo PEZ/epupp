@@ -45,26 +45,6 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script pattern in popup
-      (let [popup (js-await (create-popup-page context ext-id))]
-        ;; Set the test URL override for approval UI
-        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-        (js-await (.reload popup))
-        (js-await (wait-for-popup-ready popup))
-
-        ;; Find and approve the script
-        (let [script-item (.locator popup ".script-item:has-text(\"injection_test.cljs\")")]
-          (js-await (-> (expect script-item) (.toBeVisible)))
-          (js/console.log "Script item visible, checking for Allow button...")
-          ;; Check for approval button (may not exist if auto-approved)
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Clicking Allow button...")
-              (js-await (.click allow-btn))
-              ;; Wait for button to disappear (approval processed)
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-        (js-await (.close popup)))
-
       ;; Navigate to matching page
       (let [page (js-await (.newPage context))]
         (js/console.log "Navigating to localhost:18080/basic.html...")
@@ -108,21 +88,6 @@
         (js-await (.click (.locator panel "button.btn-save")))
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
-
-      ;; Approve the script
-      (let [popup (js-await (create-popup-page context ext-id))]
-        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/timing-test.html';"))
-        (js-await (.reload popup))
-        (js-await (wait-for-popup-ready popup))
-
-        (let [script-item (.locator popup ".script-item:has-text(\"timing_test.cljs\")")]
-          (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js/console.log "Timing test - clicking Allow button...")
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-        (js-await (.close popup)))
 
       ;; Navigate to timing test page
       (let [page (js-await (.newPage context))]
@@ -171,20 +136,6 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Approve the script
-      (let [popup (js-await (create-popup-page context ext-id))]
-        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-        (js-await (.reload popup))
-        (js-await (wait-for-popup-ready popup))
-
-        (let [script-item (.locator popup ".script-item:has-text(\"performance_report_test.cljs\")")]
-          (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-        (js-await (.close popup)))
-
       ;; Navigate to trigger injection
       (let [page (js-await (.newPage context))]
         (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
@@ -229,20 +180,6 @@
         (js-await (.click (.locator panel "button.btn-save")))
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
-
-      ;; Approve the script
-      (let [popup (js-await (create-popup-page context ext-id))]
-        (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
-        (js-await (.reload popup))
-        (js-await (wait-for-popup-ready popup))
-
-        (let [script-item (.locator popup ".script-item:has-text(\"error_check_test.cljs\")")]
-          (js-await (-> (expect script-item) (.toBeVisible)))
-          (let [allow-btn (.locator script-item "button:has-text(\"Allow\")")]
-            (when (pos? (js-await (.count allow-btn)))
-              (js-await (.click allow-btn))
-              (js-await (-> (expect allow-btn) (.not.toBeVisible))))))
-        (js-await (.close popup)))
 
       ;; Navigate to trigger injection
       (let [page (js-await (.newPage context))]

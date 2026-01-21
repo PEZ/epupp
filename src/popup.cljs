@@ -97,14 +97,10 @@
 
 (defn persist-and-notify-scripts!
   "Save scripts to storage and notify background worker."
-  [scripts notify-type & {:keys [script-id pattern]}]
+  [scripts notify-type]
   (save-scripts! scripts)
   (case notify-type
     :refresh (js/chrome.runtime.sendMessage #js {:type "refresh-approvals"})
-    :approved (js/chrome.runtime.sendMessage
-               #js {:type "pattern-approved"
-                    :scriptId script-id
-                    :pattern pattern})
     nil))
 
 ;; ============================================================
@@ -193,18 +189,6 @@
     :popup/fx.toggle-script
     (let [[scripts script-id _matching-pattern] args
           updated (popup-utils/toggle-script-in-list scripts script-id)]
-      (persist-and-notify-scripts! updated :refresh)
-      (dispatch [[:db/ax.assoc :scripts/list updated]]))
-
-    :popup/fx.approve-script
-    (let [[scripts script-id pattern] args
-          updated (popup-utils/approve-pattern-in-list scripts script-id pattern)]
-      (persist-and-notify-scripts! updated :approved :script-id script-id :pattern pattern)
-      (dispatch [[:db/ax.assoc :scripts/list updated]]))
-
-    :popup/fx.deny-script
-    (let [[scripts script-id] args
-          updated (popup-utils/disable-script-in-list scripts script-id)]
       (persist-and-notify-scripts! updated :refresh)
       (dispatch [[:db/ax.assoc :scripts/list updated]]))
 
@@ -512,10 +496,6 @@
                    current-url
                    {:keys [editing-hint-script-id reveal-highlight? recently-modified?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
-        matches-current (some? matching-pattern)
-        needs-approval (and matches-current
-                            enabled
-                            (not (script-utils/pattern-approved? script matching-pattern)))
         ;; Safely extract pattern for display, handling malformed data
         pattern-display (safe-pattern-display (or matching-pattern (first match)))
         show-edit-hint (= script-id editing-hint-script-id)
@@ -527,13 +507,13 @@
     [:div
      [:div.script-item {:data-script-name name
                         :class (str (when builtin? "script-item-builtin ")
-                                    (when needs-approval "script-item-approval ")
                                     (when reveal-highlight? "script-item-reveal-highlight ")
                                     (when recently-modified? "script-item-fs-modified"))}
-      [:input {:type "checkbox"
-               :checked enabled
-               :title (if enabled "Enabled" "Disabled")
-               :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}]
+      (when (seq match)
+        [:input {:type "checkbox"
+                 :checked enabled
+                 :title (if enabled "Auto-run enabled" "Auto-run disabled")
+                 :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
       [:div.script-info
        [:span.script-name
         (when builtin?
@@ -544,19 +524,6 @@
          [:span.script-description truncated-desc])
        [:span.script-match (run-at-badge run-at) (or pattern-display "No auto-run")]]
       [:div.script-actions
-       ;; Show approval buttons when script matches current URL but pattern not approved
-       (when needs-approval
-         [view-elements/action-button
-          {:button/variant :success
-           :button/class "approval-allow"
-           :button/on-click #(dispatch! [[:popup/ax.approve-script script-id matching-pattern]])}
-          "Allow"])
-       (when needs-approval
-         [view-elements/action-button
-          {:button/variant :danger
-           :button/class "approval-deny"
-           :button/on-click #(dispatch! [[:popup/ax.deny-script script-id]])}
-          "Deny"])
        [view-elements/action-button
         {:button/variant :secondary
          :button/class "script-inspect"
@@ -717,31 +684,31 @@
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
-    [:div.auto-connect-setting
+    [:div.setting
      [:label.checkbox-label
       [:input#auto-reconnect-repl {:type "checkbox"
                                    :checked auto-reconnect-repl
                                    :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
       "Auto-reconnect to previously connected tabs"]
-     [:p.auto-connect-description
+     [:p.description
       "When a connected tab navigates to a new page, automatically reconnect. "
       "REPL state will be lost but connection will be restored."]]
-    [:div.auto-connect-setting.auto-connect-all
+    [:div.setting
      [:label.checkbox-label
       [:input#auto-connect-repl {:type "checkbox"
                                  :checked auto-connect-repl
                                  :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
       "Auto-connect REPL to all pages"]
-     [:p.auto-connect-warning
+     [:p.description.warning
       "Warning: Enabling this will inject the Scittle REPL on every page you visit, "
       "even tabs never connected before. Only enable if you understand the implications."]]
-    [:div.auto-connect-setting.fs-repl-sync
+    [:div.setting
      [:label.checkbox-label
       [:input#fs-repl-sync {:type "checkbox"
                             :checked fs-repl-sync-enabled
                             :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
       "Enable FS REPL Sync"]
-     [:p.auto-connect-description
+     [:p.description
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
    [:div.settings-section
@@ -894,7 +861,7 @@
                            :badge-count (count matching-scripts)}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
-                           :title "Not for This Page"
+                           :title "Other Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-scripts)}
       [other-scripts-section state]]

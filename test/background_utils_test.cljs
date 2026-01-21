@@ -120,49 +120,6 @@
                     (let [paths (bg/get-icon-paths "unknown")]
                       (-> (expect (aget paths "16")) (.toBe "icons/icon-disconnected-16.png")))))))
 
-(describe "count-pending-for-url"
-          (fn []
-            (let [always-matches (fn [_url _script] "pattern")
-                  never-matches (fn [_url _script] nil)
-                  always-approved (fn [_script _pattern] true)
-                  never-approved (fn [_script _pattern] false)
-                  scripts [{:script/id "s1" :script/enabled true}
-                           {:script/id "s2" :script/enabled true}
-                           {:script/id "s3" :script/enabled true}]]
-
-              (test "returns 0 for nil url"
-                    (fn []
-                      (-> (expect (bg/count-pending-for-url nil scripts always-matches never-approved))
-                          (.toBe 0))))
-
-              (test "returns 0 for empty url"
-                    (fn []
-                      (-> (expect (bg/count-pending-for-url "" scripts always-matches never-approved))
-                          (.toBe 0))))
-
-              (test "returns 0 when no scripts match"
-                    (fn []
-                      (-> (expect (bg/count-pending-for-url "https://example.com" scripts never-matches never-approved))
-                          (.toBe 0))))
-
-              (test "returns 0 when all matching scripts are approved"
-                    (fn []
-                      (-> (expect (bg/count-pending-for-url "https://example.com" scripts always-matches always-approved))
-                          (.toBe 0))))
-
-              (test "counts scripts that match but are not approved"
-                    (fn []
-                      (-> (expect (bg/count-pending-for-url "https://example.com" scripts always-matches never-approved))
-                          (.toBe 3))))
-
-              (test "counts only unapproved scripts"
-                    (fn []
-                      (let [selective-match (fn [_url script]
-                                              (when (contains? #{"s1" "s2"} (:script/id script))
-                                                "pattern"))]
-                        (-> (expect (bg/count-pending-for-url "https://example.com" scripts selective-match never-approved))
-                            (.toBe 2))))))))
-
 (describe "url-origin-allowed?"
           (fn []
             (let [allowed ["https://gist.githubusercontent.com/"

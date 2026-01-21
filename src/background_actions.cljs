@@ -2,7 +2,6 @@
   (:require [background-actions.repl-fs-actions :as repl-fs-actions]
             [background-actions.icon-actions :as icon-actions]
             [background-actions.history-actions :as history-actions]
-            [background-actions.approval-actions :as approval-actions]
             [background-actions.ws-actions :as ws-actions]
             [scittle-libs :as scittle-libs]
             [script-utils :as script-utils]))
@@ -69,27 +68,6 @@
       (history-actions/forget
        state
        {:history/tab-id tab-id}))
-
-    :approval/ax.request
-    (let [[script pattern tab-id] args]
-      (approval-actions/request
-       state
-       {:approval/script script
-        :approval/pattern pattern
-        :approval/tab-id tab-id}))
-
-    :approval/ax.clear
-    (let [[script-id pattern] args]
-      (approval-actions/clear
-       state
-       {:approval/script-id script-id
-        :approval/pattern pattern}))
-
-    :approval/ax.sync
-    (let [[scripts-by-id] args]
-      (approval-actions/sync
-       state
-       {:approval/scripts-by-id scripts-by-id}))
 
     :ws/ax.register
     (let [[tab-id connection-info] args]
@@ -217,9 +195,6 @@
     :msg/ax.get-connections
     (let [[send-response] args]
       {:uf/fxs [[:msg/fx.get-connections send-response]]})
-
-    :msg/ax.refresh-approvals
-    {:uf/fxs [[:msg/fx.refresh-approvals]]}
 
     :msg/ax.e2e-find-tab-id
     (let [[send-response url-pattern] args]

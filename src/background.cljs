@@ -24,7 +24,6 @@
 
 (def !state (atom {:init/promise nil
                    :ws/connections {}
-                   :pending/approvals {}
                    :icon/states {}
                    :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
@@ -352,15 +351,9 @@
                    (seq description) (assoc :script/description description))]
       (storage/save-script! script))))
 
-(defn ^:async request-approval!
-  "Add script to pending approvals (for popup display) and update badge.
-   Uses script-id + pattern as key to prevent duplicates on page reload."
-  [dispatch! script pattern tab-id _url]
-  (dispatch! [[:approval/ax.request script pattern tab-id]]))
-
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
-   Find matching scripts, check approvals, execute or prompt.
+   Find matching scripts and execute them.
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs)."
   [dispatch! tab-id url]
@@ -378,34 +371,14 @@
                                        :idle-scripts-count (count idle-scripts)}))
     (when (seq idle-scripts)
       (log/info "Background" "Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
-      (let [script-contexts (map (fn [script]
-                                   (let [pattern (url-matching/get-matching-pattern url script)]
-                                     {:script script
-                                      :pattern pattern
-                                      :approved? (storage/pattern-approved? script pattern)}))
-                                 idle-scripts)
-            approved (filter :approved? script-contexts)
-            unapproved (remove :approved? script-contexts)]
-        ;; Log approval status for E2E debugging
-        (js-await (test-logger/log-event! "SCRIPTS_APPROVAL_STATUS"
-                                          {:approved-count (count approved)
-                                           :unapproved-count (count unapproved)
-                                           :scripts (mapv #(-> %
-                                                               :script
-                                                               (select-keys [:script/name :script/approved-patterns]))
-                                                          script-contexts)}))
-        (when (seq approved)
-          (log/info "Background" "Inject" "Executing" (count approved) "approved scripts")
-          (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count approved)}))
-          (try
-            (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-            (js-await (bg-inject/execute-scripts! tab-id (map :script approved)))
-            (catch :default err
-              (log/error "Background" "Inject" "Failed:" (.-message err))
-              (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))
-        (doseq [{:keys [script pattern]} unapproved]
-          (log/info "Background" "Approval" "Requesting approval for" (:script/name script))
-          (request-approval! dispatch! script pattern tab-id url))))))
+      (log/info "Background" "Inject" "Executing" (count idle-scripts) "scripts")
+      (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
+      (try
+        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+        (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
+        (catch :default err
+          (log/error "Background" "Inject" "Failed:" (.-message err))
+          (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
 (defn ^:async handle-navigation!
   "Handle page navigation by waiting for init then processing.
@@ -630,12 +603,6 @@
                         (dispatch! [[:msg/ax.get-connections send-response]])
                         false)
 
-                      ;; Popup messages
-                      "refresh-approvals"
-                      (do
-                        (dispatch! [[:msg/ax.refresh-approvals]])
-                        false)
-
                       "connect-tab"
                       (let [target-tab-id (.-tabId message)
                             ws-port (.-wsPort message)]
@@ -688,13 +655,6 @@
                         (do
                           (send-response #js {:success false :error "Not available"})
                           false))
-
-                      "pattern-approved"
-                      ;; Clear this script from pending and execute it
-                      (let [script-id (.-scriptId message)
-                            pattern (.-pattern message)]
-                        (dispatch! [[:msg/ax.pattern-approved script-id pattern]])
-                        false)
 
                       "install-userscript"
                       ;; Manifest already parsed by the installer userscript using Scittle
@@ -825,17 +785,6 @@
     (let [[tab-id] args]
       (js-await (bg-icon/update-icon-now! !state tab-id)))
 
-    :approval/fx.update-badge-for-tab!
-    (let [[tab-id] args]
-      (bg-icon/update-badge-for-tab! tab-id))
-
-    :approval/fx.update-badge-active!
-    (js-await (bg-icon/update-badge-for-active-tab!))
-
-    :approval/fx.log-pending!
-    (let [[{:keys [script-name pattern]}] args]
-      (log/info "Background" "Approval" "Pending approval for" script-name "on pattern" pattern))
-
     :init/fx.initialize
     (let [[resolve reject] args]
       ((^:async fn []
@@ -926,14 +875,6 @@
                                :connections-keys (vec (keys connections))})
       (send-response (clj->js {:success true
                                :connections display-list})))
-
-    :msg/fx.refresh-approvals
-    ((^:async fn []
-       (js-await (storage/load!))
-       (let [scripts-by-id (->> (storage/get-scripts)
-                                (map (fn [script] [(:script/id script) script]))
-                                (into {}))]
-         (dispatch! [[:approval/ax.sync scripts-by-id]]))))
 
     :tabs/fx.find-by-url-pattern
     (let [[url-pattern] args]
