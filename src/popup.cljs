@@ -821,10 +821,17 @@
       [:div.connect-row
        [:span.connect-target (str "ws://localhost:" ws)]
        [view-elements/action-button
-        {:button/variant :primary
-         :button/id "connect"
-         :button/on-click #(dispatch! [[:popup/ax.connect]])}
-        (if is-connected "Reconnect" "Connect")]]
+        (if is-connected
+          {:button/variant :danger
+           :button/class "disconnect-btn"
+           :button/icon icons/debug-disconnect
+           :button/title "Disconnect this tab"
+           :button/on-click #(dispatch! [[:popup/ax.disconnect-tab state :scripts/current-tab-id]])}
+          {:button/variant :primary
+           :button/id "connect"
+           :button/title "Connect this tab to the REPL server"
+           :button/on-click #(dispatch! [[:popup/ax.connect]])})
+        (if is-connected "Disconnect" "Connect")]]
       (when connect-status
         [view-elements/status-text
          {:status/type (popup-utils/status-type connect-status)
