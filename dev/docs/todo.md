@@ -62,3 +62,4 @@
 * [ ] Chase down Uniflow violations in panel and popup
     * [ ] There are some non-Uniflow attrocities in panel.cljs
 * [ ] Centralize UI announcements to the banner
+* [ ] Use e2e-prefixed classes for e2e needed checks
