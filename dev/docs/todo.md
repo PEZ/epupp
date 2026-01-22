@@ -61,3 +61,4 @@
 * [x] BUG: Scripts not run from the popup play button.
 * [ ] Chase down Uniflow violations in panel and popup
     * [ ] There are some non-Uniflow attrocities in panel.cljs
+* [ ] Centralize UI announcements to the banner
