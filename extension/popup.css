@@ -236,6 +236,8 @@ code {
   color: var(--text-primary);
   transition: all var(--transition-duration);
   flex-shrink: 0;
+  width: 75px;
+  text-align: center;
 }
 
 .copy-btn:hover {
@@ -308,6 +310,24 @@ button#connect:active {
   gap: 8px;
 }
 
+@keyframes item-grow-in {
+  from {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  to {
+    max-height: 120px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    opacity: 1;
+  }
+}
+
 .script-item {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -316,6 +336,8 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
+  animation: item-grow-in var(--transition-duration) ease-out;
+  overflow: hidden;
 }
 
 .script-item-builtin {
@@ -605,6 +627,17 @@ button#connect:active {
   border-radius: 10px;
   font-size: 0.75rem;
   margin-left: 0.5rem;
+  transition: transform var(--transition-duration) ease-out;
+}
+
+.section-badge:not(:empty) {
+  animation: badge-pop var(--transition-duration) ease-out;
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 }
 
 .section-content {
@@ -612,15 +645,18 @@ button#connect:active {
   overflow: hidden;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
+  opacity: 1;
   transition: max-height var(--transition-duration) ease-out,
               padding-top var(--transition-duration) ease-out,
-              padding-bottom var(--transition-duration) ease-out;
+              padding-bottom var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out;
 }
 
 .collapsible-section.collapsed .section-content {
   max-height: 0;
   padding-top: 0;
   padding-bottom: 0;
+  opacity: 0;
 }
 
 .chevron {
@@ -667,6 +703,8 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
+  animation: item-grow-in var(--transition-duration) ease-out;
+  overflow: hidden;
 }
 
 .connected-tab-port {
@@ -780,6 +818,8 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
+  animation: item-grow-in var(--transition-duration) ease-out;
+  overflow: hidden;
 }
 
 .origin-item-default {

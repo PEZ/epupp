@@ -57,8 +57,8 @@ Before implementing, read these documents and source files:
   - [x] verified (human)
 
 - [ ] **Popup: Script list items** ([popup.cljs#L509-L558](../../src/popup.cljs#L509-L558))
-  - Items appear/disappear abruptly when scripts are added/deleted
-  - [ ] addressed in code
+  - List should grow/shrink smoothly when scripts added/deleted (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
 - [x] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
@@ -67,18 +67,18 @@ Before implementing, read these documents and source files:
   - [x] verified (human)
 
 - [ ] **Popup: No scripts empty state** ([popup.cljs#L576-L588](../../src/popup.cljs#L576-L588))
-  - Empty state swaps with list abruptly
-  - [ ] addressed in code
+  - Section height should change smoothly (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
 - [ ] **Popup: Connected tabs list** ([popup.cljs#L783-L800](../../src/popup.cljs#L783-L800))
-  - Tab items appear/disappear abruptly when connections change
-  - [ ] addressed in code
+  - REPL Connect section should grow/shrink smoothly (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
 - [ ] **Popup: No connections empty state** ([popup.cljs#L800-L803](../../src/popup.cljs#L800-L803))
-  - Empty state swaps with list abruptly
-  - [ ] addressed in code
+  - Section height should change smoothly (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
 - [x] **Popup: Add origin error message** ([popup.cljs#L697](../../src/popup.cljs#L697))
@@ -87,19 +87,19 @@ Before implementing, read these documents and source files:
   - [x] verified (human)
 
 - [ ] **Popup: Copy feedback** ([popup.cljs#L456](../../src/popup.cljs#L456))
-  - Button should grow/shrink smoothly when "Copied!" text appears
-  - [ ] addressed in code
+  - Button jumps between states - fixed with fixed width (75px)
+  - [x] addressed in code
   - [ ] verified (human)
 
 - [ ] **Popup: Origins lists** ([popup.cljs#L650-L678](../../src/popup.cljs#L650-L678))
-  - User origin items appear/disappear abruptly when added/removed
-  - [ ] addressed in code
+  - Section should grow/shrink smoothly (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
-- [ ] **Popup: Section badge count** ([popup.cljs#L467](../../src/popup.cljs#L467), [popup.css#L536-L542](../../extension/popup.css#L536-L542))
-  - Badge number changes without transition
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Popup: Section badge count** ([popup.cljs#L467](../../src/popup.cljs#L467), [popup.css#L536-L542](../../extension/popup.css#L536-L542))
+  - Badge number changes without transition - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
 ### Panel Elements
 
@@ -113,14 +113,14 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Panel: Results area items** ([panel.cljs#L184-L199](../../src/panel.cljs#L184-L199))
+- [x] **Panel: Results area items** ([panel.cljs#L184-L199](../../src/panel.cljs#L184-L199))
   - Result items appear abruptly when code is evaluated
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Panel: Empty results state** ([panel.cljs#L201-L208](../../src/panel.cljs#L201-L208))
-  - Empty state swaps with results abruptly
-  - [ ] addressed in code
+  - Results container height should change smoothly (CSS cannot animate height:auto - requires JS)
+  - [ ] addressed in code - DEFERRED (CSS limitation)
   - [ ] verified (human)
 
 - [x] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
@@ -128,30 +128,30 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Panel: Rename button appearance** ([panel.cljs#L596-L609](../../src/panel.cljs#L596-L609))
-  - Rename button appears/disappears abruptly when name changes
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Panel: Rename button appearance** ([panel.cljs#L596-L609](../../src/panel.cljs#L596-L609))
+  - Rename button appears/disappears abruptly when name changes - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
-- [ ] **Panel: Unknown keys warning** ([panel.cljs#L239-L245](../../src/panel.cljs#L239-L245), [panel.css#L307-L323](../../extension/panel.css#L307-L323))
-  - Warning appears/disappears abruptly when manifest changes
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Panel: Unknown keys warning** ([panel.cljs#L239-L245](../../src/panel.cljs#L239-L245), [panel.css#L307-L323](../../extension/panel.css#L307-L323))
+  - Warning appears/disappears abruptly when manifest changes - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
-- [ ] **Panel: Invalid requires warning** ([panel.cljs#L259-L267](../../src/panel.cljs#L259-L267))
-  - Warning appears/disappears abruptly
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Panel: Invalid requires warning** ([panel.cljs#L259-L267](../../src/panel.cljs#L259-L267))
+  - Warning appears/disappears abruptly - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
-- [ ] **Panel: No manifest message** ([panel.cljs#L269-L275](../../src/panel.cljs#L269-L275), [panel.css#L326-L350](../../extension/panel.css#L326-L350))
-  - Message swaps with metadata table abruptly
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Panel: No manifest message** ([panel.cljs#L269-L275](../../src/panel.cljs#L269-L275), [panel.css#L326-L350](../../extension/panel.css#L326-L350))
+  - Message swaps with metadata table abruptly - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
-- [ ] **Panel: Metadata table rows** ([panel.cljs#L222-L237](../../src/panel.cljs#L222-L237))
-  - Field hints appear/disappear abruptly
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Panel: Metadata table rows** ([panel.cljs#L222-L237](../../src/panel.cljs#L222-L237))
+  - Field hints appear/disappear abruptly - marked unimportant
+  - [x] addressed in code
+  - [x] verified (human) - skipped, unimportant
 
 ### Shared Components
 
@@ -192,10 +192,10 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Panel: Save status fadeIn CSS** ([panel.css#L249-L257](../../extension/panel.css#L249-L257))
+- [x] **Panel: Save status fadeIn CSS** ([panel.css#L249-L257](../../extension/panel.css#L249-L257))
   - Remove after replacing inline save status with banner
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human) - CSS removed, cleanup complete
 
 ## Process
 

@@ -260,12 +260,30 @@ body {
   background-color: var(--bg-secondary);
 }
 
+@keyframes result-grow-in {
+  from {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  to {
+    max-height: 200px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    opacity: 1;
+  }
+}
+
 .result-item {
   padding: 10px 12px;
   border-radius: var(--radius);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
+  animation: result-grow-in var(--transition-duration) ease-out;
+  overflow: hidden;
 }
 
 .result-input {
@@ -309,6 +327,7 @@ body {
   color: var(--text-muted);
   text-align: center;
   padding: 20px;
+  transition: opacity var(--transition-duration) ease-out;
 }
 
 .empty-results-text {
@@ -423,29 +442,6 @@ body {
   background: #5c9fd4;
 }
 
-.save-status {
-  font-size: 11px;
-  animation: fadeIn 0.2s ease;
-}
-
-.save-status-success {
-  color: var(--success);
-}
-
-.save-status-error {
-  color: var(--error);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 /* Scrollbar styling moved to base.css */
 
 /* Metadata property table */
@@ -508,6 +504,7 @@ body {
   display: block;
   font-size: 11px;
   margin-top: 4px;
+  transition: opacity var(--transition-duration) ease-out;
 }
 
 .field-hint.hint-info {
@@ -530,6 +527,8 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: opacity var(--transition-duration) ease-out,
+              max-height var(--transition-duration) ease-out;
 }
 
 .manifest-warning .warning-icon {
@@ -552,6 +551,8 @@ body {
   border-radius: var(--radius);
   color: var(--text-secondary);
   font-size: 12px;
+  transition: opacity var(--transition-duration) ease-out,
+              max-height var(--transition-duration) ease-out;
 }
 
 .no-manifest-message p {
