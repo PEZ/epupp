@@ -177,20 +177,20 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Various button/input transitions** (multiple locations)
+- [x] **Popup: Various button/input transitions** (multiple locations)
   - Port inputs, copy button, connect button, etc. use 0.15s
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [x] **Panel: Banner slide-in** ([panel.css#L82-L96](../../extension/panel.css#L82-L96))
   - Currently 0.2s - standardize to 0.25s
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Panel: Button/input transitions** (multiple locations)
+- [x] **Panel: Button/input transitions** (multiple locations)
   - Various buttons use 0.15s
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Panel: Save status fadeIn CSS** ([panel.css#L249-L257](../../extension/panel.css#L249-L257))
   - Remove after replacing inline save status with banner

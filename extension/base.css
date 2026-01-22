@@ -136,7 +136,7 @@
 }
 
 .footer-logos a {
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-duration);
 }
 
 .footer-logos a:hover {

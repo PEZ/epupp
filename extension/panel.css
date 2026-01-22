@@ -198,7 +198,7 @@ body {
   cursor: pointer;
   border: none;
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .btn-eval {
@@ -344,7 +344,7 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .btn-new-script:hover {
@@ -379,7 +379,7 @@ body {
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .btn-save:hover {
@@ -401,7 +401,7 @@ body {
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .btn-rename:hover {

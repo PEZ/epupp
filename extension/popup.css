@@ -178,7 +178,7 @@ body {
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
   font-family: ui-monospace, SFMono-Regular, monospace;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
 }
 
 .port-row input:focus {
@@ -219,7 +219,7 @@ code {
   background: var(--btn-bg);
   border-radius: var(--radius);
   color: var(--text-primary);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
   flex-shrink: 0;
 }
 
@@ -254,7 +254,7 @@ button#connect {
   color: white;
   border: none;
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 button#connect:hover {
@@ -412,7 +412,7 @@ button#connect:active {
   border: none;
   color: var(--text-muted);
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .script-delete:hover {
@@ -427,7 +427,7 @@ button#connect:active {
   border: none;
   color: var(--text-muted);
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .script-inspect:hover {
@@ -442,7 +442,7 @@ button#connect:active {
   border: none;
   color: var(--text-muted);
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .script-run:hover {
@@ -512,7 +512,7 @@ button#connect:active {
   color: white;
   border: none;
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .approval-allow:hover {
@@ -529,7 +529,7 @@ button#connect:active {
   color: var(--delete-hover-color);
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .approval-deny:hover {
@@ -686,7 +686,7 @@ button#connect:active {
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -789,7 +789,7 @@ button#connect:active {
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
   flex-shrink: 0;
 }
 
@@ -828,7 +828,7 @@ button#connect:active {
   border-radius: var(--radius);
   background: var(--bg-body);
   color: var(--text-primary);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
 }
 
 .add-origin-form input:focus {
@@ -856,7 +856,7 @@ button#connect:active {
   color: white;
   border: none;
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
   flex-shrink: 0;
 }
 
@@ -923,7 +923,7 @@ button#connect:active {
   color: var(--text-primary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .export-btn:hover,
@@ -954,7 +954,7 @@ button#connect:active {
   color: var(--text-secondary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
 }
 
 .dev-log-btn:hover {
