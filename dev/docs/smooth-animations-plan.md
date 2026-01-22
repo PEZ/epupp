@@ -8,6 +8,29 @@ This document tracks the implementation of smooth 0.25s transitions for all dyna
 - **Easing:** `ease-out` for most transitions
 - **Properties:** height, max-height, opacity, transform
 
+## Required Reading
+
+Before implementing, read these documents and source files:
+
+### Architecture Documentation
+
+- [css-architecture.md](architecture/css-architecture.md) - CSS layer responsibilities, token usage, component patterns
+- [ui.md](ui.md) - Reagami/Uniflow patterns, state management, TDD workflow
+
+### Source Files (CSS)
+
+- [design-tokens.css](../../extension/design-tokens.css) - Design token definitions (add transition token here)
+- [components.css](../../extension/components.css) - Shared component styles (buttons, status indicators)
+- [popup.css](../../extension/popup.css) - Popup-specific styles
+- [panel.css](../../extension/panel.css) - Panel-specific styles
+- [base.css](../../extension/base.css) - Base styles shared across views
+
+### Source Files (Components)
+
+- [view_elements.cljs](../../src/view_elements.cljs) - Shared Reagent components (action-button, status-text, empty-state)
+- [popup.cljs](../../src/popup.cljs) - Popup UI components and state
+- [panel.cljs](../../src/panel.cljs) - Panel UI components and state
+
 ## Checklist
 
 ### Design Tokens
@@ -176,11 +199,16 @@ This document tracks the implementation of smooth 0.25s transitions for all dyna
 
 ## Process
 
-1. **Agent** implements the CSS/code changes for an item
-2. **Agent** ticks "addressed in code" checkbox
-3. **Human** manually tests in browser (load extension, trigger the UI change)
-4. **Human** ticks "verified (human)" checkbox if working correctly
-5. If issues found, human describes problem, agent fixes, repeat from step 1
+1. **Agent** implements the CSS/code changes for a carefully sized batch of items
+2. **Agent** ticks "addressed in code" checkboxes
+3. **Agent** hands off to the human with a brief list of what exists to test
+4. **Human** manually tests in browser (load extension, trigger the UI change)
+5. **Human** ticks "verified (human)" checkboxes for the items that work correctly
+6. If issues found, human describes problem, agent fixes, repeat from step 1
+7. **After verification**, update [css-architecture.md](architecture/css-architecture.md) to document:
+   - The `--transition-duration` token (once added)
+   - Any new animation patterns or CSS classes introduced
+   - Updates to existing component documentation if patterns changed
 
 ## Implementation Patterns
 
@@ -274,3 +302,30 @@ Add to [design-tokens.css](../../extension/design-tokens.css):
   --transition-duration: 0.25s;
 }
 ```
+
+## Original Plan-producing Prompt
+
+The following prompt was used to generate this plan:
+
+---
+
+I need your CSS design expertise. Generally, for both panel and popup, elements are inserted, expanded, collapsed and so on in a very unsmooth way. I want smooth grow/shrink over 0.25s everywhere where anything is inserted, removed, collapsed, expanded, or changes height.
+
+Please investigate and create a dev/docs plan with full coverage of all instances that need attention, and the suggested remedies.
+
+**Plan structure requirements:**
+
+1. Include a "Required Reading" section listing all relevant dev docs and source files that are mandatory to read before working with implementation (between Standard and Checklist sections)
+
+2. Use a straight checklist format where each item has dual checkboxes:
+   - [ ] addressed in code
+   - [ ] verified (human)
+
+3. Include a Process section that clearly states:
+   - Agent ticks "addressed in code" after implementation
+   - Human ticks "verified (human)" after visual confirmation in browser
+   - After human verification, update css-architecture.md to document any new tokens, patterns, or classes introduced
+
+The plan should be structured so that every time something is done, items are simply ticked off without inserting blocks of "this was done" commentary.
+
+---
