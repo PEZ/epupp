@@ -625,7 +625,10 @@
    [:span " to use the new version of this panel"]])
 
 (defn system-banner [{:keys [type message leaving]}]
-  [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
+  [:div {:class (str (case type
+                       "success" "fs-success-banner"
+                       "info" "fs-info-banner"
+                       "fs-error-banner")
                      (when leaving " leaving"))}
    [:span message]])
 
@@ -744,6 +747,7 @@
            operation (aget message "operation")
            script-name (aget message "script-name")
            error-msg (aget message "error")
+           unchanged? (aget message "unchanged")
            script-id (aget message "script-id")
            from-name (aget message "from-name")
            bulk-id (aget message "bulk-id")
@@ -765,22 +769,25 @@
                              (= from-name original-name))
            matches-id? (and script-id current-id (= script-id current-id))
            ;; Check if this event affects the currently edited script
-           affects-current? (and (= event-type "success")
+           affects-current? (and (or (= event-type "success") (= event-type "info"))
                                  (or matches-id? matches-name? matches-from?))
            show-banner? (or (= event-type "error")
+                            (= event-type "info")
                             (not bulk-op?)
                             bulk-final?)
            banner-msg (cond
                         (= event-type "error")
                         (str "FS sync error: " error-msg)
 
+                        unchanged?
+                        (str "Script \"" script-name "\" unchanged")
+
                         (and bulk-op? bulk-final?)
                         (str bulk-count (if (= bulk-count 1) " file " " files ")
-                             (if (= operation "delete") "deleted" "saved")
-                             " via REPL")
+                             (if (= operation "delete") "deleted" "saved"))
 
                         :else
-                        (str "Script \"" script-name "\" " operation "d via REPL"))]
+                        (str "Script \"" script-name "\" " operation "d"))]
        (when bulk-id
          (swap! !state update-in [:panel/system-bulk-names bulk-id] (fnil conj []) script-name))
        ;; Show banner for all system-banner events

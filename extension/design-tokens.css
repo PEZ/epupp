@@ -60,6 +60,11 @@
   --color-text-fs-error-banner: #dc2626;
   --color-text-fs-error-banner-strong: #b91c1c;
 
+  --color-bg-fs-info-banner: #eff6ff;
+  --color-border-fs-info-banner: #93c5fd;
+  --color-text-fs-info-banner: #2563eb;
+  --color-text-fs-info-banner-strong: #1d4ed8;
+
   /* Spacing scale */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -139,6 +144,11 @@
     --color-border-fs-error-banner: #dc2626;
     --color-text-fs-error-banner: #fca5a5;
     --color-text-fs-error-banner-strong: #fecaca;
+
+    --color-bg-fs-info-banner: #1e3a5f;
+    --color-border-fs-info-banner: #3b82f6;
+    --color-text-fs-info-banner: #93c5fd;
+    --color-text-fs-info-banner-strong: #bfdbfe;
 
     --scrollbar-thumb: #5a5a5a;
     --scrollbar-thumb-hover: #6a6a6a;

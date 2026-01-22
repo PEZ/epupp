@@ -47,6 +47,15 @@
                                                   event-data)]
                [:bg/fx.send-response (merge {:success true} response-data)]]})))
 
+(defn- make-info-response
+  "Create an info response (no storage change) with broadcast info event."
+  [operation script-name {:keys [event-data response-data]}]
+  {:uf/fxs [[:bg/fx.broadcast-system-banner! (merge {:event-type "info"
+                                                     :operation operation
+                                                     :script-name script-name}
+                                                    event-data)]
+            [:bg/fx.send-response (merge {:success true} response-data)]]})
+
 (defn- update-script-in-list
   "Update a script in the list by ID, applying update-fn."
   [scripts script-id update-fn]
@@ -157,6 +166,18 @@
            existing-by-name
            (not force?))
       (make-error-response (str "Script already exists: " script-name) {:operation "save" :script-name script-name})
+
+      ;; Content unchanged on update - report but don't save
+      (and is-update? (= (:script/code existing-by-id) (:script/code script)))
+      (make-info-response "save" script-name
+                          {:event-data (cond-> {:script-id script-id :unchanged true}
+                                         (some? bulk-id) (assoc :bulk-id bulk-id)
+                                         (some? bulk-index) (assoc :bulk-index bulk-index)
+                                         (some? bulk-count) (assoc :bulk-count bulk-count))
+                           :response-data {:name script-name
+                                           :id script-id
+                                           :is-update true
+                                           :unchanged true}})
 
       ;; All checks pass - create or update
       :else

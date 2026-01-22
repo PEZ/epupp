@@ -101,6 +101,20 @@ body {
   color: var(--color-text-fs-error-banner-strong);
 }
 
+.fs-info-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-info-banner);
+  border-bottom: 1px solid var(--color-border-fs-info-banner);
+  color: var(--color-text-fs-info-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in var(--transition-duration) ease-out;
+}
+
+.fs-info-banner strong {
+  color: var(--color-text-fs-info-banner-strong);
+}
+
 @keyframes banner-slide-in {
   from {
     opacity: 0;
@@ -125,6 +139,7 @@ body {
 
 .fs-success-banner.leaving,
 .fs-error-banner.leaving,
+.fs-info-banner.leaving,
 .refresh-banner.leaving {
   animation: banner-slide-out var(--transition-duration) ease-in forwards;
 }

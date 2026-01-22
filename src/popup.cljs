@@ -840,7 +840,10 @@
 
 (defn system-banner [{:keys [type message leaving]}]
   [:div {:class (str "system-banner "
-                     (if (= type "success") "fs-success-banner" "fs-error-banner")
+                     (case type
+                       "success" "fs-success-banner"
+                       "info" "fs-info-banner"
+                       "fs-error-banner")
                      (when leaving " leaving"))}
    [:span message]])
 
@@ -920,6 +923,7 @@
              operation (aget message "operation")
              script-name (aget message "script-name")
              error-msg (aget message "error")
+             unchanged? (aget message "unchanged")
              bulk-id (aget message "bulk-id")
              bulk-count (aget message "bulk-count")
              bulk-index (aget message "bulk-index")
@@ -931,22 +935,25 @@
                            (or (= operation "save")
                                (= operation "delete")))
              show-banner? (or (= event-type "error")
+                              (= event-type "info")
                               (not bulk-op?)
                               bulk-final?)
              banner-msg (cond
                           (= event-type "error")
                           (str "FS sync error: " error-msg)
 
+                          unchanged?
+                          (str "Script \"" script-name "\" unchanged")
+
                           (and bulk-op? bulk-final?)
                           (str bulk-count (if (= bulk-count 1) " file " " files ")
-                               (if (= operation "delete") "deleted" "saved")
-                               " via REPL")
+                               (if (= operation "delete") "deleted" "saved"))
 
                           :else
-                          (str "Script \"" script-name "\" " operation "d via REPL"))]
-         (when bulk-id
+                          (str "Script \"" script-name "\" " operation "d"))]         (when bulk-id
            (dispatch! [[:popup/ax.track-bulk-name bulk-id script-name]]))
-         (when (and (= event-type "error")
+         ;; Flash on errors or unchanged saves so user knows which file was affected
+         (when (and (or (= event-type "error") unchanged?)
                     (= operation "save")
                     script-name
                     (not bulk-id))
