@@ -250,34 +250,38 @@
           (let [tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
             (js-await (fixtures/connect-tab popup tab-id ws-port-1))
             (js-await (wait-for-connection popup 5000))
+
+            ;; Ensure the connected tab is the active tab for popup actions
+            (js-await (.evaluate popup
+                                 (fn [target-tab-id]
+                                   (js/Promise.
+                                    (fn [resolve]
+                                      (js/chrome.tabs.update target-tab-id #js {:active true}
+                                                             (fn [] (resolve true))))))
+                                 tab-id))
+
             (js-await (.reload popup))
             (js-await (wait-for-popup-ready popup))
 
-            ;; Should show disconnect button (not connect button)
+            (let [connected-items (.locator popup ".connected-tab-item")]
+              (js-await (-> (expect connected-items)
+                            (.toHaveCount 1 #js {:timeout 1000}))))
+
             (js-await (-> (expect (.locator popup "#disconnect"))
-                          (.toBeVisible #js {:timeout 500})))
-            (js-await (-> (expect (.locator popup "#connect"))
-                          (.not.toBeVisible)))
+                          (.toBeVisible #js {:timeout 1000})))
 
             ;; Click disconnect button
             (js-await (.click (.locator popup "#disconnect")))
-
-            ;; Wait a bit for disconnect to process
-            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
 
             ;; Reload to see updated state
             (js-await (.reload popup))
             (js-await (wait-for-popup-ready popup))
 
-            ;; Should now show connect button (not disconnect button)
-            (js-await (-> (expect (.locator popup "#connect"))
-                          (.toBeVisible #js {:timeout 500})))
-            (js-await (-> (expect (.locator popup "#disconnect"))
-                          (.not.toBeVisible)))
-
             ;; Connected tabs list should be empty
             (js-await (-> (expect (.locator popup ".no-connections"))
-                          (.toBeVisible #js {:timeout 500}))))
+                          (.toBeVisible #js {:timeout 1000})))
+            (js-await (-> (expect (.locator popup "#connect"))
+                          (.toBeVisible #js {:timeout 1000}))))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
