@@ -217,7 +217,8 @@
        (fn [response]
          (let [error (or (when js/chrome.runtime.lastError
                            (.-message js/chrome.runtime.lastError))
-                         (when response (.-error response)))]
+                         (when response (.-error response)))
+               unchanged? (and response (.-unchanged response))]
            ;; Dispatch action to handle response and update UI
            (dispatch [[:editor/ax.handle-save-response
                        {:success (and (not js/chrome.runtime.lastError)
@@ -227,6 +228,7 @@
                         :name normalized-name
                         :id id
                         :action-text action-text
+                        :unchanged unchanged?
                         :is-update (when response (.-isUpdate response))}]])))))
 
     :editor/fx.rename-script
@@ -787,11 +789,13 @@
                              (if (= operation "delete") "deleted" "saved"))
 
                         :else
-                        (str "Script \"" script-name "\" " operation "d"))]
+                        (str "Script \"" script-name "\" " operation "d"))
+           ;; Skip banner for saves affecting current script - panel save response handler already showed it
+           skip-banner? (and affects-current? (= operation "save"))]
        (when bulk-id
          (swap! !state update-in [:panel/system-bulk-names bulk-id] (fnil conj []) script-name))
-       ;; Show banner for all system-banner events
-       (when show-banner?
+       ;; Show banner for all system-banner events (except panel's own saves)
+       (when (and show-banner? (not skip-banner?))
          (swap! !state assoc :panel/system-banner {:type event-type :message banner-msg})
          ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
          (let [bulk-names (when bulk-id (get-in @!state [:panel/system-bulk-names bulk-id]))]

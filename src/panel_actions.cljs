@@ -162,15 +162,29 @@
           {:uf/fxs [[:editor/fx.save-script script normalized-name id action-text]]})))
 
     :editor/ax.handle-save-response
-    (let [[{:keys [success error name action-text id]}] args]
-      (if success
+    (let [[{:keys [success error name action-text id unchanged]}] args]
+      (cond
+        ;; Error case
+        (not success)
+        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Save failed")})}
+
+        ;; Unchanged - show info banner
+        unchanged
+        {:uf/db (assoc state
+                       :panel/system-banner {:type "info" :message (str "Script \"" name "\" unchanged")}
+                       :panel/script-name name
+                       :panel/original-name name
+                       :panel/script-id id)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
+
+        ;; Success - show success banner
+        :else
         {:uf/db (assoc state
                        :panel/system-banner {:type "success" :message (str action-text " \"" name "\"")}
                        :panel/script-name name
                        :panel/original-name name
                        :panel/script-id id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
-        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Save failed")})}))
+         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}))
 
     :editor/ax.rename-script
     (if-let [original-name (:panel/original-name state)]
