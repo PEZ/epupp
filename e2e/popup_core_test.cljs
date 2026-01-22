@@ -218,18 +218,20 @@
 
       ;; === PHASE 5: Collapse/expand toggle works ===
       (let [popup (js-await (create-popup-page context ext-id))
-            settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")
+            settings-section (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\"))")
+            settings-header (.locator settings-section ".section-header")
             settings-content (.locator popup ".settings-content")]
-        ;; Settings starts collapsed
-        (js-await (-> (expect settings-content) (.not.toBeVisible)))
+        ;; Settings starts collapsed (check class, not visibility - content stays in DOM for animations)
+        (js-await (-> (expect settings-section) (.toHaveClass #"collapsed")))
 
-        ;; Expand - wait for visibility
+        ;; Expand - wait for content to be visible
         (js-await (.click settings-header))
+        (js-await (-> (expect settings-section) (.not.toHaveClass #"collapsed")))
         (js-await (-> (expect settings-content) (.toBeVisible)))
 
-        ;; Collapse again - wait for hidden
+        ;; Collapse again - check class
         (js-await (.click settings-header))
-        (js-await (-> (expect settings-content) (.not.toBeVisible)))
+        (js-await (-> (expect settings-section) (.toHaveClass #"collapsed")))
 
         ;; REPL Connect section is expanded by default
         (js-await (-> (expect (.locator popup "#nrepl-port"))
