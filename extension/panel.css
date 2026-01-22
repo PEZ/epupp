@@ -260,30 +260,25 @@ body {
   background-color: var(--bg-secondary);
 }
 
-@keyframes result-grow-in {
-  from {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
-  to {
-    max-height: 200px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    opacity: 1;
-  }
-}
-
 .result-item {
   padding: 10px 12px;
   border-radius: var(--radius);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
-  animation: result-grow-in var(--transition-duration) ease-out;
+  max-height: 500px;
+  opacity: 1;
   overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
 
 .result-input {

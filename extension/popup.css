@@ -310,24 +310,6 @@ button#connect:active {
   gap: 8px;
 }
 
-@keyframes item-grow-in {
-  from {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
-  to {
-    max-height: 120px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    opacity: 1;
-  }
-}
-
 .script-item {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -336,8 +318,19 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
-  animation: item-grow-in var(--transition-duration) ease-out;
+  max-height: 120px;
+  opacity: 1;
   overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
 
 .script-item-builtin {
@@ -703,8 +696,19 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
-  animation: item-grow-in var(--transition-duration) ease-out;
+  max-height: 60px;
+  opacity: 1;
   overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
 
 .connected-tab-port {
@@ -818,8 +822,19 @@ button#connect:active {
   background: var(--bg-subtle);
   border-radius: var(--radius);
   border: 1px solid var(--border-light);
-  animation: item-grow-in var(--transition-duration) ease-out;
+  max-height: 60px;
+  opacity: 1;
   overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
 
 .origin-item-default {
