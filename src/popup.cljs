@@ -863,11 +863,16 @@
                      (when leaving " leaving"))}
    [:span message]])
 
-(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url repl/connections] :as state}]
+(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url repl/connections
+                        settings/default-origins settings/user-origins] :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
-                           (filterv #(not (script-utils/get-matching-pattern current-url %))))]
+                           (filterv #(not (script-utils/get-matching-pattern current-url %))))
+        ;; Settings section height: base + origins (30px each) + form/buttons
+        settings-base-height 850 ; REPL settings + export/import + headers
+        origins-height (* 35 (+ (count default-origins) (max 1 (count user-origins))))
+        settings-max-height (+ settings-base-height origins-height)]
     [:div
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
@@ -896,7 +901,7 @@
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))
-                           :max-height "350px"}
+                           :max-height (str settings-max-height "px")}
       [settings-content state]]
      (when (or (.-dev config) (.-test config))
        [dev-log-button])
