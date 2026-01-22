@@ -189,3 +189,8 @@
 .iconed-link .heart-icon {
   color: #e53935;
 }
+
+/* Buttons */
+.btn-untitled {
+  padding: 6px 6px;
+}

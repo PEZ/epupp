@@ -515,7 +515,7 @@
        [view-elements/action-button
         {:button/variant :secondary
          :button/class "script-run"
-         :button/size :sm
+         :button/size :md
          :button/icon icons/play
          :button/title "Run script"
          :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
@@ -533,7 +533,7 @@
          [view-elements/action-button
           {:button/variant :secondary
            :button/class "script-inspect"
-           :button/size :sm
+           :button/size :md
            :button/icon icons/eye
            :button/title "Inspect script"
            :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
@@ -542,7 +542,7 @@
            [view-elements/action-button
             {:button/variant :danger
              :button/class "script-delete"
-             :button/size :sm
+             :button/size :md
              :button/icon icons/x
              :button/title "Delete script"
              :button/on-click #(when (js/confirm "Delete this script?")

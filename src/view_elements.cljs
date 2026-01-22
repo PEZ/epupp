@@ -87,14 +87,14 @@
 
    Note: In Squint, keywords are strings so :primary becomes \"primary\""
   [{:button/keys [variant size disabled? icon on-click class title id]} label]
-  (let [base-class "btn"
-        ;; In Squint, keywords are strings, so (str \"btn-\" :primary) => \"btn-primary\"
+  (let [;; In Squint, keywords are strings, so (str \"btn-\" :primary) => \"btn-primary\"
         variant-class (when variant (str "btn-" variant))
         size-class (case size
                      :sm "btn-sm"
                      :lg "btn-lg"
                      nil)
-        classes (str base-class
+        classes (str "btn "
+                     "btn-untitled "
                      (when variant-class (str " " variant-class))
                      (when size-class (str " " size-class))
                      (when class (str " " class)))]
