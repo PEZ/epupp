@@ -23,8 +23,8 @@
 **Current state:** The `log` module provides consistent prefixed logging (`[Epupp:Module:Context]`) but all logs go to the extension's console (popup, panel, or background worker depending on where the code runs). Some logs, like FS sync notifications, need to appear in the page console so users see them without inspecting extension pages.
 
 **Workaround:** FS logging currently uses `js/console.info` directly with manual prefix formatting. See TODO comments in:
-- `src/popup.cljs` - `:popup/fx.log-fs-banner` effect
-- `src/panel.cljs` - fs-event listener
+- `src/popup.cljs` - `:popup/fx.log-system-banner` effect
+- `src/panel.cljs` - system-banner listener
 
 **Desired state:** Upgrade the log module to support targeting:
 - Extension console (current behavior)

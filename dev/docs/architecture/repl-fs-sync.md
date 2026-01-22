@@ -162,7 +162,7 @@ Successful responses use:
    `isUpdate` where relevant
 
 The page API converts results to namespaced `:fs/*` keys before returning to
-REPL callers. The background also broadcasts `fs-event` messages to popup and
+REPL callers. The background also broadcasts `system-banner` messages to popup and
 panel so UI can show success and error banners.
 
 ## Security Considerations

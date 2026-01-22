@@ -88,7 +88,7 @@
        (js/chrome.action.setBadgeText #js {:text ""}))
      2000)))
 
-(defn broadcast-fs-event!
+(defn broadcast-system-banner!
   "Notify popup/panel about FS operation results and flash toolbar badge.
    Called after REPL FS operations (save, rename, delete) complete.
    event should be a map with keys: :event-type (:success/:error),
@@ -98,7 +98,7 @@
   (flash-fs-badge! (:event-type event))
   ;; Send event to popup/panel
   (js/chrome.runtime.sendMessage
-   (clj->js (merge {:type "fs-event"} event))
+   (clj->js (merge {:type "system-banner"} event))
    (fn [_response]
      ;; Ignore errors - expected when no popup/panel is open
      (when js/chrome.runtime.lastError nil))))

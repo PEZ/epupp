@@ -480,7 +480,7 @@
                         ((^:async fn []
                            (if-not (js-await (fs-repl-sync-enabled?))
                              (do
-                               (bg-icon/broadcast-fs-event! {:event-type "error"
+                               (bg-icon/broadcast-system-banner! {:event-type "error"
                                                              :operation "save"
                                                              :error "FS REPL Sync is disabled in settings"})
                                (send-response #js {:success false :error "FS REPL Sync is disabled"}))
@@ -553,7 +553,7 @@
                         ((^:async fn []
                            (if-not (js-await (fs-repl-sync-enabled?))
                              (do
-                               (bg-icon/broadcast-fs-event! {:event-type "error"
+                               (bg-icon/broadcast-system-banner! {:event-type "error"
                                                              :operation "rename"
                                                              :error "FS REPL Sync is disabled in settings"})
                                (send-response #js {:success false :error "FS REPL Sync is disabled"}))
@@ -568,7 +568,7 @@
                         ((^:async fn []
                            (if-not (js-await (fs-repl-sync-enabled?))
                              (do
-                               (bg-icon/broadcast-fs-event! {:event-type "error"
+                               (bg-icon/broadcast-system-banner! {:event-type "error"
                                                              :operation "delete"
                                                              :error "FS REPL Sync is disabled in settings"})
                                (send-response #js {:success false :error "FS REPL Sync is disabled"}))

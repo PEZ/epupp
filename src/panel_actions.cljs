@@ -285,12 +285,12 @@
     (let [[script-name] args]
       {:uf/fxs [[:editor/fx.reload-script-from-storage script-name]]})
 
-    :editor/ax.clear-fs-event
-    (if (get-in state [:panel/fs-event :leaving])
+    :editor/ax.clear-system-banner
+    (if (get-in state [:panel/system-banner :leaving])
       ;; Step 2: After animation, clear the banner
-      {:uf/db (assoc state :panel/fs-event nil)}
+      {:uf/db (assoc state :panel/system-banner nil)}
       ;; Step 1: Mark as leaving, defer actual clear
-      {:uf/db (assoc-in state [:panel/fs-event :leaving] true)
-       :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-fs-event]] 250]]})
+      {:uf/db (assoc-in state [:panel/system-banner :leaving] true)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 250]]})
 
     :uf/unhandled-ax))

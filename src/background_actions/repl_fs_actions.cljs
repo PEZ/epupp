@@ -26,7 +26,7 @@
   ([error-msg]
    (make-error-response error-msg {}))
   ([error-msg {:keys [operation script-name event-data]}]
-   {:uf/fxs [[:bg/fx.broadcast-fs-event! (merge {:event-type "error"
+   {:uf/fxs [[:bg/fx.broadcast-system-banner! (merge {:event-type "error"
                                                  :operation operation
                                                  :script-name script-name
                                                  :error error-msg}
@@ -41,7 +41,7 @@
    (let [response-data (or response-data (dissoc extra :event-data))]
      {:uf/db {:storage/scripts updated-scripts}
       :uf/fxs [[:storage/fx.persist!]
-               [:bg/fx.broadcast-fs-event! (merge {:event-type "success"
+               [:bg/fx.broadcast-system-banner! (merge {:event-type "success"
                                                    :operation operation
                                                    :script-name script-name}
                                                   event-data)]

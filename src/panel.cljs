@@ -29,8 +29,8 @@
          :panel/current-hostname nil
          :panel/manifest-hints nil  ; Parsed manifest from current code
          :panel/selection nil       ; Current textarea selection {:start :end :text}
-         :panel/fs-event nil        ; FS sync event banner {:type :success/:error :message "..."}
-         :panel/fs-bulk-names {}})) ; bulk-id -> [script-name ...]
+         :panel/system-banner nil        ; System banner {:type :success/:error :message "..."}
+         :panel/system-bulk-names {}})) ; bulk-id -> [script-name ...]
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -631,18 +631,18 @@
    [:strong "close and reopen DevTools"]
    [:span " to use the new version of this panel"]])
 
-(defn fs-event-banner [{:keys [type message leaving]}]
+(defn system-banner [{:keys [type message leaving]}]
   [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
                      (when leaving " leaving"))}
    [:span message]])
 
-(defn panel-header [{:panel/keys [needs-refresh? fs-event]}]
+(defn panel-header [{:panel/keys [needs-refresh?] sb :panel/system-banner}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/status "Ready"
     :elements/permanent-banner (when needs-refresh? [refresh-banner])
-    :elements/temporary-banner (when fs-event [fs-event-banner fs-event])}])
+    :elements/temporary-banner (when sb [system-banner sb])}])
 
 (defn panel-footer []
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
@@ -746,7 +746,7 @@
 ;; Listen for FS sync events from background
 (js/chrome.runtime.onMessage.addListener
  (fn [message _sender _send-response]
-   (when (= "fs-event" (.-type message))
+   (when (= "system-banner" (.-type message))
      (let [event-type (aget message "event-type")
            operation (aget message "operation")
            script-name (aget message "script-name")
@@ -789,19 +789,19 @@
                         :else
                         (str "Script \"" script-name "\" " operation "d via REPL"))]
        (when bulk-id
-         (swap! !state update-in [:panel/fs-bulk-names bulk-id] (fnil conj []) script-name))
-       ;; Show banner for all fs-events
+         (swap! !state update-in [:panel/system-bulk-names bulk-id] (fnil conj []) script-name))
+       ;; Show banner for all system-banner events
        (when show-banner?
-         (swap! !state assoc :panel/fs-event {:type event-type :message banner-msg})
+         (swap! !state assoc :panel/system-banner {:type event-type :message banner-msg})
          ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
-         (let [bulk-names (when bulk-id (get-in @!state [:panel/fs-bulk-names bulk-id]))]
+         (let [bulk-names (when bulk-id (get-in @!state [:panel/system-bulk-names bulk-id]))]
            (if (and bulk-op? bulk-final? (seq bulk-names))
              (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
              (js/console.info "[Epupp:FS]" banner-msg)))
          ;; Auto-dismiss after 2 seconds using action (for smooth animation)
-         (js/setTimeout #(dispatch! [[:editor/ax.clear-fs-event]]) 2000))
+         (js/setTimeout #(dispatch! [[:editor/ax.clear-system-banner]]) 2000))
        (when (and bulk-id bulk-final?)
-         (swap! !state update :panel/fs-bulk-names dissoc bulk-id))
+         (swap! !state update :panel/system-bulk-names dissoc bulk-id))
        ;; Reload or clear editor when current script was modified
        (when affects-current?
          (if (= operation "delete")

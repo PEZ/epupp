@@ -290,11 +290,11 @@
                           [action event-type message _] (first (:uf/dxs result))]
               ;; Should dispatch error banner via :uf/dxs
                       (-> (expect action)
-                          (.toBe :popup/ax.show-fs-event))
+                          (.toBe :popup/ax.show-system-banner))
                       (-> (expect event-type)
                           (.toBe "error"))
                       (-> (expect message)
-                          (.toBe "Must start with http:// or https:// and end with / or :")))))
+                          (.toBe "Must start with http:// or https:// and end with / or :"))))))
 
             (test ":popup/ax.add-origin rejects invalid origin (wrong protocol)"
                   (fn []
@@ -306,7 +306,7 @@
                           [action event-type _message _] (first (:uf/dxs result))]
               ;; Should dispatch error banner via :uf/dxs
                       (-> (expect action)
-                          (.toBe :popup/ax.show-fs-event))
+                          (.toBe :popup/ax.show-system-banner))
                       (-> (expect event-type)
                           (.toBe "error")))))
 
@@ -320,7 +320,7 @@
                           [action event-type message _] (first (:uf/dxs result))]
               ;; Should dispatch error banner via :uf/dxs
                       (-> (expect action)
-                          (.toBe :popup/ax.show-fs-event))
+                          (.toBe :popup/ax.show-system-banner))
                       (-> (expect event-type)
                           (.toBe "error"))
                       (-> (expect message)
@@ -336,11 +336,11 @@
                           ;; Should dispatch error banner via :uf/dxs
                           [action event-type message _] (first (:uf/dxs result))]
                       (-> (expect action)
-                          (.toBe :popup/ax.show-fs-event))
+                          (.toBe :popup/ax.show-system-banner))
                       (-> (expect event-type)
                           (.toBe "error"))
                       (-> (expect message)
-                          (.toBe "Origin already exists")))))
+                          (.toBe "Origin already exists"))))
 
             (test ":popup/ax.remove-origin removes origin and triggers effect"
                   (fn []

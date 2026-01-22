@@ -46,7 +46,7 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [x] **Popup: FS event banners** ([popup.cljs#L757](../../src/popup.cljs#L757), [popup.css#L82-L107](../../extension/popup.css#L82-L107))
+- [x] **Popup: System banners** ([popup.cljs#L757](../../src/popup.cljs#L757), [popup.css#L82-L107](../../extension/popup.css#L82-L107))
   - Banners slide in (existing animation) but have no exit animation
   - [x] addressed in code
   - [x] verified (human)
@@ -103,7 +103,7 @@ Before implementing, read these documents and source files:
 
 ### Panel Elements
 
-- [x] **Panel: FS event banners** ([panel.cljs#L372-L374](../../src/panel.cljs#L372-L374), [panel.css#L55-L80](../../extension/panel.css#L55-L80))
+- [x] **Panel: System banners** ([panel.cljs#L372-L374](../../src/panel.cljs#L372-L374), [panel.css#L55-L80](../../extension/panel.css#L55-L80))
   - Banners slide in but have no exit animation
   - [x] addressed in code
   - [x] verified (human)

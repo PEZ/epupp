@@ -18,9 +18,9 @@
         (swap! storage/!db assoc :storage/scripts new-scripts)
         (storage/persist!))
 
-      :bg/fx.broadcast-fs-event!
+      :bg/fx.broadcast-system-banner!
       (let [[event-data] args]
-        (bg-icon/broadcast-fs-event! event-data))
+        (bg-icon/broadcast-system-banner! event-data))
 
       :bg/fx.send-response
       (let [[response-data] args]

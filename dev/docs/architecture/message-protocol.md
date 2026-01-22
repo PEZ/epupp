@@ -139,7 +139,7 @@ Via `chrome.runtime.sendMessage`.
 | Type | Payload | Purpose |
 |------|---------|---------|
 | `connections-changed` | `{connections}` | Broadcast connection list updates |
-| `fs-event` | `{event-type, operation, script-name, error?, bulk-id?, bulk-index?, bulk-count?}` | FS operation notification banner |
+| `system-banner` | `{event-type, operation, script-name, error?, bulk-id?, bulk-index?, bulk-count?}` | System notification banner (FS operations, validation errors) |
 
 ## Related
 

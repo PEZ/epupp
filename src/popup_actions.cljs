@@ -87,10 +87,10 @@
           user-origins (:settings/user-origins state)]
       (cond
         (not (popup-utils/valid-origin? origin))
-        {:uf/dxs [[:popup/ax.show-fs-event "error" "Must start with http:// or https:// and end with / or :" {}]]}
+        {:uf/dxs [[:popup/ax.show-system-banner "error" "Must start with http:// or https:// and end with / or :" {}]]}
 
         (popup-utils/origin-already-exists? origin default-origins user-origins)
-        {:uf/dxs [[:popup/ax.show-fs-event "error" "Origin already exists" {}]]}
+        {:uf/dxs [[:popup/ax.show-system-banner "error" "Origin already exists" {}]]}
 
         :else
         {:uf/db (-> state
@@ -177,28 +177,28 @@
     :popup/ax.clear-modified-scripts
     {:uf/db (assoc state :ui/recently-modified-scripts #{})}
 
-    ;; FS sync event actions
-    :popup/ax.show-fs-event
+    ;; System banner actions
+    :popup/ax.show-system-banner
     (let [[event-type message bulk-info] args
           {:keys [bulk-op? bulk-final? bulk-names]} bulk-info]
-      {:uf/db (assoc state :ui/fs-event {:type event-type :message message})
-       :uf/fxs [[:popup/fx.log-fs-banner message bulk-op? bulk-final? bulk-names]
-                [:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 2000]]})
+      {:uf/db (assoc state :ui/system-banner {:type event-type :message message})
+       :uf/fxs [[:popup/fx.log-system-banner message bulk-op? bulk-final? bulk-names]
+                [:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner]] 2000]]})
 
-    :popup/ax.clear-fs-event
-    (if (get-in state [:ui/fs-event :leaving])
+    :popup/ax.clear-system-banner
+    (if (get-in state [:ui/system-banner :leaving])
       ;; Step 2: After animation, clear the banner
-      {:uf/db (assoc state :ui/fs-event nil)}
+      {:uf/db (assoc state :ui/system-banner nil)}
       ;; Step 1: Mark as leaving, defer actual clear
-      {:uf/db (assoc-in state [:ui/fs-event :leaving] true)
-       :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 250]]})
+      {:uf/db (assoc-in state [:ui/system-banner :leaving] true)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner]] 250]]})
 
     :popup/ax.track-bulk-name
     (let [[bulk-id script-name] args]
-      {:uf/db (update-in state [:ui/fs-bulk-names bulk-id] (fnil conj []) script-name)})
+      {:uf/db (update-in state [:ui/system-bulk-names bulk-id] (fnil conj []) script-name)})
 
     :popup/ax.clear-bulk-names
     (let [[bulk-id] args]
-      {:uf/db (update state :ui/fs-bulk-names dissoc bulk-id)})
+      {:uf/db (update state :ui/system-bulk-names dissoc bulk-id)})
 
     :uf/unhandled-ax))

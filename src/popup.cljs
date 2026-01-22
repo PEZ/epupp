@@ -37,8 +37,8 @@
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
-         :ui/fs-event nil          ; FS sync event banner {:type :success/:error :message "..."}
-         :ui/fs-bulk-names {}      ; bulk-id -> [script-name ...]
+         :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
+         :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :repl/connections []}))   ; Pending FS operation confirmations
 
 
@@ -415,7 +415,7 @@
       (js/chrome.runtime.sendMessage
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
 
-    :popup/fx.log-fs-banner
+    :popup/fx.log-system-banner
     ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
     (let [[message bulk-op? bulk-final? bulk-names] args]
       (if (and bulk-op? bulk-final? (seq bulk-names))
@@ -855,7 +855,7 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-(defn fs-event-banner [{:keys [type message leaving]}]
+(defn system-banner [{:keys [type message leaving]}]
   [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
                      (when leaving " leaving"))}
    [:span message]])
@@ -875,8 +875,8 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/jack-in {:size 28}]
-       :elements/temporary-banner (when-let [fs-event (:ui/fs-event state)]
-                                    [fs-event-banner fs-event])}]
+       :elements/temporary-banner (when-let [system-banner-state (:ui/system-banner state)]
+                                    [system-banner system-banner-state])}]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
@@ -931,7 +931,7 @@
   ;; Listen for FS sync events from background (show errors to user)
   (js/chrome.runtime.onMessage.addListener
    (fn [message _sender _send-response]
-     (when (= "fs-event" (.-type message))
+     (when (= "system-banner" (.-type message))
        (let [event-type (aget message "event-type")
              operation (aget message "operation")
              script-name (aget message "script-name")
@@ -968,8 +968,8 @@
                     (not bulk-id))
            (dispatch! [[:popup/ax.mark-scripts-modified [script-name]]]))
          (when show-banner?
-           (let [bulk-names (when bulk-id (get-in @!state [:ui/fs-bulk-names bulk-id]))]
-             (dispatch! [[:popup/ax.show-fs-event event-type banner-msg
+           (let [bulk-names (when bulk-id (get-in @!state [:ui/system-bulk-names bulk-id]))]
+             (dispatch! [[:popup/ax.show-system-banner event-type banner-msg
                           {:bulk-op? bulk-op?
                            :bulk-final? bulk-final?
                            :bulk-names bulk-names}]])))
