@@ -449,8 +449,11 @@
    [view-elements/action-button
     {:button/variant :secondary
      :button/class "copy-btn"
+     :button/icon icons/copy
+     :button/size :lg
+     :button/title "Copy browser-nrepl server command line. (You need Babashka to run it)"
      :button/on-click #(dispatch! [[:popup/ax.copy-command]])}
-    (or copy-feedback "Copy")]])
+    copy-feedback]])
 
 (defn collapsible-section [{:keys [id title expanded? badge-count]} & children]
   [:div.collapsible-section {:class (when-not expanded? "collapsed")}

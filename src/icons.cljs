@@ -239,3 +239,14 @@
 
 ;; Backward compatibility alias
 (def alert warning)
+
+(defn copy
+  "Copy/clipboard icon - Codicon"
+  ([] (copy {}))
+  ([{:keys [size class] :or {size 16}}]
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :width size :height size
+          :viewBox "0 0 16 16"
+          :fill "currentColor"
+          :class class}
+    [:path {:d "M4 4L4 1.5C4 1.22386 4.22386 1 4.5 1H12.5C12.7761 1 13 1.22386 13 1.5V10.5C13 10.7761 12.7761 11 12.5 11H10V12H12.5C13.3284 12 14 11.3284 14 10.5V1.5C14 0.671573 13.3284 0 12.5 0H4.5C3.67157 0 3 0.671573 3 1.5V4H4ZM1 5.5C1 4.67157 1.67157 4 2.5 4H9.5C10.3284 4 11 4.67157 11 5.5V14.5C11 15.3284 10.3284 16 9.5 16H2.5C1.67157 16 1 15.3284 1 14.5V5.5ZM2.5 5C2.22386 5 2 5.22386 2 5.5V14.5C2 14.7761 2.22386 15 2.5 15H9.5C9.77614 15 10 14.7761 10 14.5V5.5C10 5.22386 9.77614 5 9.5 5H2.5Z"}]]))
