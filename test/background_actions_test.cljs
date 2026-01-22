@@ -241,7 +241,35 @@
           ;; Should have success response
           (-> (expect (some #(and (= :bg/fx.send-response (first %))
                                   (-> % second :success)) (:uf/fxs result)))
-              (.toBeTruthy)))))))
+              (.toBeTruthy)))))
+
+    (test "preserves enabled state when updating existing script"
+      (fn []
+        ;; Existing script is enabled=true
+        (let [updated-script {:script/id "script-123"
+                              :script/name "test.cljs"
+                              :script/code "(updated code)"
+                              :script/enabled false} ;; Trying to disable via update - should be ignored
+              result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.save-script updated-script])
+              saved-script (-> result :uf/db :storage/scripts first)]
+          ;; Should preserve original enabled=true since we merge existing
+          (-> (expect (:script/enabled saved-script))
+              (.toBe true)))))
+
+    (test "defaults new scripts to disabled"
+      (fn []
+        (let [new-script {:script/id "script-new"
+                          :script/name "brand-new.cljs"
+                          :script/code "(new code)"}
+              result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.save-script new-script])
+              saved-script (->> result :uf/db :storage/scripts
+                                (filter #(= (:script/id %) "script-new"))
+                                first)]
+          ;; New user scripts should default to disabled
+          (-> (expect (:script/enabled saved-script))
+              (.toBe false)))))))
 
 ;; ============================================================
 ;; Save Script - Built-in Name Protection Tests

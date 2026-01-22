@@ -161,15 +161,22 @@
       ;; All checks pass - create or update
       :else
       (let [;; Remove transient flags before storing
-            clean-script (dissoc script :script/force? :script/bulk-index :script/bulk-count)
+            clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
+            ;; For updates: merge with existing, but preserve enabled state from existing
+            ;; For creates: default enabled to false for user scripts, true for built-ins
+            is-builtin? (script-utils/builtin-script-id? script-id)
+            merged-script (if is-update?
+                            (-> existing-by-id
+                                (merge (dissoc clean-script :script/enabled)))
+                            (update clean-script :script/enabled #(if (some? %) % (if is-builtin? true false))))
             ;; Add timestamps
             timestamped-script (if is-update?
-                                 (assoc clean-script :script/modified now-iso)
-                                 (assoc clean-script
+                                 (assoc merged-script :script/modified now-iso)
+                                 (assoc merged-script
                                         :script/created now-iso
                                         :script/modified now-iso))
             updated-scripts (if is-update?
-                              ;; Update existing
+                              ;; Update existing - replace with merged script
                               (update-script-in-list scripts script-id (constantly timestamped-script))
                               ;; Create new (remove any with same name if force)
                               (let [filtered (if (and force? existing-by-name)

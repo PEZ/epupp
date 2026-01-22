@@ -51,20 +51,20 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Connect status message** ([popup.cljs#L844](../../src/popup.cljs#L844))
+- [x] **Popup: Connect status message** ([popup.cljs#L844](../../src/popup.cljs#L844))
   - Replace inline status text with a system banner message for calmer UI
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
 - [ ] **Popup: Script list items** ([popup.cljs#L509-L558](../../src/popup.cljs#L509-L558))
   - Items appear/disappear abruptly when scripts are added/deleted
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
+- [x] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
   - Replace inline hint with a system banner message for calmer UI
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
 - [ ] **Popup: No scripts empty state** ([popup.cljs#L576-L588](../../src/popup.cljs#L576-L588))
   - Empty state swaps with list abruptly
@@ -123,10 +123,10 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
+- [x] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
   - Replace inline status text with a system banner message for calmer UI (banner may already exist, just remove inline)
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
 - [ ] **Panel: Rename button appearance** ([panel.cljs#L596-L609](../../src/panel.cljs#L596-L609))
   - Rename button appears/disappears abruptly when name changes
