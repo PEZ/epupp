@@ -71,6 +71,9 @@
   --radius-sm: 4px;
   --radius-md: 6px;
 
+  /* Animation */
+  --transition-duration: 0.25s;
+
   /* Typography */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;

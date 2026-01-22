@@ -79,7 +79,7 @@ body {
   color: var(--color-text-fs-success-banner);
   font-size: 12px;
   text-align: center;
-  animation: banner-slide-in 0.2s ease-out;
+  animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
 .fs-success-banner strong {
@@ -93,7 +93,7 @@ body {
   color: var(--color-text-fs-error-banner);
   font-size: 12px;
   text-align: center;
-  animation: banner-slide-in 0.2s ease-out;
+  animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
 .fs-error-banner strong {

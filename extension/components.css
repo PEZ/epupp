@@ -14,7 +14,7 @@
   cursor: pointer;
   border: none;
   border-radius: var(--radius-sm);
-  transition: all 0.15s;
+  transition: all var(--transition-duration);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -129,7 +129,7 @@
 /* Inline status text */
 .status-text {
   font-size: 11px;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--transition-duration) ease;
 }
 
 .status-text--success {

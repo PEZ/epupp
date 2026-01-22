@@ -35,9 +35,9 @@ Before implementing, read these documents and source files:
 
 ### Design Tokens
 
-- [ ] **Add transition duration token** ([design-tokens.css](../../extension/design-tokens.css))
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Add transition duration token** ([design-tokens.css](../../extension/design-tokens.css))
+  - [x] addressed in code
+  - [x] verified (human)
 
 ### Popup Elements
 
@@ -155,22 +155,22 @@ Before implementing, read these documents and source files:
 
 ### Shared Components
 
-- [ ] **Components: status-text fadeIn** ([components.css#L147-L152](../../extension/components.css#L147-L152))
+- [x] **Components: status-text fadeIn** ([components.css#L147-L152](../../extension/components.css#L147-L152))
   - Currently uses 0.2s - standardize to 0.25s
-  - [ ] addressed in code
+  - [x] addressed in code
   - [ ] verified (human)
 
-- [ ] **Components: All button transitions** ([components.css#L11-L80](../../extension/components.css#L11-L80))
+- [x] **Components: All button transitions** ([components.css#L11-L80](../../extension/components.css#L11-L80))
   - Currently uses 0.15s - standardize to 0.25s
-  - [ ] addressed in code
+  - [x] addressed in code
   - [ ] verified (human)
 
 ### Existing Animations to Standardize
 
-- [ ] **Popup: Banner slide-in** ([popup.css#L109-L119](../../extension/popup.css#L109-L119))
+- [x] **Popup: Banner slide-in** ([popup.css#L109-L119](../../extension/popup.css#L109-L119))
   - Currently 0.2s - standardize to 0.25s
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Popup: Chevron rotation** ([popup.css#L545-L551](../../extension/popup.css#L545-L551))
   - Currently 0.2s - standardize to 0.25s
@@ -182,10 +182,10 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Panel: Banner slide-in** ([panel.css#L82-L96](../../extension/panel.css#L82-L96))
+- [x] **Panel: Banner slide-in** ([panel.css#L82-L96](../../extension/panel.css#L82-L96))
   - Currently 0.2s - standardize to 0.25s
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Panel: Button/input transitions** (multiple locations)
   - Various buttons use 0.15s
