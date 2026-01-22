@@ -51,8 +51,8 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Connect status message** ([popup.cljs#L704](../../src/popup.cljs#L704))
-  - Status text appears/disappears abruptly (Connecting.../Connected!/Failed:)
+- [ ] **Popup: Connect status message** ([popup.cljs#L844](../../src/popup.cljs#L844))
+  - Replace inline status text with banner message for calmer UI
   - [ ] addressed in code
   - [ ] verified (human)
 
@@ -61,8 +61,8 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Script edit hint** ([popup.cljs#L556](../../src/popup.cljs#L556), [popup.css#L309-L315](../../extension/popup.css#L309-L315))
-  - Hint panel appears/disappears abruptly below script item
+- [ ] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
+  - Replace inline hint with banner message for calmer UI
   - [ ] addressed in code
   - [ ] verified (human)
 
@@ -71,28 +71,28 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Connected tabs list** ([popup.cljs#L633-L652](../../src/popup.cljs#L633-L652))
+- [ ] **Popup: Connected tabs list** ([popup.cljs#L783-L800](../../src/popup.cljs#L783-L800))
   - Tab items appear/disappear abruptly when connections change
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: No connections empty state** ([popup.cljs#L654-L657](../../src/popup.cljs#L654-L657))
+- [ ] **Popup: No connections empty state** ([popup.cljs#L800-L803](../../src/popup.cljs#L800-L803))
   - Empty state swaps with list abruptly
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Add origin error message** ([popup.cljs#L428](../../src/popup.cljs#L428), [popup.css#L729-L733](../../extension/popup.css#L729-L733))
-  - Error message appears/disappears abruptly below input
+- [ ] **Popup: Add origin error message** ([popup.cljs#L697](../../src/popup.cljs#L697))
+  - Replace inline error with banner message for calmer UI
   - [ ] addressed in code
   - [ ] verified (human)
 
 - [ ] **Popup: Copy feedback** ([popup.cljs#L456](../../src/popup.cljs#L456))
-  - "Copied!" text appears/disappears abruptly
+  - Button should grow/shrink smoothly when "Copied!" text appears
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Origins lists** ([popup.cljs#L395-L420](../../src/popup.cljs#L395-L420))
-  - Origin items appear/disappear abruptly when added/removed
+- [ ] **Popup: Origins lists** ([popup.cljs#L650-L678](../../src/popup.cljs#L650-L678))
+  - User origin items appear/disappear abruptly when added/removed
   - [ ] addressed in code
   - [ ] verified (human)
 
@@ -123,12 +123,12 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Panel: Save status message** ([panel.cljs#L343-L347](../../src/panel.cljs#L343-L347), [panel.css#L243-L257](../../extension/panel.css#L243-L257))
-  - Status text appears/disappears abruptly after save
+- [ ] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
+  - Replace inline status text with banner message for calmer UI (banner may already exist, just remove inline)
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Panel: Rename button appearance** ([panel.cljs#L330-L340](../../src/panel.cljs#L330-L340))
+- [ ] **Panel: Rename button appearance** ([panel.cljs#L596-L609](../../src/panel.cljs#L596-L609))
   - Rename button appears/disappears abruptly when name changes
   - [ ] addressed in code
   - [ ] verified (human)
@@ -192,8 +192,8 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Panel: Save status fadeIn** ([panel.css#L249-L257](../../extension/panel.css#L249-L257))
-  - Currently 0.2s - standardize to 0.25s
+- [ ] **Panel: Save status fadeIn CSS** ([panel.css#L249-L257](../../extension/panel.css#L249-L257))
+  - Remove after replacing inline save status with banner
   - [ ] addressed in code
   - [ ] verified (human)
 
