@@ -234,7 +234,8 @@ kbd {
    ============================================================ */
 
 .run-at-badge {
-  font-size: 0.8em;
-  margin-left: 4px;
-  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  color: var(--clojure-blue);
+  flex-shrink: 0;
 }

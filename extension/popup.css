@@ -316,7 +316,14 @@ button#connect:active {
 .script-row-pattern {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.script-row-pattern .pattern-checkbox {
+  flex-shrink: 0;
+  margin: 0;
+  width: 14px;
+  height: 14px;
 }
 
 .script-row-description {
