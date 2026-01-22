@@ -18,13 +18,17 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-setup)"))]
-        (when (or (not (.-success check-result))
-                  (empty? (.-values check-result))
-                  (= (first (.-values check-result)) ":pending"))
-          (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 20))
-            (recur))))))
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-setup] (cond (= r :pending) :pending (map? r) (str (:fs/success r) \"||\" (:fs/name r)) :else r))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (unquote-result (first (.-values check-result))))
+              (.toBe "true||mv_rename_test_original.cljs"))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv setup save"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !mv-ls (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !mv-ls scripts))))\n                                                :setup-done"))]
@@ -52,12 +56,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-result] (cond (= r :pending) :pending (map? r) (str (:fs/success r) \"||\" (:fs/from-name r) \"||\" (:fs/to-name r)) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (-> (expect (.includes (first (.-values check-result)) ":success true"))
-              (.toBe true))
+          (-> (expect (unquote-result (first (.-values check-result))))
+              (.toBe "true||mv_rename_test_original.cljs||mv_renamed_script.cljs"))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/mv! result"))
             (do
@@ -93,13 +97,17 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!confirm-mv-setup)"))]
-        (when (or (not (.-success check-result))
-                  (empty? (.-values check-result))
-                  (= (first (.-values check-result)) ":pending"))
-          (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 20))
-            (recur))))))
+      (let [check-result (js-await (eval-in-browser "(let [r @!confirm-mv-setup] (cond (= r :pending) :pending (map? r) (str (:fs/success r) \"||\" (:fs/name r)) :else r))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (unquote-result (first (.-values check-result))))
+              (.toBe "true||mv_force_confirm.cljs"))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv force setup save"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !confirm-mv-ls (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !confirm-mv-ls scripts))))\n                                :setup-done"))]
@@ -127,21 +135,12 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!confirm-mv-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!confirm-mv-result] (cond (= r :pending) :pending (map? r) (str (:fs/success r) \"||\" (:fs/from-name r) \"||\" (:fs/to-name r)) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-            (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str ":success true"))
-                (.toBe true))
-            (-> (expect (.includes result-str ":from-name"))
-                (.toBe true))
-            (-> (expect (.includes result-str "mv_force_confirm.cljs"))
-                (.toBe true))
-            (-> (expect (.includes result-str ":to-name"))
-                (.toBe true))
-            (-> (expect (.includes result-str "mv_force_renamed.cljs"))
-                (.toBe true)))
+          (-> (expect (unquote-result (first (.-values check-result))))
+              (.toBe "true||mv_force_confirm.cljs||mv_force_renamed.cljs"))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv! result"))
             (do
@@ -243,13 +242,13 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!collision-mv-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!collision-mv-result] (cond (= r :pending) :pending (:rejected r) (str \"rejected||\" (:rejected r)) (:resolved r) (str \"resolved||\" (:resolved r)) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
+          (let [result-str (unquote-result (first (.-values check-result)))]
             ;; Should be rejected because target already exists
-            (-> (expect (.includes result-str "rejected"))
+            (-> (expect (.startsWith result-str "rejected||"))
                 (.toBe true))
             (-> (expect (or (.includes result-str "already exists")
                             (.includes result-str "Script already exists")))

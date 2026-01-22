@@ -24,10 +24,42 @@
 ;; Popup User Journey: Toolbar Icon State
 ;; =============================================================================
 
+(defn- ^:async wait-for-icon-state
+  "Wait for ICON_STATE_CHANGED for a tab until its latest state is allowed."
+  [popup tab-id allowed-states timeout-ms]
+  (let [start (.now js/Date)
+        timeout-ms (or timeout-ms 2000)]
+    (loop []
+      (let [events (js-await (fixtures/get-test-events-via-message popup))
+            tab-events (.filter events
+                                (fn [e]
+                                  (and (= (.-event e) "ICON_STATE_CHANGED")
+                                       (= (aget (.-data e) "tab-id") tab-id))))
+            last-event (when (pos? (.-length tab-events))
+                         (aget tab-events (dec (.-length tab-events))))
+            last-state (when last-event (aget (.-data last-event) "state"))]
+        (if (and last-state (.includes allowed-states last-state))
+          last-event
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. (str "Timeout waiting for icon state for tab " tab-id)))
+            (do
+              (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+              (recur))))))))
+
 (defn- ^:async test_toolbar_icon_reflects_connection_state []
+  (.setTimeout test 5000)
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
+      ;; Ensure background initialized and clear events so we only see fresh icon changes
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+        (try
+          (js-await (fixtures/wait-for-event popup "EXTENSION_STARTED" 3000))
+          (catch :default _ nil))
+        (js-await (fixtures/clear-test-events! popup))
+        (js-await (.close popup)))
+
       ;; Navigate to a test page first
       (let [page (js-await (.newPage context))]
         (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
@@ -37,14 +69,12 @@
         ;; Check initial icon state - should be "disconnected" (white bolt)
         (let [popup (js-await (create-popup-page context ext-id))
               _ (js-await (wait-for-popup-ready popup))
-              events-initial (js-await (fixtures/get-test-events popup))
-              icon-events (.filter events-initial (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
-          (js/console.log "Initial icon events:" (js/JSON.stringify icon-events))
-          ;; Initial state should be "disconnected"
-          (when (pos? (.-length icon-events))
-            (let [last-event (aget icon-events (dec (.-length icon-events)))]
-              (js-await (-> (expect (.. last-event -data -state))
-                            (.toBe "disconnected")))))
+              tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+              icon-event (js-await (wait-for-icon-state popup tab-id #js ["disconnected"] 5000))
+              state (aget (.-data icon-event) "state")]
+          (js/console.log "Initial icon state:" state)
+          (js-await (-> (expect (= state "disconnected"))
+                        (.toBeTruthy)))
           (js-await (.close popup)))
 
         ;; Enable auto-connect via popup
@@ -62,23 +92,15 @@
         (js-await (-> (expect (.locator page "#test-marker"))
                       (.toContainText "ready")))
 
-        ;; Wait for Scittle to be loaded
+        ;; Wait for Scittle to be loaded and icon state updated
         (let [popup (js-await (create-popup-page context ext-id))
-              _ (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))]
-
-          ;; Check icon state after Scittle injection - should be "injected" (yellow) or "connected" (green)
-          (let [events (js-await (fixtures/get-test-events popup))
-                icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))]
-            (js/console.log "Icon events after Scittle load:" (js/JSON.stringify icon-events))
-            ;; Should have icon state events
-            (js-await (-> (expect (.-length icon-events))
-                          (.toBeGreaterThan 0)))
-            ;; Last event should be "injected" or "connected"
-            (let [last-event (aget icon-events (dec (.-length icon-events)))
-                  state (.. last-event -data -state)]
-              (js/console.log "Final icon state:" state)
-              (js-await (-> (expect (or (= state "injected") (= state "connected")))
-                            (.toBeTruthy)))))
+              _ (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))
+              tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+              icon-event (js-await (wait-for-icon-state popup tab-id #js ["injected" "connected"] 5000))
+              state (aget (.-data icon-event) "state")]
+          (js/console.log "Final icon state:" state)
+          (js-await (-> (expect (or (= state "injected") (= state "connected")))
+                        (.toBeTruthy)))
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
 
@@ -88,6 +110,7 @@
         (js-await (.close context))))))
 
 (defn- ^:async test_injected_state_is_tab_local []
+  (.setTimeout test 5000)
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -106,6 +129,10 @@
         (js-await (.addInitScript popup "window.__scittle_tamper_test_url = 'http://localhost:18080/basic.html';"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
+        (try
+          (js-await (fixtures/wait-for-event popup "EXTENSION_STARTED" 3000))
+          (catch :default _ nil))
+        (js-await (fixtures/clear-test-events! popup))
         ;; Script starts disabled - enable it
         (let [script-item (.locator popup ".script-item:has-text(\"tab_local_test.cljs\")")
               checkbox (.locator script-item "input[type='checkbox']")]
@@ -126,18 +153,11 @@
 
           ;; Assert Tab A shows injected/connected based on its tab-id
           (let [popup (js-await (create-popup-page context ext-id))
-                events (js-await (fixtures/get-test-events popup))
-                icon-events (.filter events
-                                     (fn [e]
-                                       (and (= (.-event e) "ICON_STATE_CHANGED")
-                                            (= (aget (.-data e) "tab-id") tab-a-id))))]
-            (js-await (-> (expect (.-length icon-events))
-                          (.toBeGreaterThan 0)))
-            (let [last-event (aget icon-events (dec (.-length icon-events)))
-                  last-state (.. last-event -data -state)]
-              (js-await (-> (expect (or (= last-state "injected")
-                                        (= last-state "connected")))
-                            (.toBeTruthy))))
+                icon-event (js-await (wait-for-icon-state popup tab-a-id #js ["injected" "connected"] 5000))
+                last-state (aget (.-data icon-event) "state")]
+            (js-await (-> (expect (or (= last-state "injected")
+                                      (= last-state "connected")))
+                          (.toBeTruthy)))
             (js-await (.close popup)))
 
           ;; Open Tab B (spa-test.html - does NOT match our script)
@@ -152,12 +172,10 @@
             ;; Tab B should show disconnected, and the icon event should be for Tab B
             ;; (i.e. not Tab A's Chrome tab-id)
             (let [popup (js-await (create-popup-page context ext-id))
-              _ (js-await (fixtures/wait-for-event popup "ICON_STATE_CHANGED" 1000))
-              events (js-await (fixtures/get-test-events popup))
-                  icon-events (.filter events (fn [e] (= (.-event e) "ICON_STATE_CHANGED")))
-                  last-event (aget icon-events (dec (.-length icon-events)))
-                  last-tab-id (aget (.-data last-event) "tab-id")
-                  last-state (.. last-event -data -state)]
+                  tab-b-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/spa-test.html"))
+                  icon-event (js-await (wait-for-icon-state popup tab-b-id #js ["disconnected"] 5000))
+                  last-tab-id (aget (.-data icon-event) "tab-id")
+                  last-state (aget (.-data icon-event) "state")]
               (js-await (-> (expect last-tab-id) (.toBeTruthy)))
               (js-await (-> (expect (not (= last-tab-id tab-a-id)))
                             (.toBeTruthy)))
@@ -170,19 +188,11 @@
 
             ;; Tab A should STILL show injected/connected
             (let [popup (js-await (create-popup-page context ext-id))
-              _ (js-await (fixtures/wait-for-event popup "ICON_STATE_CHANGED" 1000))
-              events (js-await (fixtures/get-test-events popup))
-                  icon-events (.filter events
-                                       (fn [e]
-                                         (and (= (.-event e) "ICON_STATE_CHANGED")
-                                              (= (aget (.-data e) "tab-id") tab-a-id))))]
-              (js-await (-> (expect (.-length icon-events))
-                            (.toBeGreaterThan 0)))
-              (let [last-event (aget icon-events (dec (.-length icon-events)))
-                    last-state (.. last-event -data -state)]
-                (js-await (-> (expect (or (= last-state "injected")
-                                          (= last-state "connected")))
-                              (.toBeTruthy))))
+                  icon-event (js-await (wait-for-icon-state popup tab-a-id #js ["injected" "connected"] 5000))
+                  last-state (aget (.-data icon-event) "state")]
+              (js-await (-> (expect (or (= last-state "injected")
+                                        (= last-state "connected")))
+                            (.toBeTruthy)))
               (js-await (assert-no-errors! popup))
               (js-await (.close popup)))
 

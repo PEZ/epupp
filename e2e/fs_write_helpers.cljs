@@ -78,6 +78,24 @@
                           (.catch reject)))))]
     (js-await (check-fn))))
 
+(defn ^:async wait-for-builtin-script
+  "Wait for built-in script to be present in storage.
+   Used to avoid races with ensure-gist-installer!."
+  [ext-page script-id timeout-ms]
+  (let [start (.now js/Date)
+        poll-interval 20]
+    (loop []
+      (let [result (js-await (send-runtime-message ext-page "e2e/get-storage" #js {:key "scripts"}))
+            scripts (or (.-value result) #js [])
+            found (.some scripts (fn [script] (= (.-id script) script-id)))]
+        (if found
+          true
+          (if (> (- (.now js/Date) start) (or timeout-ms 3000))
+            (throw (js/Error. (str "Timeout waiting for built-in script: " script-id)))
+            (do
+              (js-await (sleep poll-interval))
+              (recur))))))))
+
 (defn ^:async setup-browser!
   "Launch browser, connect REPL, enable FS sync, return context."
   []
@@ -100,6 +118,7 @@
                          #js {:waitUntil "networkidle"}))
         (js-await (clear-fs-scripts bg-page))
         (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
+        (js-await (wait-for-builtin-script bg-page "epupp-builtin-gist-installer" 5000))
         (let [tab-id (js-await (find-tab-id bg-page "http://localhost:*/*"))]
           (js-await (connect-tab bg-page tab-id ws-port-1))
           (js-await (.close bg-page))
