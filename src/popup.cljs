@@ -20,8 +20,6 @@
   (atom {:ports/nrepl "1339"
          :ports/ws "1340"
          :ui/copy-feedback nil
-         :ui/connect-status nil ; Connection progress/error status
-         :ui/editing-hint-script-id nil ; Show "open DevTools" hint under this script
          :ui/reveal-highlight-script-name nil ; Temporary highlight when revealing a script
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
@@ -119,7 +117,7 @@
     :popup/fx.connect
     (let [[port] args
           tab (js-await (get-active-tab))]
-      (dispatch [[:db/ax.assoc :ui/connect-status "Connecting..."]])
+      (dispatch [[:popup/ax.show-system-banner "info" "Connecting..." {}]])
       (try
         (let [resp (js-await
                     (js/Promise.
@@ -133,15 +131,12 @@
                             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
                             (resolve response)))))))]
           (if (and resp (.-success resp))
-            ;; Success - clear status after brief display
-            (do
-              (dispatch [[:db/ax.assoc :ui/connect-status "Connected!"]])
-              (js/setTimeout #(dispatch [[:db/ax.assoc :ui/connect-status nil]]) 2000))
+            ;; Success - show banner (auto-clears after 2s)
+            (dispatch [[:popup/ax.show-system-banner "success" "Connected!" {}]])
             ;; Failure from background worker
-            (dispatch [[:db/ax.assoc
-                        :ui/connect-status (str "Failed: " (or (and resp (.-error resp)) "Connect failed"))]])))
+            (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (or (and resp (.-error resp)) "Connect failed")) {}]])))
         (catch :default err
-          (dispatch [[:db/ax.assoc :ui/connect-status (str "Failed: " (.-message err))]]))))
+          (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (.-message err)) {}]]))))
 
     :popup/fx.check-status
     (let [[_ws-port] args
@@ -491,9 +486,8 @@
                     script-id :script/id
                     :as script}
                    current-url
-                   {:keys [editing-hint-script-id reveal-highlight? recently-modified?]}]
+                   {:keys [reveal-highlight? recently-modified?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
-        show-edit-hint (= script-id editing-hint-script-id)
         builtin? (script-utils/builtin-script? script)
         ;; All patterns for display - join for single row, newlines for tooltip
         patterns-display (when (seq match)
@@ -506,75 +500,71 @@
                                 (mapv safe-pattern-display)
                                 (filterv some?)
                                 (str/join "\n")))]
-    [:div
-     [:div.script-item {:data-script-name name
-                        :class (str (when builtin? "script-item-builtin ")
-                                    (when reveal-highlight? "script-item-reveal-highlight ")
-                                    (when recently-modified? "script-item-fs-modified"))}
-      ;; Column 1: Button column (play button only)
-      [:div.script-button-column
-       [view-elements/action-button
-        {:button/variant :secondary
-         :button/class "script-run"
-         :button/size :md
-         :button/icon icons/play
-         :button/title "Run script"
-         :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
-        nil]]
-      ;; Column 2: Content column (name/actions, pattern, description)
-      [:div.script-content-column
-       ;; Row 1: Name and actions
-       [:div.script-row-header
-        [:span.script-name
-         (when builtin?
-           [:span.builtin-indicator {:title "Built-in script"}
-            [icons/cube]])
-         [:span.script-name-text {:title name} name]]
-        [:div.script-actions
-         [view-elements/action-button
-          {:button/variant :secondary
-           :button/class "script-inspect"
-           :button/size :md
-           :button/icon icons/eye
-           :button/title "Inspect script"
-           :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
-          nil]
-         (when-not builtin?
-           [view-elements/action-button
-            {:button/variant :danger
-             :button/class "script-delete"
-             :button/size :md
-             :button/icon icons/x
-             :button/title "Delete script"
-             :button/on-click #(when (js/confirm "Delete this script?")
-                                 (dispatch! [[:popup/ax.delete-script script-id]]))}
-            nil])]]
-       ;; Row 2: Pattern (single row, CSS truncated)
-       [:div.script-row-pattern
-        (when (seq match)
-          [:input.pattern-checkbox {:type "checkbox"
-                                    :checked enabled
-                                    :title (if enabled "Auto-run enabled" "Auto-run disabled")
-                                    :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
-        (when run-at
-          (run-at-badge run-at))
-        [:span.script-match {:title (or patterns-tooltip "No auto-run (manual only)")}
-         (or patterns-display "No auto-run (manual only)")]]
-       ;; Row 3: Description (CSS truncated)
-       (when (seq description)
-         [:div.script-row-description
-          [:span.script-description {:title description}
-           description]])]]
-     (when show-edit-hint
-       [:div.script-edit-hint
-        "Open the Epupp panel in Developer Tools"])]))
+    [:div.script-item {:data-script-name name
+                       :class (str (when builtin? "script-item-builtin ")
+                                   (when reveal-highlight? "script-item-reveal-highlight ")
+                                   (when recently-modified? "script-item-fs-modified"))}
+     ;; Column 1: Button column (play button only)
+     [:div.script-button-column
+      [view-elements/action-button
+       {:button/variant :secondary
+        :button/class "script-run"
+        :button/size :md
+        :button/icon icons/play
+        :button/title "Run script"
+        :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
+       nil]]
+     ;; Column 2: Content column (name/actions, pattern, description)
+     [:div.script-content-column
+      ;; Row 1: Name and actions
+      [:div.script-row-header
+       [:span.script-name
+        (when builtin?
+          [:span.builtin-indicator {:title "Built-in script"}
+           [icons/cube]])
+        [:span.script-name-text {:title name} name]]
+       [:div.script-actions
+        [view-elements/action-button
+         {:button/variant :secondary
+          :button/class "script-inspect"
+          :button/size :md
+          :button/icon icons/eye
+          :button/title "Inspect script"
+          :button/on-click #(dispatch! [[:popup/ax.inspect-script script-id]])}
+         nil]
+        (when-not builtin?
+          [view-elements/action-button
+           {:button/variant :danger
+            :button/class "script-delete"
+            :button/size :md
+            :button/icon icons/x
+            :button/title "Delete script"
+            :button/on-click #(when (js/confirm "Delete this script?")
+                                (dispatch! [[:popup/ax.delete-script script-id]]))}
+           nil])]]
+      ;; Row 2: Pattern (single row, CSS truncated)
+      [:div.script-row-pattern
+       (when (seq match)
+         [:input.pattern-checkbox {:type "checkbox"
+                                   :checked enabled
+                                   :title (if enabled "Auto-run enabled" "Auto-run disabled")
+                                   :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
+       (when run-at
+         (run-at-badge run-at))
+       [:span.script-match {:title (or patterns-tooltip "No auto-run (manual only)")}
+        (or patterns-display "No auto-run (manual only)")]]
+      ;; Row 3: Description (CSS truncated)
+      (when (seq description)
+        [:div.script-row-description
+         [:span.script-description {:title description}
+          description]])]]))
 
 (defn- sort-scripts
   "Sort scripts: user scripts alphabetically first, then built-ins alphabetically."
   [scripts]
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
-(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id
+(defn matching-scripts-section [{:keys [scripts/list scripts/current-url
                                         ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
@@ -589,8 +579,7 @@
        (for [script matching-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
-          {:editing-hint-script-id editing-hint-script-id
-           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+          {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
            :recently-modified? (contains? modified-set (:script/name script))}])
        [:div.no-scripts
         (if no-user-scripts?
@@ -624,8 +613,8 @@
 ;; Settings Components
 ;; ============================================================
 
-(defn other-scripts-section [{:keys [scripts/list scripts/current-url ui/editing-hint-script-id
-                                      ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
+(defn other-scripts-section [{:keys [scripts/list scripts/current-url
+                                     ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
   (let [other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %)))
                            sort-scripts)
@@ -635,8 +624,7 @@
        (for [script other-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
-          {:editing-hint-script-id editing-hint-script-id
-           :reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+          {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
            :recently-modified? (contains? modified-set (:script/name script))}])
        [:div.no-scripts
         "No other scripts."
@@ -804,7 +792,7 @@
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback ui/connect-status] :as state}]
+(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback] :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
      [:div.step
@@ -837,12 +825,7 @@
            :button/id "connect"
            :button/title "Connect this tab to the REPL server"
            :button/on-click #(dispatch! [[:popup/ax.connect]])})
-        (if is-connected "Disconnect" "Connect")]]
-      (when connect-status
-        [view-elements/status-text
-         {:status/type (popup-utils/status-type connect-status)
-          :status/class "connect-status"}
-         connect-status])]
+        (if is-connected "Disconnect" "Connect")]]]
      [:div.step
       [:div.step-header "3. Connect editor to browser (via server)"]
       [:div.connect-row
@@ -856,7 +839,8 @@
 ;; ============================================================
 
 (defn system-banner [{:keys [type message leaving]}]
-  [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
+  [:div {:class (str "system-banner "
+                     (if (= type "success") "fs-success-banner" "fs-error-banner")
                      (when leaving " leaving"))}
    [:span message]])
 

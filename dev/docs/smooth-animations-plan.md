@@ -53,7 +53,7 @@ Before implementing, read these documents and source files:
 
 - [ ] **Popup: Connect status message** ([popup.cljs#L844](../../src/popup.cljs#L844))
   - Replace inline status text with a system banner message for calmer UI
-  - [ ] addressed in code
+  - [x] addressed in code
   - [ ] verified (human)
 
 - [ ] **Popup: Script list items** ([popup.cljs#L509-L558](../../src/popup.cljs#L509-L558))
@@ -63,7 +63,7 @@ Before implementing, read these documents and source files:
 
 - [ ] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
   - Replace inline hint with a system banner message for calmer UI
-  - [ ] addressed in code
+  - [x] addressed in code
   - [ ] verified (human)
 
 - [ ] **Popup: No scripts empty state** ([popup.cljs#L576-L588](../../src/popup.cljs#L576-L588))
@@ -125,7 +125,7 @@ Before implementing, read these documents and source files:
 
 - [ ] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
   - Replace inline status text with a system banner message for calmer UI (banner may already exist, just remove inline)
-  - [ ] addressed in code
+  - [x] addressed in code
   - [ ] verified (human)
 
 - [ ] **Panel: Rename button appearance** ([panel.cljs#L596-L609](../../src/panel.cljs#L596-L609))

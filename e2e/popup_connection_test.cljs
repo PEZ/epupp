@@ -78,15 +78,15 @@
           (let [connect-btn (.locator popup "#connect")]
             (js-await (.click connect-btn)))
 
-          ;; Should show failure status with appropriate styling
-          (let [status-elem (.locator popup ".connect-status")]
-            (js-await (-> (expect status-elem)
+          ;; Should show failure in system banner
+          (let [banner (.locator popup ".system-banner")]
+            (js-await (-> (expect banner)
                           (.toBeVisible)))
-            (js-await (-> (expect status-elem)
+            (js-await (-> (expect banner)
                           (.toContainText "Failed")))
-            ;; Failed status should have error status class (from shared status-text component)
-            (js-await (-> (expect status-elem)
-                          (.toHaveClass #"status-text--error"))))
+            ;; Failed status should have error banner class
+            (js-await (-> (expect banner)
+                          (.toHaveClass #"fs-error-banner"))))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))

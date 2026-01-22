@@ -58,7 +58,7 @@
             script-item (.locator popup ".script-item:has-text(\"lifecycle_test.cljs\")")
             checkbox (.locator script-item "input[type='checkbox']")
             inspect-btn (.locator script-item "button.script-inspect")
-            hint (.locator popup ".script-edit-hint")]
+            hint (.locator popup ".system-banner")]
 
         ;; Script appears with normalized name and pattern
         (js-await (-> (expect script-item) (.toContainText "lifecycle_test.cljs")))
@@ -71,7 +71,7 @@
         (js-await (.click checkbox))
         (js-await (wait-for-checkbox-state checkbox false))
 
-        ;; Edit hint appears on click
+        ;; Edit hint appears on click as system banner
         (js-await (-> (expect hint) (.toHaveCount 0)))
         (js-await (.click inspect-btn))
         (js-await (wait-for-edit-hint popup))

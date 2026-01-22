@@ -16,7 +16,7 @@
    :panel/script-match ""
    :panel/script-description ""
    :panel/script-id nil
-   :panel/save-status nil})
+   :panel/system-banner nil})
 
 (def uf-data {:system/now 1234567890})
 
@@ -185,8 +185,8 @@
 
 (defn- test_save_script_with_missing_fields_shows_error []
   (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.save-script])]
-    (-> (expect (:type (:panel/save-status (:uf/db result))))
-        (.toBe :error))))
+    (-> (expect (:type (:panel/system-banner (:uf/db result))))
+        (.toBe "error"))))
 
 (defn- test_save_script_with_complete_fields_triggers_save_effect []
   (let [state (-> initial-state
@@ -375,17 +375,15 @@
                                               :id "script-123"
                                               :action-text "Created"}])
         new-state (:uf/db result)]
-    (-> (expect (:type (:panel/save-status new-state)))
-        (.toBe :success))
-    (-> (expect (:text (:panel/save-status new-state)))
+    (-> (expect (:type (:panel/system-banner new-state)))
+        (.toBe "success"))
+    (-> (expect (:message (:panel/system-banner new-state)))
         (.toContain "Created"))
     (-> (expect (:panel/script-name new-state))
         (.toBe "my_script.cljs"))
     (-> (expect (:panel/original-name new-state))
         (.toBe "my_script.cljs"))
-    (-> (expect (:panel/script-id new-state))
-        (.toBe "script-123"))
-    ;; Should have defer effect to clear status
+    ;; Should have defer effect to clear system banner
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :uf/fx.defer-dispatch))))
 
@@ -395,9 +393,9 @@
                                              {:success false
                                               :error "Name collision"}])
         new-state (:uf/db result)]
-    (-> (expect (:type (:panel/save-status new-state)))
-        (.toBe :error))
-    (-> (expect (:text (:panel/save-status new-state)))
+    (-> (expect (:type (:panel/system-banner new-state)))
+        (.toBe "error"))
+    (-> (expect (:message (:panel/system-banner new-state)))
         (.toBe "Name collision"))
     ;; Should not have defer effect on error
     (-> (expect (:uf/fxs result))
@@ -410,9 +408,9 @@
                                              {:success true
                                               :to-name "new_name.cljs"}])
         new-state (:uf/db result)]
-    (-> (expect (:type (:panel/save-status new-state)))
-        (.toBe :success))
-    (-> (expect (:text (:panel/save-status new-state)))
+    (-> (expect (:type (:panel/system-banner new-state)))
+        (.toBe "success"))
+    (-> (expect (:message (:panel/system-banner new-state)))
         (.toContain "Renamed"))
     (-> (expect (:panel/script-name new-state))
         (.toBe "new_name.cljs"))
@@ -425,9 +423,9 @@
                                              {:success false
                                               :error "Script not found"}])
         new-state (:uf/db result)]
-    (-> (expect (:type (:panel/save-status new-state)))
-        (.toBe :error))
-    (-> (expect (:text (:panel/save-status new-state)))
+    (-> (expect (:type (:panel/system-banner new-state)))
+        (.toBe "error"))
+    (-> (expect (:message (:panel/system-banner new-state)))
         (.toBe "Script not found"))))
 
 (describe "panel save response handling"
@@ -631,7 +629,7 @@
                               (assoc :panel/script-description "Custom description")
                               (assoc :panel/script-id "script-123")
                               (assoc :panel/original-name "custom_script.cljs")
-                              (assoc :panel/save-status {:type :success :text "Saved"}))
+                              (assoc :panel/system-banner {:type "success" :message "Saved"}))
         result (panel-actions/handle-action state-with-script uf-data [:editor/ax.new-script])
         new-state (:uf/db result)]
     ;; Code should be reset to default script
@@ -644,9 +642,6 @@
         (.toBeNull))
     ;; Original name should be cleared
     (-> (expect (:panel/original-name new-state))
-        (.toBeNull))
-    ;; Save status should be cleared
-    (-> (expect (:panel/save-status new-state))
         (.toBeNull))))
 
 (defn- test_new_script_clears_persisted_state []

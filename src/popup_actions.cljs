@@ -64,9 +64,8 @@
     (let [[script-id] args
           script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
       (when script
-        {:uf/db (assoc state :ui/editing-hint-script-id script-id)
-         :uf/fxs [[:popup/fx.inspect-script script]
-                  [:uf/fx.defer-dispatch [[:db/ax.assoc :ui/editing-hint-script-id nil]] 2000]]}))
+        {:uf/fxs [[:popup/fx.inspect-script script]
+                  [:uf/fx.defer-dispatch [[:popup/ax.show-system-banner "info" "Open the Epupp panel in Developer Tools"]] 0]]}))
 
     :popup/ax.evaluate-script
     (let [[script-id] args

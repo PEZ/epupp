@@ -238,11 +238,17 @@
                 (.toHaveCount n #js {:timeout 500}))))
 
 (defn ^:async wait-for-save-status
-  "Wait for save status to appear with expected text (e.g., 'Created', 'Saved').
-   Use after clicking save button instead of sleep."
+  "Wait for system banner to appear with expected text (e.g., 'Created', 'Saved', 'Renamed').
+   Use after clicking save/rename button instead of sleep.
+   Works with both popup (.system-banner) and panel (.fs-success-banner, .fs-error-banner)."
   [page text]
-  (js-await (-> (expect (.locator page ".save-status"))
-                (.toContainText text #js {:timeout 500}))))
+  ;; Try panel banners first, then popup banner
+  (let [panel-success (.locator page ".fs-success-banner")
+        panel-error (.locator page ".fs-error-banner")
+        popup-banner (.locator page ".system-banner")
+        combined (.or panel-success (.or panel-error popup-banner))]
+    (js-await (-> (expect combined)
+                  (.toContainText text #js {:timeout 500})))))
 
 (defn ^:async wait-for-checkbox-state
   "Wait for checkbox to reach expected checked state.
@@ -267,12 +273,11 @@
                 (.toBeVisible #js {:timeout 500}))))
 
 (defn ^:async wait-for-edit-hint
-  "Wait for the edit hint message to appear in popup.
+  "Wait for the edit hint message to appear in popup as a system banner.
    Use after clicking edit button instead of sleep.
-   The hint message is generic ('Open the Epupp panel in Developer Tools'),
-   so this just waits for visibility."
+   The hint message is now shown via system-banner."
   [popup]
-  (js-await (-> (expect (.locator popup ".script-edit-hint"))
+  (js-await (-> (expect (.locator popup ".system-banner"))
                 (.toBeVisible #js {:timeout 300}))))
 
 ;; =============================================================================

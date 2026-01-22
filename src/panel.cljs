@@ -23,7 +23,6 @@
          :panel/script-match ""
          :panel/script-description ""
          :panel/script-id nil  ; non-nil when editing existing script
-         :panel/save-status nil
          :panel/init-version nil
          :panel/needs-refresh? false
          :panel/current-hostname nil
@@ -489,7 +488,7 @@
      "New"]))
 
 (defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
-                                   panel/code panel/save-status panel/script-id panel/original-name
+                                   panel/code panel/script-id panel/original-name
                                    panel/manifest-hints]
                             :as _state}]
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
@@ -606,13 +605,7 @@
              :button/title (if rename-disabled?
                              "Cannot rename built-in scripts"
                              (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
-            "Rename"])
-         ;; Status message
-         (when save-status
-           [view-elements/status-text
-            {:status/type (:type save-status)
-             :status/class "save-status"}
-            (:text save-status)])]]
+            "Rename"])]]
 
        ;; No manifest: show guidance message
        [:div.save-script-form.no-manifest

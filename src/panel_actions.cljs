@@ -130,7 +130,7 @@
     :editor/ax.save-script
     (let [{:panel/keys [code script-name script-match script-description script-id original-name manifest-hints]} state]
       (if (or (empty? code) (empty? script-name))
-        {:uf/db (assoc state :panel/save-status {:type :error :text "Name and code are required"})}
+        {:uf/db (assoc state :panel/system-banner {:type "error" :message "Name and code are required"})}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
               ;; Check if name changed from original (means create new/copy, not update)
@@ -162,35 +162,35 @@
           {:uf/fxs [[:editor/fx.save-script script normalized-name id action-text]]})))
 
     :editor/ax.handle-save-response
-    (let [[{:keys [success error name is-update id action-text]}] args]
+    (let [[{:keys [success error name action-text id]}] args]
       (if success
         {:uf/db (assoc state
-                       :panel/save-status {:type :success :text (str action-text " \"" name "\"")}
+                       :panel/system-banner {:type "success" :message (str action-text " \"" name "\"")}
                        :panel/script-name name
                        :panel/original-name name
                        :panel/script-id id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 2000]]}
-        {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Save failed")})}))
+         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
+        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Save failed")})}))
 
     :editor/ax.rename-script
-    (let [{:panel/keys [script-name original-name]} state]
-      (if (or (empty? script-name) (not original-name))
-        {:uf/db (assoc state :panel/save-status {:type :error :text "Cannot rename: no script loaded"})}
-        (let [normalized-name (script-utils/normalize-script-name script-name)]
-          (if (= normalized-name original-name)
-            {:uf/db (assoc state :panel/save-status {:type :error :text "Name unchanged"})}
-            ;; State update happens in response handler
-            {:uf/fxs [[:editor/fx.rename-script original-name normalized-name]]}))))
+    (if-let [original-name (:panel/original-name state)]
+      (let [new-name (:panel/script-name state)]
+        (if (= new-name original-name)
+          {:uf/db (assoc state :panel/system-banner {:type "error" :message "Name unchanged"})}
+          ;; State update happens in response handler
+          {:uf/fxs [[:editor/fx.rename-script original-name new-name]]}))
+      {:uf/db (assoc state :panel/system-banner {:type "error" :message "Cannot rename: no script loaded"})})
 
     :editor/ax.handle-rename-response
-    (let [[{:keys [success error from-name to-name]}] args]
+    (let [[{:keys [success error to-name]}] args]
       (if success
-        {:uf/db (assoc state
-                       :panel/save-status {:type :success :text (str "Renamed to \"" to-name "\"")}
-                       :panel/script-name to-name
-                       :panel/original-name to-name)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:db/ax.assoc :panel/save-status nil]] 2000]]}
-        {:uf/db (assoc state :panel/save-status {:type :error :text (or error "Rename failed")})}))
+        {:uf/db (-> state
+                    (assoc :panel/original-name to-name
+                           :panel/system-banner {:type "success" :message (str "Renamed to \"" to-name "\"")}
+                           :panel/script-name to-name))
+         :uf/fxs [[:editor/fx.persist-code (:panel/code state)]
+                  [:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
+        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Rename failed")})}))
 
     :editor/ax.load-script-for-editing
     (let [[id name match code description] args
@@ -249,7 +249,6 @@
                      :panel/script-name ""
                      :panel/script-match ""
                      :panel/script-description ""
-                     :panel/save-status nil
                      :panel/manifest-hints hints)
        :uf/fxs [[:editor/fx.clear-persisted-state]]
        :uf/dxs dxs})
