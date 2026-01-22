@@ -455,14 +455,14 @@
      :button/on-click #(dispatch! [[:popup/ax.copy-command]])}
     copy-feedback]])
 
-(defn collapsible-section [{:keys [id title expanded? badge-count]} & children]
+(defn collapsible-section [{:keys [id title expanded? badge-count max-height]} & children]
   [:div.collapsible-section {:class (when-not expanded? "collapsed")}
    [:div.section-header {:on-click #(dispatch! [[:popup/ax.toggle-section id]])}
     [icons/chevron-right {:class (str "chevron " (when expanded? "expanded"))}]
     [:span.section-title title]
     (when (and badge-count (pos? badge-count))
       [:span.section-badge badge-count])]
-   (into [:div.section-content] children)])
+   (into [:div.section-content {:style (when (and expanded? max-height) {:max-height max-height})}] children)])
 
 (defn- run-at-badge
   "Returns a badge component for non-default run-at timings."
@@ -878,21 +878,25 @@
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
-                           :expanded? (not (:repl-connect sections-collapsed))}
+                           :expanded? (not (:repl-connect sections-collapsed))
+                           :max-height "280px"}
       [repl-connect-content state]]
      [collapsible-section {:id :matching-scripts
                            :title "Auto-run for This Page"
                            :expanded? (not (:matching-scripts sections-collapsed))
-                           :badge-count (count matching-scripts)}
+                           :badge-count (count matching-scripts)
+                           :max-height (str (+ 20 (* 65 (max 1 (count matching-scripts)))) "px")}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
                            :title "Other Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
-                           :badge-count (count other-scripts)}
+                           :badge-count (count other-scripts)
+                           :max-height (str (+ 20 (* 65 (max 1 (count other-scripts)))) "px")}
       [other-scripts-section state]]
      [collapsible-section {:id :settings
                            :title "Settings"
-                           :expanded? (not (:settings sections-collapsed))}
+                           :expanded? (not (:settings sections-collapsed))
+                           :max-height "350px"}
       [settings-content state]]
      (when (or (.-dev config) (.-test config))
        [dev-log-button])

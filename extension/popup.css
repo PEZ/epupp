@@ -593,7 +593,7 @@ button#connect:active {
 }
 
 .section-content {
-  max-height: 1000px; /* Large enough for expanded content */
+  /* max-height set via inline style for tighter animation timing */
   overflow: hidden;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
