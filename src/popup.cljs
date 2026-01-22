@@ -9,7 +9,8 @@
             [popup-actions :as popup-actions]
             [log :as log]
             [view-elements :as view-elements]
-            [test-logger :as test-logger]))
+            [test-logger :as test-logger]
+            [clojure.string :as str]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
 ;; Shape: {"dev": boolean, "depsString": string}
@@ -492,15 +493,18 @@
                    {:keys [editing-hint-script-id reveal-highlight? recently-modified?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         show-edit-hint (= script-id editing-hint-script-id)
-        truncated-desc (when (seq description)
-                         (if (> (count description) 60)
-                           (str (subs description 0 57) "...")
-                           description))
         builtin? (script-utils/builtin-script? script)
-        ;; All patterns to display, safely processed
-        patterns-to-show (if (seq match)
-                           (mapv safe-pattern-display match)
-                           nil)]
+        ;; All patterns for display - join for single row, newlines for tooltip
+        patterns-display (when (seq match)
+                           (->> match
+                                (mapv safe-pattern-display)
+                                (filterv some?)
+                                (str/join " ")))
+        patterns-tooltip (when (seq match)
+                           (->> match
+                                (mapv safe-pattern-display)
+                                (filterv some?)
+                                (str/join "\n")))]
     [:div
      [:div.script-item {:data-script-name name
                         :class (str (when builtin? "script-item-builtin ")
@@ -516,7 +520,7 @@
          :button/title "Run script"
          :button/on-click #(dispatch! [[:popup/ax.evaluate-script script-id]])}
         nil]]
-      ;; Column 2: Content column (name/actions, patterns, description)
+      ;; Column 2: Content column (name/actions, pattern, description)
       [:div.script-content-column
        ;; Row 1: Name and actions
        [:div.script-row-header
@@ -524,7 +528,7 @@
          (when builtin?
            [:span.builtin-indicator {:title "Built-in script"}
             [icons/cube]])
-         name]
+         [:span.script-name-text {:title name} name]]
         [:div.script-actions
          [view-elements/action-button
           {:button/variant :secondary
@@ -544,27 +548,22 @@
              :button/on-click #(when (js/confirm "Delete this script?")
                                  (dispatch! [[:popup/ax.delete-script script-id]]))}
             nil])]]
-       ;; Row 2+: Pattern rows (one per pattern, with checkbox on first)
-       (if patterns-to-show
-         (map-indexed
-          (fn [idx pattern]
-            ^{:key (str script-id "-pattern-" idx)}
-            [:div.script-row-pattern
-             (when (zero? idx)
-               [:input.pattern-checkbox {:type "checkbox"
-                                         :checked enabled
-                                         :title (if enabled "Auto-run enabled" "Auto-run disabled")
-                                         :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
-             (when (and (zero? idx) run-at)
-               (run-at-badge run-at))
-             [:span.script-match pattern]])
-          patterns-to-show)
-         [:div.script-row-pattern
-          [:span.script-match "No auto-run (manual only)"]])
-       ;; Description row
-       (when truncated-desc
+       ;; Row 2: Pattern (single row, CSS truncated)
+       [:div.script-row-pattern
+        (when (seq match)
+          [:input.pattern-checkbox {:type "checkbox"
+                                    :checked enabled
+                                    :title (if enabled "Auto-run enabled" "Auto-run disabled")
+                                    :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
+        (when run-at
+          (run-at-badge run-at))
+        [:span.script-match {:title (or patterns-tooltip "No auto-run (manual only)")}
+         (or patterns-display "No auto-run (manual only)")]]
+       ;; Row 3: Description (CSS truncated)
+       (when (seq description)
          [:div.script-row-description
-          [:span.script-description truncated-desc]])]]
+          [:span.script-description {:title description}
+           description]])]]
      (when show-edit-hint
        [:div.script-edit-hint
         "Open the Epupp panel in Developer Tools"])]))

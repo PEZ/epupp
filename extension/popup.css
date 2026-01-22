@@ -311,6 +311,7 @@ button#connect:active {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .script-row-pattern {
@@ -328,19 +329,24 @@ button#connect:active {
 
 .script-row-description {
   padding-left: 0;
+  min-width: 0;
 }
 
 .script-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
+  flex: 1;
+}
+
+.script-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .builtin-indicator {
@@ -361,6 +367,8 @@ button#connect:active {
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;
+  display: block;
+  max-width: 100%;
 }
 
 .script-match {
