@@ -65,6 +65,7 @@ body {
   color: var(--refresh-banner-text);
   font-size: 12px;
   text-align: center;
+  animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
 .refresh-banner strong {
@@ -109,6 +110,23 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes banner-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.fs-success-banner.leaving,
+.fs-error-banner.leaving,
+.refresh-banner.leaving {
+  animation: banner-slide-out var(--transition-duration) ease-in forwards;
 }
 
 /* Main content area - scrollable container */

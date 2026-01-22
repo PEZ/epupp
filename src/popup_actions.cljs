@@ -189,7 +189,12 @@
                 [:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 2000]]})
 
     :popup/ax.clear-fs-event
-    {:uf/db (assoc state :ui/fs-event nil)}
+    (if (get-in state [:ui/fs-event :leaving])
+      ;; Step 2: After animation, clear the banner
+      {:uf/db (assoc state :ui/fs-event nil)}
+      ;; Step 1: Mark as leaving, defer actual clear
+      {:uf/db (assoc-in state [:ui/fs-event :leaving] true)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-fs-event]] 250]]})
 
     :popup/ax.track-bulk-name
     (let [[bulk-id script-name] args]

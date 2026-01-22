@@ -42,14 +42,14 @@ Before implementing, read these documents and source files:
 ### Popup Elements
 
 - [ ] **Popup: Collapsible section content** ([popup.cljs#L458](../../src/popup.cljs#L458), [popup.css#L510-L525](../../extension/popup.css#L510-L525))
-  - Section content appears/disappears abruptly when toggled
+  - Section content appears/disappears abruptly when toggled - CSS not working, needs investigation
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: FS event banners** ([popup.cljs#L757](../../src/popup.cljs#L757), [popup.css#L82-L107](../../extension/popup.css#L82-L107))
+- [x] **Popup: FS event banners** ([popup.cljs#L757](../../src/popup.cljs#L757), [popup.css#L82-L107](../../extension/popup.css#L82-L107))
   - Banners slide in (existing animation) but have no exit animation
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Popup: Connect status message** ([popup.cljs#L704](../../src/popup.cljs#L704))
   - Status text appears/disappears abruptly (Connecting.../Connected!/Failed:)
@@ -103,15 +103,15 @@ Before implementing, read these documents and source files:
 
 ### Panel Elements
 
-- [ ] **Panel: FS event banners** ([panel.cljs#L372-L374](../../src/panel.cljs#L372-L374), [panel.css#L55-L80](../../extension/panel.css#L55-L80))
+- [x] **Panel: FS event banners** ([panel.cljs#L372-L374](../../src/panel.cljs#L372-L374), [panel.css#L55-L80](../../extension/panel.css#L55-L80))
   - Banners slide in but have no exit animation
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
-- [ ] **Panel: Refresh banner** ([panel.cljs#L368-L372](../../src/panel.cljs#L368-L372), [panel.css#L40-L52](../../extension/panel.css#L40-L52))
+- [x] **Panel: Refresh banner** ([panel.cljs#L368-L372](../../src/panel.cljs#L368-L372), [panel.css#L40-L52](../../extension/panel.css#L40-L52))
   - Banner appears without animation
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Panel: Results area items** ([panel.cljs#L184-L199](../../src/panel.cljs#L184-L199))
   - Result items appear abruptly when code is evaluated
@@ -158,12 +158,12 @@ Before implementing, read these documents and source files:
 - [x] **Components: status-text fadeIn** ([components.css#L147-L152](../../extension/components.css#L147-L152))
   - Currently uses 0.2s - standardize to 0.25s
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
 - [x] **Components: All button transitions** ([components.css#L11-L80](../../extension/components.css#L11-L80))
   - Currently uses 0.15s - standardize to 0.25s
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
 ### Existing Animations to Standardize
 
@@ -172,10 +172,10 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Chevron rotation** ([popup.css#L545-L551](../../extension/popup.css#L545-L551))
+- [x] **Popup: Chevron rotation** ([popup.css#L545-L551](../../extension/popup.css#L545-L551))
   - Currently 0.2s - standardize to 0.25s
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Popup: Various button/input transitions** (multiple locations)
   - Port inputs, copy button, connect button, etc. use 0.15s
@@ -199,7 +199,7 @@ Before implementing, read these documents and source files:
 
 ## Process
 
-1. **Agent** implements the CSS/code changes for a carefully sized batch of items
+1. **Agent** implements the CSS/code changes for a carefully sized batch of items, has testrunner subagent run tests, and builds dev extension
 2. **Agent** ticks "addressed in code" checkboxes
 3. **Agent** hands off to the human with a brief list of what exists to test
 4. **Human** manually tests in browser (load extension, trigger the UI change)

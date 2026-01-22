@@ -122,6 +122,22 @@ body {
   }
 }
 
+@keyframes banner-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.fs-success-banner.leaving,
+.fs-error-banner.leaving {
+  animation: banner-slide-out var(--transition-duration) ease-in forwards;
+}
+
 /* Steps */
 .step {
   margin-bottom: 18px;
@@ -577,11 +593,23 @@ button#connect:active {
 }
 
 .section-content {
-  padding: 0.5rem 0;
+  max-height: 1000px; /* Large enough for expanded content */
+  overflow: hidden;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  transition: max-height var(--transition-duration) ease-out,
+              padding-top var(--transition-duration) ease-out,
+              padding-bottom var(--transition-duration) ease-out;
+}
+
+.collapsible-section.collapsed .section-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .chevron {
-  transition: transform 0.2s;
+  transition: transform var(--transition-duration);
   margin-right: 0.5rem;
   flex-shrink: 0;
 }

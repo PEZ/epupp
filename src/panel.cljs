@@ -631,8 +631,9 @@
    [:strong "close and reopen DevTools"]
    [:span " to use the new version of this panel"]])
 
-(defn fs-event-banner [{:keys [type message]}]
-  [:div {:class (if (= type "success") "fs-success-banner" "fs-error-banner")}
+(defn fs-event-banner [{:keys [type message leaving]}]
+  [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
+                     (when leaving " leaving"))}
    [:span message]])
 
 (defn panel-header [{:panel/keys [needs-refresh? fs-event]}]
@@ -797,8 +798,8 @@
            (if (and bulk-op? bulk-final? (seq bulk-names))
              (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
              (js/console.info "[Epupp:FS]" banner-msg)))
-         ;; Auto-dismiss after 3 seconds
-         (js/setTimeout #(swap! !state assoc :panel/fs-event nil) 2000))
+         ;; Auto-dismiss after 2 seconds using action (for smooth animation)
+         (js/setTimeout #(dispatch! [[:editor/ax.clear-fs-event]]) 2000))
        (when (and bulk-id bulk-final?)
          (swap! !state update :panel/fs-bulk-names dissoc bulk-id))
        ;; Reload or clear editor when current script was modified

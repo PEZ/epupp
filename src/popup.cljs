@@ -462,8 +462,7 @@
     [:span.section-title title]
     (when (and badge-count (pos? badge-count))
       [:span.section-badge badge-count])]
-   (when expanded?
-     (into [:div.section-content] children))])
+   (into [:div.section-content] children)])
 
 (defn- run-at-badge
   "Returns a badge component for non-default run-at timings."
@@ -859,8 +858,9 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-(defn fs-event-banner [{:keys [type message]}]
-  [:div {:class (if (= type "success") "fs-success-banner" "fs-error-banner")}
+(defn fs-event-banner [{:keys [type message leaving]}]
+  [:div {:class (str (if (= type "success") "fs-success-banner" "fs-error-banner")
+                     (when leaving " leaving"))}
    [:span message]])
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
