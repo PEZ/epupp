@@ -863,7 +863,7 @@
                      (when leaving " leaving"))}
    [:span message]])
 
-(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url] :as state}]
+(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url repl/connections] :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
@@ -879,19 +879,19 @@
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
                            :expanded? (not (:repl-connect sections-collapsed))
-                           :max-height "280px"}
+                           :max-height (str (+ 500 (* 35 (count connections))) "px")}
       [repl-connect-content state]]
      [collapsible-section {:id :matching-scripts
                            :title "Auto-run for This Page"
                            :expanded? (not (:matching-scripts sections-collapsed))
                            :badge-count (count matching-scripts)
-                           :max-height (str (+ 20 (* 65 (max 1 (count matching-scripts)))) "px")}
+                           :max-height (str (+ 50 (* 65 (max 1 (count matching-scripts)))) "px")}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
                            :title "Other Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-scripts)
-                           :max-height (str (+ 20 (* 65 (max 1 (count other-scripts)))) "px")}
+                           :max-height (str (+ 50 (* 65 (max 1 (count other-scripts)))) "px")}
       [other-scripts-section state]]
      [collapsible-section {:id :settings
                            :title "Settings"
