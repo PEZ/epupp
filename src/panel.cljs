@@ -479,7 +479,7 @@
     [view-elements/action-button
      {:button/variant :secondary
       :button/class "btn-new-script"
-      :button/icon icons/plus
+      :button/icon icons/add
       :button/title "Start a new script"
       :button/on-click (fn [_e]
                          (if has-changes?
