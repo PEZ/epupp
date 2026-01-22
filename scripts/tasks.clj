@@ -686,18 +686,24 @@
      :skipped total-skipped}))
 
 (defn- print-test-summary
-  "Print a summary of test results."
-  [{:keys [files total passed failed skipped]}]
-  (println)
-  (println (format "Files:   %d" files))
-  (println (format "Total:   %d tests" total))
-  (println (format "Passed:  %d" passed))
-  (when (pos? skipped)
-    (println (format "Skipped: %d" skipped)))
-  (println (format "Failed:  %d" failed))
-  (if (zero? failed)
-    (println "Status:  ALL TESTS PASSED")
-    (println "Status:  SOME TESTS FAILED")))
+  "Print a summary of test results.
+   When failed-override is provided, uses it instead of the parsed :failed count.
+   This handles cases where shards crash without producing a parseable summary."
+  [{:keys [files total passed failed skipped]} & {:keys [failed-override]}]
+  (let [actual-failed (or failed-override failed)]
+    (println)
+    (println (format "Files:   %d" files))
+    (println (format "Total:   %d tests" total))
+    (println (format "Passed:  %d" passed))
+    (when (pos? skipped)
+      (println (format "Skipped: %d" skipped)))
+    (println (format "Failed:  %d%s" actual-failed
+                     (if (and failed-override (not= failed-override failed))
+                       (str " (" failed-override " shard(s) failed)")
+                       "")))
+    (if (zero? actual-failed)
+      (println "Status:  ALL TESTS PASSED")
+      (println "Status:  SOME TESTS FAILED"))))
 
 (defn- run-build-step!
   "Run a build command, capturing output. Returns result map.
@@ -823,13 +829,14 @@
         elapsed-ms (- (System/currentTimeMillis) start-time)
         failed (filter #(not= 0 (:exit %)) results)
         log-files (map :log-file results)
-        summary (aggregate-shard-results log-files)]
+        summary (aggregate-shard-results log-files)
+        failed-count (count failed)]
 
     (println)
     (println (str "Completed " n-shards " shards in " (format "%.1fs" (/ elapsed-ms 1000.0))))
 
-    ;; Always print test summary
-    (print-test-summary summary)
+    ;; Always print test summary - use failed shard count as override when shards crashed
+    (print-test-summary summary :failed-override (when (pos? failed-count) failed-count))
 
     (if (seq failed)
       (do
