@@ -874,13 +874,13 @@
                            :title "Auto-run for This Page"
                            :expanded? (not (:matching-scripts sections-collapsed))
                            :badge-count (count matching-scripts)
-                           :max-height (str (+ 50 (* 65 (max 1 (count matching-scripts)))) "px")}
+                           :max-height (str (+ 50 (* 105 (max 1 (count matching-scripts)))) "px")}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
                            :title "Other Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-scripts)
-                           :max-height (str (+ 50 (* 65 (max 1 (count other-scripts)))) "px")}
+                           :max-height (str (+ 50 (* 105 (max 1 (count other-scripts)))) "px")}
       [other-scripts-section state]]
      [collapsible-section {:id :settings
                            :title "Settings"
