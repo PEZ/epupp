@@ -43,8 +43,8 @@ Before implementing, read these documents and source files:
 
 - [ ] **Popup: Collapsible section content** ([popup.cljs#L458](../../src/popup.cljs#L458), [popup.css#L510-L525](../../extension/popup.css#L510-L525))
   - Section content appears/disappears abruptly when toggled - CSS not working, needs investigation
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [x] **Popup: FS event banners** ([popup.cljs#L757](../../src/popup.cljs#L757), [popup.css#L82-L107](../../extension/popup.css#L82-L107))
   - Banners slide in (existing animation) but have no exit animation
