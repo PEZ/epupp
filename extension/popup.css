@@ -841,12 +841,6 @@ button#connect:active {
   color: var(--text-muted);
 }
 
-.add-origin-error {
-  font-size: 11px;
-  color: var(--delete-hover-color);
-  padding: 4px 0;
-}
-
 .add-btn {
   padding: 8px 14px;
   font-size: 12px;

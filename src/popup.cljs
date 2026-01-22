@@ -37,7 +37,6 @@
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
-         :settings/error nil
          :ui/fs-event nil          ; FS sync event banner {:type :success/:error :message "..."}
          :ui/fs-bulk-names {}      ; bulk-id -> [script-name ...]
          :repl/connections []}))   ; Pending FS operation confirmations
@@ -678,7 +677,7 @@
                       :on-delete #(dispatch! [[:popup/ax.remove-origin %]])}])]
      [:div.no-origins "No custom origins added yet."])])
 
-(defn add-origin-form [{:keys [value error]}]
+(defn add-origin-form [{:keys [value]}]
   [:div.add-origin-form
    [:div.add-origin-input-row
     [:input {:type "text"
@@ -692,11 +691,9 @@
       :button/class "add-btn"
       :button/title "Add origin"
       :button/on-click #(dispatch! [[:popup/ax.add-origin]])}
-     "Add"]]
-   (when error
-     [:div.add-origin-error error])])
+     "Add"]]])
 
-(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/error settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled]}]
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled]}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -734,7 +731,7 @@
      "Format: Must start with http:// or https:// and end with / or :"]
     [default-origins-list default-origins]
     [user-origins-list user-origins]
-    [add-origin-form {:value new-origin :error error}]]
+    [add-origin-form {:value new-origin}]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description

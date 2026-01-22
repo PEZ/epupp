@@ -286,13 +286,15 @@
                                     (assoc :settings/new-origin "https://example.com")
                                     (assoc :settings/user-origins [])
                                     (assoc :settings/default-origins []))
-                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])]
-              ;; Should set error in state
-                      (-> (expect (:settings/error (:uf/db result)))
-                          (.toBe "Must start with http:// or https:// and end with / or :"))
-              ;; Should schedule error clear
-                      (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :uf/fx.defer-dispatch)))))
+                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
+                          [action event-type message _] (first (:uf/dxs result))]
+              ;; Should dispatch error banner via :uf/dxs
+                      (-> (expect action)
+                          (.toBe :popup/ax.show-fs-event))
+                      (-> (expect event-type)
+                          (.toBe "error"))
+                      (-> (expect message)
+                          (.toBe "Must start with http:// or https:// and end with / or :")))))
 
             (test ":popup/ax.add-origin rejects invalid origin (wrong protocol)"
                   (fn []
@@ -300,13 +302,13 @@
                                     (assoc :settings/new-origin "ftp://example.com/")
                                     (assoc :settings/user-origins [])
                                     (assoc :settings/default-origins []))
-                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])]
-              ;; Should set error
-                      (-> (expect (:settings/error (:uf/db result)))
-                          (.toBeTruthy))
-              ;; Should schedule error clear
-                      (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :uf/fx.defer-dispatch)))))
+                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
+                          [action event-type _message _] (first (:uf/dxs result))]
+              ;; Should dispatch error banner via :uf/dxs
+                      (-> (expect action)
+                          (.toBe :popup/ax.show-fs-event))
+                      (-> (expect event-type)
+                          (.toBe "error")))))
 
             (test ":popup/ax.add-origin rejects duplicate origin in user list"
                   (fn []
@@ -314,13 +316,15 @@
                                     (assoc :settings/new-origin "https://existing.com/")
                                     (assoc :settings/user-origins ["https://existing.com/"])
                                     (assoc :settings/default-origins []))
-                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])]
-              ;; Should set error
-                      (-> (expect (:settings/error (:uf/db result)))
-                          (.toBe "Origin already exists"))
-              ;; Should schedule error clear
-                      (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :uf/fx.defer-dispatch)))))
+                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
+                          [action event-type message _] (first (:uf/dxs result))]
+              ;; Should dispatch error banner via :uf/dxs
+                      (-> (expect action)
+                          (.toBe :popup/ax.show-fs-event))
+                      (-> (expect event-type)
+                          (.toBe "error"))
+                      (-> (expect message)
+                          (.toBe "Origin already exists")))))
 
             (test ":popup/ax.add-origin rejects duplicate origin in default list"
                   (fn []
@@ -328,13 +332,15 @@
                                     (assoc :settings/new-origin "https://github.com/")
                                     (assoc :settings/user-origins [])
                                     (assoc :settings/default-origins ["https://github.com/"]))
-                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])]
-              ;; Should set error
-                      (-> (expect (:settings/error (:uf/db result)))
-                          (.toBe "Origin already exists"))
-              ;; Should schedule error clear
-                      (-> (expect (first (first (:uf/fxs result))))
-                          (.toBe :uf/fx.defer-dispatch)))))
+                          result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
+                          ;; Should dispatch error banner via :uf/dxs
+                          [action event-type message _] (first (:uf/dxs result))]
+                      (-> (expect action)
+                          (.toBe :popup/ax.show-fs-event))
+                      (-> (expect event-type)
+                          (.toBe "error"))
+                      (-> (expect message)
+                          (.toBe "Origin already exists")))))
 
             (test ":popup/ax.remove-origin removes origin and triggers effect"
                   (fn []

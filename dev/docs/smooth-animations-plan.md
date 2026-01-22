@@ -52,7 +52,7 @@ Before implementing, read these documents and source files:
   - [x] verified (human)
 
 - [ ] **Popup: Connect status message** ([popup.cljs#L844](../../src/popup.cljs#L844))
-  - Replace inline status text with banner message for calmer UI
+  - Replace inline status text with a system banner message for calmer UI
   - [ ] addressed in code
   - [ ] verified (human)
 
@@ -62,7 +62,7 @@ Before implementing, read these documents and source files:
   - [ ] verified (human)
 
 - [ ] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
-  - Replace inline hint with banner message for calmer UI
+  - Replace inline hint with a system banner message for calmer UI
   - [ ] addressed in code
   - [ ] verified (human)
 
@@ -81,10 +81,10 @@ Before implementing, read these documents and source files:
   - [ ] addressed in code
   - [ ] verified (human)
 
-- [ ] **Popup: Add origin error message** ([popup.cljs#L697](../../src/popup.cljs#L697))
-  - Replace inline error with banner message for calmer UI
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Popup: Add origin error message** ([popup.cljs#L697](../../src/popup.cljs#L697))
+  - Replace inline error with a system banner message for calmer UI
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Popup: Copy feedback** ([popup.cljs#L456](../../src/popup.cljs#L456))
   - Button should grow/shrink smoothly when "Copied!" text appears
@@ -124,7 +124,7 @@ Before implementing, read these documents and source files:
   - [ ] verified (human)
 
 - [ ] **Panel: Save status message** ([panel.cljs#L611-L615](../../src/panel.cljs#L611-L615))
-  - Replace inline status text with banner message for calmer UI (banner may already exist, just remove inline)
+  - Replace inline status text with a system banner message for calmer UI (banner may already exist, just remove inline)
   - [ ] addressed in code
   - [ ] verified (human)
 

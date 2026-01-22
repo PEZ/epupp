@@ -187,10 +187,10 @@
           (js-await (.fill input "https://invalid.com"))
           (js-await (.click add-btn)))
 
-        ;; Error message appears (Playwright auto-waits)
-        (js-await (-> (expect (.locator popup ".add-origin-error"))
+        ;; Error message appears in system banner (Playwright auto-waits)
+        (js-await (-> (expect (.locator popup ".fs-error-banner"))
                       (.toBeVisible)))
-        (js-await (-> (expect (.locator popup ".add-origin-error"))
+        (js-await (-> (expect (.locator popup ".fs-error-banner"))
                       (.toContainText "http:// or https://")))
 
         (js-await (.close popup)))
