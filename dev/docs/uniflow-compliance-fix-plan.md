@@ -49,8 +49,8 @@ Location: `panel.cljs` line ~586
 
 Convert `(swap! !state assoc :panel/needs-refresh? true)` to dispatch.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:editor/ax.set-needs-refresh` action to `panel_actions.cljs`
@@ -61,8 +61,8 @@ Location: `panel.cljs` lines ~592-595
 
 Convert state reset to dispatch.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:editor/ax.reset-for-navigation` action to `panel_actions.cljs`
@@ -73,8 +73,8 @@ Location: `panel.cljs` line ~607
 
 Convert `(swap! !state assoc :panel/init-version ...)` to dispatch.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:editor/ax.set-init-version` action to `panel_actions.cljs`
@@ -85,8 +85,8 @@ Location: `panel.cljs` lines ~660-661
 
 Convert bulk name `swap!` calls to dispatch.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:editor/ax.track-bulk-name` action to `panel_actions.cljs`
@@ -98,8 +98,8 @@ Location: `popup.cljs` line ~809
 
 Convert `(swap! !state assoc :browser/brave? ...)` to dispatch.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:popup/ax.set-brave-detected` action to `popup_actions.cljs`
@@ -114,8 +114,8 @@ Location: `panel.cljs` line ~149
 
 Effect reads `@!state` for requires. Should receive via args.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Modify `:editor/ax.eval` and `:editor/ax.eval-selection` to pass requires to effect
@@ -126,8 +126,8 @@ Location: `panel.cljs` line ~163
 
 Same issue as 2.1 - effect reads state for requires.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Modify `:editor/ax.eval` and related actions to pass requires
@@ -138,8 +138,8 @@ Location: `panel.cljs` line ~211
 
 Effect reads hostname from state.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Modify `:editor/ax.new-script` to pass hostname to effect

@@ -925,7 +925,7 @@
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
 
   ;; Detect browser features
-  (swap! !state assoc :browser/brave? (some? (.-brave js/navigator)))
+  (dispatch! [[:popup/ax.set-brave-detected (some? (.-brave js/navigator))]])
 
   (render!)
 

@@ -106,7 +106,7 @@
         {:uf/db (-> state
                     (assoc :panel/evaluating? true)
                     (update :panel/results conj {:type :input :text code}))
-         :uf/fxs [[:editor/fx.eval-in-page code]]}
+         :uf/fxs [[:editor/fx.eval-in-page code (:require (:panel/manifest-hints state))]]}
 
         ;; Scittle not ready - inject first
         :else
@@ -114,11 +114,11 @@
                     (assoc :panel/evaluating? true)
                     (assoc :panel/scittle-status :loading)
                     (update :panel/results conj {:type :input :text code}))
-         :uf/fxs [[:editor/fx.inject-and-eval code]]}))
+         :uf/fxs [[:editor/fx.inject-and-eval code (:require (:panel/manifest-hints state))]]}))
 
     :editor/ax.do-eval
     (let [[code] args]
-      {:uf/fxs [[:editor/fx.eval-in-page code]]})
+      {:uf/fxs [[:editor/fx.eval-in-page code nil]]})
 
     :editor/ax.handle-eval-result
     (let [[result] args]
@@ -261,7 +261,7 @@
                      :panel/script-match ""
                      :panel/script-description ""
                      :panel/manifest-hints hints)
-       :uf/fxs [[:editor/fx.clear-persisted-state]]
+       :uf/fxs [[:editor/fx.clear-persisted-state (:panel/current-hostname state)]]
        :uf/dxs dxs})
 
     :editor/ax.set-selection
@@ -281,7 +281,7 @@
         {:uf/db (-> state
                     (assoc :panel/evaluating? true)
                     (update :panel/results conj {:type :input :text code-to-eval}))
-         :uf/fxs [[:editor/fx.eval-in-page code-to-eval]]}
+         :uf/fxs [[:editor/fx.eval-in-page code-to-eval (:require (:panel/manifest-hints state))]]}
 
         ;; Scittle not ready - inject first
         :else
@@ -289,7 +289,7 @@
                     (assoc :panel/evaluating? true)
                     (assoc :panel/scittle-status :loading)
                     (update :panel/results conj {:type :input :text code-to-eval}))
-         :uf/fxs [[:editor/fx.inject-and-eval code-to-eval]]}))
+         :uf/fxs [[:editor/fx.inject-and-eval code-to-eval (:require (:panel/manifest-hints state))]]}))
 
     :editor/ax.reload-script-from-storage
     (let [[script-name] args]
@@ -325,5 +325,23 @@
                                 %)
                              banners))
          :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 250]]}))
+    :editor/ax.set-needs-refresh
+    {:uf/db (assoc state :panel/needs-refresh? true)}
 
+    :editor/ax.reset-for-navigation
+    {:uf/db (assoc state
+                   :panel/evaluating? false
+                   :panel/scittle-status :unknown)}
+
+    :editor/ax.set-init-version
+    (let [[version] args]
+      {:uf/db (assoc state :panel/init-version version)})
+
+    :editor/ax.track-bulk-name
+    (let [[bulk-id script-name] args]
+      {:uf/db (update-in state [:panel/system-bulk-names bulk-id] (fnil conj []) script-name)})
+
+    :editor/ax.clear-bulk-names
+    (let [[bulk-id] args]
+      {:uf/db (update state :panel/system-bulk-names dissoc bulk-id)})
     :uf/unhandled-ax))

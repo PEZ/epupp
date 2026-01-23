@@ -151,8 +151,7 @@
       (restore-panel-state! dispatch callback))
 
     :editor/fx.eval-in-page
-    (let [[code] args
-          requires (:require (:panel/manifest-hints @!state))]
+    (let [[code requires] args]
       (if (seq requires)
         ;; Inject requires before eval (even if Scittle already loaded - libs might not be)
         (js/chrome.runtime.sendMessage
@@ -177,8 +176,7 @@
        (dispatch [[:editor/ax.update-scittle-status status]])))
 
     :editor/fx.inject-and-eval
-    (let [[code] args
-          requires (:require (:panel/manifest-hints @!state))]
+    (let [[code requires] args]
       ;; If requires exist, inject them first via background worker
       (if (seq requires)
         (js/chrome.runtime.sendMessage
@@ -247,8 +245,9 @@
                       :to-name to-name}]]))))
 
     :editor/fx.clear-persisted-state
-    (when-let [hostname (:panel/current-hostname @!state)]
-      (js/chrome.storage.local.remove (panel-state-key hostname)))
+    (let [[hostname] args]
+      (when hostname
+        (js/chrome.storage.local.remove (panel-state-key hostname))))
 
     :editor/fx.use-current-url
     (let [[action] args]
@@ -676,15 +675,13 @@
     (when (or (nil? current-version)  ; Context invalidated
               (and init-version (not= current-version init-version)))
       (log/info "Panel" nil "Extension updated or context invalidated")
-      (swap! !state assoc :panel/needs-refresh? true))))
+      (dispatch! [[:editor/ax.set-needs-refresh]]))))
 
 (defn on-page-navigated [_url]
   (log/info "Panel" nil "Page navigated")
   (check-version!)
   ;; Reset state for the new page
-  (swap! !state assoc
-         :panel/evaluating? false
-         :panel/scittle-status :unknown)
+  (dispatch! [[:editor/ax.reset-for-navigation]])
   (dispatch! [[:editor/ax.clear-results]
               [:editor/ax.check-scittle]])
   (perform-effect! dispatch! [:editor/fx.restore-panel-state nil]))
@@ -697,7 +694,7 @@
   (when (test-logger/test-mode?)
     (set! js/window.__panelState !state))
   ;; Store version at init time
-  (swap! !state assoc :panel/init-version (get-extension-version))
+  (dispatch! [[:editor/ax.set-init-version (get-extension-version)]])
   ;; Restore panel state, then continue initialization
   (perform-effect! dispatch! [:editor/fx.restore-panel-state
                               (fn []
@@ -788,7 +785,7 @@
            ;; Skip banner for saves affecting current script - panel save response handler already showed it
            skip-banner? (and affects-current? (= operation "save"))]
        (when bulk-id
-         (swap! !state update-in [:panel/system-bulk-names bulk-id] (fnil conj []) script-name))
+         (dispatch! [[:editor/ax.track-bulk-name bulk-id script-name]]))
        ;; Show banner for all system-banner events (except panel's own saves)
        (when (and show-banner? (not skip-banner?))
          (dispatch! [[:editor/ax.show-system-banner event-type banner-msg]])
@@ -798,7 +795,7 @@
              (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
              (js/console.info "[Epupp:FS]" banner-msg))))
        (when (and bulk-id bulk-final?)
-         (swap! !state update :panel/system-bulk-names dissoc bulk-id))
+         (dispatch! [[:editor/ax.clear-bulk-names bulk-id]]))
        ;; Reload or clear editor when current script was modified
        (when affects-current?
          (if (= operation "delete")

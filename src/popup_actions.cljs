@@ -353,4 +353,8 @@
                       (fn [shadow]
                         (filterv (fn [s] (not (contains? ids (:item s)))) shadow)))})
 
+    :popup/ax.set-brave-detected
+    (let [[brave?] args]
+      {:uf/db (assoc state :browser/brave? brave?)})
+
     :uf/unhandled-ax))
