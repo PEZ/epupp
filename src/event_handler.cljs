@@ -94,6 +94,33 @@
           (js/console.warn "Unhandled effect:" fx))
         generic-result))))
 
+(defn get-list-watcher-actions
+  "Pure function that detects list membership changes between old and new state.
+   Returns a vector of actions to dispatch based on :uf/list-watchers declarations.
+
+   Watcher declaration format:
+   {:uf/list-watchers {:path/key {:id-fn :item/id :on-change :action/key}}}
+
+   Returns actions like:
+   [[:action/key {:added #{new-ids} :removed #{old-ids}}]]"
+  [old-state new-state]
+  (letfn [(set-difference [s1 s2]
+            (set (filter (fn [x] (not (contains? s2 x))) s1)))]
+    (let [watchers (:uf/list-watchers old-state)]
+      (when (seq watchers)
+        (->> watchers
+             (map (fn [[list-path {:keys [id-fn on-change]}]]
+                    (let [old-list (or (get old-state list-path) [])
+                          new-list (or (get new-state list-path) [])
+                          old-ids (set (map id-fn old-list))
+                          new-ids (set (map id-fn new-list))
+                          added (set-difference new-ids old-ids)
+                          removed (set-difference old-ids new-ids)]
+                      (when (or (seq added) (seq removed))
+                        [on-change {:added added :removed removed}]))))
+             (remove nil?)
+             vec)))))
+
 (defn ^:async execute-effects!
   "Execute effects in order. Effects marked with :uf/await are awaited.
    Supports :uf/prev-result substitution for result threading."
@@ -125,20 +152,29 @@
    - :uf/dxs      - follow-up actions dispatched after effects
 
    Effects marked with :uf/await are awaited before continuing.
-   Use :uf/prev-result in effect args to receive the previous await result."
+   Use :uf/prev-result in effect args to receive the previous await result.
+   
+   List watchers (`:uf/list-watchers`) are evaluated after state change.
+   Watcher actions are dispatched before dxs and effects."
   ([!state ax-handler ex-handler actions]
    (dispatch! !state ax-handler ex-handler actions nil))
   ([!state ax-handler ex-handler actions additional-uf-data]
-   (let [uf-data (merge {:system/now (.now js/Date)} additional-uf-data)
+   (let [old-state @!state
+         uf-data (merge {:system/now (.now js/Date)} additional-uf-data)
          {:uf/keys [fxs dxs db]}
          (try
-           (handle-actions @!state uf-data ax-handler actions)
+           (handle-actions old-state uf-data ax-handler actions)
            (catch :default e
              {:uf/fxs [[:log/fx.log :error (ex-info "handle-action error"
                                                     {:error e}
                                                     :event-handler/handle-actions)]]}))]
      (when db
        (reset! !state db))
+     ;; List watchers: detect changes and dispatch actions
+     (let [new-state (or db old-state)
+           watcher-actions (get-list-watcher-actions old-state new-state)]
+       (when (seq watcher-actions)
+         (dispatch! !state ax-handler ex-handler watcher-actions additional-uf-data)))
      (when dxs
        (dispatch! !state ax-handler ex-handler dxs additional-uf-data))
      ;; Execute all effects in order (unified model)

@@ -363,10 +363,16 @@ This likely requires:
 - A different approach for enter animations (not `@starting-style`)
 - Intercepting all state changes that affect lists, not just specific actions
 
+### Blocking Issues
+
+**Failing E2E test** - Must be fixed before merging:
+- Test: `popup_connection_test.mjs:210:8 › Popup Connection › Popup Connection: disconnect button disconnects current tab`
+- Likely cause: The two-phase deletion pattern introduces a 250ms delay before actual disconnect, which may break test timing expectations
+
 ## Notes
 
 - **Accessibility**: Don't animate `display: none` - use `visibility` instead
-- **Testing**: CSS animations are not testable via E2E - human verification required
+- **Testing**: E2E tests must enclose the chages, even if CSS animations are often not testable via E2E - so human verification is also required
 - **Focus states**: Ensure animations don't interfere with focus management
 
 ## Token Definition

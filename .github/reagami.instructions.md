@@ -174,3 +174,45 @@ Components use Uniflow dispatch for state changes:
              :on-change #(dispatch! [[:toggle-script script-id]])}]
     [:button.delete {:on-click #(dispatch! [[:delete-script script-id]])}
      "Delete"]]])
+```
+
+## The :on-render Hook
+
+Reagami provides an `:on-render` hook for lifecycle management. It fires on mount, update, and unmount.
+
+**Signature:** `(fn [node lifecycle data] ...)`
+
+- `node` - the DOM node
+- `lifecycle` - one of `:mount`, `:update`, or `:unmount`
+- `data` - return value from previous invocation (for carrying state across lifecycles)
+
+```clojure
+[:div {:on-render (fn [node lifecycle data]
+                    (case lifecycle
+                      :mount
+                      (do
+                        ;; Element just added to DOM
+                        (.add (.-classList node) "entering")
+                        (js/requestAnimationFrame
+                          #(.remove (.-classList node) "entering"))
+                        nil)
+
+                      :update
+                      ;; Element re-rendered (can track update count via data)
+                      data
+
+                      :unmount
+                      ;; Element being removed from DOM
+                      ;; NOTE: Too late to delay removal - element is already leaving
+                      nil))}
+ content]
+```
+
+**Use cases:**
+- Mount animations (add class on mount, remove after 1 frame to trigger CSS transition)
+- Third-party library integration (initialize on mount, cleanup on unmount)
+- Tracking update counts via returned data
+
+**Limitation for exit animations:** By the time `:unmount` fires, Reagami has already decided to remove the element. For exit animations that need to delay removal, use state-level patterns (like list-watchers) instead.
+
+See [Reagami README](https://github.com/borkdude/reagami) for more details.

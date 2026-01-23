@@ -227,3 +227,203 @@
                           (.toBe "replaced"))
                       (-> (expect (nth result 3))
                           (.toBe "replaced")))))))
+
+;; ============================================================
+;; get-list-watcher-actions tests (list change detection)
+;; ============================================================
+
+(describe "get-list-watcher-actions"
+          (fn []
+            (test "returns empty when no watchers declared"
+                  (fn []
+                    (let [old-state {:items [1 2 3]}
+                          new-state {:items [1 2]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)]
+                      (-> (expect (count result))
+                          (.toBe 0)))))
+
+            (test "returns empty when watched list unchanged"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2 3]}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2 3]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)]
+                      (-> (expect (count result))
+                          (.toBe 0)))))
+
+            (test "detects added items"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2]}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2 3]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.changed))
+                      (-> (expect (contains? (:added payload) 3))
+                          (.toBe true))
+                      (-> (expect (count (:removed payload)))
+                          (.toBe 0)))))
+
+            (test "detects removed items"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2 3]}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.changed))
+                      (-> (expect (count (:added payload)))
+                          (.toBe 0))
+                      (-> (expect (contains? (:removed payload) 3))
+                          (.toBe true)))))
+
+            (test "detects both added and removed"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2 3]}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [2 3 4]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.changed))
+                      (-> (expect (contains? (:added payload) 4))
+                          (.toBe true))
+                      (-> (expect (contains? (:removed payload) 1))
+                          (.toBe true)))))
+
+            (test "uses id-fn for complex items"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:scripts {:id-fn :script/id :on-change :ax.scripts-changed}}
+                                     :scripts [{:script/id "a" :name "Script A"}
+                                               {:script/id "b" :name "Script B"}]}
+                          new-state {:uf/list-watchers {:scripts {:id-fn :script/id :on-change :ax.scripts-changed}}
+                                     :scripts [{:script/id "b" :name "Script B"}
+                                               {:script/id "c" :name "Script C"}]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.scripts-changed))
+                      (-> (expect (contains? (:added payload) "c"))
+                          (.toBe true))
+                      (-> (expect (contains? (:removed payload) "a"))
+                          (.toBe true)))))
+
+            (test "handles multiple watchers independently"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.items-changed}
+                                                        :tags {:id-fn identity :on-change :ax.tags-changed}}
+                                     :items [1 2]
+                                     :tags ["a" "b"]}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.items-changed}
+                                                        :tags {:id-fn identity :on-change :ax.tags-changed}}
+                                     :items [1 2 3]
+                                     :tags ["b" "c"]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)]
+                      (-> (expect (count result))
+                          (.toBe 2)))))
+
+            (test "treats nil lists as empty"
+                  (fn []
+                    (let [old-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items nil}
+                          new-state {:uf/list-watchers {:items {:id-fn identity :on-change :ax.changed}}
+                                     :items [1 2]}
+                          result (event-handler/get-list-watcher-actions old-state new-state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.changed))
+                      (-> (expect (contains? (:added payload) 1))
+                          (.toBe true))
+                      (-> (expect (contains? (:added payload) 2))
+                          (.toBe true)))))))
+
+;; ============================================================
+;; dispatch! list-watchers integration tests
+;; ============================================================
+
+(describe "dispatch! with list-watchers"
+          (fn []
+            (test "triggers watcher actions when list items are added"
+                  (fn []
+                    (let [!state (atom {:uf/list-watchers {:items {:id-fn identity :on-change :ax.items-changed}}
+                                        :items [1 2]
+                                        :change-log []})
+                          ax-handler (fn [state _uf [action & args]]
+                                       (case action
+                                         :ax.add-item
+                                         {:uf/db (update state :items conj (first args))}
+                                         :ax.items-changed
+                                         {:uf/db (update state :change-log conj (first args))}
+                                         :uf/unhandled-ax))
+                          ex-handler (fn [_dispatch _fx] :uf/unhandled-fx)]
+                      (event-handler/dispatch! !state ax-handler ex-handler [[:ax.add-item 3]])
+                      (-> (expect (contains? (set (:items @!state)) 3))
+                          (.toBe true))
+                      ;; Watcher should have been triggered
+                      (-> (expect (count (:change-log @!state)))
+                          (.toBe 1))
+                      (-> (expect (contains? (:added (first (:change-log @!state))) 3))
+                          (.toBe true)))))
+
+            (test "triggers watcher actions when list items are removed"
+                  (fn []
+                    (let [!state (atom {:uf/list-watchers {:items {:id-fn identity :on-change :ax.items-changed}}
+                                        :items [1 2 3]
+                                        :removed-ids #{}})
+                          ax-handler (fn [state _uf [action & args]]
+                                       (case action
+                                         :ax.remove-item
+                                         {:uf/db (update state :items (fn [items]
+                                                                        (vec (remove #(= % (first args)) items))))}
+                                         :ax.items-changed
+                                         {:uf/db (update state :removed-ids into (:removed (first args)))}
+                                         :uf/unhandled-ax))
+                          ex-handler (fn [_dispatch _fx] :uf/unhandled-fx)]
+                      (event-handler/dispatch! !state ax-handler ex-handler [[:ax.remove-item 2]])
+                      ;; Item removed
+                      (-> (expect (contains? (set (:items @!state)) 2))
+                          (.toBe false))
+                      ;; Watcher triggered with removed ID
+                      (-> (expect (contains? (:removed-ids @!state) 2))
+                          (.toBe true)))))
+
+            (test "watcher action can schedule effects"
+                  (fn []
+                    (let [!state (atom {:uf/list-watchers {:items {:id-fn identity :on-change :ax.items-changed}}
+                                        :items [1]})
+                          effects-log (atom [])
+                          ax-handler (fn [state _uf [action & args]]
+                                       (case action
+                                         :ax.add-item
+                                         {:uf/db (update state :items conj (first args))}
+                                         :ax.items-changed
+                                         {:uf/db state
+                                          :uf/fxs [[:fx.animate-entry (first args)]]}
+                                         :uf/unhandled-ax))
+                          ex-handler (fn [_dispatch [fx & args]]
+                                       (case fx
+                                         :fx.animate-entry
+                                         (swap! effects-log conj [:animate (first args)])
+                                         :uf/unhandled-fx))]
+                      (event-handler/dispatch! !state ax-handler ex-handler [[:ax.add-item 2]])
+                      ;; Effect should have been scheduled from watcher action
+                      (-> (expect (count @effects-log))
+                          (.toBe 1))
+                      (-> (expect (first (first @effects-log)))
+                          (.toBe :animate)))))))
