@@ -273,6 +273,10 @@
             ;; Click disconnect button
             (js-await (.click (.locator popup "#disconnect")))
 
+            ;; Wait for exit animation to complete (250ms) before reloading
+            ;; The two-phase disconnect pattern defers the actual disconnect effect
+            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+
             ;; Reload to see updated state
             (js-await (.reload popup))
             (js-await (wait-for-popup-ready popup))

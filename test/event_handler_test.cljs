@@ -427,3 +427,129 @@
                           (.toBe 1))
                       (-> (expect (first (first @effects-log)))
                           (.toBe :animate)))))))
+
+;; ============================================================
+;; Shadow list watcher tests
+;; ============================================================
+
+(describe "get-list-watcher-actions with shadow-path"
+          (fn []
+            (test "detects items in source but not in shadow (additions)"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a"} {:script/id "b"} {:script/id "c"}]
+                                 :ui/scripts-shadow [{:item {:script/id "a"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b"} :ui/entering? false :ui/leaving? false}]}
+                          result (event-handler/get-list-watcher-actions state state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.sync))
+                      ;; Should have the full item for additions
+                      (-> (expect (count (:added-items payload)))
+                          (.toBe 1))
+                      (-> (expect (:script/id (first (:added-items payload))))
+                          (.toBe "c"))
+                      ;; No removals
+                      (-> (expect (count (:removed-ids payload)))
+                          (.toBe 0)))))
+
+            (test "detects items in shadow but not in source (removals)"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a"}]
+                                 :ui/scripts-shadow [{:item {:script/id "a"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b"} :ui/entering? false :ui/leaving? false}]}
+                          result (event-handler/get-list-watcher-actions state state)
+                          [action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect action-key)
+                          (.toBe :ax.sync))
+                      ;; No additions
+                      (-> (expect (count (:added-items payload)))
+                          (.toBe 0))
+                      ;; Should have ID for removal
+                      (-> (expect (contains? (:removed-ids payload) "b"))
+                          (.toBe true)))))
+
+            (test "returns empty when shadow matches source"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a"} {:script/id "b"}]
+                                 :ui/scripts-shadow [{:item {:script/id "a"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b"} :ui/entering? false :ui/leaving? false}]}
+                          result (event-handler/get-list-watcher-actions state state)]
+                      (-> (expect (count result))
+                          (.toBe 0)))))
+
+            (test "ignores items already marked as leaving in shadow"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a"}]
+                                 ;; "b" is already leaving - should not trigger removal again
+                                 :ui/scripts-shadow [{:item {:script/id "a"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b"} :ui/entering? false :ui/leaving? true}]}
+                          result (event-handler/get-list-watcher-actions state state)]
+                      ;; No action because "b" is already leaving
+                      (-> (expect (count result))
+                          (.toBe 0)))))
+
+            (test "treats nil shadow as empty (all items are additions)"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a"} {:script/id "b"}]
+                                 :ui/scripts-shadow nil}
+                          result (event-handler/get-list-watcher-actions state state)
+                          [_action-key payload] (first result)]
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      (-> (expect (count (:added-items payload)))
+                          (.toBe 2)))))))
+
+(describe "get-list-watcher-actions content change detection"
+          (fn []
+            (test "detects content changes for items with same ID"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 ;; Source has updated content for "a"
+                                 :scripts/list [{:script/id "a" :script/code "updated"}
+                                                {:script/id "b" :script/code "original"}]
+                                 ;; Shadow has old content for "a"
+                                 :ui/scripts-shadow [{:item {:script/id "a" :script/code "original"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b" :script/code "original"} :ui/entering? false :ui/leaving? false}]}
+                          result (event-handler/get-list-watcher-actions state state)]
+                      ;; Should fire because content changed
+                      (-> (expect (count result))
+                          (.toBe 1))
+                      ;; No membership changes
+                      (let [[_action-key payload] (first result)]
+                        (-> (expect (count (:added-items payload)))
+                            (.toBe 0))
+                        (-> (expect (count (:removed-ids payload)))
+                            (.toBe 0))))))
+
+            (test "does not fire when content is identical"
+                  (fn []
+                    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                                   :shadow-path :ui/scripts-shadow
+                                                                   :on-change :ax.sync}}
+                                 :scripts/list [{:script/id "a" :script/code "same"} {:script/id "b"}]
+                                 :ui/scripts-shadow [{:item {:script/id "a" :script/code "same"} :ui/entering? false :ui/leaving? false}
+                                                     {:item {:script/id "b"} :ui/entering? false :ui/leaving? false}]}
+                          result (event-handler/get-list-watcher-actions state state)]
+                      (-> (expect (count result))
+                          (.toBe 0)))))))

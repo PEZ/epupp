@@ -2,6 +2,7 @@
 
 * [ ] Adding a script, then remove a script, then add it again, then the matching doesn't work
 * [ ] Connecting a tab shows an extra, error-colored, system banner after showing the connect banner
+* [ ] Does scripts sometimes auto-run, on sites they do not match. In reload of the extension this seems to happen.
 
 ## Safari: Limited Extension Functionality
 

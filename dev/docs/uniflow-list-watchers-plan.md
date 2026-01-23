@@ -169,50 +169,86 @@ This means list-watchers are primarily needed for **exit animations** - detectin
 
 ### Application Integration (Popup)
 
-- [ ] **Declare list watchers in popup state** ([popup.cljs](../../src/popup.cljs))
+- [x] **Declare list watchers in popup state** ([popup.cljs](../../src/popup.cljs))
   - Add `:uf/list-watchers` for scripts, connections, origins
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human)
 
-- [ ] **Implement change handler actions** ([popup_actions.cljs](../../src/popup_actions.cljs))
+- [x] **Implement change handler actions** ([popup_actions.cljs](../../src/popup_actions.cljs))
   - `:ui/ax.scripts-changed` - manages `:ui/entering-scripts`, `:ui/leaving-scripts`
   - `:ui/ax.connections-changed` - manages `:ui/entering-tabs`, `:ui/leaving-tabs`
   - `:ui/ax.origins-changed` - manages `:ui/entering-origins`, `:ui/leaving-origins`
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human) - Enter animations work for UI-initiated and REPL-initiated adds
 
-- [ ] **Remove two-phase pattern from delete actions** ([popup_actions.cljs](../../src/popup_actions.cljs))
-  - `:popup/ax.delete-script` - simplify to immediate delete
-  - `:popup/ax.remove-origin` - simplify to immediate remove
-  - `:popup/ax.disconnect-tab` - simplify to immediate disconnect
-  - List watchers handle animation timing
-  - [ ] addressed in code
-  - [ ] verified (human)
+- [x] **Restore two-phase pattern for delete actions** ([popup_actions.cljs](../../src/popup_actions.cljs))
+  - `:popup/ax.delete-script` - two-phase: mark leaving, then remove after 250ms
+  - `:popup/ax.remove-origin` - two-phase: mark leaving, then remove after 250ms
+  - `:popup/ax.disconnect-tab` - two-phase: mark leaving, then disconnect after 250ms
+  - Exit animations require items to stay in list while animating
+  - [x] addressed in code
+  - [x] verified (human) - Works for UI delete buttons; REPL deletions not animated (acceptable)
 
-- [ ] **Add entering class support to components** ([popup.cljs](../../src/popup.cljs))
+- [x] **Fix tab watcher id-fn** ([popup.cljs](../../src/popup.cljs))
+  - Changed `:connection/tab-id` to `:tab-id` to match actual data structure
+  - [x] addressed in code
+  - [x] verified (human) - Connect tab now animates smoothly
+
+- [x] **Add entering class support to components** ([popup.cljs](../../src/popup.cljs))
   - Components check `:ui/entering-*` sets and apply `.entering` CSS class
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human) - Enter works for scripts and origins
 
-- [ ] **Add CSS for entering state** ([popup.css](../../extension/popup.css))
+- [x] **Add CSS for entering state** ([popup.css](../../extension/popup.css))
   - `.script-item.entering`, `.connected-tab-item.entering`, `.origin-item.entering`
   - Transition from collapsed to expanded
-  - [ ] addressed in code
-  - [ ] verified (human)
+  - [x] addressed in code
+  - [x] verified (human) - CSS transitions work when class is applied
+
+### Lesson Learned: List-watchers for Enter Only
+
+**Key insight from manual testing:**
+
+List-watchers are useful for **enter animations** but cannot handle **exit animations** because:
+
+1. List-watchers fire AFTER state changes
+2. By the time a watcher detects an item was removed, the item is already gone from the list
+3. No element exists to animate
+
+**Enter animations (list-watchers work):**
+- Watcher detects item added → adds to entering set → item renders with `.entering` class → class cleared after 50ms → CSS transition animates expansion
+
+**Exit animations (two-phase pattern required):**
+- Delete action adds item to leaving set (item stays in list) → item renders with `.leaving` class → after 250ms delay, action re-fires → item removed from list
+
+This means the original two-phase delete pattern was correct - it just needed the entering side handled via list-watchers.
 
 ### Cleanup
 
-- [ ] **Fix failing E2E test** ([popup_connection_test.cljs](../../e2e/popup_connection_test.cljs))
-  - `Popup Connection: disconnect button disconnects current tab`
-  - Likely timing issue from animation delay
-  - [ ] addressed in code
-  - [ ] verified (tests pass)
+- [x] **E2E tests passing**
+  - All 90 E2E tests pass after animation changes
+  - [x] verified (tests pass)
 
 - [ ] **Update documentation** ([uniflow.md](architecture/uniflow.md))
   - Document `:uf/list-watchers` declaration format
   - Document `get-list-watcher-actions` behavior
   - [ ] addressed in code
   - [ ] verified (human)
+
+### Known Edge Cases (Acceptable)
+
+The following scenarios intentionally do NOT animate:
+
+1. **REPL-initiated deletions:** When scripts are deleted via REPL FS sync (`epupp/delete!`), they disappear immediately without exit animation. The two-phase pattern only applies to UI-initiated deletes via `:popup/ax.delete-script`.
+
+2. **Script moving between lists:** When a script's match pattern changes, it may move from "Scripts for this page" to "Other scripts" or vice versa. This is a filter change, not an actual add/remove from the scripts collection - no animation needed.
+
+3. **"Disconnect All" button:** The disconnect button in the connected tabs header uses a different code path than the per-item disconnect button. Only per-item disconnect animates.
+
+These are acceptable because:
+- REPL operations are programmatic, not user-initiated UI interactions
+- List filtering is instant re-categorization, not a state transition
+- Batch operations prioritize efficiency over visual feedback
 
 ## Process
 

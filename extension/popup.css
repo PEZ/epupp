@@ -326,7 +326,8 @@ button#connect:active {
               padding var(--transition-duration) ease-out;
 }
 
-.script-item.leaving {
+.script-item.leaving,
+.script-item.entering {
   max-height: 0;
   opacity: 0;
   padding-top: 0;
@@ -704,7 +705,8 @@ button#connect:active {
               padding var(--transition-duration) ease-out;
 }
 
-.connected-tab-item.leaving {
+.connected-tab-item.leaving,
+.connected-tab-item.entering {
   max-height: 0;
   opacity: 0;
   padding-top: 0;
@@ -830,7 +832,8 @@ button#connect:active {
               padding var(--transition-duration) ease-out;
 }
 
-.origin-item.leaving {
+.origin-item.leaving,
+.origin-item.entering {
   max-height: 0;
   opacity: 0;
   padding-top: 0;

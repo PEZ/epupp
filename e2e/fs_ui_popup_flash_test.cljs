@@ -26,7 +26,7 @@
       (js-await (wait-for-popup-ready popup))
 
       ;; Verify script exists and does NOT have flash class initially
-      (let [script-item (.locator popup ".script-item:has-text(\"no_overwrite.cljs\")")]
+      (let [script-item (.locator popup ".script-item:not(.leaving):has-text(\"no_overwrite.cljs\")")]
         (js-await (-> (expect script-item) (.toBeVisible #js {:timeout 2000})))
         (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified")))))
 
@@ -36,7 +36,7 @@
       (js-await (helpers/wait-for-eval-promise "!no-overwrite-conflict" 3000))
 
       ;; The script item should now have the flash animation class
-      (let [script-item (.locator popup ".script-item:has-text(\"no_overwrite.cljs\")")]
+      (let [script-item (.locator popup ".script-item:not(.leaving):has-text(\"no_overwrite.cljs\")")]
         (js-await (-> (expect script-item)
                       (.toHaveClass (js/RegExp. "script-item-fs-modified") #js {:timeout 2000}))))
 
@@ -66,7 +66,7 @@
     (js-await (wait-for-popup-ready popup))
 
     ;; Verify script exists and does NOT have flash class initially
-    (let [script-item (.locator popup ".script-item:has-text(\"flash_test_script.cljs\")")]
+    (let [script-item (.locator popup ".script-item:not(.leaving):has-text(\"flash_test_script.cljs\")")]
       (js-await (-> (expect script-item) (.toBeVisible #js {:timeout 2000})))
       (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified")))))
 
@@ -81,7 +81,7 @@
       (js-await (helpers/wait-for-eval-promise "!flash-update" 3000)))
 
     ;; The script item should now have the flash animation class
-    (let [script-item (.locator popup ".script-item:has-text(\"flash_test_script.cljs\")")]
+    (let [script-item (.locator popup ".script-item:not(.leaving):has-text(\"flash_test_script.cljs\")")]
       (js-await (-> (expect script-item)
                     (.toHaveClass (js/RegExp. "script-item-fs-modified") #js {:timeout 2000}))))
 

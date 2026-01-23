@@ -53,15 +53,12 @@
       {:uf/fxs [[:popup/fx.toggle-script scripts script-id matching-pattern]]})
 
     :popup/ax.delete-script
+    ;; Simple delete - shadow watcher handles animation
     (let [[script-id] args
-          leaving-scripts (or (:ui/leaving-scripts state) #{})]
-      (if (contains? leaving-scripts script-id)
-        ;; Step 2: After animation, actually delete
-        {:uf/db (update state :ui/leaving-scripts disj script-id)
-         :uf/fxs [[:popup/fx.delete-script (:scripts/list state) script-id]]}
-        ;; Step 1: Mark as leaving, defer actual delete
-        {:uf/db (update state :ui/leaving-scripts (fnil conj #{}) script-id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.delete-script script-id]] 250]]}))
+          scripts (:scripts/list state)
+          updated (filterv (fn [s] (not= (:script/id s) script-id)) scripts)]
+      {:uf/db (assoc state :scripts/list updated)
+       :uf/fxs [[:popup/fx.delete-script updated script-id]]})
 
     :popup/ax.load-current-url
     {:uf/fxs [[:popup/fx.load-current-url]]}
@@ -104,17 +101,10 @@
          :uf/fxs [[:popup/fx.add-user-origin origin]]}))
 
     :popup/ax.remove-origin
-    (let [[origin] args
-          leaving-origins (or (:ui/leaving-origins state) #{})]
-      (if (contains? leaving-origins origin)
-        ;; Step 2: After animation, actually remove
-        {:uf/db (-> state
-                    (update :ui/leaving-origins disj origin)
-                    (update :settings/user-origins (fn [origins] (filterv #(not= % origin) origins))))
-         :uf/fxs [[:popup/fx.remove-user-origin origin]]}
-        ;; Step 1: Mark as leaving, defer actual remove
-        {:uf/db (update state :ui/leaving-origins (fnil conj #{}) origin)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.remove-origin origin]] 250]]}))
+    ;; Simple remove - shadow watcher handles animation
+    (let [[origin] args]
+      {:uf/db (update state :settings/user-origins (fn [origins] (filterv (fn [o] (not= o origin)) origins)))
+       :uf/fxs [[:popup/fx.remove-user-origin origin]]})
 
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
@@ -176,15 +166,9 @@
       {:uf/fxs [[:popup/fx.reveal-tab tab-id]]})
 
     :popup/ax.disconnect-tab
-    (let [[tab-id] args
-          leaving-tabs (or (:ui/leaving-tabs state) #{})]
-      (if (contains? leaving-tabs tab-id)
-        ;; Step 2: After animation, actually disconnect
-        {:uf/db (update state :ui/leaving-tabs disj tab-id)
-         :uf/fxs [[:popup/fx.disconnect-tab tab-id]]}
-        ;; Step 1: Mark as leaving, defer actual disconnect
-        {:uf/db (update state :ui/leaving-tabs (fnil conj #{}) tab-id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.disconnect-tab tab-id]] 250]]}))
+    ;; Simple disconnect - shadow watcher handles animation
+    (let [[tab-id] args]
+      {:uf/fxs [[:popup/fx.disconnect-tab tab-id]]})
 
     :popup/ax.mark-scripts-modified
     (let [[script-names] args
@@ -219,5 +203,135 @@
     :popup/ax.clear-bulk-names
     (let [[bulk-id] args]
       {:uf/db (update state :ui/system-bulk-names dissoc bulk-id)})
+
+    ;; Shadow list sync handlers (for animations)
+    ;; These receive {:added-items [...] :removed-ids #{...}} from list watchers
+    :ui/ax.sync-scripts-shadow
+    (let [[{:keys [added-items removed-ids]}] args
+          shadow (:ui/scripts-shadow state)
+          source-list (:scripts/list state)
+          ;; Build map of source items by ID for quick lookup
+          source-by-id (into {} (map (fn [s] [(:script/id s) s]) source-list))
+          ;; Mark removed items as leaving, update existing items' content
+          shadow-with-updates (mapv (fn [s]
+                                      (let [script-id (get-in s [:item :script/id])]
+                                        (cond
+                                          ;; Item being removed - mark as leaving
+                                          (contains? removed-ids script-id)
+                                          (assoc s :ui/leaving? true)
+                                          ;; Item exists in source - update content
+                                          (contains? source-by-id script-id)
+                                          (assoc s :item (get source-by-id script-id))
+                                          ;; Item not in source and not being removed - keep as is
+                                          :else s)))
+                                    shadow)
+          ;; Add new items with entering flag
+          new-shadow-items (mapv (fn [item] {:item item :ui/entering? true :ui/leaving? false}) added-items)
+          updated-shadow (into shadow-with-updates new-shadow-items)
+          added-ids (set (map :script/id added-items))]
+      {:uf/db (assoc state :ui/scripts-shadow updated-shadow)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-scripts added-ids]] 50]
+                [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-scripts removed-ids]] 250]]})
+
+    :ui/ax.clear-entering-scripts
+    (let [[ids] args]
+      {:uf/db (update state :ui/scripts-shadow
+                      (fn [shadow]
+                        (mapv (fn [s]
+                                (if (contains? ids (get-in s [:item :script/id]))
+                                  (assoc s :ui/entering? false)
+                                  s))
+                              shadow)))})
+
+    :ui/ax.remove-leaving-scripts
+    (let [[ids] args]
+      {:uf/db (update state :ui/scripts-shadow
+                      (fn [shadow]
+                        (filterv (fn [s] (not (contains? ids (get-in s [:item :script/id])))) shadow)))})
+
+    :ui/ax.sync-connections-shadow
+    (let [[{:keys [added-items removed-ids]}] args
+          shadow (:ui/connections-shadow state)
+          source-list (:repl/connections state)
+          ;; Build map of source items by ID for quick lookup
+          source-by-id (into {} (map (fn [c] [(:tab-id c) c]) source-list))
+          ;; Mark removed items as leaving, update existing items' content
+          shadow-with-updates (mapv (fn [s]
+                                      (let [tab-id (:tab-id (:item s))]
+                                        (cond
+                                          ;; Item being removed - mark as leaving
+                                          (contains? removed-ids tab-id)
+                                          (assoc s :ui/leaving? true)
+                                          ;; Item exists in source - update content
+                                          (contains? source-by-id tab-id)
+                                          (assoc s :item (get source-by-id tab-id))
+                                          ;; Item not in source and not being removed - keep as is
+                                          :else s)))
+                                    shadow)
+          ;; Add new items with entering flag
+          new-shadow-items (mapv (fn [item] {:item item :ui/entering? true :ui/leaving? false}) added-items)
+          updated-shadow (into shadow-with-updates new-shadow-items)
+          added-ids (set (map :tab-id added-items))]
+      {:uf/db (assoc state :ui/connections-shadow updated-shadow)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-tabs added-ids]] 50]
+                [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-tabs removed-ids]] 250]]})
+
+    :ui/ax.clear-entering-tabs
+    (let [[ids] args]
+      {:uf/db (update state :ui/connections-shadow
+                      (fn [shadow]
+                        (mapv (fn [s]
+                                (if (contains? ids (:tab-id (:item s)))
+                                  (assoc s :ui/entering? false)
+                                  s))
+                              shadow)))})
+
+    :ui/ax.remove-leaving-tabs
+    (let [[ids] args]
+      {:uf/db (update state :ui/connections-shadow
+                      (fn [shadow]
+                        (filterv (fn [s] (not (contains? ids (:tab-id (:item s))))) shadow)))})
+
+    :ui/ax.sync-origins-shadow
+    (let [[{:keys [added-items removed-ids]}] args
+          shadow (:ui/origins-shadow state)
+          source-list (:settings/user-origins state)
+          ;; Build set of source items for quick lookup (origins are strings)
+          source-set (set source-list)
+          ;; Mark removed items as leaving, update existing items' content (for origins, item IS the origin string)
+          shadow-with-updates (mapv (fn [s]
+                                      (let [origin (:item s)]
+                                        (cond
+                                          ;; Item being removed - mark as leaving
+                                          (contains? removed-ids origin)
+                                          (assoc s :ui/leaving? true)
+                                          ;; Item exists in source - content already correct for origins
+                                          (contains? source-set origin)
+                                          s
+                                          ;; Item not in source and not being removed - keep as is
+                                          :else s)))
+                                    shadow)
+          ;; Add new items with entering flag
+          new-shadow-items (mapv (fn [item] {:item item :ui/entering? true :ui/leaving? false}) added-items)
+          updated-shadow (into shadow-with-updates new-shadow-items)]
+      {:uf/db (assoc state :ui/origins-shadow updated-shadow)
+       :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-origins (set added-items)]] 50]
+                [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-origins removed-ids]] 250]]})
+
+    :ui/ax.clear-entering-origins
+    (let [[ids] args]
+      {:uf/db (update state :ui/origins-shadow
+                      (fn [shadow]
+                        (mapv (fn [s]
+                                (if (contains? ids (:item s))
+                                  (assoc s :ui/entering? false)
+                                  s))
+                              shadow)))})
+
+    :ui/ax.remove-leaving-origins
+    (let [[ids] args]
+      {:uf/db (update state :ui/origins-shadow
+                      (fn [shadow]
+                        (filterv (fn [s] (not (contains? ids (:item s)))) shadow)))})
 
     :uf/unhandled-ax))

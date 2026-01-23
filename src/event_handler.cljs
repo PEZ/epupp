@@ -95,28 +95,66 @@
           (js/console.warn "Unhandled effect:" fx))
         generic-result))))
 
+(defn- apply-id-fn
+  "Apply id-fn to an item. Handles both keyword and function id-fns.
+   In Squint, keywords are strings, so we use get for keyword access."
+  [id-fn item]
+  (if (fn? id-fn)
+    (id-fn item)
+    (get item id-fn)))
+
 (defn get-list-watcher-actions
-  "Pure function that detects list membership changes between old and new state.
+  "Pure function that detects list membership changes.
    Returns a vector of actions to dispatch based on :uf/list-watchers declarations.
 
-   Watcher declaration format:
-   {:uf/list-watchers {:path/key {:id-fn :item/id :on-change :action/key}}}
+   Two modes:
+   1. Classic (no :shadow-path): Compares old-state vs new-state source lists
+      Returns: [[:action {:added #{ids} :removed #{ids}}]]
 
-   Returns actions like:
-   [[:action/key {:added #{new-ids} :removed #{old-ids}}]]"
+   2. Shadow mode (with :shadow-path): Compares source to shadow in current state
+      Shadow items have shape: {:item <original> :ui/entering? bool :ui/leaving? bool}
+      Items already marked :ui/leaving? are excluded from removal detection.
+      Returns: [[:action {:added-items [...] :removed-ids #{ids}}]]"
   [old-state new-state]
   (let [watchers (:uf/list-watchers old-state)]
     (when (seq watchers)
       (->> watchers
-           (map (fn [[list-path {:keys [id-fn on-change]}]]
-                  (let [old-list (or (get old-state list-path) [])
-                        new-list (or (get new-state list-path) [])
-                        old-ids (set (map id-fn old-list))
-                        new-ids (set (map id-fn new-list))
-                        added (set/difference new-ids old-ids)
-                        removed (set/difference old-ids new-ids)]
-                    (when (or (seq added) (seq removed))
-                      [on-change {:added added :removed removed}]))))
+           (map (fn [[list-path watcher-config]]
+                  (let [id-fn (:id-fn watcher-config)
+                        shadow-path (:shadow-path watcher-config)
+                        on-change (:on-change watcher-config)]
+                    (if shadow-path
+                      ;; Shadow mode: compare source to shadow in new-state
+                      ;; Also detects content changes (same ID, different content)
+                      (let [source-list (or (get new-state list-path) [])
+                            shadow-list (or (get new-state shadow-path) [])
+                            source-ids (set (map (fn [item] (apply-id-fn id-fn item)) source-list))
+                            ;; Shadow IDs exclude items already leaving
+                            active-shadow-items (filterv (fn [s] (not (:ui/leaving? s))) shadow-list)
+                            shadow-ids (set (map (fn [s] (apply-id-fn id-fn (:item s))) active-shadow-items))
+                            added-ids (set/difference source-ids shadow-ids)
+                            removed-ids (set/difference shadow-ids source-ids)
+                            ;; Detect content changes: items with same ID but different content
+                            shadow-by-id (into {} (map (fn [s] [(apply-id-fn id-fn (:item s)) (:item s)]) active-shadow-items))
+                            has-content-changes? (some (fn [item]
+                                                         (let [id (apply-id-fn id-fn item)
+                                                               shadow-item (get shadow-by-id id)]
+                                                           (and shadow-item (not= item shadow-item))))
+                                                       source-list)
+                            ;; Get full items for additions from source
+                            added-items (filterv (fn [item] (contains? added-ids (apply-id-fn id-fn item))) source-list)]
+                        ;; Fire if membership OR content changed
+                        (when (or (seq added-items) (seq removed-ids) has-content-changes?)
+                          [on-change {:added-items added-items :removed-ids removed-ids}]))
+                      ;; Classic mode: compare old vs new source
+                      (let [old-list (or (get old-state list-path) [])
+                            new-list (or (get new-state list-path) [])
+                            old-ids (set (map (fn [item] (apply-id-fn id-fn item)) old-list))
+                            new-ids (set (map (fn [item] (apply-id-fn id-fn item)) new-list))
+                            added (set/difference new-ids old-ids)
+                            removed (set/difference old-ids new-ids)]
+                        (when (or (seq added) (seq removed))
+                          [on-change {:added added :removed removed}]))))))
            (remove nil?)
            vec))))
 
