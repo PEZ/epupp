@@ -312,65 +312,43 @@
 ;; Built-in Script Detection Tests
 ;; ============================================================
 
-(describe "builtin-script-id?"
-          (fn []
-            (test "returns truthy for builtin prefix"
-                  (fn []
-                    (-> (expect (script-utils/builtin-script-id? "epupp-builtin-gist-installer"))
-                        (.toBeTruthy))))
-
-            (test "returns falsy for user script ids"
-                  (fn []
-                    (-> (expect (script-utils/builtin-script-id? "my-custom-script"))
-                        (.toBeFalsy))
-                    (-> (expect (script-utils/builtin-script-id? "user-script-123"))
-                        (.toBeFalsy))))
-
-            (test "returns falsy for nil"
-                  (fn []
-                    (-> (expect (script-utils/builtin-script-id? nil))
-                        (.toBeFalsy))))
-
-            (test "returns falsy for empty string"
-                  (fn []
-                    (-> (expect (script-utils/builtin-script-id? ""))
-                        (.toBeFalsy))))))
-
 (describe "builtin-script?"
           (fn []
-            (test "returns truthy for script with builtin prefix"
+            (test "returns truthy for script with :script/builtin? true"
                   (fn []
-                    (let [script {:script/id "epupp-builtin-gist-installer"
-                                  :script/name "Gist Installer"}]
+                    (let [script {:script/id "script-123"
+                                  :script/name "Gist Installer"
+                                  :script/builtin? true}]
                       (-> (expect (script-utils/builtin-script? script))
                           (.toBeTruthy)))))
 
-            (test "returns falsy for user scripts"
+            (test "returns falsy for user scripts without builtin flag"
                   (fn []
                     (let [script {:script/id "my-user-script"
                                   :script/name "My Script"}]
                       (-> (expect (script-utils/builtin-script? script))
                           (.toBeFalsy)))))
 
-            (test "returns falsy for script with nil id"
+            (test "returns falsy for script with :script/builtin? false"
                   (fn []
-                    (let [script {:script/id nil
-                                  :script/name "No ID Script"}]
+                    (let [script {:script/id "script-456"
+                                  :script/name "User Script"
+                                  :script/builtin? false}]
                       (-> (expect (script-utils/builtin-script? script))
                           (.toBeFalsy)))))
 
-            (test "returns falsy for script without id key"
+            (test "returns falsy for nil script"
                   (fn []
-                    (let [script {:script/name "No ID Key"}]
-                      (-> (expect (script-utils/builtin-script? script))
-                          (.toBeFalsy)))))))
+                    (-> (expect (script-utils/builtin-script? nil))
+                        (.toBeFalsy))))))
 
 (describe "filter-visible-scripts"
           (fn []
             (test "excludes built-ins by default"
                   (fn []
-                    (let [scripts [{:script/id "epupp-builtin-gist-installer"
-                                    :script/name "Builtin"}
+                    (let [scripts [{:script/id "script-builtin"
+                                    :script/name "Builtin"
+                                    :script/builtin? true}
                                    {:script/id "script-1"
                                     :script/name "User"}]
                           result (script-utils/filter-visible-scripts scripts false)]
@@ -379,13 +357,14 @@
 
             (test "includes built-ins when include-hidden? is true"
                   (fn []
-                    (let [scripts [{:script/id "epupp-builtin-gist-installer"
-                                    :script/name "Builtin"}
+                    (let [scripts [{:script/id "script-builtin"
+                                    :script/name "Builtin"
+                                    :script/builtin? true}
                                    {:script/id "script-1"
                                     :script/name "User"}]
                           result (script-utils/filter-visible-scripts scripts true)]
                       (-> (expect (count result)) (.toBe 2))
-                      (-> (expect (some #(= "epupp-builtin-gist-installer" (:script/id %)) result))
+                      (-> (expect (some #(= "script-builtin" (:script/id %)) result))
                           (.toBeTruthy)))))))
 
 ;; ============================================================

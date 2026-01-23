@@ -158,19 +158,10 @@
 ;; Built-in script detection
 ;; ============================================================
 
-(def builtin-id-prefix "epupp-builtin-")
-
-(defn builtin-script-id?
-  "Check if a script ID is a built-in script ID."
-  [script-id]
-  (and script-id (.startsWith script-id builtin-id-prefix)))
-
 (defn builtin-script?
-  "Check if a script is a built-in script.
-   Checks :script/builtin? metadata first, falls back to ID prefix for backward compatibility."
+  "Check if a script is a built-in script via :script/builtin? metadata."
   [script]
-  (or (:script/builtin? script)
-      (builtin-script-id? (:script/id script))))
+  (boolean (:script/builtin? script)))
 
 (defn name-matches-builtin?
   "Check if a normalized script name matches any builtin script's normalized name.
@@ -270,7 +261,6 @@
            :url_matches_any_pattern_QMARK_ url-matches-any-pattern?
            :get_matching_pattern get-matching-pattern
            :get_required_origins get-required-origins
-           :builtin_script_id_QMARK_ builtin-script-id?
            :builtin_script_QMARK_ builtin-script?
            :name_matches_builtin_QMARK_ name-matches-builtin?
            :filter_visible_scripts filter-visible-scripts

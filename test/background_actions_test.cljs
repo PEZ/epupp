@@ -22,8 +22,9 @@
 
 (def builtin-script
   (assoc base-script
-         :script/id "epupp-builtin-gist-installer"
-         :script/name "gist-installer.cljs"))
+         :script/id "script-builtin-1"
+         :script/name "gist-installer.cljs"
+         :script/builtin? true))
 
 (def initial-state
   {:storage/scripts [base-script]
@@ -304,8 +305,9 @@
 
 (def builtin-with-display-name
   (assoc base-script
-         :script/id "epupp-builtin-gist-installer"
-         :script/name "GitHub Gist Installer (Built-in)"))
+         :script/id "script-builtin-2"
+         :script/name "GitHub Gist Installer (Built-in)"
+         :script/builtin? true))
 
 (describe ":fs/ax.save-script - built-in name protection"
   (fn []
