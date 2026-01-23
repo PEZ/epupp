@@ -723,15 +723,15 @@
                                  :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
       "Auto-connect REPL to all pages"]
      [:p.description.warning
-      "Warning: Enabling this will inject the Scittle REPL on every page you visit, "
-      "even tabs never connected before. Only enable if you understand the implications."]]
+      "Enabling this will connect an Epupp REPL to every page you visit, "
+      "even in tabs never connected before. It will also disconnect any Epupp REPL connected on the same Websocket port."]]
     [:div.setting
      [:label.checkbox-label
       [:input#fs-repl-sync {:type "checkbox"
                             :checked fs-repl-sync-enabled
                             :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
       "Enable FS REPL Sync"]
-     [:p.description
+     [:p.description.warning
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
    [:div.settings-section
