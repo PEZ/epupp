@@ -316,7 +316,7 @@
      [:div.result-label "Error"]
      text]))
 
-(defn results-area [{:keys [panel/results]}]
+(defn results-area [{:panel/keys [results]}]
   [:div.results-area
    (if (seq results)
      (for [[idx result] (map-indexed vector results)]
@@ -338,7 +338,7 @@
     (dispatch! [[:editor/ax.set-selection
                  (when text {:start start :end end :text text})]])))
 
-(defn code-input [{:keys [panel/code panel/evaluating? panel/scittle-status]}]
+(defn code-input [{:panel/keys [code evaluating? scittle-status]}]
   (let [loading? (= :loading scittle-status)]
     [:div.code-input-area
      [:textarea#code-area {:value code
@@ -474,7 +474,7 @@
 
 (defn- new-script-button
   "Button to clear editor and start a new script. Shows confirmation if code has changed."
-  [{:keys [panel/code]}]
+  [{:panel/keys [code]}]
   (let [has-changes? (and (seq code)
                           (not= code panel-actions/default-script))]
     [view-elements/action-button
@@ -489,9 +489,9 @@
                            (dispatch! [[:editor/ax.new-script]])))}
      "New"]))
 
-(defn save-script-section [{:keys [panel/script-name panel/script-match panel/script-description
-                                   panel/code panel/script-id panel/original-name
-                                   panel/manifest-hints]
+(defn save-script-section [{:panel/keys [script-name script-match script-description
+                                         code script-id original-name
+                                         manifest-hints]
                             :as _state}]
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
         has-manifest? (some? manifest-hints)

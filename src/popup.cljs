@@ -56,7 +56,7 @@
 
 
 
-(defn generate-server-cmd [{:keys [ports/nrepl ports/ws]}]
+(defn generate-server-cmd [{:ports/keys [nrepl ws]}]
   (popup-utils/generate-server-cmd {:deps-string (.-depsString config)
                                     :nrepl-port nrepl
                                     :ws-port ws}))
@@ -102,7 +102,7 @@
 
 (defn ^:async save-ports-to-storage!
   "Persist port configuration to chrome.storage.local."
-  [{:keys [ports/nrepl ports/ws]}]
+  [{:ports/keys [nrepl ws]}]
   (let [tab (js-await (get-active-tab))
         key (storage-key tab)]
     (js/chrome.storage.local.set
@@ -494,7 +494,7 @@
     ;; Fallback for unexpected types
     :else (str pattern)))
 
-(defn script-item [{:keys [script/name script/match script/enabled script/description script/run-at]
+(defn script-item [{:script/keys [name match enabled description run-at]
                     script-id :script/id
                     :as script}
                    current-url
@@ -573,8 +573,8 @@
          [:span.script-description {:title description}
           description]])]]))
 
-(defn matching-scripts-section [{:keys [scripts/list scripts/current-url ui/scripts-shadow
-                                        ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
+(defn matching-scripts-section [{:scripts/keys [list current-url]
+                                 :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
   (let [;; Filter and sort shadow items by matching URL
         matching-shadow (->> scripts-shadow
                              (filterv #(script-utils/get-matching-pattern current-url (:item %)))
@@ -586,7 +586,7 @@
         modified-set (or recently-modified-scripts #{})]
     [:div.script-list
      (if (seq matching-shadow)
-       (for [{:keys [item ui/entering? ui/leaving?]} matching-shadow
+       (for [{:keys [item] :ui/keys [entering? leaving?]} matching-shadow
              :let [script item]]
          ^{:key (:script/id script)}
          [script-item script current-url
@@ -626,8 +626,8 @@
 ;; Settings Components
 ;; ============================================================
 
-(defn other-scripts-section [{:keys [scripts/current-url ui/scripts-shadow
-                                     ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
+(defn other-scripts-section [{:scripts/keys [current-url]
+                              :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
   (let [;; Filter and sort shadow items by NOT matching URL
         other-shadow (->> scripts-shadow
                           (filterv #(not (script-utils/get-matching-pattern current-url (:item %))))
@@ -635,7 +635,7 @@
         modified-set (or recently-modified-scripts #{})]
     [:div.script-list
      (if (seq other-shadow)
-       (for [{:keys [item ui/entering? ui/leaving?]} other-shadow
+       (for [{:keys [item] :ui/keys [entering? leaving?]} other-shadow
              :let [script item]]
          ^{:key (:script/id script)}
          [script-item script current-url
@@ -702,9 +702,8 @@
       :button/on-click #(dispatch! [[:popup/ax.add-origin]])}
      "Add"]]])
 
-(defn settings-content [{:keys [settings/default-origins settings/new-origin
-                                settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled
-                                ui/origins-shadow]}]
+(defn settings-content [{:settings/keys [default-origins new-origin auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled]
+                         :ui/keys [origins-shadow]}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -790,7 +789,7 @@
        :button/on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])}
       nil])])
 
-(defn connected-tabs-section [{:keys [ui/connections-shadow scripts/current-tab-id]}]
+(defn connected-tabs-section [{:ui/keys [connections-shadow] :scripts/keys [current-tab-id]}]
   [:div.connected-tabs-section
    (if (seq connections-shadow)
      (let [current-tab-id-str (str current-tab-id)
@@ -800,7 +799,7 @@
                             (if (= (:tab-id item) current-tab-id-str) 0 1))
                           connections-shadow)]
        [:div.connected-tabs-list
-        (for [{:keys [item ui/entering? ui/leaving?]} sorted-shadow
+        (for [{:keys [item] :ui/keys [entering? leaving?]} sorted-shadow
               :let [{:keys [tab-id] :as conn} item]]
           ^{:key tab-id}
           [connected-tab-item (assoc conn
@@ -817,11 +816,11 @@
 
 (defn- current-tab-connected?
   "Check if current tab is in the connections list"
-  [{:keys [repl/connections scripts/current-tab-id]}]
+  [{:repl/keys [connections] :scripts/keys [current-tab-id]}]
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:keys [ports/nrepl ports/ws] :as state}]
+(defn repl-connect-content [{:ports/keys [nrepl ws] :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
      [:div.step
@@ -868,8 +867,11 @@
 
 
 
-(defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url repl/connections
-                        settings/default-origins settings/user-origins] :as state}]
+(defn popup-ui [{:ui/keys [sections-collapsed]
+                 :scripts/keys [list current-url]
+                 :repl/keys [connections]
+                 :settings/keys [default-origins user-origins]
+                 :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
