@@ -35,7 +35,7 @@
 
         ;; Warning text is visible
         (js-await (-> (expect (.locator popup ".setting:has(#auto-connect-repl) .description.warning"))
-                      (.toContainText "inject the Scittle REPL")))
+                      (.toContainText "will connect")))
 
         (js-await (.close popup)))
 
