@@ -70,8 +70,10 @@ Before writing any code, **delegate to the epupp-testrunner subagent** to run te
 ### TDD Cycle (Per Feature)
 
 1. **Write failing test first** - Lock in expected behavior
+   - **Unit tests**: Write directly or delegate to Clojure-editor
+   - **E2E tests**: **ALWAYS delegate to `epupp-e2e-expert` subagent** - Give feature description, let it design and write the test
 2. **Run test to confirm failure** - bb test or bb test:e2e
-3. **Implement minimal code** - Delegate to clojure-editor subagent to make the test pass
+3. **Implement minimal code** - Delegate to Clojure-editor subagent to make the test pass
 4. **Run test to confirm pass** - Verify the implementation
 5. **Check problems** - Use get_errors to verify no lint/syntax issues
 6. **Refactor if needed** - Clean up while tests pass
@@ -170,22 +172,18 @@ Use `clojure_list_sessions` to verify REPL availability:
 ```
 
 ### E2E Test Pattern
-```clojure
-(test "Feature: description"
-  (^:async fn []
-    (let [[context extension-id popup-url panel-url] (js-await (setup-extension browser))
-          popup (js-await (open-popup context popup-url))]
-      ;; ... assertions with short timeouts ...
-      (js-await (assert-no-errors! popup))
-      (js-await (.close popup)))))
-```
 
-### Critical E2E Patterns
+**ALWAYS delegate E2E test writing to `epupp-e2e-expert` subagent.** Provide:
+- Feature description and user journey
+- Related test files for context
+- Whether it's a new test or update to existing test
 
-1. **No fixed sleeps** - Use Playwright polling assertions or fixture wait helpers
-2. **Short timeouts for TDD** - 500ms default, increase only when justified
-3. **Check fixtures.cljs** - Extensive helper library exists
-4. **Use assert-no-errors!** - Check for uncaught errors before closing pages
+The epupp-e2e-expert knows:
+- Flat test structure (top-level `defn-` functions)
+- No fixed sleeps - use Playwright polling assertions
+- Short timeouts for TDD (500ms default)
+- Fixtures from e2e/fixtures.cljs
+- Log-powered test patterns when needed
 
 ## Quality Gates
 
@@ -218,6 +216,7 @@ Before completing:
 
 - **epupp-elaborator**: Prompt refinement. Give user's prompt, file context, and task context.
 - **epupp-testrunner**: Test execution and reporting. Runs tests and reports results without attempting fixes.
+- **epupp-e2e-expert**: E2E test writing. Give feature description, let it design and implement the test. **MANDATORY for all E2E test work.**
 - **Clojure-editor**: File modifications. Give complete edit plans with file paths, line numbers, and forms.
 - **research**: Deep investigation. Give clear questions.
 - **commit**: Git operations. Give summary of work.

@@ -31,8 +31,8 @@ We are working in a branch for the not yet released userscripts feature. Nothing
 
 ## Operating Principles
 
-[phi fractal euler tao pi mu] | [delta lambda infinity/0 | epsilon phi sigma mu c h] | OODA
-Human - AI - REPL
+[phi fractal euler tao pi mu] | [Δ λ ∞/0 | ε⚡φ Σ⚡μ c⚡h] | OODA
+Human ⊗ AI ⊗ REPL
 
 - **phi**: Golden balance between doing and observing
 - **fractal**: Solutions emerge from understanding patterns at all scales
@@ -125,13 +125,15 @@ Before writing any code, **delegate to the epupp-testrunner subagent** to run te
 ### TDD Cycle (Per Feature)
 
 1. **Write failing test first** - Lock in expected behavior
+   - **Unit tests**: Write directly or delegate to Clojure-editor
+   - **E2E tests**: **ALWAYS delegate to `epupp-e2e-expert` subagent** - Give feature description, let it design and write the test
 2. **Run test to confirm failure** - bb test or bb test:e2e
 3. **Implement minimal code** - Delegate to Clojure-editor subagent to make the test pass
 4. **Run test to confirm pass** - Verify the implementation
 5. **Check problems** - Use get_errors to verify no lint/syntax issues
 6. **Refactor if needed** - Clean up while tests pass
 
-Effective use of e2e testing is a success factor. With smart e2e tests you can verify that small parts of your implementation work, and take iterative steps toward full implementation.
+Effective use of e2e testing is a success factor. With smart e2e tests you can verify that small parts of your implementation work, and take iterative steps toward full implementation. **The epupp-e2e-expert subagent is your E2E testing specialist** - it knows the testing philosophy, patterns, and fixtures intimately.
 
 ## Phase 5: Verify with Tests
 
@@ -198,23 +200,18 @@ Edit plan for src/background.cljs:
 
 ### E2E Tests (Squint + Playwright)
 
-```clojure
-(test "Feature: workflow description"
-  (^:async fn []
-    (let [[context extension-id popup-url panel-url] (js-await (setup-extension browser))
-          popup (js-await (open-popup context popup-url))]
-      (js-await (-> (expect (.locator popup ".element"))
-                    (.toBeVisible #js {:timeout 500})))
-      (js-await (assert-no-errors! popup))
-      (js-await (.close popup)))))
-```
+**ALWAYS delegate E2E test writing to `epupp-e2e-expert` subagent.** Provide:
+- Feature description and user journey
+- Related test files for context
+- Whether it's a new test or update to existing test
 
-### Critical E2E Patterns
-
-1. **No fixed sleeps** - Use Playwright polling assertions or fixture wait helpers
-2. **Short timeouts for TDD** - 500ms default, increase only when justified
-3. **Check fixtures.cljs** - Extensive helper library exists
-4. **Use assert-no-errors!** - Check for uncaught errors before closing pages
+The epupp-e2e-expert knows:
+- Flat test structure (top-level `defn-` functions)
+- No fixed sleeps - use Playwright polling assertions
+- Short timeouts for TDD (500ms default)
+- Fixtures from e2e/fixtures.cljs
+- Log-powered test patterns when needed
+- Complete testing philosophy from testing-e2e.md
 
 ## Quality Gates
 
@@ -245,6 +242,7 @@ Before completing:
 ## Subagents
 
 - **epupp-testrunner**: Test execution and reporting. Runs tests and reports results without attempting fixes.
+- **epupp-e2e-expert**: E2E test writing. Give feature description, let it design and implement the test. **MANDATORY for all E2E test work.**
 - **Clojure-editor**: File modifications. Give complete edit plans with file paths, line numbers, and forms.
 - **research**: Deep investigation. Give clear questions.
 - **commit**: Git operations. Give summary of work.
