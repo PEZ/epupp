@@ -104,9 +104,7 @@
     (get item id-fn)))
 
 (defn get-list-watcher-actions
-  "Pure function that detects list membership changes.
-   Returns a vector of actions to dispatch based on :uf/list-watchers declarations.
-
+  "Process list watchers, comparing state before and after changes.
    Two modes:
    1. Classic (no :shadow-path): Compares old-state vs new-state source lists
       Returns: [[:action {:added #{ids} :removed #{ids}}]]
@@ -142,7 +140,14 @@
                                                            (and shadow-item (not= item shadow-item))))
                                                        source-list)
                             ;; Get full items for additions from source
-                            added-items (filterv (fn [item] (contains? added-ids (apply-id-fn id-fn item))) source-list)]
+                            added-items (filterv (fn [item] (contains? added-ids (apply-id-fn id-fn item))) source-list)
+                            _ (when has-content-changes?
+                                (js/console.debug "[DEBUG list-watcher] content changed:"
+                                                  "added-ids:" (count added-ids)
+                                                  "removed-ids:" (count removed-ids)
+                                                  "added-items:" (count added-items)
+                                                  "active-shadow:" (count active-shadow-items)
+                                                  "shadow-total:" (count shadow-list)))]
                         ;; Fire if membership OR content changed
                         (when (or (seq added-items) (seq removed-ids) has-content-changes?)
                           [on-change {:added-items added-items :removed-ids removed-ids}]))

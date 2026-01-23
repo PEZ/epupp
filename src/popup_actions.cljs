@@ -208,6 +208,10 @@
     ;; These receive {:added-items [...] :removed-ids #{...}} from list watchers
     :ui/ax.sync-scripts-shadow
     (let [[{:keys [added-items removed-ids]}] args
+          _ (js/console.debug "[DEBUG sync-scripts-shadow]"
+                              "added-items:" (count added-items)
+                              "removed-ids:" (count removed-ids)
+                              "added-ids:" (mapv :script/id added-items))
           shadow (:ui/scripts-shadow state)
           source-list (:scripts/list state)
           ;; Build map of source items by ID for quick lookup
