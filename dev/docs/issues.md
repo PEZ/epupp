@@ -1,5 +1,8 @@
 # Known Issues
 
+* [ ] Adding a script, then remove a script, then add it again, then the matching doesn't work
+* [ ] Connecting a tab shows an extra, error-colored, system banner after showing the connect banner
+
 ## Safari: Limited Extension Functionality
 
 **Status:** Not investigated

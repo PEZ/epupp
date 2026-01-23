@@ -285,9 +285,86 @@ Add `@keyframes` for exit or use CSS classes:
 }
 ```
 
+## List Item Animations
+
+This section tracks the specific requirements and implementation status for animating list items (scripts, connections, origins) when they are added or removed.
+
+### Requirements
+
+| ID | Requirement | Status |
+|----|-------------|--------|
+| Must-1 | When an item is added to a list, it should smoothly grow in | Not working |
+| Must-2 | When an item is removed from a list, it should smoothly shrink away | Partially working |
+| Must-3 | No extra list growing/shrinking animation before or after item animations | Working |
+| Must-4 | Animations should happen regardless of the source adding or removing the item | Not working |
+
+### Current Status
+
+#### Working
+
+| ID | Description |
+|----|-------------|
+| Works-1 | Removing a connection via the connected-tab disconnect button |
+| Works-2 | Removing a script via the script item delete button |
+| Works-3 | Removing an origin via the origin item delete button |
+
+#### Not Working
+
+| ID | Description |
+|----|-------------|
+| Not-working-1 | Smooth grow when adding a connection from any source |
+| Not-working-2 | Smooth grow when adding a script from any source |
+| Not-working-3 | Smooth grow when adding an origin from any source |
+| Not-working-4 | Smooth shrink when removing a connection via any means other than the connected-tab button |
+| Not-working-5 | Smooth shrink when removing a script via any means other than the script item delete button |
+| Not-working-6 | Smooth shrink when removing an origin via any means other than the origin item button |
+
+### Current Implementation
+
+**Exit animations (two-phase deletion pattern):**
+
+1. State tracks items pending removal via `:ui/leaving-scripts`, `:ui/leaving-origins`, `:ui/leaving-tabs` sets in [popup.cljs#L38-L40](../../src/popup.cljs#L38-L40)
+
+2. Actions in [popup_actions.cljs](../../src/popup_actions.cljs) implement a two-phase pattern:
+   - Phase 1: Mark item as leaving (add to leaving set), schedule deferred dispatch for 250ms
+   - Phase 2: When action fires again and item is in leaving set, perform actual removal
+
+3. Components check if item ID is in leaving set and apply `.leaving` CSS class
+
+4. CSS in [popup.css](../../extension/popup.css) defines `.leaving` state for each item type:
+   - `.script-item.leaving` - max-height: 0, opacity: 0, padding: 0
+   - `.connected-tab-item.leaving` - same pattern
+   - `.origin-item.leaving` - same pattern
+
+**Enter animations (removed):**
+
+- Previously used CSS `@starting-style` to animate items growing in on DOM insertion
+- Removed because Reagami re-renders after item removal caused remaining items to re-trigger `@starting-style`, creating unwanted re-grow animations
+- Current state: items appear instantly (no enter animation)
+
+**Why only button-triggered removals work:**
+
+The two-phase pattern is only wired for actions triggered by UI buttons within the list items themselves:
+- `:popup/ax.delete-script` - triggered by script item delete button
+- `:popup/ax.remove-origin` - triggered by origin item delete button
+- `:popup/ax.disconnect-tab` - triggered by connected-tab disconnect button
+
+Other sources of item removal (REPL FS sync, storage changes, external disconnects) bypass the two-phase pattern and remove items directly from state, causing instant disappearance.
+
+### Design Challenge
+
+To satisfy all requirements, we need:
+
+1. **Enter animations** that don't re-trigger on sibling removal
+2. **Enter animations** that work regardless of adding source
+3. **Exit animations** that work regardless of removal source
+
+This likely requires:
+- A different approach for enter animations (not `@starting-style`)
+- Intercepting all state changes that affect lists, not just specific actions
+
 ## Notes
 
-- **Performance**: Prefer `transform` and `opacity` over `height` when possible
 - **Accessibility**: Don't animate `display: none` - use `visibility` instead
 - **Testing**: CSS animations are not testable via E2E - human verification required
 - **Focus states**: Ensure animations don't interfere with focus management
