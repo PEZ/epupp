@@ -23,7 +23,7 @@
 * [x] Add setting for re-establishing the repl/websocket connection after reload
 * [x] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab
-* [ ] Badge counter not reliable enough
+* [~] Badge counter not reliable enough
 * [x] Editing array matches doesn't work/is unclear
 * [x] Consider moving all metadata to the manifest
 * [x] Undo doesn't work in editor
@@ -43,8 +43,8 @@
 * [ ] Fix fallback port scittle behaviour in Calva
 * [ ] Consider basic Epupp support in Calva (may not be needed if template project can cover)
 * [ ] Scittle nrepl injected twice
-* [ ] Enable allow process also for non-matching
-  * [ ] Or remove allow, and instead always add new scripts as disabled
+* [~] Enable allow process also for non-matching
+  * [x] Or remove allow, and instead always add new scripts as disabled
 * [x] Have a repl file sync mode that can be enabled and which skips confirmation requirements
 * [ ] Call userscripts via the REPL, even if they are not injected
 * [ ] Should we evaluate the epupp.fs/* stuff inte existance instead of injecting?
@@ -63,3 +63,4 @@
     * [ ] There are some non-Uniflow attrocities in panel.cljs
 * [ ] Centralize UI announcements to the banner
 * [ ] Use e2e-prefixed classes for e2e needed checks
+* [ ] The new-script template should add a pattern matching the current page
