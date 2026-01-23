@@ -107,6 +107,21 @@
      (when (and icon label) " ")
      label]))
 
+(defn icon-button
+  "Icon-only button component for compact UI actions.
+   Options (namespaced under :button/):
+   - :icon - required icon component
+   - :on-click - click handler
+   - :title - tooltip text (required for accessibility)
+   - :class - additional CSS classes
+   - :disabled? - boolean"
+  [{:button/keys [icon on-click title class disabled?]}]
+  [:button {:class (str "icon-button" (when class (str " " class)))
+            :on-click on-click
+            :title title
+            :disabled disabled?}
+   [icon {:size 16}]])
+
 (defn status-indicator
   "Status indicator with left border accent.
    Options (namespaced under :status/):
@@ -146,14 +161,17 @@
    Options:
    - :type - 'success', 'info', or 'error' (determines banner style)
    - :message - text to display
+   - :favicon - optional favicon URL to display before message
    - :leaving - when true, applies leaving animation class"
-  [{:keys [type message leaving]}]
+  [{:keys [type message favicon leaving]}]
   [:div {:class (str "system-banner "
                      (case type
                        "success" "fs-success-banner"
                        "info" "fs-info-banner"
                        "fs-error-banner")
                      (when leaving " leaving"))}
+   (when favicon
+     [:img.system-banner-favicon {:src favicon :width 16 :height 16}])
    [:span message]])
 
 (defn system-banners

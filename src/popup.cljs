@@ -19,7 +19,6 @@
 (defonce !state
   (atom {:ports/nrepl "1339"
          :ports/ws "1340"
-         :ui/copy-feedback nil
          :ui/reveal-highlight-script-name nil ; Temporary highlight when revealing a script
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
@@ -127,13 +126,14 @@
     :popup/fx.copy-command
     (let [[cmd] args]
       (js-await (js/navigator.clipboard.writeText cmd))
-      (dispatch [[:db/ax.assoc :ui/copy-feedback "Copied!"]])
-      (js/setTimeout (fn [] (dispatch [[:db/ax.assoc :ui/copy-feedback nil]])) 1500))
+      (dispatch [[:popup/ax.show-system-banner "success" "browser-nrepl command copied to your clipboard." {} nil]]))
 
     :popup/fx.connect
     (let [[port] args
-          tab (js-await (get-active-tab))]
-      (dispatch [[:popup/ax.show-system-banner "info" "Connecting..." {} "connection"]])
+          tab (js-await (get-active-tab))
+          tab-title (or (.-title tab) "tab")
+          tab-favicon (.-favIconUrl tab)]
+      (dispatch [[:popup/ax.show-system-banner "info" (str "Connecting to \"" tab-title "\"...") {:favicon tab-favicon} "connection"]])
       (try
         (let [resp (js-await
                     (js/Promise.
@@ -148,11 +148,11 @@
                             (resolve response)))))))]
           (if (and resp (.-success resp))
             ;; Success - show banner with same category to replace "Connecting..."
-            (dispatch [[:popup/ax.show-system-banner "success" "Connected!" {} "connection"]])
+            (dispatch [[:popup/ax.show-system-banner "success" (str "Connected to \"" tab-title "\"") {:favicon tab-favicon} "connection"]])
             ;; Failure from background worker
-            (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (or (and resp (.-error resp)) "Connect failed")) {} "connection"]])))
+            (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (or (and resp (.-error resp)) "Connect failed")) {:favicon tab-favicon} "connection"]])))
         (catch :default err
-          (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (.-message err)) {} "connection"]]))))
+          (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (.-message err)) {:favicon tab-favicon} "connection"]]))))
 
     :popup/fx.check-status
     (let [[_ws-port] args
@@ -453,17 +453,13 @@
             :on-input (fn [e]
                         (on-change (.. e -target -value)))}]])
 
-(defn command-box [{:keys [command copy-feedback]}]
+(defn command-box [{:keys [command]}]
   [:div.command-box
    [:code command]
-   [view-elements/action-button
-    {:button/variant :secondary
-     :button/class "copy-btn"
-     :button/icon icons/copy
-     :button/size :lg
+   [view-elements/icon-button
+    {:button/icon icons/copy
      :button/title "Copy browser-nrepl server command line. (You need Babashka to run it)"
-     :button/on-click #(dispatch! [[:popup/ax.copy-command]])}
-    copy-feedback]])
+     :button/on-click #(dispatch! [[:popup/ax.copy-command]])}]])
 
 (defn collapsible-section [{:keys [id title expanded? badge-count max-height]} & children]
   [:div.collapsible-section {:class (when-not expanded? "collapsed")}
@@ -825,7 +821,7 @@
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:keys [ports/nrepl ports/ws ui/copy-feedback] :as state}]
+(defn repl-connect-content [{:keys [ports/nrepl ports/ws] :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
      [:div.step
@@ -839,8 +835,7 @@
                     :label "WebSocket:"
                     :value ws
                     :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
-      [command-box {:command (generate-server-cmd state)
-                    :copy-feedback copy-feedback}]]
+      [command-box {:command (generate-server-cmd state)}]]
 
      [:div.step
       [:div.step-header "2. Connect browser to server"]

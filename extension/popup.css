@@ -125,6 +125,15 @@ body {
   color: var(--color-text-fs-info-banner-strong);
 }
 
+/* System banner favicon */
+.system-banner-favicon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
 @keyframes banner-slide-in {
   from {
     opacity: 0;
@@ -225,24 +234,28 @@ code {
   border: 1px solid var(--border-light);
 }
 
-.copy-btn {
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 500;
+/* Icon-only button for compact UI actions */
+.icon-button {
+  background: none;
+  border: none;
+  padding: 4px;
   cursor: pointer;
-  border: 1px solid var(--border-light);
-  background: var(--btn-bg);
+  color: var(--text-secondary);
   border-radius: var(--radius);
-  color: var(--text-primary);
-  transition: all var(--transition-duration);
-  flex-shrink: 0;
-  width: 75px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-duration), background var(--transition-duration);
 }
 
-.copy-btn:hover {
+.icon-button:hover {
+  color: var(--text-primary);
   background: var(--btn-hover-bg);
-  border-color: var(--border-light);
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Connect section */

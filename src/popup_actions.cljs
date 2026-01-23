@@ -181,13 +181,15 @@
     {:uf/db (assoc state :ui/recently-modified-scripts #{})}
 
     ;; System banner actions - multi-message support
-    ;; Each banner has {:id :type :message :category :leaving} and expires independently
+    ;; Each banner has {:id :type :message :favicon :category :leaving} and expires independently
+    ;; bulk-info map can contain: :bulk-op? :bulk-final? :bulk-names :favicon
     ;; Optional 4th arg :category - banners with same category replace each other
     :popup/ax.show-system-banner
     (let [[event-type message bulk-info category] args
-          {:keys [bulk-op? bulk-final? bulk-names]} bulk-info
+          {:keys [bulk-op? bulk-final? bulk-names favicon]} bulk-info
           banner-id (str "msg-" (:system/now uf-data) "-" (count (:ui/system-banners state)))
           new-banner (cond-> {:id banner-id :type event-type :message message}
+                       favicon (assoc :favicon favicon)
                        category (assoc :category category))
           banners (or (:ui/system-banners state) [])
           ;; If category provided, filter out existing banners with same category
