@@ -29,11 +29,11 @@
 /* Primary - blue action buttons (Connect, Eval, Rename) */
 .btn-primary {
   background: var(--clojure-blue);
-  color: white;
+  color: var(--color-text-on-primary);
 }
 
 .btn-primary:hover {
-  background: #4a71c4;
+  background: var(--clojure-blue-hover);
 }
 
 .btn-primary:disabled {
@@ -45,11 +45,11 @@
 /* Success - green action buttons (Save, Allow) */
 .btn-success {
   background: var(--clojure-green);
-  color: #1e1e1e;
+  color: var(--color-text-on-success);
 }
 
 .btn-success:hover {
-  background: #82cd3a;
+  background: var(--clojure-green-hover);
 }
 
 .btn-success:disabled {
@@ -238,3 +238,186 @@ kbd {
   color: var(--clojure-blue);
   flex-shrink: 0;
 }
+
+/* ============================================================
+   System Banners - FS sync feedback and notifications
+   ============================================================ */
+
+.fs-success-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-success-banner);
+  border-bottom: 1px solid var(--color-border-fs-success-banner);
+  color: var(--color-text-fs-success-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in var(--transition-duration) ease-out;
+}
+
+.fs-success-banner strong {
+  color: var(--color-text-fs-success-banner-strong);
+}
+
+.fs-error-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-error-banner);
+  border-bottom: 1px solid var(--color-border-fs-error-banner);
+  color: var(--color-text-fs-error-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in var(--transition-duration) ease-out;
+}
+
+.fs-error-banner strong {
+  color: var(--color-text-fs-error-banner-strong);
+}
+
+.fs-info-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-fs-info-banner);
+  border-bottom: 1px solid var(--color-border-fs-info-banner);
+  color: var(--color-text-fs-info-banner);
+  font-size: 12px;
+  text-align: center;
+  animation: banner-slide-in var(--transition-duration) ease-out;
+}
+
+.fs-info-banner strong {
+  color: var(--color-text-fs-info-banner-strong);
+}
+
+/* System banner favicon */
+.system-banner-favicon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+/* Banner animations */
+@keyframes banner-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes banner-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.fs-success-banner.leaving,
+.fs-error-banner.leaving,
+.fs-info-banner.leaving {
+  animation: banner-slide-out var(--transition-duration) ease-in forwards;
+}
+
+/* ============================================================
+   Form Inputs
+   ============================================================ */
+
+/* Text input field - consistent styling for form inputs */
+.input-field {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+  box-shadow: 0 0 0 3px rgba(88, 129, 216, 0.1);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Smaller input variant for ports, short values */
+.input-field-sm {
+  width: 68px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+/* ============================================================
+   List Items - Base pattern for animated list entries
+   ============================================================ */
+
+/* Base list item with enter/leave animation support */
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  max-height: 120px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+}
+
+.list-item.leaving,
+.list-item.entering {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* List container with consistent spacing */
+.list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Icon action button within list items */
+.list-item-action {
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.list-item-action:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-btn-hover);
+}
+
+.list-item-action--edit:hover {
+  background: var(--color-bg-edit-hover);
+  color: var(--clojure-blue);
+}
+
+.list-item-action--delete:hover {
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
+}
+

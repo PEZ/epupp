@@ -3,34 +3,6 @@
    Design tokens imported from design-tokens.css
    ============================================================ */
 
-:root {
-  /* Legacy aliases - mapped to design tokens for gradual migration */
-  --radius: var(--radius-md);
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --bg-body: var(--color-bg-base);
-  --bg-subtle: var(--color-bg-elevated);
-  --bg-accent: var(--color-bg-accent);
-  --fg-accent: var(--color-fg-accent);
-  --border-light: var(--color-border);
-  --code-bg: var(--color-bg-code);
-  --btn-bg: var(--color-bg-btn);
-  --btn-hover-bg: var(--color-bg-btn-hover);
-  --status-failed-bg: var(--color-bg-status-failed);
-  --status-failed-border: var(--color-border-status-failed);
-  --approval-bg: var(--color-bg-approval);
-  --approval-border: var(--color-border-approval);
-  --edit-hover-bg: var(--color-bg-edit-hover);
-  --edit-hint-bg: var(--color-bg-edit-hint);
-  --delete-hover-bg: var(--color-bg-delete-hover);
-  --delete-hover-color: var(--color-text-delete-hover);
-  --approval-header-color: var(--color-text-approval-header);
-  --success: var(--color-success);
-  --error: var(--color-error);
-  --border-color: var(--color-border);
-}
-
 html {
   width: 380px;
   max-width: 380px;
@@ -43,8 +15,8 @@ body {
   max-height: 600px;
   padding: 20px 10px 20px 20px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--text-primary);
-  background: var(--bg-subtle);
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
   line-height: 1.5;
   margin: 0;
   overflow-x: hidden;
@@ -62,11 +34,11 @@ body {
 
 /* Popup header overrides - matches panel header style */
 .popup-header-wrapper {
-  background: var(--bg-subtle);
+  background: var(--color-bg-elevated);
 }
 
 .popup-header {
-  background: var(--bg-subtle);
+  background: var(--color-bg-elevated);
 }
 
 .popup-header .app-header-title {
@@ -82,85 +54,7 @@ body {
   margin-left: 6px;
 }
 
-/* FS sync feedback banners */
-.fs-success-banner {
-  padding: 8px 12px;
-  background: var(--color-bg-fs-success-banner);
-  border-bottom: 1px solid var(--color-border-fs-success-banner);
-  color: var(--color-text-fs-success-banner);
-  font-size: 12px;
-  text-align: center;
-  animation: banner-slide-in var(--transition-duration) ease-out;
-}
-
-.fs-success-banner strong {
-  color: var(--color-text-fs-success-banner-strong);
-}
-
-.fs-error-banner {
-  padding: 8px 12px;
-  background: var(--color-bg-fs-error-banner);
-  border-bottom: 1px solid var(--color-border-fs-error-banner);
-  color: var(--color-text-fs-error-banner);
-  font-size: 12px;
-  text-align: center;
-  animation: banner-slide-in var(--transition-duration) ease-out;
-}
-
-.fs-error-banner strong {
-  color: var(--color-text-fs-error-banner-strong);
-}
-
-.fs-info-banner {
-  padding: 8px 12px;
-  background: var(--color-bg-fs-info-banner);
-  border-bottom: 1px solid var(--color-border-fs-info-banner);
-  color: var(--color-text-fs-info-banner);
-  font-size: 12px;
-  text-align: center;
-  animation: banner-slide-in var(--transition-duration) ease-out;
-}
-
-.fs-info-banner strong {
-  color: var(--color-text-fs-info-banner-strong);
-}
-
-/* System banner favicon */
-.system-banner-favicon {
-  width: 16px;
-  height: 16px;
-  margin-right: 6px;
-  vertical-align: middle;
-  border-radius: 2px;
-}
-
-@keyframes banner-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes banner-slide-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-100%);
-  }
-}
-
-.fs-success-banner.leaving,
-.fs-error-banner.leaving,
-.fs-info-banner.leaving {
-  animation: banner-slide-out var(--transition-duration) ease-in forwards;
-}
+/* Banner styles consolidated in components.css */
 
 /* Steps */
 .step {
@@ -170,7 +64,7 @@ body {
 .step-header {
   font-weight: 500;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -192,15 +86,15 @@ body {
 
 .port-row label {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .port-row input {
   width: 68px;
   padding: 6px 8px;
   font-size: 13px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-family: ui-monospace, SFMono-Regular, monospace;
   transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
 }
@@ -223,15 +117,15 @@ body {
 code {
   flex: 1;
   min-width: 0; /* Allow flex item to shrink below content size */
-  background: var(--code-bg);
+  background: var(--color-bg-code);
   padding: 10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, monospace;
   overflow-x: auto;
   white-space: nowrap;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-light);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 /* Icon-only button for compact UI actions */
@@ -240,8 +134,8 @@ code {
   border: none;
   padding: 4px;
   cursor: pointer;
-  color: var(--text-secondary);
-  border-radius: var(--radius);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -249,8 +143,8 @@ code {
 }
 
 .icon-button:hover {
-  color: var(--text-primary);
-  background: var(--btn-hover-bg);
+  color: var(--color-text-primary);
+  background: var(--color-bg-btn-hover);
 }
 
 .icon-button:disabled {
@@ -264,19 +158,19 @@ code {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
 .connect-target {
   font-size: 13px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 button#connect:hover {
-  background: #4a71c4;
+  background: var(--clojure-blue-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
 }
@@ -290,15 +184,15 @@ button#connect:active {
   margin-top: 14px;
   padding: 10px 12px;
   font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
   border-left: 3px solid var(--clojure-green);
 }
 
 .status.status-failed {
-  border-left-color: var(--status-failed-border);
-  background: var(--status-failed-bg);
+  border-left-color: var(--color-border-status-failed);
+  background: var(--color-bg-status-failed);
 }
 
 .status.status-pending {
@@ -316,9 +210,9 @@ button#connect:active {
   grid-template-columns: auto 1fr;
   gap: 6px 8px;
   padding: 10px 12px;
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   max-height: 120px;
   opacity: 1;
   overflow: hidden;
@@ -336,7 +230,7 @@ button#connect:active {
 }
 
 .script-item-builtin {
-  border-left: 3px solid var(--text-muted);
+  border-left: 3px solid var(--color-text-muted);
 }
 
 .script-button-column {
@@ -383,7 +277,7 @@ button#connect:active {
 .script-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -399,7 +293,7 @@ button#connect:active {
 
 .builtin-indicator {
   display: inline-flex;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: help;
   flex-shrink: 0;
 }
@@ -410,7 +304,7 @@ button#connect:active {
 
 .script-description {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -422,7 +316,7 @@ button#connect:active {
 .script-match {
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -442,14 +336,14 @@ button#connect:active {
   cursor: pointer;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   border-radius: 4px;
   transition: all var(--transition-duration);
 }
 
 .script-delete:hover {
-  background: var(--delete-hover-bg);
-  color: var(--delete-hover-color);
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
 }
 
 .script-inspect {
@@ -457,13 +351,13 @@ button#connect:active {
   cursor: pointer;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   border-radius: 4px;
   transition: all var(--transition-duration);
 }
 
 .script-inspect:hover {
-  background: var(--edit-hover-bg);
+  background: var(--color-bg-edit-hover);
   color: var(--clojure-blue);
 }
 
@@ -472,7 +366,7 @@ button#connect:active {
   cursor: pointer;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   border-radius: 4px;
   transition: all var(--transition-duration);
 }
@@ -494,7 +388,7 @@ button#connect:active {
   margin-top: 6px;
   font-size: 11px;
   color: var(--clojure-blue);
-  background: var(--edit-hint-bg);
+  background: var(--color-bg-edit-hint);
   margin: -1px 0 0 0;
 }
 
@@ -502,16 +396,16 @@ button#connect:active {
   padding: 16px;
   text-align: center;
   font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px dashed var(--border-light);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
 }
 
 /* Approval mode styling for script items */
 .script-item-approval {
-  background: var(--approval-bg);
-  border: 1px solid var(--approval-border);
+  background: var(--color-bg-approval);
+  border: 1px solid var(--color-border-approval);
 }
 
 /* FS REPL Sync - flash animation for modified scripts */
@@ -521,8 +415,8 @@ button#connect:active {
     border-color: var(--clojure-green);
   }
   100% {
-    background: var(--bg-subtle);
-    border-color: var(--border-light);
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border);
   }
 }
 
@@ -543,12 +437,12 @@ button#connect:active {
   background: var(--clojure-green);
   color: white;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   transition: all var(--transition-duration);
 }
 
 .approval-allow:hover {
-  background: #7dc93a;
+  background: var(--clojure-green-hover);
   transform: translateY(-1px);
 }
 
@@ -557,16 +451,16 @@ button#connect:active {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  background: var(--btn-bg);
-  color: var(--delete-hover-color);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
+  background: var(--color-bg-btn);
+  color: var(--color-text-delete-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   transition: all var(--transition-duration);
 }
 
 .approval-deny:hover {
-  background: var(--delete-hover-bg);
-  border-color: var(--delete-hover-color);
+  background: var(--color-bg-delete-hover);
+  border-color: var(--color-text-delete-hover);
 }
 
 /* Scrollbar styling moved to base.css */
@@ -598,15 +492,15 @@ button#connect:active {
   display: flex;
   align-items: center;
   padding: 0.25rem;
-  background: var(--bg-accent);
-  color: var(--fg-accent);
+  background: var(--color-bg-accent);
+  color: var(--color-fg-accent);
   border-radius: 4px;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--color-border);
 }
 
 .section-header:hover {
-  background: color-mix(in oklab, var(--bg-accent), black 30%);
-  color: color-mix(in oklab, var(--fg-accent), white 30%);
+  background: color-mix(in oklab, var(--color-bg-accent), black 30%);
+  color: color-mix(in oklab, var(--color-fg-accent), white 30%);
 }
 
 .section-title {
@@ -695,9 +589,9 @@ button#connect:active {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   max-height: 60px;
   opacity: 1;
   overflow: hidden;
@@ -730,7 +624,7 @@ button#connect:active {
 
 .connected-tab-title {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -743,7 +637,7 @@ button#connect:active {
   padding: 4px 6px;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
   border-radius: 4px;
   transition: all var(--transition-duration);
@@ -754,13 +648,13 @@ button#connect:active {
 }
 
 .reveal-tab-btn:hover {
-  background: var(--edit-hover-bg);
+  background: var(--color-bg-edit-hover);
   color: var(--clojure-blue);
 }
 
 .disconnect-tab-btn:hover {
-  background: var(--delete-hover-bg);
-  color: var(--delete-hover-color);
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
 }
 
 .connected-tab-item.current-tab {
@@ -774,7 +668,7 @@ button#connect:active {
   text-align: center;
   font-size: 12px;
   font-style: italic;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .settings-section {
@@ -787,12 +681,12 @@ button#connect:active {
   font-size: 13px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .section-description {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
 }
@@ -806,7 +700,7 @@ button#connect:active {
 .origins-label {
   font-size: 11px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -822,9 +716,9 @@ button#connect:active {
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   max-height: 60px;
   opacity: 1;
   overflow: hidden;
@@ -848,7 +742,7 @@ button#connect:active {
 .origin-url {
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -860,7 +754,7 @@ button#connect:active {
   padding: 2px 4px;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
   border-radius: 4px;
   transition: all var(--transition-duration);
@@ -868,18 +762,18 @@ button#connect:active {
 }
 
 .origin-delete:hover {
-  background: var(--delete-hover-bg);
-  color: var(--delete-hover-color);
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
 }
 
 .no-origins {
   padding: 12px;
   text-align: center;
   font-size: 11px;
-  color: var(--text-muted);
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px dashed var(--border-light);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
 }
 
 .add-origin-form {
@@ -898,10 +792,10 @@ button#connect:active {
   padding: 8px 10px;
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  background: var(--bg-body);
-  color: var(--text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
   transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
 }
 
@@ -912,7 +806,7 @@ button#connect:active {
 }
 
 .add-origin-form input::placeholder {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .add-btn {
@@ -923,13 +817,13 @@ button#connect:active {
   background: var(--clojure-blue);
   color: white;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   transition: all var(--transition-duration);
   flex-shrink: 0;
 }
 
 .add-btn:hover {
-  background: #4a71c4;
+  background: var(--clojure-blue-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
 }
@@ -960,17 +854,17 @@ button#connect:active {
 
 .settings-section .description {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
   padding: 8px 10px;
   border-left: 3px solid var(--color-blue);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .settings-section .description.warning {
-  background: var(--approval-bg);
-  border-left: 3px solid var(--approval-border);
+  background: var(--color-bg-approval);
+  border-left: 3px solid var(--color-border-approval);
 }
 
 
@@ -987,16 +881,16 @@ button#connect:active {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  background: var(--btn-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
+  background: var(--color-bg-btn);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   transition: all var(--transition-duration);
 }
 
 .export-btn:hover,
 .import-btn:hover {
-  background: var(--btn-hover-bg);
+  background: var(--color-bg-btn-hover);
   border-color: var(--clojure-blue);
 }
 
@@ -1008,7 +902,7 @@ button#connect:active {
 /* Dev log button - only visible in dev/test mode */
 .dev-log-section {
   padding: 8px 12px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: center;
 }
@@ -1018,16 +912,16 @@ button#connect:active {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  background: var(--btn-bg);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
+  background: var(--color-bg-btn);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   transition: all var(--transition-duration);
 }
 
 .dev-log-btn:hover {
-  background: var(--btn-hover-bg);
-  color: var(--text-primary);
+  background: var(--color-bg-btn-hover);
+  color: var(--color-text-primary);
   border-color: var(--clojure-blue);
 }
 
@@ -1037,8 +931,8 @@ button#connect:active {
 
 .popup-footer {
   margin: 12px -20px -20px -20px;
-  border-top: 1px solid var(--border-light);
-  background: var(--bg-subtle);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
 }
 
 /* ============================================================
@@ -1048,7 +942,7 @@ button#connect:active {
 .no-scripts-hint,
 .no-connections-hint {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: 8px;
   line-height: 1.5;
 }
@@ -1056,7 +950,7 @@ button#connect:active {
 .no-scripts-hint code,
 .no-connections-hint code {
   font-family: ui-monospace, SFMono-Regular, monospace;
-  background: var(--code-bg);
+  background: var(--color-bg-code);
   padding: 1px 4px;
   border-radius: 3px;
 }

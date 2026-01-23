@@ -27,13 +27,15 @@ extension/
 | Layer | File | Purpose |
 |-------|------|---------|
 | Tokens | `design-tokens.css` | Variables: colors, spacing, typography, theming |
-| Components | `components.css` | Reusable UI widgets: buttons, badges, status bars, cards |
+| Components | `components.css` | Reusable UI widgets: buttons, badges, banners, status bars, cards, list items, inputs |
 | Base | `base.css` | Reset, scrollbars, app header/footer layout |
 | View | `popup.css`, `panel.css` | Layout and styles specific to each view |
 
 ## Design Tokens
 
 All colors, spacing, and typography are defined as CSS custom properties in `design-tokens.css`.
+
+**Important**: Use tokens directly (e.g., `var(--color-text-primary)`). Do not create local aliases.
 
 ### Naming Convention
 
@@ -43,7 +45,24 @@ All colors, spacing, and typography are defined as CSS custom properties in `des
 --radius-{size}                /* Border radius: sm, md */
 --font-{type}                  /* Typography: sans, mono */
 --font-size-{size}             /* Font sizes: xs, sm, base, md */
+--icon-{size}                  /* Icon sizes: sm (12px), md (16px), lg (20px) */
 ```
+
+### Brand Colors
+
+| Token | Value | Purpose |
+|-------|-------|---------|
+| `--clojure-blue` | #5881d8 | Primary brand color |
+| `--clojure-blue-hover` | #4a71c4 | Primary hover state |
+| `--clojure-green` | #91dc47 | Success/confirm actions |
+| `--clojure-green-hover` | #82cd3a | Success hover state |
+
+### Text on Colored Backgrounds
+
+| Token | Purpose |
+|-------|---------|
+| `--color-text-on-primary` | Text on blue backgrounds (white) |
+| `--color-text-on-success` | Text on green backgrounds (dark) |
 
 ### Key Semantic Colors
 
@@ -51,12 +70,29 @@ All colors, spacing, and typography are defined as CSS custom properties in `des
 |-------|---------|
 | `--color-text-primary` | Main text |
 | `--color-text-secondary` | Muted text |
+| `--color-text-muted` | De-emphasized text |
 | `--color-bg-base` | Page background |
 | `--color-bg-elevated` | Headers, footers, sections |
 | `--color-bg-input` | Form inputs, code areas |
 | `--color-border` | Default borders |
 | `--color-success` | Success states |
 | `--color-error` | Error states |
+| `--color-warning` | Warning states |
+
+### Semantic Aliases (for Clarity)
+
+These provide semantic meaning while referring to existing tokens:
+
+```css
+/* Interactive elements */
+--color-interactive: var(--clojure-blue);
+--color-interactive-hover: var(--clojure-blue-hover);
+
+/* Surface hierarchy for layered UI */
+--color-surface-0: var(--color-bg-base);     /* Page background */
+--color-surface-1: var(--color-bg-elevated); /* Sections, headers */
+--color-surface-2: var(--color-bg-input);    /* Inputs, nested areas */
+```
 
 ### Theming
 
@@ -107,6 +143,41 @@ Light/dark themes are handled via `prefers-color-scheme`:
 .badge                  /* Small pill badge */
 .badge-count            /* Numeric badge */
 .run-at-badge           /* Timing badge (document-start, etc.) */
+```
+
+### System Banners
+
+Feedback banners for FS sync operations and notifications:
+
+```css
+.fs-success-banner      /* Green success message */
+.fs-error-banner        /* Red error message */
+.fs-info-banner         /* Blue info message */
+```
+
+Banners support enter/leave animations:
+- Automatic slide-in on mount
+- Add `.leaving` class before removal for slide-out animation
+
+### Form Inputs
+
+```css
+.input-field            /* Standard text input */
+.input-field-sm         /* Compact input (ports, short values) */
+```
+
+### List Items
+
+Base pattern for animated list entries:
+
+```css
+.list-item              /* Base list item with animation support */
+.list-item.entering     /* Enter animation state */
+.list-item.leaving      /* Leave animation state */
+.list-container         /* Container with consistent spacing */
+.list-item-action       /* Icon action button within items */
+.list-item-action--edit /* Edit action hover style */
+.list-item-action--delete /* Delete action hover style */
 ```
 
 ### Cards

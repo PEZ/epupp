@@ -5,8 +5,14 @@
 :root {
   /* Brand colors */
   --clojure-blue: #5881d8;
+  --clojure-blue-hover: #4a71c4;
   --clojure-blue-light: #99B5F9;
   --clojure-green: #91dc47;
+  --clojure-green-hover: #82cd3a;
+
+  /* Text on colored backgrounds */
+  --color-text-on-primary: #ffffff;
+  --color-text-on-success: #1e1e1e;
 
   /* Semantic colors - light theme defaults */
   --color-text-primary: #1a1a1a;
@@ -86,6 +92,20 @@
   --font-size-sm: 11px;
   --font-size-base: 12px;
   --font-size-md: 13px;
+
+  /* Icon sizes */
+  --icon-sm: 12px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+
+  /* Interactive colors (semantic aliases for clarity) */
+  --color-interactive: var(--clojure-blue);
+  --color-interactive-hover: var(--clojure-blue-hover);
+
+  /* Surface hierarchy (semantic aliases for layered UI) */
+  --color-surface-0: var(--color-bg-base);
+  --color-surface-1: var(--color-bg-elevated);
+  --color-surface-2: var(--color-bg-input);
 
   /* Scrollbar */
   --scrollbar-thumb: #c0c0c0;
