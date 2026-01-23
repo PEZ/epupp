@@ -1,4 +1,5 @@
-(ns event-handler)
+(ns event-handler
+  (:require [clojure.set :as set]))
 
 ;; Uniflow event handling
 ;;
@@ -104,22 +105,20 @@
    Returns actions like:
    [[:action/key {:added #{new-ids} :removed #{old-ids}}]]"
   [old-state new-state]
-  (letfn [(set-difference [s1 s2]
-            (set (filter (fn [x] (not (contains? s2 x))) s1)))]
-    (let [watchers (:uf/list-watchers old-state)]
-      (when (seq watchers)
-        (->> watchers
-             (map (fn [[list-path {:keys [id-fn on-change]}]]
-                    (let [old-list (or (get old-state list-path) [])
-                          new-list (or (get new-state list-path) [])
-                          old-ids (set (map id-fn old-list))
-                          new-ids (set (map id-fn new-list))
-                          added (set-difference new-ids old-ids)
-                          removed (set-difference old-ids new-ids)]
-                      (when (or (seq added) (seq removed))
-                        [on-change {:added added :removed removed}]))))
-             (remove nil?)
-             vec)))))
+  (let [watchers (:uf/list-watchers old-state)]
+    (when (seq watchers)
+      (->> watchers
+           (map (fn [[list-path {:keys [id-fn on-change]}]]
+                  (let [old-list (or (get old-state list-path) [])
+                        new-list (or (get new-state list-path) [])
+                        old-ids (set (map id-fn old-list))
+                        new-ids (set (map id-fn new-list))
+                        added (set/difference new-ids old-ids)
+                        removed (set/difference old-ids new-ids)]
+                    (when (or (seq added) (seq removed))
+                      [on-change {:added added :removed removed}]))))
+           (remove nil?)
+           vec))))
 
 (defn ^:async execute-effects!
   "Execute effects in order. Effects marked with :uf/await are awaited.
@@ -153,7 +152,7 @@
 
    Effects marked with :uf/await are awaited before continuing.
    Use :uf/prev-result in effect args to receive the previous await result.
-   
+
    List watchers (`:uf/list-watchers`) are evaluated after state change.
    Watcher actions are dispatched before dxs and effects."
   ([!state ax-handler ex-handler actions]
