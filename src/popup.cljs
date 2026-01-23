@@ -37,7 +37,10 @@
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
-         :repl/connections []}))   ; Pending FS operation confirmations
+         :ui/leaving-scripts #{}
+         :ui/leaving-origins #{}
+         :ui/leaving-tabs #{}
+         :repl/connections []}))
 
 
 
@@ -486,7 +489,7 @@
                     script-id :script/id
                     :as script}
                    current-url
-                   {:keys [reveal-highlight? recently-modified?]}]
+                   {:keys [reveal-highlight? recently-modified? leaving?]}]
   (let [matching-pattern (script-utils/get-matching-pattern current-url script)
         builtin? (script-utils/builtin-script? script)
         ;; All patterns for display - join for single row, newlines for tooltip
@@ -503,7 +506,8 @@
     [:div.script-item {:data-script-name name
                        :class (str (when builtin? "script-item-builtin ")
                                    (when reveal-highlight? "script-item-reveal-highlight ")
-                                   (when recently-modified? "script-item-fs-modified"))}
+                                   (when recently-modified? "script-item-fs-modified ")
+                                   (when leaving? "leaving"))}
      ;; Column 1: Button column (play button only)
      [:div.script-button-column
       [view-elements/action-button
@@ -565,7 +569,8 @@
   (popup-utils/sort-scripts-for-display scripts script-utils/builtin-script?))
 
 (defn matching-scripts-section [{:keys [scripts/list scripts/current-url
-                                        ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
+                                        ui/reveal-highlight-script-name ui/recently-modified-scripts
+                                        ui/leaving-scripts]}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %))
                               sort-scripts)
@@ -573,14 +578,16 @@
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
         example-pattern (script-utils/url-to-match-pattern current-url {:wildcard-scheme? true})
-        modified-set (or recently-modified-scripts #{})]
+        modified-set (or recently-modified-scripts #{})
+        leaving-set (or leaving-scripts #{})]
     [:div.script-list
      (if (seq matching-scripts)
        (for [script matching-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
           {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
-           :recently-modified? (contains? modified-set (:script/name script))}])
+           :recently-modified? (contains? modified-set (:script/name script))
+           :leaving? (contains? leaving-set (:script/id script))}])
        [:div.no-scripts
         (if no-user-scripts?
           ;; No user scripts at all - guide to create first one
@@ -614,25 +621,29 @@
 ;; ============================================================
 
 (defn other-scripts-section [{:keys [scripts/list scripts/current-url
-                                     ui/reveal-highlight-script-name ui/recently-modified-scripts]}]
+                                     ui/reveal-highlight-script-name ui/recently-modified-scripts
+                                     ui/leaving-scripts]}]
   (let [other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %)))
                            sort-scripts)
-        modified-set (or recently-modified-scripts #{})]
+        modified-set (or recently-modified-scripts #{})
+        leaving-set (or leaving-scripts #{})]
     [:div.script-list
      (if (seq other-scripts)
        (for [script other-scripts]
          ^{:key (:script/id script)}
          [script-item script current-url
           {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
-           :recently-modified? (contains? modified-set (:script/name script))}])
+           :recently-modified? (contains? modified-set (:script/name script))
+           :leaving? (contains? leaving-set (:script/id script))}])
        [:div.no-scripts
         "No other scripts."
         [:div.no-scripts-hint
          "Scripts that won't auto-run for this page appear here."]])]))
 
-(defn origin-item [{:keys [origin editable on-delete]}]
-  [:div.origin-item {:class (when-not editable "origin-item-default")}
+(defn origin-item [{:keys [origin editable on-delete leaving?]}]
+  [:div.origin-item {:class (str (when-not editable "origin-item-default ")
+                                 (when leaving? "leaving"))}
    [:span.origin-url origin]
    (when editable
      [view-elements/action-button
@@ -653,17 +664,19 @@
         ^{:key origin}
         [origin-item {:origin origin :editable false}])]]))
 
-(defn user-origins-list [origins]
-  [:div.origins-section
-   [:div.origins-label "Your custom origins"]
-   (if (seq origins)
-     [:div.origin-list
-      (for [origin origins]
-        ^{:key origin}
-        [origin-item {:origin origin
-                      :editable true
-                      :on-delete #(dispatch! [[:popup/ax.remove-origin %]])}])]
-     [:div.no-origins "No custom origins added yet."])])
+(defn user-origins-list [origins leaving-origins]
+  (let [leaving-set (or leaving-origins #{})]
+    [:div.origins-section
+     [:div.origins-label "Your custom origins"]
+     (if (seq origins)
+       [:div.origin-list
+        (for [origin origins]
+          ^{:key origin}
+          [origin-item {:origin origin
+                        :editable true
+                        :leaving? (contains? leaving-set origin)
+                        :on-delete #(dispatch! [[:popup/ax.remove-origin %]])}])]
+       [:div.no-origins "No custom origins added yet."])]))
 
 (defn add-origin-form [{:keys [value]}]
   [:div.add-origin-form
@@ -681,7 +694,9 @@
       :button/on-click #(dispatch! [[:popup/ax.add-origin]])}
      "Add"]]])
 
-(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled]}]
+(defn settings-content [{:keys [settings/default-origins settings/user-origins settings/new-origin
+                                settings/auto-connect-repl settings/auto-reconnect-repl settings/fs-repl-sync-enabled
+                                ui/leaving-origins]}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -718,7 +733,7 @@
      "Scripts can only be installed from URLs that start with one of these prefixes. "
      "Format: Must start with http:// or https:// and end with / or :"]
     [default-origins-list default-origins]
-    [user-origins-list user-origins]
+    [user-origins-list user-origins leaving-origins]
     [add-origin-form {:value new-origin}]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
@@ -740,8 +755,9 @@
 ;; Connected Tabs Section
 ;; ============================================================
 
-(defn connected-tab-item [{:keys [tab-id port title url favicon is-current-tab]}]
-  [:div.connected-tab-item {:class (when is-current-tab "current-tab")
+(defn connected-tab-item [{:keys [tab-id port title url favicon is-current-tab leaving?]}]
+  [:div.connected-tab-item {:class (str (when is-current-tab "current-tab ")
+                                        (when leaving? "leaving"))
                             :title (str title (when url (str "\n" url)))}
    (when favicon
      [:img.connected-tab-favicon {:src favicon :width 16 :height 16}])
@@ -765,10 +781,11 @@
        :button/on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])}
       nil])])
 
-(defn connected-tabs-section [{:keys [repl/connections scripts/current-tab-id]}]
+(defn connected-tabs-section [{:keys [repl/connections scripts/current-tab-id ui/leaving-tabs]}]
   [:div.connected-tabs-section
    (if (seq connections)
      (let [current-tab-id-str (str current-tab-id)
+           leaving-set (or leaving-tabs #{})
            ;; Sort with current tab first
            sorted-connections (sort-by
                                (fn [{:keys [tab-id]}]
@@ -777,7 +794,9 @@
        [:div.connected-tabs-list
         (for [{:keys [tab-id] :as conn} sorted-connections]
           ^{:key tab-id}
-          [connected-tab-item (assoc conn :is-current-tab (= tab-id current-tab-id-str))])])
+          [connected-tab-item (assoc conn
+                                     :is-current-tab (= tab-id current-tab-id-str)
+                                     :leaving? (contains? leaving-set tab-id))])])
      [view-elements/empty-state {:empty/class "no-connections"}
       "No REPL connections active"
       [:div.no-connections-hint

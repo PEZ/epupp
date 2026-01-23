@@ -54,8 +54,14 @@
 
     :popup/ax.delete-script
     (let [[script-id] args
-          scripts (:scripts/list state)]
-      {:uf/fxs [[:popup/fx.delete-script scripts script-id]]})
+          leaving-scripts (or (:ui/leaving-scripts state) #{})]
+      (if (contains? leaving-scripts script-id)
+        ;; Step 2: After animation, actually delete
+        {:uf/db (update state :ui/leaving-scripts disj script-id)
+         :uf/fxs [[:popup/fx.delete-script (:scripts/list state) script-id]]}
+        ;; Step 1: Mark as leaving, defer actual delete
+        {:uf/db (update state :ui/leaving-scripts (fnil conj #{}) script-id)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.delete-script script-id]] 250]]}))
 
     :popup/ax.load-current-url
     {:uf/fxs [[:popup/fx.load-current-url]]}
@@ -98,10 +104,17 @@
          :uf/fxs [[:popup/fx.add-user-origin origin]]}))
 
     :popup/ax.remove-origin
-    (let [[origin] args]
-      {:uf/db (update state :settings/user-origins
-                      (fn [origins] (filterv #(not= % origin) origins)))
-       :uf/fxs [[:popup/fx.remove-user-origin origin]]})
+    (let [[origin] args
+          leaving-origins (or (:ui/leaving-origins state) #{})]
+      (if (contains? leaving-origins origin)
+        ;; Step 2: After animation, actually remove
+        {:uf/db (-> state
+                    (update :ui/leaving-origins disj origin)
+                    (update :settings/user-origins (fn [origins] (filterv #(not= % origin) origins))))
+         :uf/fxs [[:popup/fx.remove-user-origin origin]]}
+        ;; Step 1: Mark as leaving, defer actual remove
+        {:uf/db (update state :ui/leaving-origins (fnil conj #{}) origin)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.remove-origin origin]] 250]]}))
 
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
@@ -163,8 +176,15 @@
       {:uf/fxs [[:popup/fx.reveal-tab tab-id]]})
 
     :popup/ax.disconnect-tab
-    (let [[tab-id] args]
-      {:uf/fxs [[:popup/fx.disconnect-tab tab-id]]})
+    (let [[tab-id] args
+          leaving-tabs (or (:ui/leaving-tabs state) #{})]
+      (if (contains? leaving-tabs tab-id)
+        ;; Step 2: After animation, actually disconnect
+        {:uf/db (update state :ui/leaving-tabs disj tab-id)
+         :uf/fxs [[:popup/fx.disconnect-tab tab-id]]}
+        ;; Step 1: Mark as leaving, defer actual disconnect
+        {:uf/db (update state :ui/leaving-tabs (fnil conj #{}) tab-id)
+         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.disconnect-tab tab-id]] 250]]}))
 
     :popup/ax.mark-scripts-modified
     (let [[script-names] args

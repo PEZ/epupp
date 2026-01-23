@@ -324,13 +324,13 @@ button#connect:active {
   transition: max-height var(--transition-duration) ease-out,
               opacity var(--transition-duration) ease-out,
               padding var(--transition-duration) ease-out;
+}
 
-  @starting-style {
-    max-height: 0;
-    opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
+.script-item.leaving {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .script-item-builtin {
@@ -702,13 +702,13 @@ button#connect:active {
   transition: max-height var(--transition-duration) ease-out,
               opacity var(--transition-duration) ease-out,
               padding var(--transition-duration) ease-out;
+}
 
-  @starting-style {
-    max-height: 0;
-    opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
+.connected-tab-item.leaving {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .connected-tab-port {
@@ -828,13 +828,13 @@ button#connect:active {
   transition: max-height var(--transition-duration) ease-out,
               opacity var(--transition-duration) ease-out,
               padding var(--transition-duration) ease-out;
+}
 
-  @starting-style {
-    max-height: 0;
-    opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
+.origin-item.leaving {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .origin-item-default {

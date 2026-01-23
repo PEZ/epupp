@@ -17,6 +17,9 @@
                            :matching-scripts false
                            :other-scripts false
                            :settings true}
+   :ui/leaving-scripts #{}
+   :ui/leaving-origins #{}
+   :ui/leaving-tabs #{}
    :browser/brave? false
    :scripts/list []
    :scripts/current-url nil
@@ -154,16 +157,22 @@
                       (-> (expect fx-pattern)
                           (.toBe "*://example.com/*")))))
 
-            (test ":popup/ax.delete-script passes scripts and id to effect"
+            (test ":popup/ax.delete-script defers and then deletes"
                   (fn []
                     (let [scripts [{:script/id "test-1"}]
                           state (assoc initial-state :scripts/list scripts)
-                          result (popup-actions/handle-action state uf-data [:popup/ax.delete-script "test-1"])
-                          [fx-name _fx-scripts fx-id] (first (:uf/fxs result))]
+                          first-result (popup-actions/handle-action state uf-data [:popup/ax.delete-script "test-1"])
+                          [fx-name _actions _delay] (first (:uf/fxs first-result))]
                       (-> (expect fx-name)
-                          (.toBe :popup/fx.delete-script))
-                      (-> (expect fx-id)
-                          (.toBe "test-1")))))))
+                          (.toBe :uf/fx.defer-dispatch))
+                      (-> (expect (contains? (:ui/leaving-scripts (:uf/db first-result)) "test-1"))
+                          (.toBe true))
+                      (let [second-result (popup-actions/handle-action (:uf/db first-result) uf-data [:popup/ax.delete-script "test-1"])
+                            [fx-name-2 _fx-scripts fx-id] (first (:uf/fxs second-result))]
+                        (-> (expect fx-name-2)
+                            (.toBe :popup/fx.delete-script))
+                        (-> (expect fx-id)
+                            (.toBe "test-1"))))))))
 
 (describe "popup inspect action"
           (fn []
@@ -333,18 +342,24 @@
                       (-> (expect message)
                           (.toBe "Origin already exists"))))
 
-            (test ":popup/ax.remove-origin removes origin and triggers effect"
+            (test ":popup/ax.remove-origin defers and then removes"
                   (fn []
                     (let [state (assoc initial-state :settings/user-origins ["https://a.com/" "https://b.com/"])
-                          result (popup-actions/handle-action state uf-data [:popup/ax.remove-origin "https://a.com/"])]
-              ;; Should update state
-                      (-> (expect (count (:settings/user-origins (:uf/db result))))
-                          (.toBe 1))
-                      (-> (expect (first (:settings/user-origins (:uf/db result))))
-                          (.toBe "https://b.com/"))
-              ;; Should trigger remove effect
-                      (let [[fx-name origin] (first (:uf/fxs result))]
-                        (-> (expect fx-name)
+                          first-result (popup-actions/handle-action state uf-data [:popup/ax.remove-origin "https://a.com/"])
+                          [fx-name _actions _delay] (first (:uf/fxs first-result))]
+                      (-> (expect fx-name)
+                          (.toBe :uf/fx.defer-dispatch))
+                      (-> (expect (contains? (:ui/leaving-origins (:uf/db first-result)) "https://a.com/"))
+                          (.toBe true))
+                      (-> (expect (count (:settings/user-origins (:uf/db first-result))))
+                          (.toBe 2))
+                      (let [second-result (popup-actions/handle-action (:uf/db first-result) uf-data [:popup/ax.remove-origin "https://a.com/"])
+                            [fx-name-2 origin] (first (:uf/fxs second-result))]
+                        (-> (expect (count (:settings/user-origins (:uf/db second-result))))
+                            (.toBe 1))
+                        (-> (expect (first (:settings/user-origins (:uf/db second-result))))
+                            (.toBe "https://b.com/"))
+                        (-> (expect fx-name-2)
                             (.toBe :popup/fx.remove-user-origin))
                         (-> (expect origin)
                             (.toBe "https://a.com/"))))))))
