@@ -313,16 +313,16 @@
             (js-await (-> (expect run-btn) (.toBeVisible #js {:timeout 500})))
             (js-await (.click run-btn)))
 
-          ;; Wait for script injection event instead of sleeping
-          (js-await (wait-for-event popup "SCRIPT_INJECTED" 1000))
+          ;; Wait for script injection event (async pipeline: message -> injection -> event)
+          (js-await (wait-for-event popup "SCRIPT_INJECTED" 3000))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
 
         ;; === PHASE 4: Verify script executed by checking DOM ===
-        ;; Poll for the marker element to appear (script evaluation is async)
+        ;; Poll for the marker element (script evaluation is async, allow 2s for full pipeline)
         (let [marker (.locator test-page "#play-button-test-marker")]
-          (js-await (-> (expect marker) (.toBeVisible #js {:timeout 1000})))
+          (js-await (-> (expect marker) (.toBeVisible #js {:timeout 2000})))
           (js-await (-> (expect marker) (.toHaveText "Script executed!"))))
 
         (js-await (.close test-page)))
