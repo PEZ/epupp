@@ -8,6 +8,17 @@ This document tracks the implementation of smooth 0.25s transitions for all dyna
 - **Easing:** `ease-out` for most transitions
 - **Properties:** height, max-height, opacity, transform
 
+## Status: COMPLETE
+
+All high-priority animation items have been implemented and verified. The major achievement is the **Shadow List Architecture** which provides smooth enter/leave animations for all dynamic lists (scripts, connections, origins) regardless of what triggers the change.
+
+**Remaining low-priority items** (deferred):
+- Empty state height transitions (when lists go from empty to populated or vice versa)
+- Panel empty results state transition
+
+**Known issue:**
+- Content updates (editing a script via REPL FS) incorrectly animate as remove+add instead of updating in place. See Known Limitations section for details and potential fix.
+
 ## Required Reading
 
 Before implementing, read these documents and source files:
@@ -41,7 +52,7 @@ Before implementing, read these documents and source files:
 
 ### Popup Elements
 
-- [ ] **Popup: Collapsible section content** ([popup.cljs#L458](../../src/popup.cljs#L458), [popup.css#L510-L525](../../extension/popup.css#L510-L525))
+- [x] **Popup: Collapsible section content** ([popup.cljs#L458](../../src/popup.cljs#L458), [popup.css#L510-L525](../../extension/popup.css#L510-L525))
   - Section content appears/disappears abruptly when toggled - CSS not working, needs investigation
   - [x] addressed in code
   - [x] verified (human)
@@ -56,10 +67,10 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Script list items** ([popup.cljs#L509-L558](../../src/popup.cljs#L509-L558))
-  - List should grow/shrink smoothly when scripts added/deleted (CSS cannot animate height:auto - requires JS)
-  - [ ] addressed in code - DEFERRED (CSS limitation)
-  - [ ] verified (human)
+- [x] **Popup: Script list items** ([popup.cljs#L509-L558](../../src/popup.cljs#L509-L558))
+  - List grows/shrinks smoothly via shadow list architecture (see List Item Animations section)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [x] **Popup: Script edit hint** ([popup.cljs#L570](../../src/popup.cljs#L570))
   - Replace inline hint with a system banner message for calmer UI
@@ -67,18 +78,18 @@ Before implementing, read these documents and source files:
   - [x] verified (human)
 
 - [ ] **Popup: No scripts empty state** ([popup.cljs#L576-L588](../../src/popup.cljs#L576-L588))
-  - Section height should change smoothly (CSS cannot animate height:auto - requires JS)
-  - [ ] addressed in code - DEFERRED (CSS limitation)
+  - Section height transition when switching between empty/populated
+  - [ ] addressed in code - DEFERRED (low priority)
   - [ ] verified (human)
 
-- [ ] **Popup: Connected tabs list** ([popup.cljs#L783-L800](../../src/popup.cljs#L783-L800))
-  - REPL Connect section should grow/shrink smoothly (CSS cannot animate height:auto - requires JS)
-  - [ ] addressed in code - DEFERRED (CSS limitation)
-  - [ ] verified (human)
+- [x] **Popup: Connected tabs list** ([popup.cljs#L783-L800](../../src/popup.cljs#L783-L800))
+  - List grows/shrinks smoothly via shadow list architecture (see List Item Animations section)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [ ] **Popup: No connections empty state** ([popup.cljs#L800-L803](../../src/popup.cljs#L800-L803))
-  - Section height should change smoothly (CSS cannot animate height:auto - requires JS)
-  - [ ] addressed in code - DEFERRED (CSS limitation)
+  - Section height transition when switching between empty/populated
+  - [ ] addressed in code - DEFERRED (low priority)
   - [ ] verified (human)
 
 - [x] **Popup: Add origin error message** ([popup.cljs#L697](../../src/popup.cljs#L697))
@@ -86,15 +97,15 @@ Before implementing, read these documents and source files:
   - [x] addressed in code
   - [x] verified (human)
 
-- [ ] **Popup: Copy feedback** ([popup.cljs#L456](../../src/popup.cljs#L456))
+- [x] **Popup: Copy feedback** ([popup.cljs#L456](../../src/popup.cljs#L456))
   - Button jumps between states - fixed with fixed width (75px)
   - [x] addressed in code
-  - [ ] verified (human)
+  - [x] verified (human)
 
-- [ ] **Popup: Origins lists** ([popup.cljs#L650-L678](../../src/popup.cljs#L650-L678))
-  - Section should grow/shrink smoothly (CSS cannot animate height:auto - requires JS)
-  - [ ] addressed in code - DEFERRED (CSS limitation)
-  - [ ] verified (human)
+- [x] **Popup: Origins lists** ([popup.cljs#L650-L678](../../src/popup.cljs#L650-L678))
+  - List grows/shrinks smoothly via shadow list architecture (see List Item Animations section)
+  - [x] addressed in code
+  - [x] verified (human)
 
 - [x] **Popup: Section badge count** ([popup.cljs#L467](../../src/popup.cljs#L467), [popup.css#L536-L542](../../extension/popup.css#L536-L542))
   - Badge number changes without transition - marked unimportant
@@ -163,7 +174,7 @@ Before implementing, read these documents and source files:
 - [x] **Components: All button transitions** ([components.css#L11-L80](../../extension/components.css#L11-L80))
   - Currently uses 0.15s - standardize to 0.25s
   - [x] addressed in code
-  - [x] verified (human)
+  - [ ] verified (human)
 
 ### Existing Animations to Standardize
 
@@ -293,81 +304,61 @@ This section tracks the specific requirements and implementation status for anim
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| Must-1 | When an item is added to a list, it should smoothly grow in | Not working |
-| Must-2 | When an item is removed from a list, it should smoothly shrink away | Partially working |
-| Must-3 | No extra list growing/shrinking animation before or after item animations | Working |
-| Must-4 | Animations should happen regardless of the source adding or removing the item | Not working |
+| Must-1 | When an item is added to a list, it should smoothly grow in | ✅ Working |
+| Must-2 | When an item is removed from a list, it should smoothly shrink away | ✅ Working |
+| Must-3 | No extra list growing/shrinking animation before or after item animations | ✅ Working |
+| Must-4 | Animations should happen regardless of the source adding or removing the item | ✅ Working |
 
-### Current Status
+### Implementation: Shadow List Architecture
 
-#### Working
+The solution uses **shadow lists** - copies of source lists where each item is wrapped with animation state. List watchers in Uniflow detect changes between source and shadow, dispatching sync actions that manage the animation lifecycle.
 
-| ID | Description |
-|----|-------------|
-| Works-1 | Removing a connection via the connected-tab disconnect button |
-| Works-2 | Removing a script via the script item delete button |
-| Works-3 | Removing an origin via the origin item delete button |
+**Shadow item structure:**
+```clojure
+{:item <original-item>
+ :ui/entering? boolean
+ :ui/leaving? boolean}
+```
 
-#### Not Working
+**Key files:**
+- [event_handler.cljs](../../src/event_handler.cljs) - List watcher with shadow mode and content change detection
+- [popup.cljs](../../src/popup.cljs) - State initialization with shadow lists, components render from shadow
+- [popup_actions.cljs](../../src/popup_actions.cljs) - Shadow sync handlers manage entering/leaving transitions
+- [popup.css](../../extension/popup.css) - CSS classes for `.entering` and `.leaving` states
 
-| ID | Description |
-|----|-------------|
-| Not-working-1 | Smooth grow when adding a connection from any source |
-| Not-working-2 | Smooth grow when adding a script from any source |
-| Not-working-3 | Smooth grow when adding an origin from any source |
-| Not-working-4 | Smooth shrink when removing a connection via any means other than the connected-tab button |
-| Not-working-5 | Smooth shrink when removing a script via any means other than the script item delete button |
-| Not-working-6 | Smooth shrink when removing an origin via any means other than the origin item button |
+**How it works:**
 
-### Current Implementation
+1. **State** maintains both source lists (`:scripts/list`, `:repl/connections`, `:settings/user-origins`) and shadow lists (`:ui/scripts-shadow`, `:ui/connections-shadow`, `:ui/origins-shadow`)
 
-**Exit animations (two-phase deletion pattern):**
+2. **List watchers** (configured in `:uf/list-watchers`) compare source to shadow after every state change:
+   - Items in source but not shadow → dispatch sync action with `:added` items
+   - Items in shadow but not source → dispatch sync action with `:removed` items
+   - Items with changed content → dispatch sync action with `:updated` items
 
-1. State tracks items pending removal via `:ui/leaving-scripts`, `:ui/leaving-origins`, `:ui/leaving-tabs` sets in [popup.cljs#L38-L40](../../src/popup.cljs#L38-L40)
+3. **Sync actions** handle the animation lifecycle:
+   - **Added items**: Insert with `:ui/entering? true`, schedule deferred action to clear flag after 250ms
+   - **Removed items**: Mark with `:ui/leaving? true`, schedule deferred action to actually remove after 250ms
+   - **Updated items**: Update content in place (no animation)
 
-2. Actions in [popup_actions.cljs](../../src/popup_actions.cljs) implement a two-phase pattern:
-   - Phase 1: Mark item as leaving (add to leaving set), schedule deferred dispatch for 250ms
-   - Phase 2: When action fires again and item is in leaving set, perform actual removal
+4. **Components** render from shadow lists, applying CSS classes based on animation flags:
+   - `.entering` class triggers grow-in animation
+   - `.leaving` class triggers shrink-out animation
 
-3. Components check if item ID is in leaving set and apply `.leaving` CSS class
+5. **CSS** uses `max-height`, `opacity`, and `transform` transitions for smooth animations
 
-4. CSS in [popup.css](../../extension/popup.css) defines `.leaving` state for each item type:
-   - `.script-item.leaving` - max-height: 0, opacity: 0, padding: 0
-   - `.connected-tab-item.leaving` - same pattern
-   - `.origin-item.leaving` - same pattern
+**Benefits of this approach:**
+- Works regardless of what triggers the change (UI button, REPL FS sync, storage change, external disconnect)
+- No re-trigger of enter animations when siblings are removed
+- Clean separation: source lists are authoritative data, shadow lists are UI concerns
+- Testable: unit tests verify watcher logic, E2E tests verify visual behavior
 
-**Enter animations (removed):**
+### Known Issues
 
-- Previously used CSS `@starting-style` to animate items growing in on DOM insertion
-- Removed because Reagami re-renders after item removal caused remaining items to re-trigger `@starting-style`, creating unwanted re-grow animations
-- Current state: items appear instantly (no enter animation)
+**Content updates animate as remove+add:**
 
-**Why only button-triggered removals work:**
+* [ ] When an item's content changes (e.g., editing a script's code via REPL FS sync), the item incorrectly animates as if it were removed and re-added. This is because the list watcher's content change detection triggers the same add/remove cycle as membership changes.
 
-The two-phase pattern is only wired for actions triggered by UI buttons within the list items themselves:
-- `:popup/ax.delete-script` - triggered by script item delete button
-- `:popup/ax.remove-origin` - triggered by origin item delete button
-- `:popup/ax.disconnect-tab` - triggered by connected-tab disconnect button
-
-Other sources of item removal (REPL FS sync, storage changes, external disconnects) bypass the two-phase pattern and remove items directly from state, causing instant disappearance.
-
-### Design Challenge
-
-To satisfy all requirements, we need:
-
-1. **Enter animations** that don't re-trigger on sibling removal
-2. **Enter animations** that work regardless of adding source
-3. **Exit animations** that work regardless of removal source
-
-This likely requires:
-- A different approach for enter animations (not `@starting-style`)
-- Intercepting all state changes that affect lists, not just specific actions
-
-### Blocking Issues
-
-**Failing E2E test** - Must be fixed before merging:
-- Test: `popup_connection_test.mjs:210:8 › Popup Connection › Popup Connection: disconnect button disconnects current tab`
-- Likely cause: The two-phase deletion pattern introduces a 250ms delay before actual disconnect, which may break test timing expectations
+**Potential fix:** The sync action handlers should distinguish between content updates and membership changes. Content updates should update the shadow item's `:item` directly without setting `:ui/entering?` or `:ui/leaving?` flags.
 
 ## Notes
 
