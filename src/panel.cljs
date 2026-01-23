@@ -703,12 +703,11 @@
                                    ;; Load existing scripts from storage before rendering
                                    (js-await (storage/load!))
                                    (log/info "Panel" nil "Storage loaded, version:" (get-extension-version))
-                                   ;; Watch for render
-                                   (add-watch !state :panel/render (fn [_ _ _ _] (render!)))
-                                   ;; Watch for state changes to persist editor state
-                                   (add-watch !state :panel/persist
+                                   ;; Watch for render and persist editor state
+                                   (add-watch !state :panel/render
                                               (fn [_ _ old-state new-state]
-                                                ;; Only save when editor fields change
+                                                (render!)
+                                                ;; Only persist when editor fields change
                                                 (when (or (not= (:panel/code old-state) (:panel/code new-state))
                                                           (not= (:panel/script-name old-state) (:panel/script-name new-state))
                                                           (not= (:panel/script-match old-state) (:panel/script-match new-state))
