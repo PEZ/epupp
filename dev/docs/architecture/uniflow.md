@@ -144,13 +144,18 @@ This reads as: "Log the operation, then fetch the data, then transform it, then 
 
 ## Framework Context (`uf-data`)
 
-Actions receive `uf-data` with framework-provided context:
+Actions receive `uf-data` with framework-provided context. Generate it with project-specific data:
 
 ```clojure
-{:system/now 1735920000000}  ; Current timestamp
+(defn- make-uf-data []
+  {:config/deps-string (.-depsString config)
+   :config/allowed-origins (or (.-allowedScriptOrigins config) [])})
+
+(defn dispatch! [actions]
+  (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))
 ```
 
-Extend with project-specific data as needed.
+The framework currently adds `:system/now` timestamp. Extend with whatever your actions need.
 
 ## Subsystem Setup Pattern
 
@@ -243,6 +248,106 @@ Return `:uf/unhandled-ax` or `:uf/unhandled-fx` to delegate to generic handlers 
 | Conditional no-op | Action returning `nil` |
 | Async callback needs dispatch | Effect with `dispatch` parameter |
 | Delayed dispatch | `:uf/fx.defer-dispatch` effect |
+| Animated UI updates | Shadow list watchers (`:shadow-path` mode) |
+| Content change detection | Shadow watchers (same ID, different content) |
+
+## Shadow List Watchers (Animated UI Updates)
+
+List watchers support a **shadow mode** for implementing animated UI transitions. Instead of comparing old-state vs new-state, shadow mode compares the source list (`:scripts/list`) to a shadow list (`:ui/scripts-shadow`) in the **current state**.
+
+### Shadow Item Shape
+
+Shadow items wrap the original item with animation state:
+
+```clojure
+{:item {:script/id "a" :script/name "foo.cljs"}  ; Original item
+ :ui/entering? true   ; Item is animating in
+ :ui/leaving? false}  ; Item is animating out
+```
+
+### Shadow Watcher Configuration
+
+```clojure
+:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                  :shadow-path :ui/scripts-shadow
+                                  :on-change :ui/ax.sync-scripts-shadow}}
+```
+
+When the source list changes, the framework:
+1. Compares source IDs to active shadow IDs (excluding `:ui/leaving?` items)
+2. Detects additions, removals, AND content changes (same ID, different content)
+3. Dispatches the `:on-change` action with `{:added-items [...] :removed-ids #{...}}`
+
+### Content Change Detection
+
+Shadow watchers detect when an item's content changes (same ID, different value):
+
+```clojure
+;; Source updated
+:scripts/list [{:script/id "a" :script/code "new code"}]
+
+;; Shadow has old content
+:ui/scripts-shadow [{:item {:script/id "a" :script/code "old code"} ...}]
+
+;; Watcher fires even though IDs are identical
+```
+
+This ensures UI updates when scripts are modified via REPL or storage changes.
+
+### Example: popup.cljs Setup
+
+```clojure
+(defonce !state
+  (atom {;; Source of truth
+         :scripts/list []
+
+         ;; Shadow for rendering with animation state
+         :ui/scripts-shadow []
+
+         ;; Watcher: compare source to shadow, trigger sync
+         :uf/list-watchers {:scripts/list {:id-fn :script/id
+                                           :shadow-path :ui/scripts-shadow
+                                           :on-change :ui/ax.sync-scripts-shadow}}}))
+```
+
+### Example: Sync Action Handler
+
+```clojure
+:ui/ax.sync-scripts-shadow
+(let [[{:keys [added-items removed-ids]}] args
+      shadow (:ui/scripts-shadow state)
+      source-list (:scripts/list state)
+      source-by-id (into {} (map (fn [s] [(:script/id s) s]) source-list))
+
+      ;; Mark removed items as leaving, update existing items' content
+      shadow-with-updates (mapv (fn [s]
+                                  (let [id (get-in s [:item :script/id])]
+                                    (cond
+                                      (contains? removed-ids id)
+                                      (assoc s :ui/leaving? true)
+
+                                      (contains? source-by-id id)
+                                      (assoc s :item (get source-by-id id))
+
+                                      :else s)))
+                                shadow)
+
+      ;; Add new items with entering flag
+      new-shadow-items (mapv (fn [item] {:item item :ui/entering? true :ui/leaving? false})
+                             added-items)
+      updated-shadow (into shadow-with-updates new-shadow-items)
+      added-ids (set (map :script/id added-items))]
+
+  {:uf/db (assoc state :ui/scripts-shadow updated-shadow)
+   :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-scripts added-ids]] 50]
+            [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-scripts removed-ids]] 250]]})
+```
+
+**Benefits:**
+- Decouples source data from UI animation state
+- Prevents duplicate removal triggers (`:ui/leaving?` items are ignored)
+- Enables CSS-based animations via entering/leaving flags
+- Automatic content update detection for smooth REPL-driven workflows
 
 ## Key Principles
 
@@ -257,6 +362,37 @@ Return `:uf/unhandled-ax` or `:uf/unhandled-fx` to delegate to generic handlers 
 **Cross-subsystem calls not supported.** Each module has its own handlers; one subsystem cannot dispatch actions handled by another. The generic fallback (`:uf/unhandled-*`) provides shared utilities, but not cross-module communication.
 
 If the app grows to need this, consider adding a registry pattern where subsystems register their handlers. Adapt Uniflow to fit - that's the point.
+
+## Testing Patterns
+
+Action handlers are pure functions - easy to test without mocking Chrome APIs:
+
+```clojure
+(test "handles :db/ax.assoc with multiple key-value pairs"
+  (fn []
+    (let [state {:existing "value"}
+          result (event-handler/handle-action state {} [:db/ax.assoc :a 1 :b 2])]
+      (expect (get (:uf/db result) :a) .toBe 1)
+      (expect (get (:uf/db result) :b) .toBe 2))))
+```
+
+For list watchers, test the detection logic directly:
+
+```clojure
+(test "detects items in source but not in shadow (additions)"
+  (fn []
+    (let [state {:uf/list-watchers {:scripts/list {:id-fn :script/id
+                                                   :shadow-path :ui/scripts-shadow
+                                                   :on-change :ax.sync}}
+                 :scripts/list [{:script/id "a"} {:script/id "c"}]
+                 :ui/scripts-shadow [{:item {:script/id "a"} :ui/entering? false :ui/leaving? false}]}
+          result (event-handler/get-list-watcher-actions state state)
+          [action-key payload] (first result)]
+      (expect (count (:added-items payload)) .toBe 1)
+      (expect (:script/id (first (:added-items payload))) .toBe "c"))))
+```
+
+See `test/event_handler_test.cljs` for comprehensive test patterns.
 
 ## Related
 
