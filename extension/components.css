@@ -18,7 +18,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid transparent;
+  border: 1px solid transparent; /* Default border to prevent layout shift button style/state changes */
 }
 
 .btn:disabled {
