@@ -61,8 +61,17 @@
         (js-await (.close popup)))
 
       ;; === PHASE 2.5: Check registration logs ===
-      ;; Give registration time to complete and Chrome to process it
-      (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+      ;; Poll for registration logs (30ms interval, 500ms max) instead of fixed sleep
+      (js-await (let [start (.now js/Date)]
+                  (loop []
+                    (let [logs-text (str/join "\n" @bg-logs)]
+                      (if (str/includes? logs-text "Creating registration for patterns")
+                        true
+                        (if (> (- (.now js/Date) start) 500)
+                          nil  ;; Timeout - proceed to check anyway
+                          (do
+                            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
+                            (recur))))))))
       (let [bg-logs-text (str/join "\n" @bg-logs)]
         ;; Should see successful registration in background logs
         (when (str/includes? bg-logs-text "Sync failed")
@@ -70,8 +79,6 @@
         ;; Should see registration for the pattern
         (js-await (-> (expect bg-logs-text)
                       (.toMatch "Creating registration for patterns"))))
-      ;; Give Chrome additional time to process registration
-      (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
 
       ;; === PHASE 3: Navigate to test page and verify timing ===
       (let [page (js-await (.newPage context))]
