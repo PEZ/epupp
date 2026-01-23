@@ -140,25 +140,47 @@
    existing script's ID to ensure stable identity."
   [state {:fs/keys [now-iso script]}]
   (let [scripts (:storage/scripts state)
-        script-id (:script/id script)
+        incoming-id (:script/id script)
         script-name (:script/name script)
         force? (:script/force? script)
         bulk-id (:script/bulk-id script)
         bulk-index (:script/bulk-index script)
         bulk-count (:script/bulk-count script)
-        existing-by-id (find-script-by-id scripts script-id)
+        existing-by-id (when incoming-id (find-script-by-id scripts incoming-id))
         existing-by-name (find-script-by-name scripts script-name)
-        ;; Update if we found by ID, OR if force-overwriting by name
+        ;; Update if:
+        ;; - Found by ID, OR
+        ;; - Force-overwriting by name, OR
+        ;; - No incoming ID but name exists (name-based tracking)
         is-update? (or (some? existing-by-id)
-                       (and force? (some? existing-by-name)))
-        ;; When force-overwriting by name, use existing script's ID for stable identity
-        script-id (if (and force? existing-by-name (not existing-by-id))
+                       (and force? (some? existing-by-name))
+                       (and (nil? incoming-id) (some? existing-by-name)))
+        ;; Determine script-id:
+        ;; - Force-overwrite by name: use existing script's ID for stable identity
+        ;; - Name-based update (no incoming ID, name exists): use existing script's ID
+        ;; - Has incoming ID: keep it
+        ;; - New script: generate new ID
+        script-id (cond
+                    ;; Force-overwrite by name
+                    (and force? existing-by-name (not existing-by-id))
                     (:script/id existing-by-name)
-                    script-id)
+
+                    ;; Name-based update (no incoming ID, name exists)
+                    (and (nil? incoming-id) existing-by-name)
+                    (:script/id existing-by-name)
+
+                    ;; Has incoming ID
+                    incoming-id
+                    incoming-id
+
+                    ;; New script
+                    :else
+                    (script-utils/generate-script-id))
         script (assoc script :script/id script-id)
         ;; For update checks below, use the matched script
         existing-by-id (or existing-by-id
-                           (when (and force? existing-by-name) existing-by-name))]
+                           (when (and force? existing-by-name) existing-by-name)
+                           (when (and (nil? incoming-id) existing-by-name) existing-by-name))]
     (cond
       ;; Trying to update a builtin script (by ID)
       (and is-update? (script-utils/builtin-script-id? script-id))

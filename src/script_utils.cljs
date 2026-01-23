@@ -45,7 +45,8 @@
                 :script/modified (.-modified s)
                 :script/approved-patterns (js-arr->vec (.-approvedPatterns s))
                 :script/run-at (normalize-run-at (.-runAt s))
-                :script/require (js-arr->vec (.-require s))}))))
+                :script/require (js-arr->vec (.-require s))
+                :script/builtin? (boolean (.-builtin s))}))))
 
 (defn script->js
   "Convert script map to JS object with simple keys for storage"
@@ -60,7 +61,8 @@
        :modified (:script/modified script)
        :approvedPatterns (clj->js (:script/approved-patterns script))
        :runAt (:script/run-at script)
-       :require (clj->js (:script/require script))})
+       :require (clj->js (:script/require script))
+       :builtin (:script/builtin? script)})
 
 ;; ============================================================
 ;; URL pattern matching
@@ -164,9 +166,11 @@
   (and script-id (.startsWith script-id builtin-id-prefix)))
 
 (defn builtin-script?
-  "Check if a script is a built-in script by ID prefix."
+  "Check if a script is a built-in script.
+   Checks :script/builtin? metadata first, falls back to ID prefix for backward compatibility."
   [script]
-  (builtin-script-id? (:script/id script)))
+  (or (:script/builtin? script)
+      (builtin-script-id? (:script/id script))))
 
 (defn name-matches-builtin?
   "Check if a normalized script name matches any builtin script's normalized name.

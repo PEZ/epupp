@@ -265,7 +265,8 @@
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code
                          :script/enabled true
-                         :script/require requires})
+                         :script/require requires
+                         :script/builtin? true})
           (log/info "Storage" nil "Installed/updated built-in gist installer")))
       (catch :default err
         (log/error "Storage" nil "Failed to load gist installer:" err)))))

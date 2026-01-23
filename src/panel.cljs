@@ -19,10 +19,9 @@
          :panel/evaluating? false
          :panel/scittle-status :unknown  ; :unknown, :checking, :loading, :loaded
          :panel/script-name ""
-         :panel/original-name nil  ;; Track for rename detection
+         :panel/original-name nil  ;; Track for rename detection, non-nil means editing existing
          :panel/script-match ""
          :panel/script-description ""
-         :panel/script-id nil  ; non-nil when editing existing script
          :panel/init-version nil
          :panel/needs-refresh? false
          :panel/current-hostname nil
@@ -52,13 +51,13 @@
   "Persist editor state per hostname. Receives state snapshot to ensure consistency."
   [state]
   (when-let [hostname (:panel/current-hostname state)]
-    (let [{:panel/keys [code script-name script-match script-description script-id]} state
+    (let [{:panel/keys [code script-name script-match script-description original-name]} state
           key (panel-state-key hostname)
           state-to-save #js {:code code
                              :scriptName script-name
                              :scriptMatch script-match
                              :scriptDescription script-description
-                             :scriptId script-id}]
+                             :originalName original-name}]
       (js/chrome.storage.local.set
        (js-obj key state-to-save)
        (fn []
@@ -76,12 +75,10 @@
         (fn [result]
           (let [saved (aget result key)
                 code (when saved (.-code saved))
-                script-id (when saved (.-scriptId saved))
                 original-name (when saved (.-scriptName saved))]
             ;; Dispatch initialize action with saved data including hostname
             (dispatch [[:editor/ax.initialize-editor
                         {:code code
-                         :script-id script-id
                          :original-name original-name
                          :hostname hostname}]])
             ;; Call callback after dispatch completes
@@ -206,7 +203,7 @@
                         [:editor/ax.do-eval code]]))))))
 
     :editor/fx.save-script
-    (let [[script normalized-name id action-text] args]
+    (let [[script normalized-name action-text] args]
       ;; Route through background for centralized FS validation
       ;; Use script->js to convert namespaced keys to simple keys
       (js/chrome.runtime.sendMessage
@@ -224,7 +221,6 @@
                                       (.-success response))
                         :error error
                         :name normalized-name
-                        :id id
                         :action-text action-text
                         :unchanged unchanged?
                         :is-update (when response (.-isUpdate response))}]])))))
@@ -264,7 +260,6 @@
        (when-let [script (.-editingScript result)]
          ;; Load script into editor
          (dispatch [[:editor/ax.load-script-for-editing
-                     (.-id script)
                      (.-name script)
                      (.-match script)
                      (.-code script)
@@ -283,7 +278,7 @@
              (when script
                ;; Reload the script content into the editor
                (dispatch [[:editor/ax.load-script-for-editing
-                           (:script/id script)
+
                            (:script/name script)
                            (str/join "\n" (:script/match script))
                            (:script/code script)
@@ -489,7 +484,7 @@
      "New"]))
 
 (defn save-script-section [{:panel/keys [script-name script-match script-description
-                                         code script-id original-name
+                                         code original-name
                                          manifest-hints]
                             :as _state}]
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
@@ -503,14 +498,15 @@
         ;; Normalize current name for comparison
         normalized-name (when (seq script-name)
                           (script-utils/normalize-script-name script-name))
-        ;; Check if we're editing a built-in script
-        editing-builtin? (and script-id (script-utils/builtin-script-id? script-id))
+        ;; Check if we're editing a built-in script (by name lookup)
+        editing-builtin? (and original-name
+                              (script-utils/name-matches-builtin? (storage/get-scripts) original-name))
         ;; Name changed from original?
         name-changed? (and original-name
                            normalized-name
                            (not= normalized-name original-name))
         ;; Show rename when editing user script and name differs from original
-        show-rename? (and script-id
+        show-rename? (and original-name
                           (not editing-builtin?)
                           name-changed?)
         ;; Save button disabled rules:
@@ -531,7 +527,7 @@
                  raw-run-at)]
     [:div.save-script-section
      [:div.save-script-header
-      [:span.header-title (if script-id "Edit Userscript" "Save as Userscript")]
+      [:span.header-title (if original-name "Edit Userscript" "Save as Userscript")]
       [new-script-button _state]]
 
      (if has-manifest?
@@ -648,7 +644,7 @@
       [:div#debug-info {:style {:position "absolute" :left "-9999px"}}
        "hostname: " (:panel/current-hostname state)
        " | code-len: " (count (:panel/code state))
-       " | script-id: " (or (:panel/script-id state) "nil")])
+       " | original-name: " (or (:panel/original-name state) "nil")])
     [save-script-section state]
     [code-input state]
     [results-area state]
@@ -712,7 +708,7 @@
                                                           (not= (:panel/script-name old-state) (:panel/script-name new-state))
                                                           (not= (:panel/script-match old-state) (:panel/script-match new-state))
                                                           (not= (:panel/script-description old-state) (:panel/script-description new-state))
-                                                          (not= (:panel/script-id old-state) (:panel/script-id new-state)))
+                                                          (not= (:panel/original-name old-state) (:panel/original-name new-state)))
                                                   (save-panel-state! new-state))))
                                    (render!)
                                    ;; Check Scittle status on init
@@ -741,7 +737,6 @@
            script-name (aget message "script-name")
            error-msg (aget message "error")
            unchanged? (aget message "unchanged")
-           script-id (aget message "script-id")
            from-name (aget message "from-name")
            bulk-id (aget message "bulk-id")
            bulk-count (aget message "bulk-count")
@@ -753,17 +748,16 @@
                          (some? bulk-count)
                          (or (= operation "save")
                              (= operation "delete")))
-           current-id (:panel/script-id @!state)
            current-name (:panel/script-name @!state)
            original-name (:panel/original-name @!state)
+           ;; Name-based matching only (like FS Sync API)
            matches-name? (or (= script-name current-name)
                              (= script-name original-name))
            matches-from? (or (= from-name current-name)
                              (= from-name original-name))
-           matches-id? (and script-id current-id (= script-id current-id))
            ;; Check if this event affects the currently edited script
            affects-current? (and (or (= event-type "success") (= event-type "info"))
-                                 (or matches-id? matches-name? matches-from?))
+                                 (or matches-name? matches-from?))
            show-banner? (or (= event-type "error")
                             (= event-type "info")
                             (not bulk-op?)

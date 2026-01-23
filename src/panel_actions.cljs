@@ -128,28 +128,21 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match script-description script-id original-name manifest-hints]} state]
+    (let [{:panel/keys [code script-name script-match script-description original-name manifest-hints]} state]
       (if (or (empty? code) (empty? script-name))
         {:uf/dxs [[:editor/ax.show-system-banner "error" "Name and code are required"]]}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
               ;; Check if name changed from original (means create new/copy, not update)
               name-changed? (and original-name (not= normalized-name original-name))
-              ;; ID logic:
-              ;; - No script-id (new script): generate new ID
-              ;; - Name changed (fork/copy): generate new ID
-              ;; - Name unchanged (update): preserve existing ID
-              id (if (and script-id (not name-changed?))
-                   script-id
-                   (script-utils/generate-script-id))
               ;; Normalize match to vector (manifest allows string or vector)
               normalized-match (script-utils/normalize-match-patterns script-match)
               ;; Get require and run-at from manifest hints
               script-require (:require manifest-hints)
               script-run-at (:run-at manifest-hints)
               ;; Don't set :script/enabled here - let storage.cljs default it appropriately
-              script (cond-> {:script/id id
-                              :script/name normalized-name
+              ;; Don't set :script/id here - let background generate/manage IDs
+              script (cond-> {:script/name normalized-name
                               :script/match normalized-match
                               :script/code code}
                        (seq script-description) (assoc :script/description script-description)
@@ -157,12 +150,12 @@
                        script-run-at (assoc :script/run-at script-run-at))
               ;; "Created" for new scripts OR when forking (name changed)
               ;; "Saved" only when updating existing script with same name
-              action-text (if (or (not script-id) name-changed?) "Created" "Saved")]
+              action-text (if (or (not original-name) name-changed?) "Created" "Saved")]
           ;; State update happens in response handler - effect dispatches when background responds
-          {:uf/fxs [[:editor/fx.save-script script normalized-name id action-text]]})))
+          {:uf/fxs [[:editor/fx.save-script script normalized-name action-text]]})))
 
     :editor/ax.handle-save-response
-    (let [[{:keys [success error name action-text id unchanged]}] args]
+    (let [[{:keys [success error name action-text unchanged]}] args]
       (cond
         ;; Error case
         (not success)
@@ -172,16 +165,14 @@
         unchanged
         {:uf/db (assoc state
                        :panel/script-name name
-                       :panel/original-name name
-                       :panel/script-id id)
+                       :panel/original-name name)
          :uf/dxs [[:editor/ax.show-system-banner "info" (str "Script \"" name "\" unchanged")]]}
 
         ;; Success - show success banner
         :else
         {:uf/db (assoc state
                        :panel/script-name name
-                       :panel/original-name name
-                       :panel/script-id id)
+                       :panel/original-name name)
          :uf/dxs [[:editor/ax.show-system-banner "success" (str action-text " \"" name "\"")]]}))
 
     :editor/ax.rename-script
@@ -204,12 +195,11 @@
         {:uf/dxs [[:editor/ax.show-system-banner "error" (or error "Rename failed")]]}))
 
     :editor/ax.load-script-for-editing
-    (let [[id name match code description] args
+    (let [[name match code description] args
           ;; Parse manifest from loaded code for hint display
           manifest (try (mp/extract-manifest code) (catch :default _ nil))
           hints (build-manifest-hints manifest)]
       {:uf/db (assoc state
-                     :panel/script-id id
                      :panel/script-name name
                      :panel/original-name name  ;; Track for rename detection
                      :panel/script-match match
@@ -230,21 +220,20 @@
     {:uf/fxs [[:editor/fx.check-editing-script]]}
 
     :editor/ax.initialize-editor
-    (let [[{:keys [code script-id original-name hostname]}] args
+    (let [[{:keys [code original-name hostname]}] args
           ;; Use default script if no code saved
           effective-code (if (seq code) code default-script)
           ;; Parse manifest from code
           manifest (try (mp/extract-manifest effective-code) (catch :default _ nil))
           hints (build-manifest-hints manifest)
           dxs (build-manifest-dxs manifest)
-          ;; Build new state - only set script-id/original-name if we have saved code
+          ;; Build new state - only set original-name if we have saved code
           new-state (cond-> (assoc state
                                    :panel/code effective-code
                                    :panel/manifest-hints hints
                                    :panel/current-hostname hostname)
-                      ;; Only set these if restoring existing script (has saved code)
-                      (seq code) (assoc :panel/script-id script-id
-                                        :panel/original-name original-name))]
+                      ;; Only set original-name if restoring existing script (has saved code)
+                      (seq code) (assoc :panel/original-name original-name))]
       (cond-> {:uf/db new-state}
         (seq dxs) (assoc :uf/dxs dxs)))
 
@@ -255,7 +244,6 @@
           dxs (build-manifest-dxs manifest)]
       {:uf/db (assoc state
                      :panel/code default-script
-                     :panel/script-id nil
                      :panel/original-name nil
                      :panel/script-name ""
                      :panel/script-match ""

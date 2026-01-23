@@ -85,8 +85,8 @@ Add explicit `:script/builtin?` metadata to builtin scripts so detection doesn't
 #### 1.1 Update builtin script definitions
 Location: `storage.cljs` builtin script definitions
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:script/builtin? true` to each builtin script definition
@@ -95,8 +95,8 @@ Location: `storage.cljs` builtin script definitions
 #### 1.2 Add name-based builtin check function
 Location: `script_utils.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `builtin-script?` function that checks `:script/builtin?` metadata
@@ -106,8 +106,8 @@ Location: `script_utils.cljs`
 #### 1.3 Update panel to use metadata-based builtin check
 Location: `panel.cljs` line ~507
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Replace `(script-utils/builtin-script-id? script-id)` with name-based lookup
@@ -120,8 +120,8 @@ Location: `panel.cljs` line ~507
 #### 2.1 Remove `:panel/script-id` from initial state
 Location: `panel.cljs` line ~25
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `:panel/script-id nil` from `!state` atom definition
@@ -129,8 +129,8 @@ Location: `panel.cljs` line ~25
 #### 2.2 Update `save-panel-state!` to not persist ID
 Location: `panel.cljs` lines ~55-65
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` from destructuring
@@ -139,8 +139,8 @@ Location: `panel.cljs` lines ~55-65
 #### 2.3 Update `restore-panel-state!` to not restore ID
 Location: `panel.cljs` lines ~70-90
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` extraction from saved state
@@ -149,8 +149,8 @@ Location: `panel.cljs` lines ~70-90
 #### 2.4 Update `save-script-section` UI logic
 Location: `panel.cljs` lines ~490-540
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Replace `script-id` checks with `original-name` presence checks
@@ -160,8 +160,8 @@ Location: `panel.cljs` lines ~490-540
 #### 2.5 Update debug info display
 Location: `panel.cljs` line ~651
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` from debug info display
@@ -174,8 +174,8 @@ Location: `panel.cljs` line ~651
 #### 3.1 Update `:editor/ax.save-script` action
 Location: `panel_actions.cljs` lines ~131-165
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` from destructuring
@@ -186,8 +186,8 @@ Location: `panel_actions.cljs` lines ~131-165
 #### 3.2 Update `:editor/ax.handle-save-response` action
 Location: `panel_actions.cljs` lines ~167-190
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `:panel/script-id` from state updates
@@ -196,8 +196,8 @@ Location: `panel_actions.cljs` lines ~167-190
 #### 3.3 Update `:editor/ax.load-script-for-editing` action
 Location: `panel_actions.cljs` lines ~205-220
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `id` parameter
@@ -207,8 +207,8 @@ Location: `panel_actions.cljs` lines ~205-220
 #### 3.4 Update `:editor/ax.initialize-editor` action
 Location: `panel_actions.cljs` lines ~230-250
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` from args destructuring
@@ -217,8 +217,8 @@ Location: `panel_actions.cljs` lines ~230-250
 #### 3.5 Update `:editor/ax.new-script` action
 Location: `panel_actions.cljs` lines ~255-270
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `:panel/script-id nil` from state reset
@@ -230,8 +230,8 @@ Location: `panel_actions.cljs` lines ~255-270
 #### 4.1 Simplify event matching to name-only
 Location: `panel.cljs` lines ~740-810
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `script-id` extraction from message
@@ -247,8 +247,8 @@ Location: `panel.cljs` lines ~740-810
 #### 5.1 Update `:editor/fx.save-script` effect
 Location: `panel.cljs` lines ~195-215
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `id` from effect args
@@ -257,8 +257,8 @@ Location: `panel.cljs` lines ~195-215
 #### 5.2 Update `:editor/fx.reload-script-from-storage` effect
 Location: `panel.cljs` lines ~275-290
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Already uses name-based lookup - verify it works without ID
@@ -267,8 +267,8 @@ Location: `panel.cljs` lines ~275-290
 #### 5.3 Update `:editor/fx.check-editing-script` effect
 Location: `panel.cljs` lines ~260-275
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove `(.-id script)` from dispatch args
@@ -281,8 +281,8 @@ Location: `panel.cljs` lines ~260-275
 #### 6.1 Update panel action unit tests
 Location: `test/panel_actions_test.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Remove script-id from test state setups
@@ -292,8 +292,8 @@ Location: `test/panel_actions_test.cljs`
 #### 6.2 Verify E2E tests pass
 Location: `e2e/panel_save_test.cljs`, `e2e/panel_save_rename_test.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Run E2E tests to verify panel workflows still work
@@ -317,11 +317,81 @@ Location: `script_utils.cljs`
 #### 7.2 Update persistence watcher
 Location: `panel.cljs` lines ~710-720
 
+- [x] addressed in code
+- [x] verified by tests
+
+**Actions needed:**
+- Remove `script-id` comparison from change detection
+
+---
+
+### Phase 8: Script List Awareness for Reliable Rename
+
+**Problem:** When renaming a script to a name that already exists, the panel offers "Create Script" and "Rename" buttons. "Create Script" doesn't make sense (it would fail with "already exists"), and "Rename" will also fail. The panel is guessing based on stale information.
+
+**Solution:** The panel needs an always up-to-date listing of all scripts in storage. With this list, the panel can:
+- Detect when the new name conflicts with an existing script
+- Offer appropriate choices based on actualities, not guesses
+- Show clear feedback like "Name 'foo.cljs' already exists - choose a different name or overwrite"
+
+#### 8.1 Add script list to panel state
+Location: `panel.cljs`
+
 - [ ] addressed in code
 - [ ] verified by tests
 
 **Actions needed:**
-- Remove `script-id` comparison from change detection
+- Add `:panel/scripts-list` to panel state
+- Load script list on panel initialization
+- Subscribe to storage changes to keep list current
+
+#### 8.2 Create effect to load/refresh script list
+Location: `panel.cljs`
+
+- [ ] addressed in code
+- [ ] verified by tests
+
+**Actions needed:**
+- Add `:editor/fx.load-scripts-list` effect
+- Read from `chrome.storage.local` scripts key
+- Dispatch action to update state with parsed list
+
+#### 8.3 Add storage change listener for scripts
+Location: `panel.cljs`
+
+- [ ] addressed in code
+- [ ] verified by tests
+
+**Actions needed:**
+- Listen for `chrome.storage.onChanged` events
+- When `scripts` key changes, refresh the list
+- Ensure list stays current as scripts are added/removed/renamed elsewhere
+
+#### 8.4 Update save UI logic to use script list
+Location: `panel.cljs` save-script-section
+
+- [ ] addressed in code
+- [ ] verified by tests
+
+**Actions needed:**
+- Check if normalized name exists in `:panel/scripts-list`
+- Differentiate: editing same script vs. name collision with different script
+- Show appropriate UI:
+  - Same name as original: "Save Script" (update)
+  - New name, doesn't exist: "Create Script" (create new)
+  - New name, exists: Show conflict warning, offer "Overwrite" or "Cancel"
+
+#### 8.5 Handle rename-to-existing case
+Location: `panel_actions.cljs`
+
+- [ ] addressed in code
+- [ ] verified by tests
+
+**Actions needed:**
+- When name changed and target exists:
+  - If user confirms overwrite: delete old, save as new with existing's ID
+  - If user cancels: stay in edit mode
+- Update `:editor/ax.save-script` to accept `:force?` flag for overwrite
 
 ---
 

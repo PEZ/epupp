@@ -15,7 +15,6 @@
    :panel/script-name ""
    :panel/script-match ""
    :panel/script-description ""
-   :panel/script-id nil
    :panel/system-banners []})
 
 (def uf-data {:system/now 1234567890})
@@ -84,14 +83,11 @@
 (defn- test_load_script_for_editing_populates_all_fields []
   (let [result (panel-actions/handle-action initial-state uf-data
                                             [:editor/ax.load-script-for-editing
-                                             "script-123"
                                              "Test Script"
                                              "*://example.com/*"
                                              "(println \"hello\")"
                                              "A description"])
         new-state (:uf/db result)]
-    (-> (expect (:panel/script-id new-state))
-        (.toBe "script-123"))
     (-> (expect (:panel/script-name new-state))
         (.toBe "Test Script"))
     (-> (expect (:panel/script-match new-state))
@@ -104,7 +100,6 @@
 (defn- test_load_script_for_editing_handles_missing_description []
   (let [result (panel-actions/handle-action initial-state uf-data
                                             [:editor/ax.load-script-for-editing
-                                             "script-123"
                                              "Test Script"
                                              "*://example.com/*"
                                              "(println \"hello\")"])
@@ -202,64 +197,55 @@
     ;; Should NOT update state directly (async response will do that)
     (-> (expect (:uf/db result))
         (.toBeUndefined))
-    ;; Should trigger save effect with script and metadata
+    ;; Should trigger save effect with script and normalized name
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :editor/fx.save-script))
-    ;; Effect args: [script normalized-name id action-text]
-    (let [[_fx script name _id action-text] (first (:uf/fxs result))]
+    ;; Effect args: [script normalized-name]
+    (let [[_fx script name] (first (:uf/fxs result))]
       (-> (expect (:script/name script))
           (.toBe "my_script.cljs"))
       (-> (expect name)
-          (.toBe "my_script.cljs"))
-      (-> (expect action-text)
-          (.toBe "Created")))))
+          (.toBe "my_script.cljs")))))
 
-(defn- test_save_script_uses_existing_script_id_when_editing_with_unchanged_name []
+(defn- test_save_script_preserves_name_when_editing_with_unchanged_name []
   (let [state (-> initial-state
                   (assoc :panel/code "(println \"hi\")")
                   (assoc :panel/script-name "my_script.cljs")
                   (assoc :panel/script-match "*://example.com/*")
-                  (assoc :panel/script-id "existing-id")
                   (assoc :panel/original-name "my_script.cljs"))
         result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
-        [_fx-name script] (first (:uf/fxs result))]
-    ;; Should use existing id when name hasn't changed
-    (-> (expect (:script/id script))
-        (.toBe "existing-id"))))
+        [_fx-name script normalized-name] (first (:uf/fxs result))]
+    ;; Should preserve name when unchanged
+    (-> (expect (:script/name script))
+        (.toBe "my_script.cljs"))
+    (-> (expect normalized-name)
+        (.toBe "my_script.cljs"))))
 
-(defn- test_save_script_creates_new_script_when_name_changed []
+(defn- test_save_script_uses_new_name_when_name_changed []
   (let [state (-> initial-state
                   (assoc :panel/code "(println \"hi\")")
                   (assoc :panel/script-name "New Name")
                   (assoc :panel/script-match "*://example.com/*")
-                  (assoc :panel/script-id "existing-id")
                   (assoc :panel/original-name "old_name.cljs"))
         result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
-        [_fx-name script _name _id action-text] (first (:uf/fxs result))]
-    ;; Should create new ID (fork/copy behavior) - not preserve existing
-    (-> (expect (:script/id script))
-        (.toMatch (js/RegExp. "^script-\\d+$")))
-    (-> (expect (:script/id script))
-        (.not.toBe "existing-id"))
-    ;; Name should be normalized
+        [_fx-name script normalized-name] (first (:uf/fxs result))]
+    ;; Name should be normalized to new name
     (-> (expect (:script/name script))
         (.toBe "new_name.cljs"))
-    ;; Action text should be "Created" (not "Saved")
-    (-> (expect action-text)
-        (.toBe "Created"))))
+    (-> (expect normalized-name)
+        (.toBe "new_name.cljs"))))
 
-(defn- test_save_script_generates_timestamp_based_id_for_new_scripts []
+(defn- test_save_script_normalizes_name_for_new_scripts []
   (let [state (-> initial-state
                   (assoc :panel/code "(println \"hi\")")
                   (assoc :panel/script-name "My Cool Script")
                   (assoc :panel/script-match "*://example.com/*"))
         result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
-        [_fx-name script] (first (:uf/fxs result))]
-    ;; ID should be timestamp-based for new scripts (starts with "script-")
-    (-> (expect (:script/id script))
-        (.toMatch (js/RegExp. "^script-\\d+$")))
+        [_fx-name script normalized-name] (first (:uf/fxs result))]
     ;; Name is normalized for display consistency
     (-> (expect (:script/name script))
+        (.toBe "my_cool_script.cljs"))
+    (-> (expect normalized-name)
         (.toBe "my_cool_script.cljs"))))
 
 (defn- test_save_script_includes_description_when_provided []
@@ -359,9 +345,9 @@
             (test ":editor/ax.save-script succeeds without site-match" test_save_script_succeeds_without_site_match)
             (test ":editor/ax.save-script without site-match uses empty vector" test_save_script_without_site_match_uses_empty_vector)
             (test ":editor/ax.save-script with complete fields triggers save effect" test_save_script_with_complete_fields_triggers_save_effect)
-            (test ":editor/ax.save-script uses existing script-id when editing with unchanged name" test_save_script_uses_existing_script_id_when_editing_with_unchanged_name)
-            (test ":editor/ax.save-script creates new script when name changed (fork/copy)" test_save_script_creates_new_script_when_name_changed)
-            (test ":editor/ax.save-script generates timestamp-based ID for new scripts" test_save_script_generates_timestamp_based_id_for_new_scripts)
+            (test ":editor/ax.save-script preserves name when editing with unchanged name" test_save_script_preserves_name_when_editing_with_unchanged_name)
+            (test ":editor/ax.save-script uses new name when name changed" test_save_script_uses_new_name_when_name_changed)
+            (test ":editor/ax.save-script normalizes name for new scripts" test_save_script_normalizes_name_for_new_scripts)
             (test ":editor/ax.save-script includes description when provided" test_save_script_includes_description_when_provided)
             (test ":editor/ax.save-script omits description when empty" test_save_script_omits_description_when_empty)
             (test ":editor/ax.save-script includes description in effect when set" test_save_script_includes_description_in_effect_when_set)
@@ -582,16 +568,12 @@
                 initial-state uf-data
                 [:editor/ax.initialize-editor
                  {:code saved-code
-                  :script-id "script-123"
                   :original-name "my_script.cljs"}])
         new-state (:uf/db result)
         dxs (:uf/dxs result)]
     ;; Code should be set
     (-> (expect (:panel/code new-state))
         (.toBe saved-code))
-    ;; Script ID should be set
-    (-> (expect (:panel/script-id new-state))
-        (.toBe "script-123"))
     ;; Original name should be set
     (-> (expect (:panel/original-name new-state))
         (.toBe "my_script.cljs"))
@@ -649,7 +631,6 @@
                               (assoc :panel/script-name "custom_script.cljs")
                               (assoc :panel/script-match "*://custom.com/*")
                               (assoc :panel/script-description "Custom description")
-                              (assoc :panel/script-id "script-123")
                               (assoc :panel/original-name "custom_script.cljs")
                               (assoc :panel/system-banners [{:id "test" :type "success" :message "Saved"}]))
         result (panel-actions/handle-action state-with-script uf-data [:editor/ax.new-script])
@@ -659,9 +640,6 @@
         (.toContain "hello_world.cljs"))
     (-> (expect (:panel/code new-state))
         (.toContain "(ns hello-world)"))
-    ;; Script ID should be cleared
-    (-> (expect (:panel/script-id new-state))
-        (.toBeNull))
     ;; Original name should be cleared
     (-> (expect (:panel/original-name new-state))
         (.toBeNull))))
