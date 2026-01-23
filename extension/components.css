@@ -18,6 +18,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border: 1px solid transparent;
 }
 
 .btn:disabled {
@@ -29,7 +30,6 @@
 .btn-primary {
   background: var(--clojure-blue);
   color: white;
-  border: none;
 }
 
 .btn-primary:hover {
@@ -46,7 +46,6 @@
 .btn-success {
   background: var(--clojure-green);
   color: #1e1e1e;
-  border: none;
 }
 
 .btn-success:hover {
