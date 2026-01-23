@@ -188,6 +188,27 @@
           (-> (expect (:error error-response))
               (.toContain "already exists")))))
 
+    (test "force overwrite preserves existing script ID"
+      (fn []
+        (let [new-script {:script/id "script-new"  ;; Different ID
+                          :script/name "test.cljs" ;; Same name as existing
+                          :script/code "(new code)"
+                          :script/force? true}
+              result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.save-script new-script])]
+          ;; Should have state update
+          (-> (expect (:uf/db result))
+              (.toBeTruthy))
+          ;; Script should be updated, not duplicated
+          (-> (expect (count (-> result :uf/db :storage/scripts)))
+              (.toBe 1))
+          ;; The script should have the ORIGINAL ID (preserved from existing)
+          (-> (expect (-> result :uf/db :storage/scripts first :script/id))
+              (.toBe "script-123"))
+          ;; But with new code
+          (-> (expect (-> result :uf/db :storage/scripts first :script/code))
+              (.toBe "(new code)")))))
+
     (test "allows create when name is new"
       (fn []
         (let [new-script {:script/id "script-new"

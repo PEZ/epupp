@@ -136,7 +136,8 @@
                                 :response-data {:name script-name}})))))
 
 (defn save-script
-  "Create or update a script."
+  "Create or update a script. When force-overwriting by name, preserves the
+   existing script's ID to ensure stable identity."
   [state {:fs/keys [now-iso script]}]
   (let [scripts (:storage/scripts state)
         script-id (:script/id script)
@@ -147,7 +148,17 @@
         bulk-count (:script/bulk-count script)
         existing-by-id (find-script-by-id scripts script-id)
         existing-by-name (find-script-by-name scripts script-name)
-        is-update? (some? existing-by-id)]
+        ;; Update if we found by ID, OR if force-overwriting by name
+        is-update? (or (some? existing-by-id)
+                       (and force? (some? existing-by-name)))
+        ;; When force-overwriting by name, use existing script's ID for stable identity
+        script-id (if (and force? existing-by-name (not existing-by-id))
+                    (:script/id existing-by-name)
+                    script-id)
+        script (assoc script :script/id script-id)
+        ;; For update checks below, use the matched script
+        existing-by-id (or existing-by-id
+                           (when (and force? existing-by-name) existing-by-name))]
     (cond
       ;; Trying to update a builtin script (by ID)
       (and is-update? (script-utils/builtin-script-id? script-id))

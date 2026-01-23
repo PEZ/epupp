@@ -414,3 +414,65 @@
                             (.toBe :popup/fx.save-auto-reconnect-setting))
                         (-> (expect enabled)
                             (.toBe true))))))))
+
+(describe "shadow list sync actions"
+          (fn []
+            (test ":ui/ax.sync-scripts-shadow updates content without setting entering flag"
+                  (fn []
+                    ;; Scenario: script content changed, but it's the same script (no add/remove)
+                    ;; The watcher fires with added-items: [] and removed-ids: #{}
+                    ;; The sync handler should update the :item content without animation flags
+                    (let [state {:scripts/list [{:script/id "test-1" :script/code "updated code"}]
+                                 :ui/scripts-shadow [{:item {:script/id "test-1" :script/code "old code"}
+                                                      :ui/entering? false
+                                                      :ui/leaving? false}]}
+                          ;; Content change signal: no membership changes
+                          result (popup-actions/handle-action state uf-data
+                                                              [:ui/ax.sync-scripts-shadow {:added-items []
+                                                                                           :removed-ids #{}}])
+                          updated-shadow (:ui/scripts-shadow (:uf/db result))
+                          shadow-item (first updated-shadow)]
+                      ;; Content should be updated
+                      (-> (expect (get-in shadow-item [:item :script/code]))
+                          (.toBe "updated code"))
+                      ;; Animation flags should remain false (no entering animation)
+                      (-> (expect (:ui/entering? shadow-item))
+                          (.toBe false))
+                      (-> (expect (:ui/leaving? shadow-item))
+                          (.toBe false)))))
+
+            (test ":ui/ax.sync-scripts-shadow adds new items with entering flag"
+                  (fn []
+                    ;; Scenario: a new script was added
+                    (let [new-script {:script/id "new-1" :script/code "new code"}
+                          state {:scripts/list [new-script]
+                                 :ui/scripts-shadow []}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:ui/ax.sync-scripts-shadow {:added-items [new-script]
+                                                                                           :removed-ids #{}}])
+                          updated-shadow (:ui/scripts-shadow (:uf/db result))
+                          shadow-item (first updated-shadow)]
+                      ;; Item should be added
+                      (-> (expect (get-in shadow-item [:item :script/id]))
+                          (.toBe "new-1"))
+                      ;; Should have entering flag for animation
+                      (-> (expect (:ui/entering? shadow-item))
+                          (.toBe true))
+                      (-> (expect (:ui/leaving? shadow-item))
+                          (.toBe false)))))
+
+            (test ":ui/ax.sync-scripts-shadow marks removed items as leaving"
+                  (fn []
+                    ;; Scenario: a script was deleted
+                    (let [state {:scripts/list []
+                                 :ui/scripts-shadow [{:item {:script/id "to-remove"}
+                                                      :ui/entering? false
+                                                      :ui/leaving? false}]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:ui/ax.sync-scripts-shadow {:added-items []
+                                                                                           :removed-ids #{"to-remove"}}])
+                          updated-shadow (:ui/scripts-shadow (:uf/db result))
+                          shadow-item (first updated-shadow)]
+                      ;; Should be marked as leaving for animation
+                      (-> (expect (:ui/leaving? shadow-item))
+                          (.toBe true)))))))

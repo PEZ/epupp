@@ -341,6 +341,48 @@
               (js-await (sleep 20))
               (recur))))))))
 
+(defn- ^:async test_save_force_update_preserves_script_id []
+  ;; Create a script via REPL FS
+  (let [test-code-v1 "{:epupp/script-name \"id-preserve-test\"\n                     :epupp/site-match \"https://example.com/*\"}\n                    (ns id-test)\n                    (js/console.log \"Version 1\")"
+        setup-result (js-await (eval-in-browser
+                                (str "(-> (epupp.fs/save! " (pr-str test-code-v1) " {:fs/force? true})\n"
+                                     "  (.then (fn [_] :v1-done)))\n")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  ;; Wait for script to appear
+  (js-await (wait-for-script-present! "id_preserve_test.cljs" 3000))
+
+  ;; Get script ID via ls
+  (let [id1-result (js-await (eval-in-browser
+                              "(-> (epupp.fs/ls)\n                                   (.then (fn [scripts]\n                                            (let [s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                              (pr-str (:fs/id s))))))"))]
+    (-> (expect (.-success id1-result)) (.toBe true))
+    (let [id1 (unquote-result (first (.-values id1-result)))]
+      (-> (expect id1) (.not.toBeNull))
+
+      ;; Force-save v2 with same name but different content
+      (let [test-code-v2 "{:epupp/script-name \"id-preserve-test\"\n                       :epupp/site-match \"https://example.com/*\"}\n                      (ns id-test)\n                      (js/console.log \"Version 2 - UPDATED\")"
+            save2-result (js-await (eval-in-browser
+                                    (str "(-> (epupp.fs/save! " (pr-str test-code-v2) " {:fs/force? true})\n"
+                                         "  (.then (fn [_] :v2-done)))\n")))]
+        (-> (expect (.-success save2-result)) (.toBe true)))
+
+      ;; Wait a moment for storage to sync
+      (js-await (sleep 100))
+
+      ;; Get script ID again
+      (let [id2-result (js-await (eval-in-browser
+                                  "(-> (epupp.fs/ls)\n                                     (.then (fn [scripts]\n                                              (let [s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                                (pr-str (:fs/id s))))))"))]
+        (-> (expect (.-success id2-result)) (.toBe true))
+        (let [id2 (unquote-result (first (.-values id2-result)))]
+          ;; IDs MUST be equal - the force save should update, not delete+create
+          ;; This assertion should FAIL to expose the bug
+          (-> (expect id1) (.toBe id2))))))
+
+  ;; Cleanup
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(-> (epupp.fs/rm! \"id_preserve_test.cljs\")\n                                     (.then (fn [_] :cleanup-done))\n                                     (.catch (fn [_] :cleanup-done)))"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true))))
+
 (.describe test "REPL FS: save operations"
            (fn []
              (.beforeAll test
@@ -368,4 +410,7 @@
                    test_save_rejects_builtin_script_names)
 
              (test "REPL FS: save - with {:fs/force? true} still rejects built-in script names"
-                   test_save_with_force_rejects_builtin_script_names)))
+                   test_save_with_force_rejects_builtin_script_names)
+
+             (test "REPL FS: save - force update preserves script ID"
+                   test_save_force_update_preserves_script_id)))

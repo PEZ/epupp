@@ -140,14 +140,7 @@
                                                            (and shadow-item (not= item shadow-item))))
                                                        source-list)
                             ;; Get full items for additions from source
-                            added-items (filterv (fn [item] (contains? added-ids (apply-id-fn id-fn item))) source-list)
-                            _ (when has-content-changes?
-                                (js/console.debug "[DEBUG list-watcher] content changed:"
-                                                  "added-ids:" (count added-ids)
-                                                  "removed-ids:" (count removed-ids)
-                                                  "added-items:" (count added-items)
-                                                  "active-shadow:" (count active-shadow-items)
-                                                  "shadow-total:" (count shadow-list)))]
+                            added-items (filterv (fn [item] (contains? added-ids (apply-id-fn id-fn item))) source-list)]
                         ;; Fire if membership OR content changed
                         (when (or (seq added-items) (seq removed-ids) has-content-changes?)
                           [on-change {:added-items added-items :removed-ids removed-ids}]))

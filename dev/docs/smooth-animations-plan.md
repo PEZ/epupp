@@ -354,11 +354,13 @@ The solution uses **shadow lists** - copies of source lists where each item is w
 
 ### Known Issues
 
-**Content updates animate as remove+add:**
+None currently. Previous issues have been resolved:
 
-* [ ] When an item's content changes (e.g., editing a script's code via REPL FS sync), the item incorrectly animates as if it were removed and re-added. This is because the list watcher's content change detection triggers the same add/remove cycle as membership changes.
+**Content updates animate as remove+add (RESOLVED):**
 
-**Potential fix:** The sync action handlers should distinguish between content updates and membership changes. Content updates should update the shadow item's `:item` directly without setting `:ui/entering?` or `:ui/leaving?` flags.
+The root cause was in `save-script` in `repl_fs_actions.cljs` - when force-overwriting a script by name, it was generating a new ID instead of preserving the existing script's ID. This made the shadow list see it as a different item (remove old + add new) rather than a content update.
+
+**Fix:** When force-overwriting by name, the save logic now preserves the existing script's ID, ensuring stable identity. The shadow list correctly detects this as a content update and updates in place without animation.
 
 ## Notes
 
