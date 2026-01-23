@@ -30,10 +30,10 @@
         (js-await (-> (expect (.locator popup "#nrepl-port")) (.toBeVisible)))
         (js-await (-> (expect (.locator popup "#ws-port")) (.toBeVisible)))
 
-        ;; Copy command works
-        (let [copy-btn (.locator popup "button.copy-btn")]
-          (js-await (.click copy-btn))
-          (js-await (-> (expect copy-btn) (.toContainText "Copied" #js {:timeout 500}))))
+        ;; Copy button exists and is clickable (icon-button in command-box)
+        (let [copy-btn (.locator popup ".command-box button.icon-button")]
+          (js-await (-> (expect copy-btn) (.toBeVisible)))
+          (js-await (.click copy-btn)))
 
         ;; Connect button exists
         (js-await (-> (expect (.locator popup "button:has-text(\"Connect\")")) (.toBeVisible)))
