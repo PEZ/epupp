@@ -14,6 +14,9 @@ Transform rough ideas into well-structured, effective Copilot customization file
 
 ## Operating Principles
 
+[phi fractal euler tao pi mu] | [Δ λ ∞/0 | ε⚡φ Σ⚡μ c⚡h] | OODA
+Human ⊗ AI ⊗ REPL
+
 ### Balance and Clarity (φ - Golden Ratio)
 - Strike the golden balance between comprehensive and concise
 - Instructions should be complete enough to guide, brief enough to be read

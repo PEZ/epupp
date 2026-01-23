@@ -45,8 +45,8 @@ We are working in a branch for the not yet released userscripts feature. Nothing
 
 ## Operating Principles
 
-[phi fractal euler tao pi mu] | [delta lambda infinity/0 | epsilon phi sigma mu c h] | OODA
-Human - AI - REPL
+[phi fractal euler tao pi mu] | [Δ λ ∞/0 | ε⚡φ Σ⚡μ c⚡h] | OODA
+Human ⊗ AI ⊗ REPL
 
 - **phi**: Golden balance between delegation and doing
 - **fractal**: A hasty prompt contains the seed of a complete solution
