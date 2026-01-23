@@ -16,7 +16,7 @@
    :panel/script-match ""
    :panel/script-description ""
    :panel/script-id nil
-   :panel/system-banner nil})
+   :panel/system-banners []})
 
 (def uf-data {:system/now 1234567890})
 
@@ -184,8 +184,13 @@
 ;; ============================================================
 
 (defn- test_save_script_with_missing_fields_shows_error []
-  (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.save-script])]
-    (-> (expect (:type (:panel/system-banner (:uf/db result))))
+  (let [result (panel-actions/handle-action initial-state uf-data [:editor/ax.save-script])
+        dxs (:uf/dxs result)
+        [action-type event-type _message] (first dxs)]
+    ;; Should dispatch show-system-banner with error
+    (-> (expect action-type)
+        (.toBe :editor/ax.show-system-banner))
+    (-> (expect event-type)
         (.toBe "error"))))
 
 (defn- test_save_script_with_complete_fields_triggers_save_effect []
@@ -374,31 +379,38 @@
                                               :name "my_script.cljs"
                                               :id "script-123"
                                               :action-text "Created"}])
-        new-state (:uf/db result)]
-    (-> (expect (:type (:panel/system-banner new-state)))
+        new-state (:uf/db result)
+        dxs (:uf/dxs result)
+        [action-type event-type message] (first dxs)]
+    ;; Should dispatch show-system-banner with success
+    (-> (expect action-type)
+        (.toBe :editor/ax.show-system-banner))
+    (-> (expect event-type)
         (.toBe "success"))
-    (-> (expect (:message (:panel/system-banner new-state)))
+    (-> (expect message)
         (.toContain "Created"))
+    ;; State updates
     (-> (expect (:panel/script-name new-state))
         (.toBe "my_script.cljs"))
     (-> (expect (:panel/original-name new-state))
-        (.toBe "my_script.cljs"))
-    ;; Should have defer effect to clear system banner
-    (-> (expect (first (first (:uf/fxs result))))
-        (.toBe :uf/fx.defer-dispatch))))
+        (.toBe "my_script.cljs"))))
 
 (defn- test_handle_save_response_shows_error_on_failure []
   (let [result (panel-actions/handle-action initial-state uf-data
                                             [:editor/ax.handle-save-response
                                              {:success false
                                               :error "Name collision"}])
-        new-state (:uf/db result)]
-    (-> (expect (:type (:panel/system-banner new-state)))
+        dxs (:uf/dxs result)
+        [action-type event-type message] (first dxs)]
+    ;; Should dispatch show-system-banner with error
+    (-> (expect action-type)
+        (.toBe :editor/ax.show-system-banner))
+    (-> (expect event-type)
         (.toBe "error"))
-    (-> (expect (:message (:panel/system-banner new-state)))
+    (-> (expect message)
         (.toBe "Name collision"))
-    ;; Should not have defer effect on error
-    (-> (expect (:uf/fxs result))
+    ;; Should not have db changes on error-only response
+    (-> (expect (:uf/db result))
         (.toBeUndefined))))
 
 (defn- test_handle_rename_response_updates_state_on_success []
@@ -407,11 +419,17 @@
                                             [:editor/ax.handle-rename-response
                                              {:success true
                                               :to-name "new_name.cljs"}])
-        new-state (:uf/db result)]
-    (-> (expect (:type (:panel/system-banner new-state)))
+        new-state (:uf/db result)
+        dxs (:uf/dxs result)
+        [action-type event-type message] (first dxs)]
+    ;; Should dispatch show-system-banner with success
+    (-> (expect action-type)
+        (.toBe :editor/ax.show-system-banner))
+    (-> (expect event-type)
         (.toBe "success"))
-    (-> (expect (:message (:panel/system-banner new-state)))
+    (-> (expect message)
         (.toContain "Renamed"))
+    ;; State updates
     (-> (expect (:panel/script-name new-state))
         (.toBe "new_name.cljs"))
     (-> (expect (:panel/original-name new-state))
@@ -422,10 +440,14 @@
                                             [:editor/ax.handle-rename-response
                                              {:success false
                                               :error "Script not found"}])
-        new-state (:uf/db result)]
-    (-> (expect (:type (:panel/system-banner new-state)))
+        dxs (:uf/dxs result)
+        [action-type event-type message] (first dxs)]
+    ;; Should dispatch show-system-banner with error
+    (-> (expect action-type)
+        (.toBe :editor/ax.show-system-banner))
+    (-> (expect event-type)
         (.toBe "error"))
-    (-> (expect (:message (:panel/system-banner new-state)))
+    (-> (expect message)
         (.toBe "Script not found"))))
 
 (describe "panel save response handling"
@@ -629,7 +651,7 @@
                               (assoc :panel/script-description "Custom description")
                               (assoc :panel/script-id "script-123")
                               (assoc :panel/original-name "custom_script.cljs")
-                              (assoc :panel/system-banner {:type "success" :message "Saved"}))
+                              (assoc :panel/system-banners [{:id "test" :type "success" :message "Saved"}]))
         result (panel-actions/handle-action state-with-script uf-data [:editor/ax.new-script])
         new-state (:uf/db result)]
     ;; Code should be reset to default script

@@ -78,12 +78,10 @@
           (let [connect-btn (.locator popup "#connect")]
             (js-await (.click connect-btn)))
 
-          ;; Should show failure in system banner
-          (let [banner (.locator popup ".system-banner")]
+          ;; Should show failure in system banner (filter to error banner with "Failed")
+          (let [banner (.locator popup ".system-banner:has-text(\"Failed\")")]
             (js-await (-> (expect banner)
-                          (.toBeVisible)))
-            (js-await (-> (expect banner)
-                          (.toContainText "Failed")))
+                          (.toBeVisible #js {:timeout 500})))
             ;; Failed status should have error banner class
             (js-await (-> (expect banner)
                           (.toHaveClass #"fs-error-banner"))))

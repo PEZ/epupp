@@ -28,7 +28,7 @@
          :panel/current-hostname nil
          :panel/manifest-hints nil  ; Parsed manifest from current code
          :panel/selection nil       ; Current textarea selection {:start :end :text}
-         :panel/system-banner nil        ; System banner {:type :success/:error :message "..."}
+         :panel/system-banners []        ; System banners [{:id :type :message :leaving} ...]
          :panel/system-bulk-names {}})) ; bulk-id -> [script-name ...]
 
 ;; ============================================================
@@ -626,21 +626,16 @@
    [:strong "close and reopen DevTools"]
    [:span " to use the new version of this panel"]])
 
-(defn system-banner [{:keys [type message leaving]}]
-  [:div {:class (str (case type
-                       "success" "fs-success-banner"
-                       "info" "fs-info-banner"
-                       "fs-error-banner")
-                     (when leaving " leaving"))}
-   [:span message]])
 
-(defn panel-header [{:panel/keys [needs-refresh?] sb :panel/system-banner}]
+
+(defn panel-header [{:panel/keys [needs-refresh? system-banners]}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/status "Ready"
     :elements/permanent-banner (when needs-refresh? [refresh-banner])
-    :elements/temporary-banner (when sb [system-banner sb])}])
+    :elements/temporary-banner (when (seq system-banners)
+                                 [view-elements/system-banners system-banners])}])
 
 (defn panel-footer []
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
@@ -796,14 +791,12 @@
          (swap! !state update-in [:panel/system-bulk-names bulk-id] (fnil conj []) script-name))
        ;; Show banner for all system-banner events (except panel's own saves)
        (when (and show-banner? (not skip-banner?))
-         (swap! !state assoc :panel/system-banner {:type event-type :message banner-msg})
+         (dispatch! [[:editor/ax.show-system-banner event-type banner-msg]])
          ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
          (let [bulk-names (when bulk-id (get-in @!state [:panel/system-bulk-names bulk-id]))]
            (if (and bulk-op? bulk-final? (seq bulk-names))
              (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
-             (js/console.info "[Epupp:FS]" banner-msg)))
-         ;; Auto-dismiss after 2 seconds using action (for smooth animation)
-         (js/setTimeout #(dispatch! [[:editor/ax.clear-system-banner]]) 2000))
+             (js/console.info "[Epupp:FS]" banner-msg))))
        (when (and bulk-id bulk-final?)
          (swap! !state update :panel/system-bulk-names dissoc bulk-id))
        ;; Reload or clear editor when current script was modified

@@ -871,14 +871,7 @@
 ;; FS Confirmation UI
 ;; ============================================================
 
-(defn system-banner [{:keys [type message leaving]}]
-  [:div {:class (str "system-banner "
-                     (case type
-                       "success" "fs-success-banner"
-                       "info" "fs-info-banner"
-                       "fs-error-banner")
-                     (when leaving " leaving"))}
-   [:span message]])
+
 
 (defn popup-ui [{:keys [ui/sections-collapsed scripts/list scripts/current-url repl/connections
                         settings/default-origins settings/user-origins] :as state}]
@@ -895,8 +888,8 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/jack-in {:size 28}]
-       :elements/temporary-banner (when-let [system-banner-state (:ui/system-banner state)]
-                                    [system-banner system-banner-state])}]
+       :elements/temporary-banner (when-let [banners (seq (:ui/system-banners state))]
+                                    [view-elements/system-banners banners])}]
 
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"

@@ -140,3 +140,29 @@
   [{:empty/keys [class]} & children]
   (into [:div {:class (str "empty-state " class)}]
         children))
+
+(defn system-banner
+  "Single banner component for system messages.
+   Options:
+   - :type - 'success', 'info', or 'error' (determines banner style)
+   - :message - text to display
+   - :leaving - when true, applies leaving animation class"
+  [{:keys [type message leaving]}]
+  [:div {:class (str "system-banner "
+                     (case type
+                       "success" "fs-success-banner"
+                       "info" "fs-info-banner"
+                       "fs-error-banner")
+                     (when leaving " leaving"))}
+   [:span message]])
+
+(defn system-banners
+  "Renders a stacked list of system banners.
+   Each banner has {:id :type :message :leaving} and expires independently.
+   Banners stack vertically in declaration order (oldest at top)."
+  [banners]
+  (when (seq banners)
+    [:div.system-banners-container
+     (for [banner banners]
+       ^{:key (:id banner)}
+       [system-banner banner])]))

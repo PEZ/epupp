@@ -130,7 +130,7 @@
     :editor/ax.save-script
     (let [{:panel/keys [code script-name script-match script-description script-id original-name manifest-hints]} state]
       (if (or (empty? code) (empty? script-name))
-        {:uf/db (assoc state :panel/system-banner {:type "error" :message "Name and code are required"})}
+        {:uf/dxs [[:editor/ax.show-system-banner "error" "Name and code are required"]]}
         (let [;; Normalize the display name for consistency
               normalized-name (script-utils/normalize-script-name script-name)
               ;; Check if name changed from original (means create new/copy, not update)
@@ -166,45 +166,42 @@
       (cond
         ;; Error case
         (not success)
-        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Save failed")})}
+        {:uf/dxs [[:editor/ax.show-system-banner "error" (or error "Save failed")]]}
 
         ;; Unchanged - show info banner
         unchanged
         {:uf/db (assoc state
-                       :panel/system-banner {:type "info" :message (str "Script \"" name "\" unchanged")}
                        :panel/script-name name
                        :panel/original-name name
                        :panel/script-id id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
+         :uf/dxs [[:editor/ax.show-system-banner "info" (str "Script \"" name "\" unchanged")]]}
 
         ;; Success - show success banner
         :else
         {:uf/db (assoc state
-                       :panel/system-banner {:type "success" :message (str action-text " \"" name "\"")}
                        :panel/script-name name
                        :panel/original-name name
                        :panel/script-id id)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}))
+         :uf/dxs [[:editor/ax.show-system-banner "success" (str action-text " \"" name "\"")]]}))
 
     :editor/ax.rename-script
     (if-let [original-name (:panel/original-name state)]
       (let [new-name (:panel/script-name state)]
         (if (= new-name original-name)
-          {:uf/db (assoc state :panel/system-banner {:type "error" :message "Name unchanged"})}
+          {:uf/dxs [[:editor/ax.show-system-banner "error" "Name unchanged"]]}
           ;; State update happens in response handler
           {:uf/fxs [[:editor/fx.rename-script original-name new-name]]}))
-      {:uf/db (assoc state :panel/system-banner {:type "error" :message "Cannot rename: no script loaded"})})
+      {:uf/dxs [[:editor/ax.show-system-banner "error" "Cannot rename: no script loaded"]]})
 
     :editor/ax.handle-rename-response
     (let [[{:keys [success error to-name]}] args]
       (if success
         {:uf/db (-> state
-                    (assoc :panel/original-name to-name
-                           :panel/system-banner {:type "success" :message (str "Renamed to \"" to-name "\"")}
-                           :panel/script-name to-name))
-         :uf/fxs [[:editor/fx.persist-code (:panel/code state)]
-                  [:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 2000]]}
-        {:uf/db (assoc state :panel/system-banner {:type "error" :message (or error "Rename failed")})}))
+                    (assoc :panel/original-name to-name)
+                    (assoc :panel/script-name to-name))
+         :uf/fxs [[:editor/fx.persist-code (:panel/code state)]]
+         :uf/dxs [[:editor/ax.show-system-banner "success" (str "Renamed to \"" to-name "\"")]]}
+        {:uf/dxs [[:editor/ax.show-system-banner "error" (or error "Rename failed")]]}))
 
     :editor/ax.load-script-for-editing
     (let [[id name match code description] args
@@ -298,12 +295,29 @@
     (let [[script-name] args]
       {:uf/fxs [[:editor/fx.reload-script-from-storage script-name]]})
 
+    ;; System banner actions - multi-message support (matches popup pattern)
+    :editor/ax.show-system-banner
+    (let [[event-type message] args
+          now (or (:system/now uf-data) (.now js/Date))
+          banner-id (str "msg-" now "-" (count (:panel/system-banners state)))
+          new-banner {:id banner-id :type event-type :message message}
+          banners (or (:panel/system-banners state) [])]
+      {:uf/db (assoc state :panel/system-banners (conj banners new-banner))
+       :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 2000]]})
+
     :editor/ax.clear-system-banner
-    (if (get-in state [:panel/system-banner :leaving])
-      ;; Step 2: After animation, clear the banner
-      {:uf/db (assoc state :panel/system-banner nil)}
-      ;; Step 1: Mark as leaving, defer actual clear
-      {:uf/db (assoc-in state [:panel/system-banner :leaving] true)
-       :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner]] 250]]})
+    (let [[banner-id] args
+          banners (or (:panel/system-banners state) [])
+          target-banner (some #(when (= (:id %) banner-id) %) banners)]
+      (if (and target-banner (:leaving target-banner))
+        ;; Step 2: After animation, remove the banner
+        {:uf/db (assoc state :panel/system-banners (filterv #(not= (:id %) banner-id) banners))}
+        ;; Step 1: Mark as leaving, defer actual removal
+        {:uf/db (assoc state :panel/system-banners
+                       (mapv #(if (= (:id %) banner-id)
+                                (assoc % :leaving true)
+                                %)
+                             banners))
+         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 250]]}))
 
     :uf/unhandled-ax))

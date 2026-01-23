@@ -476,3 +476,124 @@
                       ;; Should be marked as leaving for animation
                       (-> (expect (:ui/leaving? shadow-item))
                           (.toBe true)))))))
+
+;; ============================================================
+;; System Banner Multi-Message Tests
+;; ============================================================
+
+(describe "multi-message system banner actions"
+          (fn []
+            (test ":popup/ax.show-system-banner appends to empty list"
+                  (fn []
+                    (let [state {:ui/system-banners []}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Saved!" {}])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should have one banner
+                      (-> (expect (count banners))
+                          (.toBe 1))
+                      ;; Banner should have type and message
+                      (-> (expect (:type (first banners)))
+                          (.toBe "success"))
+                      (-> (expect (:message (first banners)))
+                          (.toBe "Saved!")))))
+
+            (test ":popup/ax.show-system-banner generates unique ID"
+                  (fn []
+                    (let [state {:ui/system-banners []}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Saved!" {}])
+                          banner (first (:ui/system-banners (:uf/db result)))]
+                      ;; Should have an ID
+                      (-> (expect (:id banner))
+                          (.toBeTruthy)))))
+
+            (test ":popup/ax.show-system-banner appends to existing list"
+                  (fn []
+                    (let [existing-banner {:id "msg-1" :type "info" :message "Processing..."}
+                          state {:ui/system-banners [existing-banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Done!" {}])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should have two banners
+                      (-> (expect (count banners))
+                          (.toBe 2))
+                      ;; Original should be first
+                      (-> (expect (:message (first banners)))
+                          (.toBe "Processing..."))
+                      ;; New should be second
+                      (-> (expect (:message (second banners)))
+                          (.toBe "Done!")))))
+
+            (test ":popup/ax.show-system-banner schedules clear for specific banner"
+                  (fn []
+                    (let [state {:ui/system-banners []}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Saved!" {}])
+                          banner-id (:id (first (:ui/system-banners (:uf/db result))))
+                          defer-fx (some #(when (= :uf/fx.defer-dispatch (first %)) %) (:uf/fxs result))]
+                      ;; Should have defer dispatch effect
+                      (-> (expect defer-fx)
+                          (.toBeTruthy))
+                      ;; The deferred action should be clear with the specific ID
+                      (let [[_fx-name actions-list _delay] defer-fx
+                            [action-name action-id] (first actions-list)]
+                        (-> (expect action-name)
+                            (.toBe :popup/ax.clear-system-banner))
+                        (-> (expect action-id)
+                            (.toBe banner-id))))))
+
+            (test ":popup/ax.clear-system-banner marks specific banner as leaving"
+                  (fn []
+                    (let [banner {:id "msg-1" :type "success" :message "Saved!"}
+                          state {:ui/system-banners [banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.clear-system-banner "msg-1"])
+                          banners (:ui/system-banners (:uf/db result))
+                          updated-banner (first banners)]
+                      ;; Banner should be marked as leaving
+                      (-> (expect (:leaving updated-banner))
+                          (.toBe true)))))
+
+            (test ":popup/ax.clear-system-banner removes banner after animation"
+                  (fn []
+                    (let [banner {:id "msg-1" :type "success" :message "Saved!" :leaving true}
+                          state {:ui/system-banners [banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.clear-system-banner "msg-1"])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Banner should be removed
+                      (-> (expect (count banners))
+                          (.toBe 0)))))
+
+            (test ":popup/ax.clear-system-banner only affects target banner"
+                  (fn []
+                    (let [banner1 {:id "msg-1" :type "info" :message "A"}
+                          banner2 {:id "msg-2" :type "success" :message "B"}
+                          state {:ui/system-banners [banner1 banner2]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.clear-system-banner "msg-1"])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should still have both banners
+                      (-> (expect (count banners))
+                          (.toBe 2))
+                      ;; First should be leaving
+                      (-> (expect (:leaving (first banners)))
+                          (.toBe true))
+                      ;; Second should be unchanged
+                      (-> (expect (:leaving (second banners)))
+                          (.toBeFalsy)))))
+
+            (test ":popup/ax.clear-system-banner schedules removal after animation"
+                  (fn []
+                    (let [banner {:id "msg-1" :type "success" :message "Saved!"}
+                          state {:ui/system-banners [banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.clear-system-banner "msg-1"])
+                          defer-fx (some #(when (= :uf/fx.defer-dispatch (first %)) %) (:uf/fxs result))]
+                      ;; Should have defer dispatch for removal after 250ms animation
+                      (-> (expect defer-fx)
+                          (.toBeTruthy))
+                      (let [[_fx-name _actions delay-ms] defer-fx]
+                        (-> (expect delay-ms)
+                            (.toBe 250))))))))

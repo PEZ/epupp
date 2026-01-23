@@ -180,21 +180,32 @@
     :popup/ax.clear-modified-scripts
     {:uf/db (assoc state :ui/recently-modified-scripts #{})}
 
-    ;; System banner actions
+    ;; System banner actions - multi-message support
+    ;; Each banner has {:id :type :message :leaving} and expires independently
     :popup/ax.show-system-banner
     (let [[event-type message bulk-info] args
-          {:keys [bulk-op? bulk-final? bulk-names]} bulk-info]
-      {:uf/db (assoc state :ui/system-banner {:type event-type :message message})
+          {:keys [bulk-op? bulk-final? bulk-names]} bulk-info
+          banner-id (str "msg-" (:system/now uf-data) "-" (count (:ui/system-banners state)))
+          new-banner {:id banner-id :type event-type :message message}
+          banners (or (:ui/system-banners state) [])]
+      {:uf/db (assoc state :ui/system-banners (conj banners new-banner))
        :uf/fxs [[:popup/fx.log-system-banner message bulk-op? bulk-final? bulk-names]
-                [:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner]] 2000]]})
+                [:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner banner-id]] 2000]]})
 
     :popup/ax.clear-system-banner
-    (if (get-in state [:ui/system-banner :leaving])
-      ;; Step 2: After animation, clear the banner
-      {:uf/db (assoc state :ui/system-banner nil)}
-      ;; Step 1: Mark as leaving, defer actual clear
-      {:uf/db (assoc-in state [:ui/system-banner :leaving] true)
-       :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner]] 250]]})
+    (let [[banner-id] args
+          banners (or (:ui/system-banners state) [])
+          target-banner (some #(when (= (:id %) banner-id) %) banners)]
+      (if (and target-banner (:leaving target-banner))
+        ;; Step 2: After animation, remove the banner
+        {:uf/db (assoc state :ui/system-banners (filterv #(not= (:id %) banner-id) banners))}
+        ;; Step 1: Mark as leaving, defer actual removal
+        {:uf/db (assoc state :ui/system-banners
+                       (mapv #(if (= (:id %) banner-id)
+                                (assoc % :leaving true)
+                                %)
+                             banners))
+         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner banner-id]] 250]]}))
 
     :popup/ax.track-bulk-name
     (let [[bulk-id script-name] args]

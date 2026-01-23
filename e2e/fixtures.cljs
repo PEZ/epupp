@@ -240,15 +240,13 @@
 (defn ^:async wait-for-save-status
   "Wait for system banner to appear with expected text (e.g., 'Created', 'Saved', 'Renamed').
    Use after clicking save/rename button instead of sleep.
-   Works with both popup (.system-banner) and panel (.fs-success-banner, .fs-error-banner)."
+   Works with both popup (.system-banner) and panel banners.
+   With multi-banner support, uses :has-text filter and .first to handle multiple matches."
   [page text]
-  ;; Try panel banners first, then popup banner
-  (let [panel-success (.locator page ".fs-success-banner")
-        panel-error (.locator page ".fs-error-banner")
-        popup-banner (.locator page ".system-banner")
-        combined (.or panel-success (.or panel-error popup-banner))]
-    (js-await (-> (expect combined)
-                  (.toContainText text #js {:timeout 500})))))
+  ;; Use :has-text filter then .first to handle multiple banners with same text
+  (let [banner (.first (.locator page (str ".system-banner:has-text(\"" text "\")")))]
+    (js-await (-> (expect banner)
+                  (.toBeVisible #js {:timeout 500})))))
 
 (defn ^:async wait-for-checkbox-state
   "Wait for checkbox to reach expected checked state.
@@ -275,9 +273,9 @@
 (defn ^:async wait-for-edit-hint
   "Wait for the edit hint message to appear in popup as a system banner.
    Use after clicking edit button instead of sleep.
-   The hint message is now shown via system-banner."
+   With multi-banner, we just need at least one banner to be visible."
   [popup]
-  (js-await (-> (expect (.locator popup ".system-banner"))
+  (js-await (-> (expect (.first (.locator popup ".system-banner")))
                 (.toBeVisible #js {:timeout 300}))))
 
 ;; =============================================================================
