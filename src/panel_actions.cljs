@@ -296,12 +296,18 @@
       {:uf/fxs [[:editor/fx.reload-script-from-storage script-name]]})
 
     ;; System banner actions - multi-message support (matches popup pattern)
+    ;; Optional 3rd arg :category - banners with same category replace each other
     :editor/ax.show-system-banner
-    (let [[event-type message] args
+    (let [[event-type message category] args
           now (or (:system/now uf-data) (.now js/Date))
           banner-id (str "msg-" now "-" (count (:panel/system-banners state)))
-          new-banner {:id banner-id :type event-type :message message}
-          banners (or (:panel/system-banners state) [])]
+          new-banner (cond-> {:id banner-id :type event-type :message message}
+                       category (assoc :category category))
+          banners (or (:panel/system-banners state) [])
+          ;; If category provided, filter out existing banners with same category
+          banners (if category
+                    (filterv #(not= (:category %) category) banners)
+                    banners)]
       {:uf/db (assoc state :panel/system-banners (conj banners new-banner))
        :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 2000]]})
 

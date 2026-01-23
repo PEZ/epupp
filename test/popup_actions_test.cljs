@@ -596,4 +596,43 @@
                           (.toBeTruthy))
                       (let [[_fx-name _actions delay-ms] defer-fx]
                         (-> (expect delay-ms)
-                            (.toBe 250))))))))
+                            (.toBe 250)))))))
+
+            (test ":popup/ax.show-system-banner with category replaces existing banner with same category"
+                  (fn []
+                    (let [existing-banner {:id "msg-1" :type "info" :message "Connecting..." :category "connection"}
+                          state {:ui/system-banners [existing-banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Connected!" {} "connection"])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should still have one banner (replaced, not appended)
+                      (-> (expect (count banners))
+                          (.toBe 1))
+                      ;; New banner should have new message
+                      (-> (expect (:message (first banners)))
+                          (.toBe "Connected!"))
+                      ;; Old banner should be marked as leaving
+                      (-> (expect (:leaving existing-banner))
+                          (.toBeFalsy)))))
+
+            (test ":popup/ax.show-system-banner with category does not replace banner with different category"
+                  (fn []
+                    (let [existing-banner {:id "msg-1" :type "info" :message "Loading..." :category "loading"}
+                          state {:ui/system-banners [existing-banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Connected!" {} "connection"])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should have two banners (different categories)
+                      (-> (expect (count banners))
+                          (.toBe 2)))))
+
+            (test ":popup/ax.show-system-banner without category appends normally"
+                  (fn []
+                    (let [existing-banner {:id "msg-1" :type "info" :message "Connecting..." :category "connection"}
+                          state {:ui/system-banners [existing-banner]}
+                          result (popup-actions/handle-action state uf-data
+                                                              [:popup/ax.show-system-banner "success" "Saved!" {}])
+                          banners (:ui/system-banners (:uf/db result))]
+                      ;; Should have two banners (no category match to replace)
+                      (-> (expect (count banners))
+                          (.toBe 2))))))

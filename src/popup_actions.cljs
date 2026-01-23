@@ -181,13 +181,19 @@
     {:uf/db (assoc state :ui/recently-modified-scripts #{})}
 
     ;; System banner actions - multi-message support
-    ;; Each banner has {:id :type :message :leaving} and expires independently
+    ;; Each banner has {:id :type :message :category :leaving} and expires independently
+    ;; Optional 4th arg :category - banners with same category replace each other
     :popup/ax.show-system-banner
-    (let [[event-type message bulk-info] args
+    (let [[event-type message bulk-info category] args
           {:keys [bulk-op? bulk-final? bulk-names]} bulk-info
           banner-id (str "msg-" (:system/now uf-data) "-" (count (:ui/system-banners state)))
-          new-banner {:id banner-id :type event-type :message message}
-          banners (or (:ui/system-banners state) [])]
+          new-banner (cond-> {:id banner-id :type event-type :message message}
+                       category (assoc :category category))
+          banners (or (:ui/system-banners state) [])
+          ;; If category provided, filter out existing banners with same category
+          banners (if category
+                    (filterv #(not= (:category %) category) banners)
+                    banners)]
       {:uf/db (assoc state :ui/system-banners (conj banners new-banner))
        :uf/fxs [[:popup/fx.log-system-banner message bulk-op? bulk-final? bulk-names]
                 [:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner banner-id]] 2000]]})

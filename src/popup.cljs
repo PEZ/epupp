@@ -133,7 +133,7 @@
     :popup/fx.connect
     (let [[port] args
           tab (js-await (get-active-tab))]
-      (dispatch [[:popup/ax.show-system-banner "info" "Connecting..." {}]])
+      (dispatch [[:popup/ax.show-system-banner "info" "Connecting..." {} "connection"]])
       (try
         (let [resp (js-await
                     (js/Promise.
@@ -147,12 +147,12 @@
                             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
                             (resolve response)))))))]
           (if (and resp (.-success resp))
-            ;; Success - show banner (auto-clears after 2s)
-            (dispatch [[:popup/ax.show-system-banner "success" "Connected!" {}]])
+            ;; Success - show banner with same category to replace "Connecting..."
+            (dispatch [[:popup/ax.show-system-banner "success" "Connected!" {} "connection"]])
             ;; Failure from background worker
-            (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (or (and resp (.-error resp)) "Connect failed")) {}]])))
+            (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (or (and resp (.-error resp)) "Connect failed")) {} "connection"]])))
         (catch :default err
-          (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (.-message err)) {}]]))))
+          (dispatch [[:popup/ax.show-system-banner "error" (str "Failed: " (.-message err)) {} "connection"]]))))
 
     :popup/fx.check-status
     (let [[_ws-port] args

@@ -802,3 +802,41 @@
             (test ":editor/ax.eval-selection with empty code and empty selection returns nil" test_eval_selection_with_empty_code_and_empty_selection_returns_nil)
             (test ":editor/ax.eval-selection when already evaluating returns nil" test_eval_selection_when_already_evaluating_returns_nil)
             (test ":editor/ax.eval-selection without scittle triggers inject-and-eval" test_eval_selection_without_scittle_triggers_inject_and_eval)))
+
+;; === Panel system banner category tests ===
+
+(defn- test_show_system_banner_with_category_replaces_existing_banner []
+  (let [existing-banner {:id "msg-1" :type "info" :message "Processing..." :category "operation"}
+        state {:panel/system-banners [existing-banner]}
+        result (panel-actions/handle-action state uf-data [:editor/ax.show-system-banner "success" "Done!" "operation"])
+        banners (:panel/system-banners (:uf/db result))]
+    ;; Should still have one banner (replaced, not appended)
+    (-> (expect (count banners))
+        (.toBe 1))
+    ;; New banner should have new message
+    (-> (expect (:message (first banners)))
+        (.toBe "Done!"))))
+
+(defn- test_show_system_banner_with_category_does_not_replace_different_category []
+  (let [existing-banner {:id "msg-1" :type "info" :message "Loading..." :category "loading"}
+        state {:panel/system-banners [existing-banner]}
+        result (panel-actions/handle-action state uf-data [:editor/ax.show-system-banner "success" "Saved!" "save"])
+        banners (:panel/system-banners (:uf/db result))]
+    ;; Should have two banners (different categories)
+    (-> (expect (count banners))
+        (.toBe 2))))
+
+(defn- test_show_system_banner_without_category_appends_normally []
+  (let [existing-banner {:id "msg-1" :type "info" :message "Existing..." :category "existing"}
+        state {:panel/system-banners [existing-banner]}
+        result (panel-actions/handle-action state uf-data [:editor/ax.show-system-banner "success" "New!"])
+        banners (:panel/system-banners (:uf/db result))]
+    ;; Should have two banners (no category to replace)
+    (-> (expect (count banners))
+        (.toBe 2))))
+
+(describe "panel system banner with category"
+          (fn []
+            (test ":editor/ax.show-system-banner with category replaces existing banner" test_show_system_banner_with_category_replaces_existing_banner)
+            (test ":editor/ax.show-system-banner does not replace different category" test_show_system_banner_with_category_does_not_replace_different_category)
+            (test ":editor/ax.show-system-banner without category appends normally" test_show_system_banner_without_category_appends_normally)))
