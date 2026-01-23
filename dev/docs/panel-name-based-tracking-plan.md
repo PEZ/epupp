@@ -397,35 +397,35 @@ Location: `panel_actions.cljs`
 
 ## Batch Execution Order
 
-**Batch A: Builtin Metadata (1.1-1.3)**
+**Batch A: Builtin Metadata (1.1-1.3)** - COMPLETE
 1. Run testrunner baseline
 2. Add `:script/builtin?` to storage
 3. Add name-based builtin check
 4. Update panel to use new check
 5. Run testrunner verification
 
-**Batch B: Remove ID from Panel State (2.1-2.5)**
+**Batch B: Remove ID from Panel State (2.1-2.5)** - COMPLETE
 1. Run testrunner baseline
 2. Remove ID from state definition and persistence
 3. Update UI logic to use original-name
 4. Run testrunner verification
 
-**Batch C: Update Panel Actions (3.1-3.5)**
+**Batch C: Update Panel Actions (3.1-3.5)** - COMPLETE
 1. Run testrunner baseline
 2. Update all panel actions to not use ID
 3. Run testrunner verification
 
-**Batch D: Update System-Banner Handler (4.1)**
+**Batch D: Update System-Banner Handler (4.1)** - COMPLETE
 1. Run testrunner baseline
 2. Simplify to name-only matching
 3. Run testrunner verification
 
-**Batch E: Update Effects (5.1-5.3)**
+**Batch E: Update Effects (5.1-5.3)** - COMPLETE
 1. Run testrunner baseline
 2. Remove ID from effect signatures
 3. Run testrunner verification
 
-**Batch F: Update Tests (6.1-6.2)**
+**Batch F: Update Tests (6.1-6.2)** - COMPLETE
 1. Run testrunner baseline
 2. Update unit tests
 3. Run full E2E verification
@@ -434,6 +434,14 @@ Location: `panel_actions.cljs`
 1. Run testrunner baseline
 2. Remove deprecated code
 3. Final testrunner verification
+
+**Batch H: Script List Awareness (8.1-8.5)**
+1. Run testrunner baseline
+2. Add scripts list to panel state
+3. Add storage change listener
+4. Update save UI to detect conflicts
+5. Handle rename-to-existing with proper UX
+6. Run testrunner verification
 
 ---
 
@@ -446,7 +454,8 @@ Location: `panel_actions.cljs`
 5. Rename script via REPL FS - verify panel reloads by name
 6. Try to save over builtin - verify rejection works (via `:script/builtin?`)
 7. Close and reopen panel - verify state restores without stale ID
-8. Run all E2E tests - verify no regressions
+8. Rename to existing filename - verify panel shows appropriate conflict UI
+9. Run all E2E tests - verify no regressions
 
 ---
 
