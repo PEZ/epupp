@@ -182,8 +182,8 @@
                            (when (and force? existing-by-name) existing-by-name)
                            (when (and (nil? incoming-id) existing-by-name) existing-by-name))]
     (cond
-      ;; Trying to update a builtin script (by ID)
-      (and is-update? (script-utils/builtin-script-id? script-id))
+      ;; Trying to update a builtin script
+      (and is-update? existing-by-id (script-utils/builtin-script? existing-by-id))
       (make-error-response "Cannot modify built-in scripts" {:operation "save" :script-name script-name})
 
       ;; Trying to overwrite a builtin script (by name, even with force)
@@ -216,13 +216,12 @@
       :else
       (let [;; Remove transient flags before storing
             clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
-            ;; For updates: merge with existing, but preserve enabled state from existing
-            ;; For creates: default enabled to false for user scripts, true for built-ins
-            is-builtin? (script-utils/builtin-script-id? script-id)
+            ;; For updates: merge with existing, preserve enabled state
+            ;; For creates: default to disabled (new user scripts always start disabled)
             merged-script (if is-update?
                             (-> existing-by-id
                                 (merge (dissoc clean-script :script/enabled)))
-                            (update clean-script :script/enabled #(if (some? %) % (if is-builtin? true false))))
+                            (update clean-script :script/enabled #(if (some? %) % false)))
             ;; Add timestamps
             timestamped-script (if is-update?
                                  (assoc merged-script :script/modified now-iso)

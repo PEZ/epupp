@@ -306,13 +306,18 @@ Location: `e2e/panel_save_test.cljs`, `e2e/panel_save_rename_test.cljs`
 #### 7.1 Remove deprecated ID functions (if unused)
 Location: `script_utils.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Check if `builtin-script-id?` is still used anywhere
 - Check if `generate-script-id` is still used in panel (should only be in background)
 - Remove or deprecate unused functions
+
+**Result:**
+- `builtin-script-id?` kept as internal function (used by `builtin-script?` for backward compat, exported for Scittle)
+- All direct calls to `builtin-script-id?` in storage.cljs and repl_fs_actions.cljs replaced with `builtin-script?` on full script objects
+- `generate-script-id` correctly only used in background (repl_fs_actions.cljs)
 
 #### 7.2 Update persistence watcher
 Location: `panel.cljs` lines ~710-720

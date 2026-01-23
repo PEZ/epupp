@@ -122,7 +122,7 @@
         script-with-run-at (assoc script :script/run-at run-at)
         ;; Determine default enabled state: built-in scripts enabled, all others disabled
         ;; (Enabled state only matters for scripts with match patterns - auto-injection)
-        is-builtin? (script-utils/builtin-script-id? script-id)
+        is-builtin? (script-utils/builtin-script? script)
         default-enabled (if is-builtin? true false)
         updated-script (if existing
                          (-> (merge existing script-with-run-at)
@@ -142,11 +142,12 @@
 (defn delete-script!
   "Remove a script by id. Built-in scripts cannot be deleted."
   [script-id]
-  (when-not (script-utils/builtin-script-id? script-id)
-    (swap! !db update :storage/scripts
-           (fn [scripts]
-             (filterv #(not= (:script/id %) script-id) scripts)))
-    (persist!)))
+  (let [script (get-script script-id)]
+    (when (and script (not (script-utils/builtin-script? script)))
+      (swap! !db update :storage/scripts
+             (fn [scripts]
+               (filterv #(not= (:script/id %) script-id) scripts)))
+      (persist!))))
 
 (defn clear-user-scripts!
   "Remove all user scripts, preserving built-in scripts."
