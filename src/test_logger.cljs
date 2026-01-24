@@ -28,12 +28,19 @@
             #js {:test-mode (test-mode?)}
             resolve)))))
 
+;; Write queue to serialize log-event! calls and prevent race conditions.
+;; Without this, concurrent events may read the same array state and overwrite each other.
+(def ^:private !write-queue (atom (js/Promise.resolve nil)))
+
 (defn ^:async log-event!
   "Append structured test event to storage. Only runs in test mode.
 
    Uses performance.now for high-resolution timing, enabling:
    - Timing assertions (document-start before page scripts)
-   - Performance reports (Scittle load time, injection overhead)"
+   - Performance reports (Scittle load time, injection overhead)
+
+   Serializes writes via a promise queue to prevent race conditions
+   when multiple events are logged concurrently."
   [event data]
   ;; Always store a debug flag to confirm this function was called
   (.set js/chrome.storage.local #js {:test-logger-debug #js {:called true
@@ -43,17 +50,17 @@
     (let [entry #js {:event event
                      :ts (.now js/Date)
                      :perf (.now js/performance)
-                     :data (clj->js data)}]
-      (js-await
-       (js/Promise.
-        (fn [resolve]
-          (.get js/chrome.storage.local #js ["test-events"]
-                (fn [result]
-                  ;; Use bracket notation for hyphenated key access
-                  (let [events (or (aget result "test-events") #js [])]
-                    (.push events entry)
-                    (.set js/chrome.storage.local #js {:test-events events}
-                          resolve))))))))))
+                     :data (clj->js data)}
+          write-fn (fn []
+                     (js/Promise.
+                      (fn [resolve]
+                        (.get js/chrome.storage.local #js ["test-events"]
+                              (fn [result]
+                                (let [events (or (aget result "test-events") #js [])]
+                                  (.push events entry)
+                                  (.set js/chrome.storage.local #js {:test-events events}
+                                        resolve)))))))]
+      (swap! !write-queue (fn [prev] (.then prev write-fn))))))
 
 (defn ^:async clear-test-events!
   "Clear all test events. Call at start of each test."

@@ -8,7 +8,9 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 |--------|-------|
 | Active flaky tests | 3 |
 | Hypotheses pending | 2 |
-| Successful fixes | 0 |
+| Successful fixes | 1 |
+
+**Note:** Extension startup event test added Jan 2026 - race condition causing event loss.
 
 ---
 
@@ -30,7 +32,7 @@ Track each investigation to prevent re-testing failed approaches.
 
 | Date | Hypothesis | Implementation | Outcome | Notes |
 |------|-----------|----------------|---------|-------|
-| _None yet_ | - | - | - | Document first attempt here |
+| Jan 2026 | H0: test-logger race condition | Added write queue in log-event! | SUCCESS | Verified: 3 parallel + 2 serial passes |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 
@@ -41,6 +43,20 @@ Track each investigation to prevent re-testing failed approaches.
 Active hypotheses to investigate. Move to Attempted Fixes Log when tested.
 
 ### High Priority
+
+#### H0: test-logger race condition (CONFIRMED)
+- [x] Tested
+- [x] Outcome documented
+
+The `log-event!` function in [test_logger.cljs](../../src/test_logger.cljs#L34) uses non-atomic read-modify-write:
+```clojure
+(.get storage ["test-events"]
+  (fn [result]
+    (.push events entry)    ;; race: concurrent readers see stale array
+    (.set storage {:test-events events} resolve)))
+```
+
+When `EXTENSION_STARTED` and `GET_CONNECTIONS_RESPONSE` log concurrently, last writer wins. Fix: serialize `log-event!` calls or use atomic storage update pattern.
 
 #### H1: Storage event timing across extension contexts
 - [ ] Tested
@@ -107,7 +123,7 @@ Learnings that should inform [testing-e2e.md](testing-e2e.md) and test writing p
 
 | Pattern | Source | Recommendation |
 |---------|--------|----------------|
-| _None yet_ | - | Document first pattern here |
+| Non-atomic storage writes cause event loss | H0 investigation | Use promise queue for chrome.storage read-modify-write operations |
 
 ---
 
