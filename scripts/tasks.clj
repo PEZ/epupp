@@ -15,12 +15,10 @@
    triggers CSP violations on sites like YouTube, GitHub, etc."
   [scittle-path]
   (let [content (slurp scittle-path)
-        ;; Replace: globalThis["import"]=eval("(x) => import(x)");
-        ;; With:    globalThis["import"]=function(x){return import(x);};
         patched (str/replace
                  content
                  "globalThis[\"import\"]=eval(\"(x) \\x3d\\x3e import(x)\");"
-                 "globalThis[\"import\"]=function(x){return import(x);};")]
+                 "try { globalThis[\"import\"]=eval(\"(x) => import(x)\"); } catch {};")]
     (when (= content patched)
       (println "  ⚠ Warning: eval pattern not found in scittle.js - may already be patched or pattern changed"))
     (spit scittle-path patched)
