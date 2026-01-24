@@ -13,6 +13,9 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | `save!` return | `{:fs/success :fs/name :fs/error}` | Base info + `:fs/newly-created?` |
 | Scripts without match | Created enabled | Created disabled |
 | **Removing match** | **Match persisted** | **Match cleared, disabled** |
+| Built-in naming | `"GitHub Gist Installer (Built-in)"` | `epupp/built-in/gist_installer.cljs` |
+| Built-in detection | By ID (`epupp-builtin-*`) | By metadata (`:script/builtin?`) ✅ |
+| `epupp/` namespace | Unreserved | Reserved for system use |
 
 ## Rationale
 
@@ -22,6 +25,9 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 4. **Semantic correctness**: Scripts without auto-run patterns shouldn't have `:fs/enabled?` field
 5. **Consistent returns**: All `epupp.fs` functions returning script info use the same base shape
 6. **Auto-run revocability**: Removing `:epupp/auto-run-match` from manifest MUST clear auto-run behavior entirely
+7. **Namespace reservation**: `epupp/` prefix reserved for system scripts - prevents user conflicts
+8. **Built-in identification**: Use metadata (`:script/builtin?`) not ID patterns for built-in detection
+9. **Scheme reservation**: `epupp://` scheme reserved for future internal use
 
 ## Progress Checklist
 
@@ -99,7 +105,65 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - Gist install (via `background.cljs` → `storage.cljs`)
 - Script import (future, will use same path)
 
-### Phase 7: Verification
+### Phase 7: `epupp/` Namespace Reservation
+
+**Status**: The `epupp/` namespace should be reserved for system scripts. Users cannot create scripts with names starting with `epupp/`.
+
+**Current state**:
+- ✅ Built-in detection uses `:script/builtin?` metadata (not ID pattern)
+- ❌ Built-in name is `"GitHub Gist Installer (Built-in)"` - should be `epupp/built-in/gist_installer.cljs`
+- ❌ No validation prevents users from creating `epupp/` prefixed scripts
+
+- [ ] **storage.cljs**: Rename built-in to `epupp/built-in/gist_installer.cljs`
+- [ ] **storage.cljs**: Add validation in `save-script!` to reject names starting with `epupp/`
+- [ ] **repl_fs_actions.cljs**: Return clear error when `epupp/` prefix attempted
+- [ ] **panel_actions.cljs**: Prevent save with `epupp/` prefix (or rely on storage validation)
+- [ ] **Unit tests**: Test validation rejects `epupp/` prefix
+- [ ] **E2E tests**: Test panel/REPL rejection of `epupp/` names
+- [ ] **Docs**: Document namespace reservation
+
+### Phase 8: Built-in Reinstall Strategy (Decision Needed)
+
+**Status**: Implementation differs from decided strategy.
+
+**Decided strategy** (from api-review-discussion.md):
+> "On extension startup, remove all scripts with IDs matching `epupp-builtin-*`, reinstall from fresh source code"
+
+**Current implementation**: Update-if-changed pattern - only updates built-in if code differs, preserves enabled state.
+
+**Decision needed**: Which strategy?
+
+**Option A - Clean reinstall** (as discussed):
+- Remove old built-ins on startup
+- Reinstall from fresh source
+- Users always get latest built-in behavior
+- Simpler mental model
+
+**Option B - Keep update-if-changed** (current):
+- Only updates when code differs
+- Less disruptive on startup
+- Preserves any future per-built-in settings
+
+**For Option A**:
+- [ ] **storage.cljs**: On init, remove all `:script/builtin? true` scripts
+- [ ] **storage.cljs**: Then call `ensure-gist-installer!` to reinstall
+- [ ] **Unit tests**: Verify clean reinstall behavior
+
+**For Option B**:
+- [x] Current implementation already works this way
+- [ ] **Docs**: Document that built-ins are updated on code change only
+
+### Phase 9: Scheme Reservation (`epupp://`)
+
+**Status**: Reserved for future use. No enforcement needed yet.
+
+**Decision**: The `epupp://` scheme is reserved for internal use. Currently `scittle://` is used for Scittle libraries. When `epupp://` is needed for internal resources, enforcement can be added.
+
+- [x] **Decided**: Scheme is reserved (documented in api-review-discussion.md)
+- [ ] **Docs**: Add note about scheme reservation
+- [ ] **Future**: Add validation when scheme is actually used
+
+### Phase 10: Final Verification
 
 - [ ] **Unit tests pass**: `bb test`
 - [ ] **E2E tests pass**: `bb test:e2e`
@@ -107,6 +171,9 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
   - [ ] Panel: Edit script with match → remove match → save → verify no auto-run UI
   - [ ] REPL: Update script removing match → verify no auto-run UI in popup
   - [ ] Both: Verify script works as manual-only (can run via play button)
+  - [ ] Built-in appears as `epupp/built-in/gist_installer.cljs` in UI
+  - [ ] Cannot create script named `epupp/anything.cljs` via panel
+  - [ ] Cannot create script named `epupp/anything.cljs` via REPL
 
 ## Base Script Info Shape
 
@@ -137,17 +204,18 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | File | Changes |
 |------|---------|
 | `src/manifest_parser.cljs` | Extract `:epupp/auto-run-match` |
-| `src/storage.cljs` | Update field names, conditional enabled default, **auto-run revocation logic** |
+| `src/storage.cljs` | Update field names, conditional enabled default, **auto-run revocation logic**, **`epupp/` validation**, **rename built-in** |
 | `src/background.cljs` | Update manifest references |
 | `src/bg_fs_dispatch.cljs` | Add `script->base-info`, update all responses |
 | `src/popup.cljs` | Update `:fs/enabled` → `:fs/enabled?` |
 | `src/panel.cljs` | Update match field references |
 | `src/panel_actions.cljs` | Update default template, save logic |
+| `src/background_actions/repl_fs_actions.cljs` | **Return clear error for `epupp/` prefix** |
 | `extension/bundled/epupp/fs.cljs` | Update response parsing, docstrings |
 | `extension/bundled/userscripts/*.cljs` | Update manifest keys |
-| `test/*.cljs` | Update all assertions, **add auto-run revocation tests** |
-| `e2e/*.cljs` | Update all assertions, **add auto-run revocation E2E tests** |
-| `docs/*.md` | Update all examples |
+| `test/*.cljs` | Update all assertions, **add auto-run revocation tests**, **add `epupp/` validation tests** |
+| `e2e/*.cljs` | Update all assertions, **add auto-run revocation E2E tests**, **add namespace rejection E2E tests** |
+| `docs/*.md` | Update all examples, **document namespace reservation** |
 
 ## Implementation Notes
 
@@ -202,11 +270,11 @@ The `save-script!` function in storage.cljs must be updated to:
                   ;; Manifest explicitly sets match (including empty)
                   (contains? manifest "auto-run-match")
                   (if (seq manifest-match) (vec manifest-match) [])
-                  
+
                   ;; No manifest or no code - preserve existing match
                   existing
                   (:script/match existing)
-                  
+
                   ;; New script without manifest - no match
                   :else [])
       has-auto-run? (seq new-match)
@@ -234,6 +302,9 @@ The `save-script!` function in storage.cljs must be updated to:
 8. **Update auto-run script to remove match** → verify match cleared, enabled=false, no auto-run UI
 9. **Panel save with match removed** → verify becomes manual-only script
 10. **REPL save with match removed** → verify becomes manual-only script
+11. **Built-in naming**: `epupp/built-in/gist_installer.cljs` appears in popup/panel
+12. **Namespace rejection**: Panel rejects `epupp/test.cljs` with clear error
+13. **Namespace rejection**: REPL `(epupp.fs/save! "{:epupp/script-name \"epupp/test.cljs\"}")` rejects
 
 ## Original Plan-Producing Prompt
 
@@ -250,5 +321,9 @@ Create an implementation plan for the decided API changes before 1.0 release:
 9. Change `mv!` to return base info + `:fs/from-name`
 10. Change `rm!` to return deleted script's base info
 11. **Auto-run revocation**: Removing `:epupp/auto-run-match` from manifest MUST clear match and reset enabled to false (regression fix for merge-preserving-old-values bug)
+12. **Reserve `epupp/` namespace**: Built-in scripts use `epupp/built-in/` prefix, users cannot create `epupp/*` scripts
+13. **Built-in detection**: Use `:script/builtin?` metadata (already implemented), not ID patterns
+14. **Reserve `epupp://` scheme**: For future internal use (document, no enforcement yet)
+15. **Built-in reinstall strategy**: Decide between clean-reinstall vs update-if-changed
 
 Breaking changes acceptable - pre-1.0 in userscripts branch. Use plan format from recent dev/docs plans (checklist, files table, implementation notes, verification).
