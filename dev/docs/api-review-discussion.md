@@ -253,10 +253,9 @@ User confirmed: "I think the settings defaults are good."
 
 **Current:** No version field in storage
 **Risk:** Can't detect when migration needed
-**Decision needed:** Add `"schemaVersion"` field now?
-**Recommendation:**
+**Decision:** Add `schemaVersion` field
 
-**Discussion:**
+**Discussion:** ✅ Decided - add schema versioning in Phase 11 (2026-01-24)
 
 
 ---
@@ -265,10 +264,12 @@ User confirmed: "I think the settings defaults are good."
 
 **Current:** `"autoConnectRepl"` (camelCase) vs `"granted-origins"` (kebab-case)
 **Impact:** Internal only, but migration harder if inconsistent
-**Decision needed:** Standardize now or accept as-is?
-**Recommendation:**
+**Decision:** Standardize to camelCase (JS convention)
 
-**Discussion:**
+**Key renames:**
+- `granted-origins` → `grantedOrigins`
+
+**Discussion:** ✅ Decided - camelCase for all storage keys (2026-01-24)
 
 
 ---
@@ -276,10 +277,9 @@ User confirmed: "I think the settings defaults are good."
 ### 3. Unused Fields
 
 **`approvedPatterns`** in storage schema - legacy, unused
-**Decision needed:** Remove before 1.0 or keep for future?
-**Recommendation:**
+**Decision:** Remove before 1.0
 
-**Discussion:**
+**Discussion:** ✅ Decided - remove in Phase 10 (Storage Schema simplification)
 
 
 ---
@@ -288,15 +288,22 @@ User confirmed: "I think the settings defaults are good."
 
 **Current:** Code overwrites on version change, no tracking
 
-**Decision:** Remove and reinstall all built-ins on extension update
+**Decision:** Hybrid approach - cleanup + save-style updates (2026-01-24)
 
 **Strategy:**
-- On extension startup, remove all scripts with IDs matching `epupp-builtin-*`
-- Reinstall from fresh source code
-- Guarantees users always have latest built-in code
-- No version tracking needed - just nuke and pave
+1. On extension startup, remove any `:script/builtin? true` scripts NOT in current bundle
+2. For built-ins that ARE bundled, use same save path as panel/REPL saves:
+   - Code and manifest-derived fields update
+   - User preferences (enabled state) preserved
+   - `modified` timestamp updates, `created` stays same
 
-**Discussion:** ✅ Decided - clean reinstall on update
+**Benefits:**
+- Cleans up obsolete built-ins
+- Users always get latest code
+- User's enabled/disabled choice honored
+- Consistent with normal save behavior
+
+**Discussion:** ✅ Decided - hybrid approach (cleanup stale + save-style update)
 
 
 ---

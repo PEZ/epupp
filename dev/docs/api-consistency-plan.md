@@ -19,6 +19,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | Panel persistence | `{code, scriptName, scriptMatch, ...}` | `{code}` only |
 | Storage schema | Cached manifest fields | Derive from manifest on load |
 | Schema versioning | None | `schemaVersion` field |
+| Storage key naming | Mixed (`granted-origins` vs `userAllowedOrigins`) | camelCase (`grantedOrigins`) |
 
 ## Rationale
 
@@ -33,6 +34,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 9. **Scheme reservation**: `epupp://` scheme reserved for future internal use
 10. **Code is source of truth**: Panel persists only code, storage derives metadata from manifest
 11. **Schema versioning**: Version field enables future migrations
+12. **Storage key consistency**: camelCase for all storage keys (JS convention)
 
 ## Progress Checklist
 
@@ -127,36 +129,39 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **E2E tests**: Test panel/REPL rejection of `epupp/` names
 - [ ] **Docs**: Document namespace reservation
 
-### Phase 8: Built-in Reinstall Strategy (Decision Needed)
+### Phase 8: Built-in Reinstall Strategy
 
-**Status**: Implementation differs from decided strategy.
+**Status**: ✅ Decided - Hybrid approach
 
-**Decided strategy** (from api-review-discussion.md):
-> "On extension startup, remove all scripts with IDs matching `epupp-builtin-*`, reinstall from fresh source code"
+**Decision**: Combine cleanup with save-style updates:
 
-**Current implementation**: Update-if-changed pattern - only updates built-in if code differs, preserves enabled state.
+1. **Remove stale built-ins**: Any `:script/builtin? true` scripts in storage that are NOT bundled with the current extension version → delete them
+2. **Update existing built-ins**: For built-ins that ARE bundled → use the same code path as "Save Script" from panel:
+   - Code updates from bundle
+   - Manifest-derived fields update (name, match, description, run-at, inject)
+   - User preferences preserved (`:script/enabled`)
+   - `:script/modified` timestamp updates
+   - `:script/created` stays the same
 
-**Decision needed**: Which strategy?
+**Benefits**:
+- Cleans up obsolete built-ins automatically
+- Users always get latest built-in code
+- User's enabled/disabled choice is honored
+- Consistent with how all other saves work
 
-**Option A - Clean reinstall** (as discussed):
-- Remove old built-ins on startup
-- Reinstall from fresh source
-- Users always get latest built-in behavior
-- Simpler mental model
+**Implementation**:
+- [ ] **storage.cljs**: On init, get list of bundled built-in IDs
+- [ ] **storage.cljs**: Remove any `:script/builtin? true` not in bundled list
+- [ ] **storage.cljs**: For each bundled built-in, call existing save path (not special-case)
+- [ ] **Unit tests**: Test stale built-in removal
+- [ ] **Unit tests**: Test built-in update preserves enabled state
 
-**Option B - Keep update-if-changed** (current):
-- Only updates when code differs
-- Less disruptive on startup
-- Preserves any future per-built-in settings
-
-**For Option A**:
-- [ ] **storage.cljs**: On init, remove all `:script/builtin? true` scripts
-- [ ] **storage.cljs**: Then call `ensure-gist-installer!` to reinstall
-- [ ] **Unit tests**: Verify clean reinstall behavior
-
-**For Option B**:
-- [x] Current implementation already works this way
-- [ ] **Docs**: Document that built-ins are updated on code change only
+**E2E tests** (cover decided behavior):
+- [ ] **E2E**: Built-in appears with correct code after extension reload
+- [ ] **E2E**: User disables built-in → reload extension → built-in stays disabled
+- [ ] **E2E**: User enables built-in → reload extension → built-in stays enabled
+- [ ] **E2E**: Stale built-in (manually added with `builtin?: true`) removed on reload
+- [ ] **E2E**: Built-in code updates when bundle changes (verify modified timestamp changes)
 
 ### Phase 9: Panel Persistence Simplification
 
@@ -228,31 +233,46 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **Unit tests**: Test round-trip (save minimal, load with derived fields)
 - [ ] **E2E tests**: Test that manifest changes in code are reflected after reload
 
-### Phase 11: Schema Versioning
+### Phase 11: Schema Versioning and Key Naming
 
-**Status**: No version field in storage - can't detect when migration needed.
+**Status**: No version field in storage - can't detect when migration needed. Also, storage keys use inconsistent naming.
 
-**Decision**: Add `schemaVersion` field to storage root.
+**Decisions**:
+1. Add `schemaVersion` field to storage root
+2. Standardize all storage keys to **camelCase** (JS convention)
+
+**Key renames**:
+| Before | After |
+|--------|-------|
+| `granted-origins` | `grantedOrigins` |
+| `scripts` | `scripts` (unchanged) |
+| `userAllowedOrigins` | `userAllowedOrigins` (unchanged) |
+| `autoConnectRepl` | `autoConnectRepl` (unchanged) |
+| `autoReconnectRepl` | `autoReconnectRepl` (unchanged) |
+| `fsReplSyncEnabled` | `fsReplSyncEnabled` (unchanged) |
 
 **Version strategy**:
 - Current schema (after Phase 10): version `1`
 - On load, check version and run migrations if needed
 - Migrations are one-way (old → new)
+- Version 0 → 1 migration: rename `granted-origins` → `grantedOrigins`
 
-**Storage structure**:
+**Storage structure (v1)**:
 ```javascript
 {
   "schemaVersion": 1,
   "scripts": [...],
-  "granted-origins": [...],
+  "grantedOrigins": [...],
   "userAllowedOrigins": [...]
 }
 ```
 
 - [ ] **storage.cljs**: Add `schemaVersion` field to storage
+- [ ] **storage.cljs**: Rename `granted-origins` → `grantedOrigins` in persist/load
 - [ ] **storage.cljs**: Check version on load, run migrations if needed
-- [ ] **storage.cljs**: Add migration framework (version 0 → 1 = current changes)
+- [ ] **storage.cljs**: Add migration framework (version 0 → 1)
 - [ ] **Unit tests**: Test migration from unversioned to version 1
+- [ ] **Unit tests**: Test `granted-origins` → `grantedOrigins` migration
 - [ ] **Docs**: Document storage schema version
 
 ### Phase 12: Scheme Reservation (`epupp://`)
@@ -279,6 +299,8 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
   - [ ] Panel restores code-only, parses manifest for metadata
   - [ ] Storage contains only non-derivable fields
   - [ ] Schema version is persisted and checked on load
+  - [ ] Built-in: disable → reload extension → still disabled
+  - [ ] Built-in: enable → reload extension → still enabled
 
 ## Base Script Info Shape
 
@@ -414,7 +436,12 @@ The `save-script!` function in storage.cljs must be updated to:
 14. **Panel restore**: Edit manifest in code, close/reopen panel → metadata reflects code
 15. **Storage minimal**: Inspect storage, verify only `id`, `code`, `enabled`, `created`, `modified`, `builtin?`
 16. **Schema version**: Storage has `schemaVersion: 1`
-17. **Migration**: Clear storage, reinstall → verify schema version added
+17. **Key naming**: Storage uses `grantedOrigins` (not `granted-origins`)
+18. **Migration**: Old storage with `granted-origins` migrates to `grantedOrigins` on load
+19. **Built-in preserved enabled**: Disable built-in → reload extension → still disabled
+20. **Built-in preserved enabled**: Enable built-in → reload extension → still enabled
+21. **Built-in stale removal**: Manually add fake built-in → reload → removed
+22. **Built-in code updates**: Change built-in code in bundle → reload → new code, new modified date
 
 ## Original Plan-Producing Prompt
 
@@ -438,6 +465,7 @@ Create an implementation plan for the decided API changes before 1.0 release:
 16. **Panel persistence simplification**: Persist only `{code}`, derive metadata from manifest on restore
 17. **Storage schema simplification**: Store only non-derivable fields, derive rest from manifest on load
 18. **Schema versioning**: Add `schemaVersion` field for future migrations
-19. **Remove unused fields**: Delete legacy `:script/approved-patterns` field
+19. **Storage key naming**: Standardize to camelCase (`granted-origins` → `grantedOrigins`)
+20. **Remove unused fields**: Delete legacy `:script/approved-patterns` field
 
 Breaking changes acceptable - pre-1.0 in userscripts branch. Use plan format from recent dev/docs plans (checklist, files table, implementation notes, verification).
