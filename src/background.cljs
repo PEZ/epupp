@@ -657,6 +657,51 @@
                           (send-response #js {:success false :error "Not available"})
                           false))
 
+                      "e2e/activate-tab"
+                      (if (.-dev config)
+                        (let [tab-id (.-tabId message)]
+                          (js/chrome.tabs.update tab-id #js {:active true}
+                                                 (fn [tab]
+                                                   (if js/chrome.runtime.lastError
+                                                     (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
+                                                     (js/chrome.windows.update (.-windowId tab) #js {:focused true}
+                                                                               (fn [_win]
+                                                                                 (if js/chrome.runtime.lastError
+                                                                                   (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
+                                                                                   (send-response #js {:success true :tabId tab-id})))))))
+                          true)
+                        (do
+                          (send-response #js {:success false :error "Not available"})
+                          false))
+
+                      "e2e/update-icon"
+                      (if (.-dev config)
+                        (let [tab-id (.-tabId message)]
+                          ((^:async fn []
+                             (try
+                               (js-await (bg-icon/update-icon-now! !state tab-id))
+                               (send-response #js {:success true :tabId tab-id})
+                               (catch :default err
+                                 (send-response #js {:success false :error (.-message err)})))))
+                          true)
+                        (do
+                          (send-response #js {:success false :error "Not available"})
+                          false))
+
+                      "e2e/ensure-builtin"
+                      (if (.-dev config)
+                        (do
+                          ((^:async fn []
+                             (try
+                               (js-await (storage/ensure-gist-installer!))
+                               (send-response #js {:success true})
+                               (catch :default err
+                                 (send-response #js {:success false :error (.-message err)})))))
+                          true)
+                        (do
+                          (send-response #js {:success false :error "Not available"})
+                          false))
+
                       "install-userscript"
                       ;; Manifest already parsed by the installer userscript using Scittle
                       ;; scriptUrl is the raw URL to fetch the script from

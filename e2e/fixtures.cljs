@@ -189,6 +189,22 @@
       true
       (throw (js/Error. (str "Connection failed: " (or (.-error result) "unknown error")))))))
 
+(defn ^:async activate-tab
+  "Activate a tab and focus its window via background message."
+  [ext-page tab-id]
+  (let [result (js-await (send-runtime-message ext-page "e2e/activate-tab" #js {:tabId tab-id}))]
+    (if (and result (.-success result))
+      true
+      (throw (js/Error. (str "Failed to activate tab: " (or (.-error result) "unknown error")))))))
+
+(defn ^:async update-icon
+  "Force icon update for a tab via background message (logs ICON_STATE_CHANGED)."
+  [ext-page tab-id]
+  (let [result (js-await (send-runtime-message ext-page "e2e/update-icon" #js {:tabId tab-id}))]
+    (if (and result (.-success result))
+      true
+      (throw (js/Error. (str "Failed to update icon: " (or (.-error result) "unknown error")))))))
+
 (defn ^:async get-connections
   "Get active REPL connections from background worker.
    ext-page must be an extension page (popup/panel).

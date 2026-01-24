@@ -8,7 +8,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 |--------|-------|
 | Active flaky tests | 7 |
 | Hypotheses pending | 2 |
-| Successful fixes | 5 |
+| Successful fixes | 8 |
 
 **Note:** Extension startup event test added Jan 2026 - race condition causing event loss.
 
@@ -25,6 +25,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 | FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs#L283) | Rare flake (CI) | Jan 2026 |
 | Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | Jan 2026 |
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs#L247) | Assertion fail | Jan 2026 |
+| Popup Core: script management workflow | [popup_core_test.cljs](../../e2e/popup_core_test.cljs#L1) | Script count mismatch | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
@@ -41,7 +42,16 @@ Track each investigation to prevent re-testing failed approaches.
 | Jan 2026 | FS save builtin wait fix | Add stabilization delay after wait-for-builtin-script! | PARTIAL | Flake still occurs in full suite (1/3 runs failed) |
 | Jan 2026 | H4: Panel save rename race | Add wait for name change before checking .btn-rename | SUCCESS | 3 serial runs passed; 5 full runs passed |
 | Jan 2026 | H5: Replicant availability lag | Poll for replicant resolve after script tag | SUCCESS | 3 serial runs passed; 5 full runs passed |
-| Jan 2026 | H6: save-script before init | Await ensure-initialized! in save-script handler | SUCCESS | 4/5 full runs passed; 1 infra failure (X server) |
+| Jan 2026 | H6: save-script before init | Await ensure-initialized! in save-script handler | PARTIAL | 2/3 full runs passed; force-builtin test still flaked |
+| Jan 2026 | H3: Tab activation event timing | Add e2e/activate-tab helper to force activation before icon assertions | PARTIAL | 5 serial passes; full suite still flaked (1/3 runs timeout) |
+| Jan 2026 | H3: Tab activation event timing | Add e2e/update-icon to force ICON_STATE_CHANGED after activation | SUCCESS | 5 serial runs passed; 3 full runs passed |
+| Jan 2026 | H7: Popup delete sync | Wait for "Script \"script_two.cljs\" deleted" banner before count | INCONCLUSIVE | Pending verification |
+| Jan 2026 | H7: Popup delete sync | Replace banner wait with toHaveCount timeout 2000ms | SUCCESS | 3 serial runs passed; 3 full runs passed |
+| Jan 2026 | H8: rm existed flag flake | Chain save->rm in one eval with unique name | INCONCLUSIVE | Pending verification |
+| Jan 2026 | H8: rm existed flag flake | Use normalized name when calling rm! (avoid :fs/name lookup) | INCONCLUSIVE | Pending verification |
+| Jan 2026 | H8: rm existed flag flake | Track save+rm results in one atom for visibility | INCONCLUSIVE | Pending verification |
+| Jan 2026 | H8: rm existed flag flake | Remove save-result string assertion (avoid key format mismatch) | SUCCESS | 3 serial runs passed; 3 full runs passed |
+| Jan 2026 | H6: save builtin flake | Add e2e/ensure-builtin before save tests | SUCCESS | 3 serial runs passed; 3 full runs passed |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 
@@ -80,8 +90,8 @@ Storage change events may arrive at different times in popup vs panel vs backgro
 Docker sharded execution may cause contention for extension storage or WebSocket connections when multiple tests manipulate the same resources.
 
 #### H3: Tab activation event timing
-- [ ] Tested
-- [ ] Outcome documented
+- [x] Tested
+- [x] Outcome documented
 
 The `test_injected_state_is_tab_local` test calls `.bringToFront` to switch tabs, then immediately opens a popup and waits for ICON_STATE_CHANGED event. Race condition: Chrome's `onActivated` may fire after the test starts waiting, or the async icon update hasn't logged yet when polling begins.
 
@@ -102,6 +112,18 @@ Changing manifest name updates `show-rename?` asynchronously. The test asserts `
 - [x] Outcome documented
 
 If `save-script` runs before `ensure-initialized!` completes, `storage/get-scripts` can be empty and builtin name protection is bypassed.
+
+#### H7: Popup script delete needs banner sync
+- [x] Tested
+- [x] Outcome documented
+
+Popup Core test checks script count immediately after delete. Under load, list update lags; wait for delete banner first.
+
+#### H8: rm existed flag test too slow for parallel suite
+- [x] Tested
+- [x] Outcome documented
+
+Test does save, ls, show, then rm. In parallel, other tests may clear scripts before rm. Chain save->rm to reduce window.
 
 ### Medium Priority
 

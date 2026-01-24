@@ -111,7 +111,8 @@
               delete-btn (.locator item "button.script-delete")]
           (js-await (.click delete-btn))
           ;; 2 remaining: built-in Gist Installer + script_one.cljs
-          (js-await (wait-for-script-count popup 2)))
+          (js-await (-> (expect (.locator popup ".script-item"))
+                        (.toHaveCount 2 #js {:timeout 2000}))))
 
         (js-await (.close popup)))
 

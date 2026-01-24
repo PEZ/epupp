@@ -1,7 +1,7 @@
 (ns e2e.fs-write-save-test
   "E2E tests for REPL file system save! operations"
   (:require ["@playwright/test" :refer [test expect]]
-            [fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser!]]))
+            [fs-write-helpers :refer [sleep eval-in-browser unquote-result setup-browser! ensure-builtin-script!]]))
 
 (def ^:private !context (atom nil))
 
@@ -287,6 +287,7 @@
               (recur))))))))
 
 (defn- ^:async test_save_rejects_builtin_script_names []
+  (js-await (ensure-builtin-script! @!context))
   (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
   ;; Small delay to let any pending storage operations settle
   (js-await (sleep 50))
@@ -319,6 +320,7 @@
               (recur))))))))
 
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
+  (js-await (ensure-builtin-script! @!context))
   (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
   ;; Small delay to let any pending storage operations settle
   (js-await (sleep 50))

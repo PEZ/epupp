@@ -96,6 +96,19 @@
               (js-await (sleep poll-interval))
               (recur))))))))
 
+(defn ^:async ensure-builtin-script!
+  "Ensure the built-in gist installer exists in storage via background message."
+  [context]
+  (let [ext-id (js-await (get-extension-id context))
+        popup (js-await (.newPage context))]
+    (js-await (.goto popup (str "chrome-extension://" ext-id "/popup.html")
+                     #js {:waitUntil "networkidle"}))
+    (let [result (js-await (send-runtime-message popup "e2e/ensure-builtin" #js {}))]
+      (js-await (.close popup))
+      (if (and result (.-success result))
+        true
+        (throw (js/Error. (str "Failed to ensure builtin: " (or (.-error result) "unknown error"))))))))
+
 (defn ^:async setup-browser!
   "Launch browser, connect REPL, enable FS sync, return context."
   []

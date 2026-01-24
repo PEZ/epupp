@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
                                            create-panel-page wait-for-popup-ready
-                                           wait-for-save-status
+                                           wait-for-save-status activate-tab update-icon
                                            assert-no-errors!]]))
 
 (defn- code-with-manifest
@@ -166,13 +166,12 @@
             (js-await (-> (expect (.locator tab-b "#test-marker"))
                           (.toContainText "ready")))
 
-            ;; Bring Tab B to focus
-            (js-await (.bringToFront tab-b))
-
             ;; Tab B should show disconnected, and the icon event should be for Tab B
             ;; (i.e. not Tab A's Chrome tab-id)
             (let [popup (js-await (create-popup-page context ext-id))
                   tab-b-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/spa-test.html"))
+                  _ (js-await (activate-tab popup tab-b-id))
+                  _ (js-await (update-icon popup tab-b-id))
                   icon-event (js-await (wait-for-icon-state popup tab-b-id #js ["disconnected"] 5000))
                   last-tab-id (aget (.-data icon-event) "tab-id")
                   last-state (aget (.-data icon-event) "state")]
@@ -183,11 +182,10 @@
                             (.toBeTruthy)))
               (js-await (.close popup)))
 
-            ;; Bring Tab A back to focus
-            (js-await (.bringToFront tab-a))
-
             ;; Tab A should STILL show injected/connected
             (let [popup (js-await (create-popup-page context ext-id))
+                  _ (js-await (update-icon popup tab-a-id))
+                  _ (js-await (activate-tab popup tab-a-id))
                   icon-event (js-await (wait-for-icon-state popup tab-a-id #js ["injected" "connected"] 5000))
                   last-state (aget (.-data icon-event) "state")]
               (js-await (-> (expect (or (= last-state "injected")

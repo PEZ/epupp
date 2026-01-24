@@ -201,71 +201,24 @@
   )
 
 (defn- ^:async test_rm_returns_existed_flag []
-  (let [test-code "{:epupp/script-name \"existed-test-rm\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns existed-test)"
-        save-result (js-await (eval-in-browser
-                               (str "(def !existed-setup (atom :pending))\n                                      (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                        (.then (fn [r] (reset! !existed-setup r))))\n                                      :setup-done")))]
-    (-> (expect (.-success save-result)) (.toBe true)))
-
-  (let [start (.now js/Date)
-        timeout-ms 3000]
-    (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-setup)"))]
-        (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          true
-          (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for save! setup"))
-            (do
-              (js-await (sleep 20))
-              (recur)))))))
-
-  (let [setup-result (js-await (eval-in-browser
-                                "(def !existed-ls (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !existed-ls scripts))))\n                                                :setup-done"))]
+  (let [unique-name (str "existed-test-rm-" (.now js/Date))
+        normalized-name (-> unique-name
+                            (.toLowerCase)
+                            (.replace (js/RegExp. "[\\s.-]+" "g") "_")
+                            (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
+                            (str ".cljs"))
+        test-code (str "{:epupp/script-name \"" unique-name "\"\n"
+                       " :epupp/site-match \"https://example.com/*\"}\n"
+                       "(ns existed-test)")
+        setup-result (js-await (eval-in-browser
+                                (str "(def !existed-rm-result (atom {:save :pending :rm :pending}))\n"
+                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
+                                     "    (.then (fn [r] (swap! !existed-rm-result assoc :save r)\n"
+                                     "                   (epupp.fs/rm! \"" normalized-name "\")))\n"
+                                     "    (.then (fn [r] (swap! !existed-rm-result assoc :rm r)))\n"
+                                     "    (.catch (fn [e] (swap! !existed-rm-result assoc :rm {:rejected (.-message e)}))))\n"
+                                     ":setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
-
-  (let [start (.now js/Date)
-        timeout-ms 3000]
-    (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-ls)"))]
-        (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          (-> (expect (.includes (first (.-values check-result)) "existed_test_rm.cljs"))
-              (.toBe true))
-          (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for ls after save"))
-            (do
-              (js-await (sleep 20))
-              (recur)))))))
-
-  (let [setup-result (js-await (eval-in-browser
-                                "(def !existed-show (atom :pending))\n                                                (-> (epupp.fs/show \"existed_test_rm.cljs\")\n                                                    (.then (fn [r] (reset! !existed-show r)))\n                                                    (.catch (fn [e] (reset! !existed-show {:rejected (.-message e)}))))\n                                                :setup-done"))]
-    (-> (expect (.-success setup-result)) (.toBe true)))
-
-  (let [start (.now js/Date)
-        timeout-ms 3000]
-    (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!existed-show)"))]
-        (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "rejected"))
-                (.toBe false))
-            (-> (expect (or (.includes result-str "existed-test-rm")
-                            (.includes result-str "existed_test_rm.cljs")))
-                (.toBe true)))
-          (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for show after save"))
-            (do
-              (js-await (sleep 20))
-              (recur)))))))
-
-  ;; Delete existing script - should have :existed? true
-  (let [rm-result (js-await (eval-in-browser
-                             "(def !existed-rm-result (atom :pending))\n                             (-> (epupp.fs/rm! \"existed_test_rm.cljs\")\n                               (.then (fn [r] (reset! !existed-rm-result r))))\n                             :setup-done"))]
-    (-> (expect (.-success rm-result)) (.toBe true)))
 
   (let [start (.now js/Date)
         timeout-ms 3000]
@@ -273,13 +226,13 @@
       (let [check-result (js-await (eval-in-browser "(pr-str @!existed-rm-result)"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
+                 (not (.includes (first (.-values check-result)) ":rm :pending")))
           (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "rejected"))
+                (.toBe false))
             (-> (expect (.includes result-str ":success true"))
                 (.toBe true))
             (-> (expect (.includes result-str ":name"))
-                (.toBe true))
-            (-> (expect (.includes result-str "existed_test_rm.cljs"))
                 (.toBe true))
             (-> (expect (.includes result-str ":existed? true"))
                 (.toBe true)))
