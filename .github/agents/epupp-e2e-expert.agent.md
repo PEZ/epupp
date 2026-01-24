@@ -162,6 +162,8 @@ Split tests for parallel distribution:
 | `require_test.cljs` | Scittle library requires |
 | `repl_ui_spec.cljs` | Full nREPL integration pipeline |
 
+Create new files as needed for logical grouping, and when files risk growing large.
+
 ## Essential Helpers (e2e/fixtures.cljs)
 
 **Browser Setup**:
