@@ -242,10 +242,20 @@
                      ;; Step 3: Wait for replicant script tag to appear (poll instead of fixed sleep)
                      (js-await (wait-for-script-tag "replicant" 5000))
 
-                     ;; Step 4: Verify Replicant is now available
-                     (let [replicant-check (js-await (eval-in-browser "(boolean (resolve 'replicant.dom/render))"))]
-                       (js/console.log "=== replicant-check ===" (js/JSON.stringify replicant-check))
-                       (-> (expect (.-success replicant-check)) (.toBe true)))
+                     ;; Step 4: Poll until Replicant namespace is resolvable (script loaded != namespace available)
+                     (let [start (.now js/Date)
+                           timeout-ms 5000
+                           poll-interval 20]
+                       (loop []
+                         (let [replicant-check (js-await (eval-in-browser "(boolean (resolve 'replicant.dom/render))"))]
+                           (if (and (.-success replicant-check)
+                                    (= (first (.-values replicant-check)) "true"))
+                             (js/console.log "=== Replicant namespace resolved ===")
+                             (if (> (- (.now js/Date) start) timeout-ms)
+                               (throw (js/Error. "Timeout waiting for replicant.dom/render to resolve"))
+                               (do
+                                 (js-await (sleep poll-interval))
+                                 (recur)))))))
 
                      ;; Step 4: Use Replicant to render Epupp-themed UI
                      (let [render-result (js-await (eval-in-browser

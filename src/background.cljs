@@ -478,6 +478,7 @@
                       "save-script"
                       (do
                         ((^:async fn []
+                           (js-await (ensure-initialized! dispatch!))
                            (if-not (js-await (fs-repl-sync-enabled?))
                              (do
                                (bg-icon/broadcast-system-banner! {:event-type "error"

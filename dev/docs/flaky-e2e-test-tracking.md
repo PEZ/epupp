@@ -8,7 +8,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 |--------|-------|
 | Active flaky tests | 7 |
 | Hypotheses pending | 2 |
-| Successful fixes | 3 |
+| Successful fixes | 5 |
 
 **Note:** Extension startup event test added Jan 2026 - race condition causing event loss.
 
@@ -38,7 +38,10 @@ Track each investigation to prevent re-testing failed approaches.
 |------|-----------|----------------|---------|-------|
 | Jan 2026 | H0: test-logger race condition | Added write queue in log-event! | SUCCESS | Verified: 3 parallel + 2 serial passes |
 | Jan 2026 | Silent timeout in rm test setup | Added proper error throw on timeout | SUCCESS | First polling loop used when-when instead of if-throw |
-| Jan 2026 | FS save builtin wait fix | Add stabilization delay after wait-for-builtin-script! | SUCCESS | 5 full runs, 0 failures |
+| Jan 2026 | FS save builtin wait fix | Add stabilization delay after wait-for-builtin-script! | PARTIAL | Flake still occurs in full suite (1/3 runs failed) |
+| Jan 2026 | H4: Panel save rename race | Add wait for name change before checking .btn-rename | SUCCESS | 3 serial runs passed; 5 full runs passed |
+| Jan 2026 | H5: Replicant availability lag | Poll for replicant resolve after script tag | SUCCESS | 3 serial runs passed; 5 full runs passed |
+| Jan 2026 | H6: save-script before init | Await ensure-initialized! in save-script handler | SUCCESS | 4/5 full runs passed; 1 infra failure (X server) |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 
@@ -81,6 +84,24 @@ Docker sharded execution may cause contention for extension storage or WebSocket
 - [ ] Outcome documented
 
 The `test_injected_state_is_tab_local` test calls `.bringToFront` to switch tabs, then immediately opens a popup and waits for ICON_STATE_CHANGED event. Race condition: Chrome's `onActivated` may fire after the test starts waiting, or the async icon update hasn't logged yet when polling begins.
+
+#### H4: Panel save rename button races manifest parse
+- [x] Tested
+- [x] Outcome documented
+
+Changing manifest name updates `show-rename?` asynchronously. The test asserts `.btn-rename` before name/manifest state fully propagates.
+
+#### H5: Replicant availability lags script tag insertion
+- [x] Tested
+- [x] Outcome documented
+
+`wait-for-script-tag` confirms tag insertion, but the Replicant namespace is not yet available when immediately resolved.
+
+#### H6: save-script runs before background init completes
+- [x] Tested
+- [x] Outcome documented
+
+If `save-script` runs before `ensure-initialized!` completes, `storage/get-scripts` can be empty and builtin name protection is bypassed.
 
 ### Medium Priority
 

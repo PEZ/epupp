@@ -4,7 +4,7 @@
             [fixtures :refer [launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count wait-for-edit-hint
-                              assert-no-errors!]]
+                              wait-for-property-value assert-no-errors!]]
             [panel-save-helpers :as panel-save-helpers]))
 
 ;; =============================================================================
@@ -93,6 +93,8 @@
                                                                     :match "*://example.com/*"
                                                                     :code "(println \"version 2 - UPDATED\")"})]
           (js-await (.fill textarea new-name-code)))
+        ;; Wait for manifest parsing to propagate new name
+        (js-await (wait-for-property-value panel "name" "new_script_name.cljs"))
         ;; Button should change to "Create Script" when name differs
         (js-await (-> (expect save-btn) (.toContainText "Create Script")))
         ;; Rename button should appear
