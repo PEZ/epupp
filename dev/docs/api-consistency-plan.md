@@ -16,6 +16,9 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | Built-in naming | `"GitHub Gist Installer (Built-in)"` | `epupp/built-in/gist_installer.cljs` |
 | Built-in detection | By ID (`epupp-builtin-*`) | By metadata (`:script/builtin?`) ✅ |
 | `epupp/` namespace | Unreserved | Reserved for system use |
+| Panel persistence | `{code, scriptName, scriptMatch, ...}` | `{code}` only |
+| Storage schema | Cached manifest fields | Derive from manifest on load |
+| Schema versioning | None | `schemaVersion` field |
 
 ## Rationale
 
@@ -28,6 +31,8 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 7. **Namespace reservation**: `epupp/` prefix reserved for system scripts - prevents user conflicts
 8. **Built-in identification**: Use metadata (`:script/builtin?`) not ID patterns for built-in detection
 9. **Scheme reservation**: `epupp://` scheme reserved for future internal use
+10. **Code is source of truth**: Panel persists only code, storage derives metadata from manifest
+11. **Schema versioning**: Version field enables future migrations
 
 ## Progress Checklist
 
@@ -153,7 +158,104 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] Current implementation already works this way
 - [ ] **Docs**: Document that built-ins are updated on code change only
 
-### Phase 9: Scheme Reservation (`epupp://`)
+### Phase 9: Panel Persistence Simplification
+
+**Status**: Panel over-caches metadata that can get out of sync with manifest in code.
+
+**Current state**: Panel persistence saves `{code, scriptName, scriptMatch, scriptDescription, originalName}`
+
+**Problem**: Metadata can drift from manifest - e.g., user edits `:epupp/script-name` in code but panel shows old cached name.
+
+**Decision**: Only persist `{code}`, parse manifest on restore.
+
+**Benefits**:
+- Code is source of truth
+- No sync issues between cached metadata and manifest
+- Simpler migration (one field)
+- Follows "parse, don't validate" principle
+
+- [ ] **panel_actions.cljs**: Update persistence to save only `{code}`
+- [ ] **panel_actions.cljs**: On restore, parse manifest to get name/match/description
+- [ ] **panel.cljs**: Handle restore from code-only persistence
+- [ ] **Unit tests**: Test restore parses manifest correctly
+- [ ] **E2E tests**: Test panel restore after code edit changes manifest
+
+### Phase 10: Storage Schema - Derive from Manifest
+
+**Status**: Storage caches manifest-derived fields that can get out of sync.
+
+**Current storage per script**:
+```clojure
+{:script/id "..."              ; Can't derive
+ :script/code "..."            ; Source of truth
+ :script/name "..."            ; Derivable from manifest
+ :script/match [...]           ; Derivable from manifest
+ :script/run-at "..."          ; Derivable from manifest
+ :script/inject [...]          ; Derivable from manifest
+ :script/description "..."     ; Derivable from manifest
+ :script/enabled true          ; User preference (not in manifest)
+ :script/created "..."         ; Metadata
+ :script/modified "..."        ; Metadata
+ :script/builtin? false        ; System flag
+ :script/approved-patterns []} ; UNUSED, legacy - REMOVE
+```
+
+**Decision**: Store only non-derivable fields, derive rest on load:
+
+**Store**:
+```clojure
+{:script/id "..."
+ :script/code "..."
+ :script/enabled true
+ :script/created "..."
+ :script/modified "..."
+ :script/builtin? false}
+```
+
+**Derive on load** (from manifest in code):
+- `:script/name` - from `:epupp/script-name`
+- `:script/match` - from `:epupp/auto-run-match`
+- `:script/run-at` - from `:epupp/run-at`
+- `:script/inject` - from `:epupp/inject`
+- `:script/description` - from `:epupp/description`
+
+**Performance**: Parse manifests once at extension startup, cache in memory. No impact on page navigation.
+
+- [ ] **storage.cljs**: Update `persist!` to save only non-derivable fields
+- [ ] **storage.cljs**: Update `load!` to derive fields from manifest after loading
+- [ ] **storage.cljs**: Remove `:script/approved-patterns` (unused legacy field)
+- [ ] **script_utils.cljs**: Add `derive-script-fields` function
+- [ ] **Unit tests**: Test round-trip (save minimal, load with derived fields)
+- [ ] **E2E tests**: Test that manifest changes in code are reflected after reload
+
+### Phase 11: Schema Versioning
+
+**Status**: No version field in storage - can't detect when migration needed.
+
+**Decision**: Add `schemaVersion` field to storage root.
+
+**Version strategy**:
+- Current schema (after Phase 10): version `1`
+- On load, check version and run migrations if needed
+- Migrations are one-way (old → new)
+
+**Storage structure**:
+```javascript
+{
+  "schemaVersion": 1,
+  "scripts": [...],
+  "granted-origins": [...],
+  "userAllowedOrigins": [...]
+}
+```
+
+- [ ] **storage.cljs**: Add `schemaVersion` field to storage
+- [ ] **storage.cljs**: Check version on load, run migrations if needed
+- [ ] **storage.cljs**: Add migration framework (version 0 → 1 = current changes)
+- [ ] **Unit tests**: Test migration from unversioned to version 1
+- [ ] **Docs**: Document storage schema version
+
+### Phase 12: Scheme Reservation (`epupp://`)
 
 **Status**: Reserved for future use. No enforcement needed yet.
 
@@ -163,7 +265,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **Docs**: Add note about scheme reservation
 - [ ] **Future**: Add validation when scheme is actually used
 
-### Phase 10: Final Verification
+### Phase 13: Final Verification
 
 - [ ] **Unit tests pass**: `bb test`
 - [ ] **E2E tests pass**: `bb test:e2e`
@@ -174,6 +276,9 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
   - [ ] Built-in appears as `epupp/built-in/gist_installer.cljs` in UI
   - [ ] Cannot create script named `epupp/anything.cljs` via panel
   - [ ] Cannot create script named `epupp/anything.cljs` via REPL
+  - [ ] Panel restores code-only, parses manifest for metadata
+  - [ ] Storage contains only non-derivable fields
+  - [ ] Schema version is persisted and checked on load
 
 ## Base Script Info Shape
 
@@ -204,18 +309,19 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | File | Changes |
 |------|---------|
 | `src/manifest_parser.cljs` | Extract `:epupp/auto-run-match` |
-| `src/storage.cljs` | Update field names, conditional enabled default, **auto-run revocation logic**, **`epupp/` validation**, **rename built-in** |
+| `src/storage.cljs` | Update field names, conditional enabled default, **auto-run revocation logic**, **`epupp/` validation**, **rename built-in**, **derive-from-manifest**, **schema versioning**, **remove approved-patterns** |
+| `src/script_utils.cljs` | **Add `derive-script-fields` function** |
 | `src/background.cljs` | Update manifest references |
 | `src/bg_fs_dispatch.cljs` | Add `script->base-info`, update all responses |
 | `src/popup.cljs` | Update `:fs/enabled` → `:fs/enabled?` |
-| `src/panel.cljs` | Update match field references |
-| `src/panel_actions.cljs` | Update default template, save logic |
+| `src/panel.cljs` | Update match field references, **handle code-only restore** |
+| `src/panel_actions.cljs` | Update default template, save logic, **code-only persistence** |
 | `src/background_actions/repl_fs_actions.cljs` | **Return clear error for `epupp/` prefix** |
 | `extension/bundled/epupp/fs.cljs` | Update response parsing, docstrings |
 | `extension/bundled/userscripts/*.cljs` | Update manifest keys |
-| `test/*.cljs` | Update all assertions, **add auto-run revocation tests**, **add `epupp/` validation tests** |
-| `e2e/*.cljs` | Update all assertions, **add auto-run revocation E2E tests**, **add namespace rejection E2E tests** |
-| `docs/*.md` | Update all examples, **document namespace reservation** |
+| `test/*.cljs` | Update all assertions, **add auto-run revocation tests**, **add `epupp/` validation tests**, **add schema migration tests** |
+| `e2e/*.cljs` | Update all assertions, **add auto-run revocation E2E tests**, **add namespace rejection E2E tests**, **add panel restore E2E tests** |
+| `docs/*.md` | Update all examples, **document namespace reservation**, **document schema version** |
 
 ## Implementation Notes
 
@@ -305,6 +411,10 @@ The `save-script!` function in storage.cljs must be updated to:
 11. **Built-in naming**: `epupp/built-in/gist_installer.cljs` appears in popup/panel
 12. **Namespace rejection**: Panel rejects `epupp/test.cljs` with clear error
 13. **Namespace rejection**: REPL `(epupp.fs/save! "{:epupp/script-name \"epupp/test.cljs\"}")` rejects
+14. **Panel restore**: Edit manifest in code, close/reopen panel → metadata reflects code
+15. **Storage minimal**: Inspect storage, verify only `id`, `code`, `enabled`, `created`, `modified`, `builtin?`
+16. **Schema version**: Storage has `schemaVersion: 1`
+17. **Migration**: Clear storage, reinstall → verify schema version added
 
 ## Original Plan-Producing Prompt
 
@@ -325,5 +435,9 @@ Create an implementation plan for the decided API changes before 1.0 release:
 13. **Built-in detection**: Use `:script/builtin?` metadata (already implemented), not ID patterns
 14. **Reserve `epupp://` scheme**: For future internal use (document, no enforcement yet)
 15. **Built-in reinstall strategy**: Decide between clean-reinstall vs update-if-changed
+16. **Panel persistence simplification**: Persist only `{code}`, derive metadata from manifest on restore
+17. **Storage schema simplification**: Store only non-derivable fields, derive rest from manifest on load
+18. **Schema versioning**: Add `schemaVersion` field for future migrations
+19. **Remove unused fields**: Delete legacy `:script/approved-patterns` field
 
 Breaking changes acceptable - pre-1.0 in userscripts branch. Use plan format from recent dev/docs plans (checklist, files table, implementation notes, verification).
