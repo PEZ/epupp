@@ -116,6 +116,16 @@ I'm still pondering if I should submit to Safari App Store or not. Apple doesn't
 
 The extension fails at adding a Development Tools panel at any `chrome://` page, and also at the Extension Gallery itself. These are pages from where you may have installed Epupp the first time. Please navigate to other pages and look for the panel.
 
+## Extension Permissions
+
+Epupp only asks for the permissions it strictly needs, even if the nature of the extension is such that it needs you to permit things like scripting (duh!). These are the permissions, and for what they are used:
+
+- `scripting` - Inject userscripts
+- `<all_urls>` - Inject on any site
+- `storage` - Persist scripts/settings
+- `webNavigation` - Auto-injection on page load
+- `activeTab` - DevTools panel integration
+
 ## Privacy
 
 The extension does not collect any data whatsoever, and never will.
