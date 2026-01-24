@@ -6,7 +6,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 
 | Metric | Count |
 |--------|-------|
-| Active flaky tests | 3 |
+| Active flaky tests | 5 |
 | Hypotheses pending | 2 |
 | Successful fixes | 1 |
 
@@ -20,7 +20,9 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 |------|------|---------|----------------|
 | FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
 | FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
-| FS Sync rm operations: `:fs/existed?` flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
+| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
+| FS Sync rm: deletes script | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L7) | Intermittent timeout | Jan 2026 |
+| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L118) | Rare flake | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
@@ -69,6 +71,12 @@ Storage change events may arrive at different times in popup vs panel vs backgro
 - [ ] Outcome documented
 
 Docker sharded execution may cause contention for extension storage or WebSocket connections when multiple tests manipulate the same resources.
+
+#### H3: Tab activation event timing
+- [ ] Tested
+- [ ] Outcome documented
+
+The `test_injected_state_is_tab_local` test calls `.bringToFront` to switch tabs, then immediately opens a popup and waits for ICON_STATE_CHANGED event. Race condition: Chrome's `onActivated` may fire after the test starts waiting, or the async icon update hasn't logged yet when polling begins.
 
 ### Medium Priority
 
