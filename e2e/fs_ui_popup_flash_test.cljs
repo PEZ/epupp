@@ -4,7 +4,7 @@
             [fs-ui-reactivity-helpers :as helpers]))
 
 (defn- ^:async popup_flashes_on_save_conflict []
-  (let [test-code "{:epupp/script-name \"no-overwrite\"\n                                       :epupp/site-match \"https://no-overwrite.com/*\"}\n                                      (ns no-overwrite)"
+  (let [test-code "{:epupp/script-name \"no-overwrite\"\n                                       :epupp/auto-run-match \"https://no-overwrite.com/*\"}\n                                      (ns no-overwrite)"
         save-code (str "(def !no-overwrite-setup (atom :pending))\n"
                        "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
                        "  (.then (fn [r] (reset! !no-overwrite-setup r))))\n"
@@ -49,7 +49,7 @@
 
 (defn- ^:async popup_shows_flash_animation_on_script_modification []
   ;; First create a script to modify
-  (let [test-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/site-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)"
+  (let [test-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/auto-run-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)"
         save-code (str "(def !flash-setup (atom :pending))\n"
                        "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
                        "  (.then (fn [r] (reset! !flash-setup r))))\n"
@@ -71,7 +71,7 @@
       (js-await (-> (expect script-item) (.not.toHaveClass (js/RegExp. "script-item-fs-modified")))))
 
     ;; Modify the script via REPL (save with force to update existing)
-    (let [updated-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/site-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)\n                                      (js/console.log \"Updated!\")"
+    (let [updated-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/auto-run-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)\n                                      (js/console.log \"Updated!\")"
           update-code (str "(def !flash-update (atom :pending))\n"
                            "(-> (epupp.fs/save! " (pr-str updated-code) " {:fs/force? true})\n"
                            "  (.then (fn [r] (reset! !flash-update r))))\n"

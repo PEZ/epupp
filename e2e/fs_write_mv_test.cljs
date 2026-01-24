@@ -10,7 +10,7 @@
     (-> (expect (.-success fn-check)) (.toBe true))
     (-> (expect (.-values fn-check)) (.toContain "true")))
 
-  (let [test-code "{:epupp/script-name \"mv-rename-test-original\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns rename-test)"
+  (let [test-code "{:epupp/script-name \"mv-rename-test-original\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns rename-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !mv-setup r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -89,7 +89,7 @@
               (recur))))))))
 
 (defn- ^:async test_mv_with_force_returns_from_and_to_names []
-  (let [test-code "{:epupp/script-name \"mv-force-confirm\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns mv-force-confirm)"
+  (let [test-code "{:epupp/script-name \"mv-force-confirm\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns mv-force-confirm)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !confirm-mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !confirm-mv-setup r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -166,7 +166,7 @@
 
 (defn- ^:async test_mv_rejects_when_target_name_exists []
   ;; Create two scripts with different names - save sequentially to avoid races
-  (let [code1 "{:epupp/script-name \"mv-collision-source\"\n               :epupp/site-match \"https://example.com/*\"}\n              (ns collision-source)"
+  (let [code1 "{:epupp/script-name \"mv-collision-source\"\n               :epupp/auto-run-match \"https://example.com/*\"}\n              (ns collision-source)"
         save1-result (js-await (eval-in-browser
                                 (str "(def !save1 (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str code1) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save1 (pr-str r))))\n                                       (.catch (fn [e] (reset! !save1 (str \"ERROR: \" (.-message e))))))\n                                     :started")))]
     (-> (expect (.-success save1-result)) (.toBe true)))
@@ -189,7 +189,7 @@
             (do (js-await (sleep 20)) (recur)))))))
 
   ;; Save second script
-  (let [code2 "{:epupp/script-name \"mv-collision-target\"\n               :epupp/site-match \"https://example.com/*\"}\n              (ns collision-target)"
+  (let [code2 "{:epupp/script-name \"mv-collision-target\"\n               :epupp/auto-run-match \"https://example.com/*\"}\n              (ns collision-target)"
         save2-result (js-await (eval-in-browser
                                 (str "(def !save2 (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str code2) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save2 (pr-str r))))\n                                       (.catch (fn [e] (reset! !save2 (str \"ERROR: \" (.-message e))))))\n                                     :started")))]
     (-> (expect (.-success save2-result)) (.toBe true)))

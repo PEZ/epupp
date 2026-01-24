@@ -395,17 +395,17 @@
   [:span {:class (str "field-hint " (when type (str "hint-" type)))}
    text])
 
-(defn- format-site-match
-  "Format site-match for display, handling both string and vector.
+(defn- format-auto-run-match
+  "Format auto-run-match for display, handling both string and vector.
    Empty strings and empty collections are treated as nil (no auto-run)."
-  [site-match]
+  [auto-run-match]
   (cond
-    (nil? site-match) nil
-    (and (string? site-match) (empty? site-match)) nil
-    (string? site-match) [site-match]
-    (and (sequential? site-match) (empty? site-match)) nil
-    (sequential? site-match) (vec site-match)
-    :else [site-match]))
+    (nil? auto-run-match) nil
+    (and (string? auto-run-match) (empty? auto-run-match)) nil
+    (string? auto-run-match) [auto-run-match]
+    (and (sequential? auto-run-match) (empty? auto-run-match)) nil
+    (sequential? auto-run-match) (vec auto-run-match)
+    :else [auto-run-match]))
 
 (defn- property-row
   "Render a single row in the metadata property table."
@@ -414,7 +414,7 @@
    [:th.property-label label]
    [:td.property-value
     (cond
-      ;; Multiple values (e.g., vector site-match)
+      ;; Multiple values (e.g., vector auto-run-match)
       (seq values)
       [:div.multi-values
        (for [[idx v] (map-indexed vector values)]
@@ -474,7 +474,7 @@
   [:div.no-manifest-message
    [:p "Add a manifest map to your code to define script metadata:"]
    [:pre.manifest-example
-    "{:epupp/script-name \"My Script\"\n :epupp/site-match \"https://example.com/*\"\n :epupp/description \"What it does\"}\n\n(ns my-script)\n; your code..."]])
+    "{:epupp/script-name \"My Script\"\n :epupp/auto-run-match \"https://example.com/*\"\n :epupp/description \"What it does\"}\n\n(ns my-script)\n; your code..."]])
 
 (defn- new-script-button
   "Button to clear editor and start a new script. Shows confirmation if code has changed."
@@ -504,7 +504,7 @@
         ;; Categorize require URLs for validation display
         {:keys [valid invalid]} (categorize-requires inject)
         ;; Site match can be string or already joined (from panel actions)
-        site-matches (format-site-match script-match)
+        auto-run-matches (format-auto-run-match script-match)
         ;; Normalize current name for comparison
         normalized-name (when (seq script-name)
                           (script-utils/normalize-script-name script-name))
@@ -575,8 +575,8 @@
           ;; Auto-run row - shows patterns or "No auto-run" when empty
           [property-row
            {:label "Auto-run"
-            :values (when (seq site-matches) site-matches)
-            :value (when (empty? site-matches) "No auto-run (manual only)")}]
+            :values (when (seq auto-run-matches) auto-run-matches)
+            :value (when (empty? auto-run-matches) "No auto-run (manual only)")}]
 
           ;; Description row - always shown
           [property-row

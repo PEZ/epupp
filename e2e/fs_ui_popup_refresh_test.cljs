@@ -17,7 +17,7 @@
       (js/console.log "=== Initial script count ===" initial-count)
 
       ;; Create a new script via REPL fs API
-      (let [test-code "{:epupp/script-name \"ui-reactivity-test-script\"\n                                           :epupp/site-match \"https://reactivity-test.com/*\"}\n                                          (ns ui-reactivity-test)"
+      (let [test-code "{:epupp/script-name \"ui-reactivity-test-script\"\n                                           :epupp/auto-run-match \"https://reactivity-test.com/*\"}\n                                          (ns ui-reactivity-test)"
             save-code (str "(def !ui-save-result (atom :pending))\n"
                            "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
                            "  (.then (fn [r] (reset! !ui-save-result r))))\n"
@@ -41,7 +41,7 @@
 
 (defn- ^:async popup_refreshes_after_rm []
   ;; First create a script to delete
-  (let [test-code "{:epupp/script-name \"script-to-delete\"\n                                      :epupp/site-match \"https://delete-test.com/*\"}\n                                      (ns script-to-delete)"
+  (let [test-code "{:epupp/script-name \"script-to-delete\"\n                                      :epupp/auto-run-match \"https://delete-test.com/*\"}\n                                      (ns script-to-delete)"
         save-code (str "(def !delete-setup (atom :pending))\n"
                        "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
                        "  (.then (fn [r] (reset! !delete-setup r))))\n"
@@ -80,7 +80,7 @@
 
 (defn- ^:async popup_refreshes_after_mv []
   ;; First create a script to rename
-  (let [test-code "{:epupp/script-name \"script-to-rename\"\n                                       :epupp/site-match \"https://rename-test.com/*\"}\n                                      (ns script-to-rename)"
+  (let [test-code "{:epupp/script-name \"script-to-rename\"\n                                       :epupp/auto-run-match \"https://rename-test.com/*\"}\n                                      (ns script-to-rename)"
         save-code (str "(def !rename-setup (atom :pending))\n"
                        "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
                        "  (.then (fn [r] (reset! !rename-setup r))))\n"

@@ -104,7 +104,7 @@
 
   (def test-script-code
     "{:epupp/script-name \"repl-test-script\"
- :epupp/site-match \"*\"
+ :epupp/auto-run-match \"*\"
  :epupp/description \"Test script created via REPL fs API\"}
 
 (ns repl-test-script)

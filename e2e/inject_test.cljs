@@ -21,7 +21,7 @@
                      (str "[" (str/join " " (map #(str "\"" % "\"") inject)) "]"))
         meta-parts (cond-> []
                      name (conj (str ":epupp/script-name \"" name "\""))
-                     match (conj (str ":epupp/site-match \"" match "\""))
+                     match (conj (str ":epupp/auto-run-match \"" match "\""))
                      description (conj (str ":epupp/description \"" description "\""))
                      run-at (conj (str ":epupp/run-at \"" run-at "\""))
                      inject (conj (str ":epupp/inject " inject-str)))

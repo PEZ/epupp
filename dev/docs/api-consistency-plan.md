@@ -25,15 +25,15 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 ### Phase 1: Manifest Rename `:epupp/site-match` → `:epupp/auto-run-match`
 
-- [ ] **manifest_parser.cljs**: Update key extraction
-- [ ] **storage.cljs**: Update script creation and retrieval
-- [ ] **background.cljs**: Update manifest handling
-- [ ] **popup.cljs**: Update display logic
-- [ ] **panel.cljs**: Update editor UI
-- [ ] **panel_actions.cljs**: Update save logic and default template
-- [ ] **Built-in scripts**: Update bundled script manifests
-- [ ] **Unit tests**: Update all manifest-related tests
-- [ ] **E2E tests**: Update manifest assertions
+- [x] **manifest_parser.cljs**: Update key extraction
+- [x] **storage.cljs**: Update script creation and retrieval
+- [x] **background.cljs**: Update manifest handling
+- [x] **popup.cljs**: Update display logic
+- [x] **panel.cljs**: Update editor UI
+- [x] **panel_actions.cljs**: Update save logic and default template
+- [x] **Built-in scripts**: Update bundled script manifests
+- [x] **Unit tests**: Update all manifest-related tests
+- [x] **E2E tests**: Update manifest assertions
 
 ### Phase 2: Return Shape Consistency
 

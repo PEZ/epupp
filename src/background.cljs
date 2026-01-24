@@ -321,8 +321,8 @@
    Name is normalized for uniqueness and valid filename format.
    Cannot overwrite built-in scripts.
    Extracts run-at timing from code manifest if present."
-  [dispatch! {:keys [script-name site-match script-url description]}]
-  (when (or (nil? script-name) (nil? site-match))
+  [dispatch! {:keys [script-name auto-run-match script-url description]}]
+  (when (or (nil? script-name) (nil? auto-run-match))
     (throw (js/Error. "Missing scriptName or siteMatch")))
   (when (nil? script-url)
     (throw (js/Error. "Missing script URL")))
@@ -343,7 +343,7 @@
       (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
     (let [script (cond-> {:script/id normalized-name
                           :script/name normalized-name
-                          :script/match (script-utils/normalize-match-patterns site-match)
+                          :script/match (script-utils/normalize-match-patterns auto-run-match)
                           :script/code code
                           :script/run-at run-at
                           :script/enabled true}
@@ -496,7 +496,7 @@
                                        raw-name (get manifest "script-name")
                                        normalized-name (when raw-name
                                                          (script-utils/normalize-script-name raw-name))
-                                       site-match (get manifest "site-match")
+                                       auto-run-match (get manifest "auto-run-match")
                                        injects (get manifest "inject")
                                        run-at (script-utils/normalize-run-at (get manifest "run-at"))]
                                    (if-not normalized-name
@@ -511,7 +511,7 @@
                                            script (cond-> {:script/id script-id
                                                            :script/name normalized-name
                                                            :script/code code
-                                                           :script/match (if (vector? site-match) site-match [site-match])
+                                                           :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
                                                            :script/inject (or injects [])
                                                            :script/enabled enabled
                                                            :script/run-at run-at

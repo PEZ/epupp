@@ -6,12 +6,12 @@
           (fn []
             (test "extracts manifest from metadata map"
                   (fn []
-                    (let [code "^{:epupp/script-name \"test.cljs\"\n  :epupp/site-match \"https://example.com/*\"\n  :epupp/description \"desc\"\n  :epupp/run-at \"document-start\"}\n(ns test)"
+                    (let [code "^{:epupp/script-name \"test.cljs\"\n  :epupp/auto-run-match \"https://example.com/*\"\n  :epupp/description \"desc\"\n  :epupp/run-at \"document-start\"}\n(ns test)"
                           manifest (mp/extract-manifest code)]
                       ;; script-name is normalized (test.cljs stays test.cljs)
                       (-> (expect (:script-name manifest))
                           (.toBe "test.cljs"))
-                      (-> (expect (:site-match manifest))
+                      (-> (expect (:auto-run-match manifest))
                           (.toBe "https://example.com/*"))
                       (-> (expect (:description manifest))
                           (.toBe "desc"))
@@ -75,30 +75,30 @@
 
 (describe "manifest-parser enhanced features"
           (fn []
-            (test "parses site-match as vector of strings"
+            (test "parses auto-run-match as vector of strings"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/site-match [\"https://github.com/*\" \"https://gist.github.com/*\"]}
+  :epupp/auto-run-match [\"https://github.com/*\" \"https://gist.github.com/*\"]}
 (ns test)"
                           manifest (mp/extract-manifest code)]
-                      ;; site-match should be preserved as vector
-                      (-> (expect (:site-match manifest))
+                      ;; auto-run-match should be preserved as vector
+                      (-> (expect (:auto-run-match manifest))
                           (.toEqual ["https://github.com/*" "https://gist.github.com/*"])))))
 
-            (test "parses site-match as single string"
+            (test "parses auto-run-match as single string"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/site-match \"https://github.com/*\"}
+  :epupp/auto-run-match \"https://github.com/*\"}
 (ns test)"
                           manifest (mp/extract-manifest code)]
                       ;; Single string should be preserved as-is
-                      (-> (expect (:site-match manifest))
+                      (-> (expect (:auto-run-match manifest))
                           (.toBe "https://github.com/*")))))
 
             (test "collects all epupp/* keys found"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/site-match \"https://example.com/*\"
+  :epupp/auto-run-match \"https://example.com/*\"
   :epupp/description \"A test script\"
   :epupp/run-at \"document-start\"
   :epupp/unknown-key \"should be noted\"}
@@ -113,7 +113,7 @@
             (test "identifies unknown epupp/* keys"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/site-match \"https://example.com/*\"
+  :epupp/auto-run-match \"https://example.com/*\"
   :epupp/author \"PEZ\"
   :epupp/version \"1.0\"}
 (ns test)"
@@ -126,7 +126,7 @@
                       (-> (expect (:unknown-keys manifest))
                           (.not.toContain "epupp/script-name"))
                       (-> (expect (:unknown-keys manifest))
-                          (.not.toContain "epupp/site-match")))))
+                          (.not.toContain "epupp/auto-run-match"))))))
 
             (test "returns raw script-name for hint display"
                   (fn []
@@ -168,7 +168,7 @@
 
             (test "returns nil script-name when missing"
                   (fn []
-                    (let [code "^{:epupp/site-match \"https://example.com/*\"}
+                    (let [code "^{:epupp/auto-run-match \"https://example.com/*\"}
 (ns test)"
                           manifest (mp/extract-manifest code)]
                       ;; Missing values from aget are JS undefined, use toBeFalsy
@@ -190,7 +190,7 @@
                       (-> (expect (:run-at-invalid? manifest))
                           (.toBe true))
                       (-> (expect (:raw-run-at manifest))
-                          (.toBe "invalid-value")))))))
+                          (.toBe "invalid-value"))))))
 
 ;; ============================================================
 ;; Phase 2: Inject parsing tests

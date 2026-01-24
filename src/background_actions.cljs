@@ -212,7 +212,7 @@
     :msg/ax.install-userscript
     (let [[send-response manifest script-url] args
           install-opts {:script-name (:script-name manifest)
-                        :site-match (:site-match manifest)
+                        :auto-run-match (:auto-run-match manifest)
                         :script-url script-url
                         :description (:description manifest)}]
       {:uf/fxs [[:uf/await :userscript/fx.install install-opts]

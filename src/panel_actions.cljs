@@ -8,7 +8,7 @@
   "Default script shown when panel initializes with no saved state.
    Has a valid manifest with proper name and namespace."
   "{:epupp/script-name \"hello_world.cljs\"
- :epupp/site-match \"https://example.com/*\"
+ :epupp/auto-run-match \"https://example.com/*\"
  :epupp/description \"A script saying hello\"}
 
 (ns hello-world)
@@ -24,11 +24,11 @@
   [manifest]
   (when manifest
     (let [script-name (get manifest "script-name")
-          site-match (get manifest "site-match")
+          auto-run-match (get manifest "auto-run-match")
           description (get manifest "description")]
       (cond-> []
         script-name (conj [:editor/ax.set-script-name script-name])
-        site-match (conj [:editor/ax.set-script-match site-match])
+        auto-run-match (conj [:editor/ax.set-script-match auto-run-match])
         description (conj [:editor/ax.set-script-description description])))))
 
 (defn- build-manifest-hints

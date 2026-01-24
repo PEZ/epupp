@@ -76,7 +76,7 @@ Scripts specify timing via a manifest map at the top of the file:
 
 ```clojure
 {:epupp/script-name "github_tweaks.cljs"
- :epupp/site-match "https://github.com/*"
+ :epupp/auto-run-match "https://github.com/*"
  :epupp/description "Enhance GitHub UX"
  :epupp/run-at "document-start"
  :epupp/inject ["scittle://reagent.js"]}

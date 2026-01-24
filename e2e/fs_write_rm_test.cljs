@@ -11,7 +11,7 @@
     (-> (expect (.-success fn-check)) (.toBe true))
     (-> (expect (.-values fn-check)) (.toContain "true")))
 
-  (let [test-code "{:epupp/script-name \"delete-test-script\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns delete-test)"
+  (let [test-code "{:epupp/script-name \"delete-test-script\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns delete-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !rm-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !rm-setup r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -122,8 +122,8 @@
               (recur))))))))
 
 (defn- ^:async test_rm_with_vector_rejects_when_any_missing []
-  (let [code1 "{:epupp/script-name \"bulk-rm-test-1\"\n                               :epupp/site-match \"https://example.com/*\"}\n                              (ns bulk-rm-1)"
-        code2 "{:epupp/script-name \"bulk-rm-test-2\"\n                               :epupp/site-match \"https://example.com/*\"}\n                              (ns bulk-rm-2)"
+  (let [code1 "{:epupp/script-name \"bulk-rm-test-1\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-rm-1)"
+        code2 "{:epupp/script-name \"bulk-rm-test-2\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-rm-2)"
         ;; Setup: save two test scripts
         setup-result (js-await (eval-in-browser
                                 (str "(def !bulk-rm-setup (atom :pending))\n                                      (-> (js/Promise.all #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})\n                                                               (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])\n                                          (.then (fn [r] (reset! !bulk-rm-setup {:resolved r})))\n                                          (.catch (fn [e] (reset! !bulk-rm-setup {:rejected (.-message e)}))))\n                                      :setup-started")))]
@@ -208,7 +208,7 @@
                             (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
                             (str ".cljs"))
         test-code (str "{:epupp/script-name \"" unique-name "\"\n"
-                       " :epupp/site-match \"https://example.com/*\"}\n"
+                       " :epupp/auto-run-match \"https://example.com/*\"}\n"
                        "(ns existed-test)")
         setup-result (js-await (eval-in-browser
                                 (str "(def !existed-rm-result (atom {:save :pending :rm :pending}))\n"

@@ -20,7 +20,7 @@ Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
 ```clojure
 {:epupp/script-name "reagent_widget.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/inject ["scittle://reagent.js"]}
 
 (ns reagent-widget

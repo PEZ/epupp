@@ -449,7 +449,7 @@
 
 (defn- test_set_code_parses_manifest_and_returns_dxs []
   (let [code "^{:epupp/script-name \"GitHub Tweaks\"
-  :epupp/site-match \"https://github.com/*\"
+  :epupp/auto-run-match \"https://github.com/*\"
   :epupp/description \"Enhance GitHub UX\"}
 (ns test)"
         result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
@@ -502,7 +502,7 @@
 
 (defn- test_set_code_handles_site_match_as_vector []
   (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/site-match [\"https://github.com/*\" \"https://gist.github.com/*\"]}
+  :epupp/auto-run-match [\"https://github.com/*\" \"https://gist.github.com/*\"]}
 (ns test)"
         result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
         dxs (:uf/dxs result)
@@ -559,7 +559,7 @@
 
 (defn- test_initialize_editor_with_saved_code_parses_manifest []
   (let [saved-code "{:epupp/script-name \"My Script\"
- :epupp/site-match \"https://example.com/*\"
+ :epupp/auto-run-match \"https://example.com/*\"
  :epupp/description \"Test script\"}
 
 (ns my-script)

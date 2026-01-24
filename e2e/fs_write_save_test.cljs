@@ -79,7 +79,7 @@
     (-> (expect (.-success fn-check)) (.toBe true))
     (-> (expect (.-values fn-check)) (.toContain "true")))
 
-  (let [test-code "{:epupp/script-name \"test-script-from-repl\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns test-script)\n                                  (js/console.log \"Hello from test script!\")"
+  (let [test-code "{:epupp/script-name \"test-script-from-repl\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns test-script)\n                                  (js/console.log \"Hello from test script!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-result (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !save-result r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -119,7 +119,7 @@
               (recur))))))))
 
 (defn- ^:async test_save_with_disabled_creates_disabled_script []
-  (let [test-code "{:epupp/script-name \"disabled-by-default\"\n                                   :epupp/site-match \"https://example.com/*\"}\n                                  (ns disabled-test)\n                                  (js/console.log \"Should be disabled!\")"
+  (let [test-code "{:epupp/script-name \"disabled-by-default\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns disabled-test)\n                                  (js/console.log \"Should be disabled!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-disabled (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/enabled false :fs/force? true})\n                                         (.then (fn [r] (reset! !save-disabled r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -166,8 +166,8 @@
   (js-await (eval-in-browser "(epupp.fs/rm! \"disabled_by_default.cljs\")")))
 
 (defn- ^:async test_save_with_vector_returns_map_of_results []
-  (let [code1 "{:epupp/script-name \"bulk-save-test-1\"\n                               :epupp/site-match \"https://example.com/*\"}\n                              (ns bulk-save-1)"
-        code2 "{:epupp/script-name \"bulk-save-test-2\"\n                               :epupp/site-match \"https://example.com/*\"}\n                              (ns bulk-save-2)"
+  (let [code1 "{:epupp/script-name \"bulk-save-test-1\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-save-1)"
+        code2 "{:epupp/script-name \"bulk-save-test-2\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-save-2)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !bulk-save-result (atom :pending))\n                                       (-> (epupp.fs/save! [" (pr-str code1) " " (pr-str code2) "] {:fs/force? true})\n                                         (.then (fn [result] (reset! !bulk-save-result {:resolved result})))\n                                         (.catch (fn [e] (reset! !bulk-save-result {:rejected (.-message e)}))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -219,7 +219,7 @@
 
 (defn- ^:async test_save_rejects_when_script_already_exists []
   ;; First create a script
-  (let [test-code "{:epupp/script-name \"save-collision-test\"\n                   :epupp/site-match \"https://example.com/*\"}\n                  (ns collision-test)"
+  (let [test-code "{:epupp/script-name \"save-collision-test\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns collision-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-first (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-first r))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -243,7 +243,7 @@
   (js-await (wait-for-script-present! "save_collision_test.cljs" 3000))
 
   ;; Now try to save again WITHOUT force - should reject
-  (let [new-code "{:epupp/script-name \"save-collision-test\"\n                  :epupp/site-match \"https://example.com/*\"}\n                 (ns collision-test-v2)\n                 (js/console.log \"This should not overwrite!\")"
+  (let [new-code "{:epupp/script-name \"save-collision-test\"\n                  :epupp/auto-run-match \"https://example.com/*\"}\n                 (ns collision-test-v2)\n                 (js/console.log \"This should not overwrite!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-collision-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str new-code) ")\n                                       (.then (fn [r] (reset! !save-collision-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-collision-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -293,7 +293,7 @@
   (js-await (sleep 50))
 
   ;; Try to save a script with a built-in name - should reject
-  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/site-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
+  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) ")\n                                       (.then (fn [r] (reset! !save-builtin-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -326,7 +326,7 @@
   (js-await (sleep 50))
 
   ;; Try to save with force - still should reject for built-in
-  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/site-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
+  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-force-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-builtin-force-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-force-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -354,7 +354,7 @@
 
 (defn- ^:async test_save_force_update_preserves_script_id []
   ;; Create a script via REPL FS
-  (let [test-code-v1 "{:epupp/script-name \"id-preserve-test\"\n                     :epupp/site-match \"https://example.com/*\"}\n                    (ns id-test)\n                    (js/console.log \"Version 1\")"
+  (let [test-code-v1 "{:epupp/script-name \"id-preserve-test\"\n                     :epupp/auto-run-match \"https://example.com/*\"}\n                    (ns id-test)\n                    (js/console.log \"Version 1\")"
         setup-result (js-await (eval-in-browser
                                 (str "(-> (epupp.fs/save! " (pr-str test-code-v1) " {:fs/force? true})\n"
                                      "  (.then (fn [_] :v1-done)))\n")))]
@@ -371,7 +371,7 @@
       (-> (expect id1) (.not.toBeNull))
 
       ;; Force-save v2 with same name but different content
-      (let [test-code-v2 "{:epupp/script-name \"id-preserve-test\"\n                       :epupp/site-match \"https://example.com/*\"}\n                      (ns id-test)\n                      (js/console.log \"Version 2 - UPDATED\")"
+      (let [test-code-v2 "{:epupp/script-name \"id-preserve-test\"\n                       :epupp/auto-run-match \"https://example.com/*\"}\n                      (ns id-test)\n                      (js/console.log \"Version 2 - UPDATED\")"
             save2-result (js-await (eval-in-browser
                                     (str "(-> (epupp.fs/save! " (pr-str test-code-v2) " {:fs/force? true})\n"
                                          "  (.then (fn [_] :v2-done)))\n")))]

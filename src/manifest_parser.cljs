@@ -12,7 +12,7 @@
 
 (def known-epupp-keys
   "Set of known epupp manifest keys."
-  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at" "epupp/inject"})
+  #{"epupp/script-name" "epupp/auto-run-match" "epupp/description" "epupp/run-at" "epupp/inject"})
 
 (defn- get-epupp-keys
   "Returns vector of all epupp/ prefixed keys found in parsed object."
@@ -41,7 +41,7 @@
    - :script-name - normalized name (or nil if missing)
    - :raw-script-name - original name before normalization
    - :name-normalized? - true if normalization changed the name
-   - :site-match - URL pattern(s), preserved as string or vector
+   - :auto-run-match - URL pattern(s), preserved as string or vector
    - :description - description text (validated as string)
    - :run-at - timing value (defaults to document-idle)
    - :raw-run-at - original run-at value
@@ -56,7 +56,7 @@
     (when (seq found-keys)
       (let [;; Raw values from manifest
             raw-script-name (aget parsed "epupp/script-name")
-            site-match (aget parsed "epupp/site-match")
+            auto-run-match (aget parsed "epupp/auto-run-match")
             description (let [d (aget parsed "epupp/description")]
                           (when (string? d) d))
             raw-run-at (aget parsed "epupp/run-at")
@@ -79,7 +79,7 @@
         {"script-name" script-name
          "raw-script-name" raw-script-name
          "name-normalized?" name-normalized?
-         "site-match" site-match
+         "auto-run-match" auto-run-match
          "description" description
          "run-at" run-at
          "raw-run-at" raw-run-at

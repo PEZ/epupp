@@ -18,7 +18,7 @@
     :or {code "(println \"Test script\")"}}]
   (let [meta-parts (cond-> []
                      name (conj (str ":epupp/script-name \"" name "\""))
-                     match (conj (str ":epupp/site-match \"" match "\""))
+                     match (conj (str ":epupp/auto-run-match \"" match "\""))
                      description (conj (str ":epupp/description \"" description "\""))
                      run-at (conj (str ":epupp/run-at \"" run-at "\"")))
         meta-block (when (seq meta-parts)

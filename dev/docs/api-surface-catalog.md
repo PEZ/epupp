@@ -389,7 +389,7 @@ Key differences:
 
 ```clojure
 {:epupp/script-name "my_script.cljs"     ; Display name
- :epupp/site-match "https://example.com/*"  ; URL pattern(s)
+ :epupp/auto-run-match "https://example.com/*"  ; URL pattern(s)
  :epupp/description "Does a thing"       ; Optional description
  :epupp/run-at "document-idle"           ; Timing: start/end/idle
  :epupp/inject ["scittle://reagent.js"]} ; Library dependencies
@@ -412,7 +412,7 @@ Key differences:
   "script-name": "normalized_name.cljs",
   "raw-script-name": "Original Name",
   "name-normalized?": true,
-  "site-match": "...",
+  "auto-run-match": "...",
   "description": "...",
   "run-at": "document-idle",
   "raw-run-at": "invalid-value",

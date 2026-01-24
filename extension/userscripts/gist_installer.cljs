@@ -1,5 +1,5 @@
 {:epupp/script-name "Gist Installer"
- :epupp/site-match "https://gist.github.com/*"
+ :epupp/auto-run-match "https://gist.github.com/*"
  :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"
  :epupp/inject ["scittle://replicant.js"]}
 
@@ -67,14 +67,14 @@
             run-at (if (contains? valid-run-at-values raw-run-at)
                      raw-run-at
                      default-run-at)
-            raw-site-match (get m :epupp/site-match)
-            site-match (if (vector? raw-site-match)
-                         (first raw-site-match)
-                         raw-site-match)]
+            raw-auto-run-match (get m :epupp/auto-run-match)
+            auto-run-match (if (vector? raw-auto-run-match)
+                             (first raw-auto-run-match)
+                             raw-auto-run-match)]
         {:script-name normalized-name
          :raw-script-name raw-name
          :name-normalized? (not= raw-name normalized-name)
-         :site-match site-match
+         :auto-run-match auto-run-match
          :description (get m :epupp/description)
          :run-at run-at
          :raw-run-at raw-run-at
@@ -177,7 +177,7 @@
 
 (defn render-modal [{:keys [id manifest raw-url]}]
   (let [{:keys [script-name raw-script-name name-normalized?
-                site-match description run-at run-at-invalid? raw-run-at]} manifest]
+                auto-run-match description run-at run-at-invalid? raw-run-at]} manifest]
     [:div.epupp-modal-overlay
      {:on {:click [:gist/overlay-click]}
       :style {:position "fixed" :top 0 :left 0 :right 0 :bottom 0
@@ -203,7 +203,7 @@
               "Normalized from: " raw-script-name]])]]
         [:tr
          [:td {:style {:padding "6px 0" :color "#666"}} "URL Pattern"]
-         [:td {:style {:padding "6px 0"}} (or site-match [:em "None"])]]
+         [:td {:style {:padding "6px 0"}} (or auto-run-match [:em "None"])]]
         [:tr
          [:td {:style {:padding "6px 0" :color "#666"}} "Description"]
          [:td {:style {:padding "6px 0"}} (or description [:em "Not specified"])]]
