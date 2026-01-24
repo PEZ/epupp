@@ -173,6 +173,12 @@ Use `clojure_list_sessions` to verify REPL availability:
 
 ### E2E Test Pattern
 
+**ALWAYS** check that e2e tests pass before starting work (use epupp-testrunner).
+**ALWAYS** consider if new e2e tests are needed for your work (use epupp-e2e-expert).
+**ALWAYS** check that e2e tests pass after finishing work (use epupp-testrunner).
+
+When writing E2E tests,
+
 **ALWAYS delegate E2E test writing to `epupp-e2e-expert` subagent.** Provide:
 - Feature description and user journey
 - Related test files for context
@@ -190,7 +196,7 @@ The epupp-e2e-expert knows:
 Before completing:
 
 - [ ] All unit tests pass (bb test)
-- [ ] All E2E tests pass (bb test:e2e)
+- [ ] All E2E tests pass (ask epupp-testrunner)
 - [ ] Zero lint errors (get_errors)
 - [ ] Zero new warnings
 - [ ] Documentation updated (if API changes)
