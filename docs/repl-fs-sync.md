@@ -40,7 +40,7 @@ You control when to push and pull. There's no automatic sync - you decide.
 ```clojure
 ;; List all scripts
 (epupp.fs/ls)
-;; => [{:fs/name "github_tweaks.cljs" :fs/enabled true :fs/match ["https://github.com/*"]} ...]
+;; => [{:fs/name "github_tweaks.cljs" :fs/auto-run-match ["https://github.com/*"] :fs/enabled? true} ...]
 
 ;; Include built-in scripts
 (epupp.fs/ls {:fs/ls-hidden? true})
@@ -88,7 +88,7 @@ You've been experimenting in the REPL, tampering with GitHub's UI. Now you want 
 ;; Your tamper code (with manifest at top)
 (def my-code
   "{:epupp/script-name \"github-tweaks\"
-    :epupp/site-match \"https://github.com/*\"}
+    :epupp/auto-run-match \"https://github.com/*\"}
 
    (ns github-tweaks)
    (js/console.log \"GitHub enhanced!\")")

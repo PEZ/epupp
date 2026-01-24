@@ -48,28 +48,28 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 ### Phase 3: Boolean Naming Convention
 
-- [ ] **bg_fs_dispatch.cljs**: Use `:fs/enabled?` in builder
-- [ ] **bundled/epupp/fs.cljs**: Update docstrings
-- [ ] **popup.cljs**: Update any `:fs/enabled` references
-- [ ] **Unit tests**: Update assertions for new key names
-- [ ] **E2E tests**: Update assertions for new key names
+- [x] **bg_fs_dispatch.cljs**: Use `:fs/enabled?` in builder
+- [x] **bundled/epupp/fs.cljs**: Update docstrings
+- [x] **popup.cljs**: Update any `:fs/enabled` references
+- [x] **Unit tests**: Update assertions for new key names
+- [x] **E2E tests**: Update assertions for new key names
 
 ### Phase 4: Auto-Run Behavior
 
-- [ ] **storage.cljs**: Scripts without match created with `enabled: false`
-- [ ] **bg_fs_dispatch.cljs**: Omit `:fs/enabled?` when no auto-run patterns
-- [ ] **bg_fs_dispatch.cljs**: Use `:fs/no-auto-run` sentinel value
-- [ ] **panel_actions.cljs**: Verify save behavior for scripts without match
-- [ ] **Unit tests**: Test enabled default based on match presence
-- [ ] **E2E tests**: Verify behavior for manual-only scripts
+- [x] **storage.cljs**: Scripts without match created with `enabled: false`
+- [x] **bg_fs_dispatch.cljs**: Omit `:fs/enabled?` when no auto-run patterns
+- [x] **bg_fs_dispatch.cljs**: Use `:fs/no-auto-run` sentinel value
+- [x] **panel_actions.cljs**: Verify save behavior for scripts without match
+- [x] **Unit tests**: Test enabled default based on match presence
+- [x] **E2E tests**: Verify behavior for manual-only scripts
 
 ### Phase 5: Documentation
 
-- [ ] **README.md**: Update manifest examples
-- [ ] **docs/user-guide.md**: Update all code examples
-- [ ] **docs/repl-fs-sync.md**: Update return shape examples
-- [ ] **dev/docs/api-surface-catalog.md**: Update API catalog
-- [ ] **dev/docs/userscripts-architecture.md**: Update manifest format
+- [x] **README.md**: Update manifest examples
+- [x] **docs/user-guide.md**: Update all code examples
+- [x] **docs/repl-fs-sync.md**: Update return shape examples
+- [x] **dev/docs/api-surface-catalog.md**: Update API catalog
+- [x] **dev/docs/userscripts-architecture.md**: Update manifest format
 
 ### Phase 6: Verification
 

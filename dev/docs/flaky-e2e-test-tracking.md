@@ -27,6 +27,8 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 | Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | Jan 2026 |
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs#L247) | Assertion fail | Jan 2026 |
 | Popup Core: script management workflow | [popup_core_test.cljs](../../e2e/popup_core_test.cljs#L1) | Script count mismatch | Jan 2026 |
+| FS save: rejects when script already exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Rare flake | Jan 2026 |
+| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Rare flake | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
@@ -55,6 +57,7 @@ Track each investigation to prevent re-testing failed approaches.
 | Jan 2026 | H6: save builtin flake | Add e2e/ensure-builtin before save tests | SUCCESS | 3 serial runs passed; 3 full runs passed |
 | Jan 2026 | H3: Tab activation event timing | New flake reported post-fix; investigation deferred | INCONCLUSIVE | Logged only |
 | Jan 2026 | H3: Tab activation event timing | Reported two popup icon tests flaked in separate runs; no action | INCONCLUSIVE | Logged only |
+| Jan 2026 | New flakes logged | fs_write_save reject-exists + popup_core blank-slate + popup icon toolbar | INCONCLUSIVE | Logged only |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 

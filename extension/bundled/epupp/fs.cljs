@@ -92,18 +92,18 @@
    Throws on failure.
 
    Opts:
-   - :fs/enabled bool - script enabled state (default: true)
+   - :fs/enabled? bool - script enabled state (default: true)
    - :fs/force?  bool - overwrite existing script with same name (default: false)
 
    Examples:
    (epupp.fs/save! code)
-   (epupp.fs/save! code {:fs/enabled false})
+   (epupp.fs/save! code {:fs/enabled? false})
    (epupp.fs/save! code {:fs/force? true})  ; overwrite existing
    (epupp.fs/save! [code1 code2])           ; bulk save"
   ([code-or-codes] (save! code-or-codes {}))
   ([code-or-codes opts]
    (let [force? (get opts :fs/force?)
-         enabled (get opts :fs/enabled true)]
+         enabled (get opts :fs/enabled? true)]
      (if (vector? code-or-codes)
        ;; Bulk mode - use map-indexed (realized by to-array for Promise.all)
        (let [bulk-id (str (.now js/Date) "-" (.random js/Math))]

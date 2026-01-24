@@ -51,7 +51,7 @@ To save your code as an auto-running userscript:
 1. Add a manifest map at the top of your code:
    ```clojure
    {:epupp/script-name "my_first_script.cljs"
-    :epupp/site-match "*"}
+    :epupp/auto-run-match "*"}
 
    (js/console.log "Script loaded!")
    ```
@@ -193,7 +193,7 @@ Every userscript starts with a manifest map:
 
 ```clojure
 {:epupp/script-name "github_tweaks.cljs"
- :epupp/site-match "https://github.com/*"
+ :epupp/auto-run-match "https://github.com/*"
  :epupp/description "Enhance GitHub UI"
  :epupp/run-at "document-idle"}
 
@@ -205,7 +205,7 @@ Every userscript starts with a manifest map:
 | Key | Description |
 |-----|-------------|
 | `:epupp/script-name` | Filename for the script (normalized automatically) |
-| `:epupp/site-match` | URL pattern or vector of patterns |
+| `:epupp/auto-run-match` | URL pattern or vector of patterns |
 
 **Optional keys:**
 | Key | Description |
@@ -223,8 +223,8 @@ Patterns use glob syntax:
 
 Multiple patterns:
 ```clojure
-{:epupp/site-match ["https://github.com/*"
-                    "https://gist.github.com/*"]}
+{:epupp/auto-run-match ["https://github.com/*"
+                        "https://gist.github.com/*"]}
 ```
 
 ### Saving Scripts
@@ -400,7 +400,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ```clojure
 {:epupp/script-name "hello_world.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/description "Console greeting"}
 
 (js/console.log "Hello from Epupp!")
@@ -410,7 +410,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ```clojure
 {:epupp/script-name "floating_badge.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/description "Visual indicator"}
 
 (let [badge (js/document.createElement "div")]
@@ -426,7 +426,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ```clojure
 {:epupp/script-name "reagent_counter.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/inject ["scittle://reagent.js"]
  :epupp/description "Interactive counter widget"}
 
@@ -454,7 +454,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ```clojure
 {:epupp/script-name "debug_helper.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/inject ["scittle://pprint.js"]
  :epupp/description "Pretty print page metadata"}
 
@@ -479,7 +479,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ```clojure
 {:epupp/script-name "fetch_interceptor.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/run-at "document-start"
  :epupp/description "Log all fetch requests"}
 
@@ -514,7 +514,7 @@ Manage userscripts programmatically from the REPL using the `epupp.fs` namespace
 ```clojure
 (epupp.fs/ls)
 ;; => [{:fs/name "my_script.cljs"
-;;      :fs/enabled true
+;;      :fs/enabled? true
 ;;      :fs/match ["https://example.com/*"]
 ;;      :fs/modified "2025-01-15T12:00:00.000Z"}
 ;;     ...]
@@ -543,7 +543,7 @@ Save code with an embedded manifest:
 ```clojure
 (epupp.fs/save!
   "{:epupp/script-name \"new_script.cljs\"
-    :epupp/site-match \"https://example.com/*\"}
+    :epupp/auto-run-match \"https://example.com/*\"}
 
    (ns new-script)
    (js/console.log \"Hello!\")")
@@ -581,7 +581,7 @@ All `epupp.fs` functions return promises. Results use namespaced keywords (`:fs/
 | `:fs/success` | Boolean indicating operation success |
 | `:fs/name` | Script name (in save!/mv! results) |
 | `:fs/error` | Error message string, or nil |
-| `:fs/enabled` | Whether script is enabled (in ls) |
+| `:fs/enabled?` | Whether script is enabled (in ls) |
 | `:fs/match` | URL patterns (in ls) |
 | `:fs/modified` | Last modification timestamp (in ls) |
 
@@ -599,7 +599,7 @@ For formatted output, use `cljs.pprint`:
 
 ;; Print all scripts as table
 (-> (epupp.fs/ls)
-    (.then #(print-table [:fs/name :fs/enabled] %)))
+    (.then #(print-table [:fs/name :fs/enabled?] %)))
 ```
 
 ---
@@ -639,7 +639,7 @@ Some sites have strict Content Security Policies. Epupp patches Scittle to avoid
 | Key | Required | Type | Description |
 |-----|----------|------|-------------|
 | `:epupp/script-name` | Yes | String | Script filename |
-| `:epupp/site-match` | Yes | String or Vector | URL pattern(s) |
+| `:epupp/auto-run-match` | Yes | String or Vector | URL pattern(s) |
 | `:epupp/description` | No | String | Human-readable description |
 | `:epupp/run-at` | No | String | `"document-start"`, `"document-end"`, `"document-idle"` |
 | `:epupp/inject` | No | Vector | Scittle library URLs |

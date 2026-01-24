@@ -26,7 +26,7 @@ This document identifies every "API" in Epupp - both obvious and subtle - that e
 | `rm!` | `(name-or-names)` | Delete script(s) | Yes (write) |
 
 **Return shape (namespaced keywords):**
-- `ls`: Vector of `{:fs/name :fs/enabled :fs/match :fs/modified ...}`
+- `ls`: Vector of `{:fs/name :fs/auto-run-match :fs/enabled? :fs/modified ...}`
 - `show`: String (single) or map (bulk)
 - `save!`: `{:fs/success :fs/name :fs/error}`
 - `mv!`: `{:fs/success :fs/from-name :fs/to-name :fs/error}`
@@ -35,7 +35,7 @@ This document identifies every "API" in Epupp - both obvious and subtle - that e
 **Options API:**
 - `:fs/ls-hidden?` (bool) - include built-in scripts
 - `:fs/force?` (bool) - overwrite behavior (Unix `-f` flag semantics)
-- `:fs/enabled` (bool) - script enabled state on save
+- `:fs/enabled?` (bool) - script enabled state on save
 
 **Stability:** HIGH - This is a core feature, breaking changes would impact workflows
 **Versioning indicators:** None currently
@@ -397,12 +397,12 @@ Key differences:
 
 **Parsing:**
 - Uses `edn-data/parseEDNString` with `{:mapAs "object" :keywordAs "string"}`
-- Returns string keys: `"script-name"`, `"site-match"`, etc.
+- Returns string keys: `"script-name"`, `"auto-run-match"`, etc.
 - Validates `run-at` against `valid-run-at-values`
 
 **Normalization:**
 - `script-name` → lowercase, underscores, `.cljs` suffix
-- `site-match` → preserved as string or vector (not normalized to array here)
+- `auto-run-match` → preserved as string or vector (not normalized to array here)
 - `run-at` → defaults to `"document-idle"` if invalid
 - `inject` → normalized to vector (string → `[string]`, nil → `[]`)
 

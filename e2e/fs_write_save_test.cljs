@@ -121,7 +121,7 @@
 (defn- ^:async test_save_with_disabled_creates_disabled_script []
   (let [test-code "{:epupp/script-name \"disabled-by-default\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns disabled-test)\n                                  (js/console.log \"Should be disabled!\")"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-disabled (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/enabled false :fs/force? true})\n                                         (.then (fn [r] (reset! !save-disabled r))))\n                                       :setup-done")))]
+                                (str "(def !save-disabled (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/enabled? false :fs/force? true})\n                                         (.then (fn [r] (reset! !save-disabled r))))\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
