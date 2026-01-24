@@ -6,9 +6,9 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 
 | Metric | Count |
 |--------|-------|
-| Active flaky tests | 5 |
+| Active flaky tests | 7 |
 | Hypotheses pending | 2 |
-| Successful fixes | 2 |
+| Successful fixes | 3 |
 
 **Note:** Extension startup event test added Jan 2026 - race condition causing event loss.
 
@@ -23,6 +23,8 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 | FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
 | Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L118) | Rare flake | Jan 2026 |
 | FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs#L283) | Rare flake (CI) | Jan 2026 |
+| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | Jan 2026 |
+| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs#L247) | Assertion fail | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
@@ -36,6 +38,7 @@ Track each investigation to prevent re-testing failed approaches.
 |------|-----------|----------------|---------|-------|
 | Jan 2026 | H0: test-logger race condition | Added write queue in log-event! | SUCCESS | Verified: 3 parallel + 2 serial passes |
 | Jan 2026 | Silent timeout in rm test setup | Added proper error throw on timeout | SUCCESS | First polling loop used when-when instead of if-throw |
+| Jan 2026 | FS save builtin wait fix | Add stabilization delay after wait-for-builtin-script! | SUCCESS | 5 full runs, 0 failures |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 

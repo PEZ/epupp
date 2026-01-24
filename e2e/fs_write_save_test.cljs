@@ -9,18 +9,23 @@
   "Wait until a built-in script name is visible via epupp.fs/ls."
   [script-name timeout-ms]
   (let [start (.now js/Date)
-        timeout-ms (or timeout-ms 5000)]
+        timeout-ms (or timeout-ms 5000)
+        ;; Define the atom ONCE before the loop to avoid race condition
+        define-result (js-await (eval-in-browser "(def !wait-builtin-present (atom :pending))"))]
+    (when-not (.-success define-result)
+      (throw (js/Error. (str "Failed to define atom: " (.-error define-result)))))
     (loop []
+      ;; Reset to :pending at start of each iteration
       (let [setup-result (js-await (eval-in-browser
-                                    (str "(def !builtin-present (atom :pending))\n"
-                                         " (-> (epupp.fs/ls {:fs/ls-hidden? true})\n"
-                                         "     (.then (fn [scripts]\n"
-                                         "             (reset! !builtin-present\n"
-                                         "                     (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts)))))\n"
-                                         " :setup-done")))]
+                                    (str "(reset! !wait-builtin-present :pending)\n"
+                                         "(-> (epupp.fs/ls {:fs/ls-hidden? true})\n"
+                                         "    (.then (fn [scripts]\n"
+                                         "            (reset! !wait-builtin-present\n"
+                                         "                    (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts)))))\n"
+                                         ":setup-done")))]
         (when-not (.-success setup-result)
           (throw (js/Error. (str "Failed to start builtin check: " (.-error setup-result)))))
-        (let [check-result (js-await (eval-in-browser "(pr-str @!builtin-present)"))]
+        (let [check-result (js-await (eval-in-browser "(pr-str @!wait-builtin-present)"))]
           (if (and (.-success check-result)
                    (seq (.-values check-result)))
             (let [result-str (unquote-result (first (.-values check-result)))]
@@ -283,6 +288,8 @@
 
 (defn- ^:async test_save_rejects_builtin_script_names []
   (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
+  ;; Small delay to let any pending storage operations settle
+  (js-await (sleep 50))
 
   ;; Try to save a script with a built-in name - should reject
   (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/site-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
@@ -313,6 +320,8 @@
 
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
   (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
+  ;; Small delay to let any pending storage operations settle
+  (js-await (sleep 50))
 
   ;; Try to save with force - still should reject for built-in
   (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/site-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
