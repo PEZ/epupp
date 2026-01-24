@@ -53,8 +53,8 @@ These are internal but need version fields for smooth upgrades.
 ### 2. Script Manifest Keys Stability
 
 **Current manifest keys:**
-- `:epupp/script-name` - Display name
-- `:epupp/site-match` - URL pattern(s) for auto-injection
+- `:epupp/script-name` - Display name (required)
+- `:epupp/auto-run-match` - URL pattern(s) for auto-injection (renamed from `:epupp/site-match`)
 - `:epupp/description` - Human-readable description
 - `:epupp/run-at` - Timing: document-start/end/idle
 - `:epupp/inject` - Library dependencies
@@ -107,17 +107,38 @@ These are internal but need version fields for smooth upgrades.
 
 **Base script info shape (all functions returning script metadata):**
 ```clojure
-{:fs/name "script.cljs"           ; Always present
- :fs/enabled? true                ; Always present (boolean)
- :fs/modified "2026-01-24T..."    ; Always present
- :fs/created "2026-01-20T..."     ; Always present
- :fs/match ["pattern"]            ; Only if present in manifest (optional)
- :fs/description "..."            ; Only if present in manifest (optional)}
+{:fs/name "script.cljs"                    ; Always present
+ :fs/modified "2026-01-24T..."             ; Always present
+ :fs/created "2026-01-20T..."              ; Always present
+ :fs/auto-run-match ["pattern"]            ; Always present (or :fs/no-auto-run)
+ :fs/enabled? true                         ; Only present if auto-run-match exists
+ :fs/description "..."                     ; Only if present in manifest
+ :fs/run-at "document-idle"                ; Only if present in manifest
+ :fs/inject ["scittle://..."]              ; Only if present in manifest}
 ```
 
-**Naming convention:** Boolean keywords use `?` suffix (`:fs/enabled?`, `:fs/newly-created?`)
+**Manifest → Return map alignment:**
+| Manifest key | Return key | Notes |
+|--------------|------------|-------|
+| `:epupp/script-name` | `:fs/name` | Required |
+| `:epupp/auto-run-match` | `:fs/auto-run-match` | Always present; `:fs/no-auto-run` if missing/empty |
+| `:epupp/description` | `:fs/description` | Optional |
+| `:epupp/run-at` | `:fs/run-at` | Optional |
+| `:epupp/inject` | `:fs/inject` | Optional |
 
-**Optional fields:** `:fs/match` and `:fs/description` only included if present in the script's manifest
+**BREAKING CHANGE:** Rename `:epupp/site-match` → `:epupp/auto-run-match` in manifests
+- Clearer intent: describes *what* the match does (auto-runs script on matching pages)
+- Must update: manifest parser, storage schema, all documentation, built-in scripts
+
+**Auto-run behavior:**
+- Scripts **with** `:epupp/auto-run-match` patterns → created with `enabled? true`
+- Scripts **without** (or empty) `:epupp/auto-run-match` → created with `enabled? false`, omit `:fs/enabled?` from return
+- Return map always includes `:fs/auto-run-match`, value is `:fs/no-auto-run` when no pattern
+
+**Naming conventions:**
+- Boolean keywords use `?` suffix: `:fs/enabled?`, `:fs/newly-created?`
+- Manifest keys use `:epupp/` namespace
+- Return keys use `:fs/` namespace
 
 **Function return shapes:**
 - `ls` → vector of base info maps
@@ -129,26 +150,30 @@ These are internal but need version fields for smooth upgrades.
 **Error handling:** All write operations throw on failure (reject promise). No `:fs/success false` returns.
 
 **Implementation approach:**
-1. Background worker message handlers include full script info in responses
-2. Scittle `fs.cljs` uses shared `script-info` builder function
-3. Each function extends base with operation-specific fields
-4. Builder conditionally includes `:fs/match` and `:fs/description` based on manifest content
+1. Rename `:epupp/site-match` → `:epupp/auto-run-match` across codebase
+2. Background worker message handlers include full script info in responses
+3. Scittle `fs.cljs` uses shared `script-info` builder function
+4. Builder includes `:fs/auto-run-match` always (`:fs/no-auto-run` for scripts without patterns)
+5. Builder conditionally includes `:fs/enabled?` only for scripts with auto-run patterns
+6. Builder conditionally includes other optional fields based on manifest content
 
 **Breaking vs additive:**
-- ✅ Adding `:fs/created` to base shape: ADDITIVE (new field, existing code ignores)
-- ✅ Adding `:fs/description` to base shape: ADDITIVE (new field, optional)
-- ✅ Adding `:fs/newly-created?` to `save!`: ADDITIVE (new field)
+- ⚠️ Renaming `:epupp/site-match` → `:epupp/auto-run-match`: BREAKING (manifest format change)
 - ⚠️ Renaming `:fs/enabled` → `:fs/enabled?`: BREAKING (field name change)
-- ⚠️ Changing `save!` from `{:fs/success :fs/name :fs/error}` to base info shape: BREAKING (different fields)
+- ⚠️ Renaming `:fs/match` → `:fs/auto-run-match`: BREAKING (field name change)
+- ⚠️ Changing `save!` return shape: BREAKING (different fields)
+- ⚠️ Scripts without match now created disabled: BREAKING (behavior change)
 
 **Pre-1.0 acceptable:** These breaking changes are acceptable since we're in userscripts branch before 1.0 release.
 
-**Decision:** Accepted - implement consistency with shared base info builder
+**Decision:** Accepted - implement consistency with manifest-aligned naming
 
 **Discussion:**
 User confirmed: "The `ls` one looks pretty good. Probably whatever builds those should share a function for what's included in a file return, and then each function may want to add specific things to the map."
 
-User refined: "description should be included in the return shape, I think. Or, maybe include it only if it is included in the manifest. Same for match. And we could consider `:fs/enabled?` because I like that convention (it is a bit controversial in the Clojure community, but I'm on the `?` team for boolean keyword names.)"
+User refined: "description should be included in the return shape, I think. Or, maybe include it only if it is included in the manifest. Same for match. And we could consider `:fs/enabled?` because I like that convention"
+
+User further refined: "The return map should be in sync with the manifest, so match should be site-match... I think `:epupp/auto-run-match` is clearer. Scripts without auto-run-match should be created with `enabled?` false, should omit `enabled?` in their return map, and all script return maps should include auto-run-match with `:fs/no-auto-run` for when the match is missing or empty."
 
 
 ---
