@@ -62,7 +62,8 @@
        :approvedPatterns (clj->js (:script/approved-patterns script))
        :runAt (:script/run-at script)
        :require (clj->js (:script/require script))
-       :builtin (:script/builtin? script)})
+       :builtin (:script/builtin? script)
+       :force (:script/force? script)})
 
 ;; ============================================================
 ;; URL pattern matching

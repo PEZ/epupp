@@ -342,8 +342,8 @@ Location: `panel.cljs` lines ~710-720
 #### 8.1 Add script list to panel state
 Location: `panel.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:panel/scripts-list` to panel state
@@ -353,8 +353,8 @@ Location: `panel.cljs`
 #### 8.2 Create effect to load/refresh script list
 Location: `panel.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Add `:editor/fx.load-scripts-list` effect
@@ -364,8 +364,8 @@ Location: `panel.cljs`
 #### 8.3 Add storage change listener for scripts
 Location: `panel.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Listen for `chrome.storage.onChanged` events
@@ -375,8 +375,8 @@ Location: `panel.cljs`
 #### 8.4 Update save UI logic to use script list
 Location: `panel.cljs` save-script-section
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - Check if normalized name exists in `:panel/scripts-list`
@@ -389,14 +389,20 @@ Location: `panel.cljs` save-script-section
 #### 8.5 Handle rename-to-existing case
 Location: `panel_actions.cljs`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Actions needed:**
 - When name changed and target exists:
   - If user confirms overwrite: delete old, save as new with existing's ID
   - If user cancels: stay in edit mode
 - Update `:editor/ax.save-script` to accept `:force?` flag for overwrite
+
+**Result:**
+- Added `:editor/ax.save-script-overwrite` action that sets `:script/force? true`
+- Added `:force` property to `script->js` conversion
+- Updated background `panel-save-script` handler to extract force flag
+- UI shows "Overwrite" button when name conflicts with existing script
 
 ---
 
@@ -435,12 +441,12 @@ Location: `panel_actions.cljs`
 2. Update unit tests
 3. Run full E2E verification
 
-**Batch G: Cleanup (7.1-7.2)**
+**Batch G: Cleanup (7.1-7.2)** - COMPLETE
 1. Run testrunner baseline
 2. Remove deprecated code
 3. Final testrunner verification
 
-**Batch H: Script List Awareness (8.1-8.5)**
+**Batch H: Script List Awareness (8.1-8.5)** - COMPLETE
 1. Run testrunner baseline
 2. Add scripts list to panel state
 3. Add storage change listener

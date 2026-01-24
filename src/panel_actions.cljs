@@ -154,6 +154,24 @@
           ;; State update happens in response handler - effect dispatches when background responds
           {:uf/fxs [[:editor/fx.save-script script normalized-name action-text]]})))
 
+    :editor/ax.save-script-overwrite
+    ;; Like save-script but with force flag to overwrite existing script
+    (let [{:panel/keys [code script-name script-match script-description manifest-hints]} state]
+      (if (or (empty? code) (empty? script-name))
+        {:uf/dxs [[:editor/ax.show-system-banner "error" "Name and code are required"]]}
+        (let [normalized-name (script-utils/normalize-script-name script-name)
+              normalized-match (script-utils/normalize-match-patterns script-match)
+              script-require (:require manifest-hints)
+              script-run-at (:run-at manifest-hints)
+              script (cond-> {:script/name normalized-name
+                              :script/match normalized-match
+                              :script/code code
+                              :script/force? true}  ;; Force overwrite
+                       (seq script-description) (assoc :script/description script-description)
+                       (seq script-require) (assoc :script/require script-require)
+                       script-run-at (assoc :script/run-at script-run-at))]
+          {:uf/fxs [[:editor/fx.save-script script normalized-name "Replaced"]]})))
+
     :editor/ax.handle-save-response
     (let [[{:keys [success error name action-text unchanged]}] args]
       (cond
@@ -332,4 +350,9 @@
     :editor/ax.clear-bulk-names
     (let [[bulk-id] args]
       {:uf/db (update state :panel/system-bulk-names dissoc bulk-id)})
+
+    :editor/ax.update-scripts-list
+    (let [[scripts] args]
+      {:uf/db (assoc state :panel/scripts-list (or scripts []))})
+
     :uf/unhandled-ax))

@@ -527,16 +527,17 @@
                       "panel-save-script"
                       (let [js-script (.-script message)]
                         ;; Convert JS script object back to Clojure map with namespaced keys
-                        (let [script {:script/id (.-id js-script)
-                                      :script/name (.-name js-script)
-                                      :script/description (.-description js-script)
-                                      :script/match (vec (.-match js-script))
-                                      :script/code (.-code js-script)
-                                      :script/enabled (.-enabled js-script)
-                                      :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
-                                      :script/require (if (.-require js-script)
-                                                        (vec (.-require js-script))
-                                                        [])}]
+                        (let [script (cond-> {:script/name (.-name js-script)
+                                              :script/description (.-description js-script)
+                                              :script/match (vec (.-match js-script))
+                                              :script/code (.-code js-script)
+                                              :script/enabled (.-enabled js-script)
+                                              :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
+                                              :script/require (if (.-require js-script)
+                                                                (vec (.-require js-script))
+                                                                [])}
+                                       (.-id js-script) (assoc :script/id (.-id js-script))
+                                       (.-force js-script) (assoc :script/force? true))]
                           (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
                         false)
 

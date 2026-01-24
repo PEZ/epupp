@@ -28,7 +28,8 @@
          :panel/manifest-hints nil  ; Parsed manifest from current code
          :panel/selection nil       ; Current textarea selection {:start :end :text}
          :panel/system-banners []        ; System banners [{:id :type :message :leaving} ...]
-         :panel/system-bulk-names {}})) ; bulk-id -> [script-name ...]
+         :panel/system-bulk-names {}     ; bulk-id -> [script-name ...]
+         :panel/scripts-list []})) ; bulk-id -> [script-name ...]
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -278,11 +279,20 @@
              (when script
                ;; Reload the script content into the editor
                (dispatch [[:editor/ax.load-script-for-editing
-
                            (:script/name script)
                            (str/join "\n" (:script/match script))
                            (:script/code script)
                            (:script/description script)]])))))))
+
+    :editor/fx.load-scripts-list
+    (js/chrome.storage.local.get
+     #js ["scripts"]
+     (fn [result]
+       (let [scripts-raw (.-scripts result)
+             scripts (if scripts-raw
+                       (script-utils/parse-scripts scripts-raw)
+                       [])]
+         (dispatch [[:editor/ax.update-scripts-list scripts]]))))
 
     :uf/unhandled-fx))
 
@@ -485,7 +495,7 @@
 
 (defn save-script-section [{:panel/keys [script-name script-match script-description
                                          code original-name
-                                         manifest-hints]
+                                         manifest-hints scripts-list]
                             :as _state}]
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
         has-manifest? (some? manifest-hints)
@@ -500,25 +510,37 @@
                           (script-utils/normalize-script-name script-name))
         ;; Check if we're editing a built-in script (by name lookup)
         editing-builtin? (and original-name
-                              (script-utils/name-matches-builtin? (storage/get-scripts) original-name))
+                              (script-utils/name-matches-builtin? scripts-list original-name))
         ;; Name changed from original?
         name-changed? (and original-name
                            normalized-name
                            (not= normalized-name original-name))
-        ;; Show rename when editing user script and name differs from original
+        ;; Check if the new name conflicts with an existing script (not the one we're editing)
+        existing-script (when normalized-name
+                          (some #(when (= (:script/name %) normalized-name) %) scripts-list))
+        ;; Conflict: name exists AND it's not the same script we're editing
+        has-name-conflict? (and existing-script
+                                (not= normalized-name original-name))
+        ;; Show rename when editing user script and name differs from original (and no conflict)
         show-rename? (and original-name
                           (not editing-builtin?)
-                          name-changed?)
+                          name-changed?
+                          (not has-name-conflict?))
         ;; Save button disabled rules:
         ;; - Missing required fields
         ;; - Editing built-in with unchanged name (can't overwrite built-in)
         ;; - No manifest present (can't save without manifest)
+        ;; - Name conflict (need to use overwrite button instead)
         save-disabled? (or (empty? code)
                            (empty? script-name)
                            (not has-manifest?)
+                           has-name-conflict?
                            (and editing-builtin? (not name-changed?)))
-        ;; Button text: "Create Script" when name changed, otherwise "Save Script"
-        save-button-text (if name-changed? "Create Script" "Save Script")
+        ;; Button text: "Create Script" when name changed (no conflict), otherwise "Save Script"
+        save-button-text (cond
+                           has-name-conflict? "Save Script"
+                           name-changed? "Create Script"
+                           :else "Save Script")
         ;; Rename disabled for built-in scripts
         rename-disabled? editing-builtin?
         ;; Get run-at for display (from parsed manifest, via state)
@@ -540,7 +562,10 @@
           [property-row
            {:label "Name"
             :value script-name
-            :hint (when name-normalized?
+            :hint (cond
+                    has-name-conflict?
+                    {:type "warning" :text (str "\"" normalized-name "\" already exists")}
+                    name-normalized?
                     {:type "info" :text (str "Normalized from: " raw-script-name)})}]
 
           ;; Auto-run row - shows patterns or "No auto-run" when empty
@@ -586,13 +611,26 @@
            :button/disabled? save-disabled?
            :button/on-click #(dispatch! [[:editor/ax.save-script]])
            :button/title (cond
+                           has-name-conflict?
+                           (str "Script \"" normalized-name "\" already exists - use Overwrite to replace it")
                            (and editing-builtin? (not name-changed?))
                            "Cannot overwrite built-in script - change the name to create a copy"
                            (empty? script-name)
                            "Add :epupp/script-name to manifest"
                            :else nil)}
           save-button-text]
-         ;; Rename button - appears after Save to keep layout stable
+         ;; Overwrite button - shown when there's a name conflict
+         (when has-name-conflict?
+           [view-elements/action-button
+            {:button/variant :warning
+             :button/class "btn-overwrite"
+             :button/disabled? (script-utils/builtin-script? existing-script)
+             :button/on-click #(dispatch! [[:editor/ax.save-script-overwrite]])
+             :button/title (if (script-utils/builtin-script? existing-script)
+                             "Cannot overwrite built-in scripts"
+                             (str "Replace existing \"" normalized-name "\" with this code"))}
+            "Overwrite"])
+         ;; Rename button - appears when editing and name differs (no conflict)
          (when show-rename?
            [view-elements/action-button
             {:button/variant :primary
@@ -713,6 +751,8 @@
                                    (render!)
                                    ;; Check Scittle status on init
                                    (dispatch! [[:editor/ax.check-scittle]])
+                                   ;; Load scripts list for conflict detection
+                                   (perform-effect! dispatch! [:editor/fx.load-scripts-list])
                                    ;; Check if there's a script to edit (from popup)
                                    (dispatch! [[:editor/ax.check-editing-script]])
                                    ;; Listen for page navigation to clear stale results
@@ -722,11 +762,20 @@
                                                                  (fn [_] (when (= "visible" js/document.visibilityState)
                                                                            (check-version!)))))))]))
 
-;; Listen for storage changes (when popup sets editingScript)
+;; Listen for storage changes (editingScript for edit requests, scripts for conflict detection)
 (js/chrome.storage.onChanged.addListener
- (fn [changes _area]
-   (when (.-editingScript changes)
-     (dispatch! [[:editor/ax.check-editing-script]]))))
+ (fn [changes area]
+   (when (= area "local")
+     ;; Refresh scripts list when scripts change (for conflict detection)
+     (when (.-scripts changes)
+       (let [new-scripts (.-newValue (.-scripts changes))
+             parsed (if new-scripts
+                      (script-utils/parse-scripts new-scripts)
+                      [])]
+         (dispatch! [[:editor/ax.update-scripts-list parsed]])))
+     ;; Check for script to edit when popup sets editingScript
+     (when (.-editingScript changes)
+       (dispatch! [[:editor/ax.check-editing-script]])))))
 
 ;; Listen for FS sync events from background
 (js/chrome.runtime.onMessage.addListener
