@@ -28,7 +28,10 @@
   ;; PEZ: We should show an error banner in both the panel and the popup, and the extension icon should get an error badge.
 
   ;; Save new script
-  (-> (p/let [save-result (epupp.fs/save! "{:epupp/script-name \"test-save-1\"}\n(ns test1)" #_{:fs/force? true})]
+  (-> (p/let [save-result (epupp.fs/save!
+                           "{:epupp/script-name \"test-save-1\"
+                             :epupp/auto-run-match \"*\"}
+                            (ns test1)" #_{:fs/force? true})]
         (def save-result save-result))
       (p/catch (fn [e] (def save-error (.-message e)))))
 
