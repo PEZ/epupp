@@ -850,7 +850,10 @@
         (System/exit 1))
       (println "✅ All shards passed!"))))
 
-(defn run-e2e!
+; Playwright's stupid sharding will make it vary a lot what n-shards is the best
+(def ^:private default-n-shards 13)
+
+(defn ^:export run-e2e!
   "Run E2E tests in Docker. Parallel by default, --serial for detailed output.
 
    Options:
@@ -863,7 +866,7 @@
   (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int}
                                                   :alias {:s :serial}})
         serial? (:serial opts)
-        n-shards (or (:shards opts) 6)]
+        n-shards (or (:shards opts) default-n-shards)]
     (if serial?
       (run-e2e-serial! args)
       (run-e2e-parallel! n-shards args))))
