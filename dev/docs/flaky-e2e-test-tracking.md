@@ -18,7 +18,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 |------|------|---------|----------------|
 | FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
 | FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
-| FS Sync rm operations | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
+| FS Sync rm operations: `:fs/existed?` flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
@@ -49,7 +49,7 @@ Active hypotheses to investigate. Move to Attempted Fixes Log when tested.
 Storage change events may arrive at different times in popup vs panel vs background. FS write tests may have race conditions between storage write completion and UI update verification.
 
 #### H2: Parallel test execution resource contention
-- [ ] Tested  
+- [ ] Tested
 - [ ] Outcome documented
 
 Docker sharded execution may cause contention for extension storage or WebSocket connections when multiple tests manipulate the same resources.
