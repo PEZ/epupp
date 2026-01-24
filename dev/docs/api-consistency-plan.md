@@ -12,6 +12,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | No-pattern value | `[]` | Key omitted |
 | `save!` return | `{:fs/success :fs/name :fs/error}` | Base info + `:fs/newly-created?` |
 | Scripts without match | Created enabled | Created disabled |
+| **Removing match** | **Match persisted** | **Match cleared, disabled** |
 
 ## Rationale
 
@@ -20,6 +21,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 3. **Boolean convention**: `?` suffix for boolean keywords (`:fs/enabled?`, `:fs/newly-created?`)
 4. **Semantic correctness**: Scripts without auto-run patterns shouldn't have `:fs/enabled?` field
 5. **Consistent returns**: All `epupp.fs` functions returning script info use the same base shape
+6. **Auto-run revocability**: Removing `:epupp/auto-run-match` from manifest MUST clear auto-run behavior entirely
 
 ## Progress Checklist
 
@@ -71,11 +73,40 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **dev/docs/api-surface-catalog.md**: Update API catalog
 - [x] **dev/docs/userscripts-architecture.md**: Update manifest format
 
-### Phase 6: Verification
+### Phase 6: Auto-Run Revocation (Regression Fix)
+
+**Problem discovered (2026-01-24)**: When updating a script and removing `:epupp/auto-run-match` from its manifest, the old match pattern persists. This happens because `save-script!` uses `merge`, which keeps existing values when new ones aren't provided.
+
+**Expected behavior**: Removing `:epupp/auto-run-match` from a manifest should:
+1. Clear `:script/match` entirely
+2. Reset `:script/enabled` to `false`
+3. Result in a manual-only script (no auto-run UI)
+
+**Root cause**: `storage.cljs` `save-script!` merges incoming script with existing, preserving old `:script/match` when not explicitly set to nil/empty.
+
+**Solution**: Centralize auto-run handling in `storage.cljs` so all entry points (panel save, REPL save, gist install, script import) behave consistently.
+
+- [ ] **storage.cljs**: Extract match from manifest in `save-script!`, explicitly handle nil/empty case
+- [ ] **storage.cljs**: When match is nil/empty, set `:script/match []` and `:script/enabled false`
+- [ ] **storage.cljs**: Add docstring explaining auto-run revocation behavior
+- [ ] **Unit tests**: Test auto-run → manual transition clears match and disables
+- [ ] **E2E tests**: Test panel save with match removed → script becomes manual-only
+- [ ] **E2E tests**: Test REPL save with match removed → script becomes manual-only
+
+**Entry points affected** (all go through `save-script!`):
+- Panel save (via `panel_actions.cljs` → `background.cljs` → `storage.cljs`)
+- REPL save (via `repl_fs_actions.cljs` → `storage.cljs`)
+- Gist install (via `background.cljs` → `storage.cljs`)
+- Script import (future, will use same path)
+
+### Phase 7: Verification
 
 - [ ] **Unit tests pass**: `bb test`
 - [ ] **E2E tests pass**: `bb test:e2e`
 - [ ] **Manual verification**: Test full workflow in browser
+  - [ ] Panel: Edit script with match → remove match → save → verify no auto-run UI
+  - [ ] REPL: Update script removing match → verify no auto-run UI in popup
+  - [ ] Both: Verify script works as manual-only (can run via play button)
 
 ## Base Script Info Shape
 
@@ -106,7 +137,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | File | Changes |
 |------|---------|
 | `src/manifest_parser.cljs` | Extract `:epupp/auto-run-match` |
-| `src/storage.cljs` | Update field names, conditional enabled default |
+| `src/storage.cljs` | Update field names, conditional enabled default, **auto-run revocation logic** |
 | `src/background.cljs` | Update manifest references |
 | `src/bg_fs_dispatch.cljs` | Add `script->base-info`, update all responses |
 | `src/popup.cljs` | Update `:fs/enabled` → `:fs/enabled?` |
@@ -114,8 +145,8 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | `src/panel_actions.cljs` | Update default template, save logic |
 | `extension/bundled/epupp/fs.cljs` | Update response parsing, docstrings |
 | `extension/bundled/userscripts/*.cljs` | Update manifest keys |
-| `test/*.cljs` | Update all assertions |
-| `e2e/*.cljs` | Update all assertions |
+| `test/*.cljs` | Update all assertions, **add auto-run revocation tests** |
+| `e2e/*.cljs` | Update all assertions, **add auto-run revocation E2E tests** |
 | `docs/*.md` | Update all examples |
 
 ## Implementation Notes
@@ -158,6 +189,39 @@ This is a clean break. Users updating the extension will need to update any save
 
 All write operations (`save!`, `mv!`, `rm!`) throw on failure (reject promise). No `:fs/success false` returns. The base info is only returned on success.
 
+### Auto-Run Revocation Logic (Phase 6)
+
+The `save-script!` function in storage.cljs must be updated to:
+
+```clojure
+;; In save-script!, after extracting manifest:
+(let [manifest-match (get manifest "auto-run-match")  ; from :epupp/auto-run-match
+      ;; CRITICAL: If script has code with manifest, use manifest's match (even if nil/empty)
+      ;; This allows removing auto-run by deleting the manifest key
+      new-match (cond
+                  ;; Manifest explicitly sets match (including empty)
+                  (contains? manifest "auto-run-match")
+                  (if (seq manifest-match) (vec manifest-match) [])
+                  
+                  ;; No manifest or no code - preserve existing match
+                  existing
+                  (:script/match existing)
+                  
+                  ;; New script without manifest - no match
+                  :else [])
+      has-auto-run? (seq new-match)
+      ;; Enabled: preserve if has auto-run, reset to false if losing auto-run
+      new-enabled (if has-auto-run?
+                    (if existing
+                      (:script/enabled existing)  ; preserve existing
+                      default-enabled)             ; new script default
+                    false)]                        ; no auto-run = disabled
+  ;; Use new-match and new-enabled in the updated-script
+  )
+```
+
+**Key insight**: The manifest is the source of truth. If a manifest is present and lacks `auto-run-match`, that's an explicit removal (set to empty), not "keep existing".
+
 ## Verification
 
 1. Create script WITH `:epupp/auto-run-match`, verify `:fs/enabled?` in return
@@ -167,6 +231,9 @@ All write operations (`save!`, `mv!`, `rm!`) throw on failure (reject promise). 
 5. Verify `mv!` includes `:fs/from-name` string
 6. Verify `rm!` returns deleted script's base info
 7. Verify all docs have correct examples
+8. **Update auto-run script to remove match** → verify match cleared, enabled=false, no auto-run UI
+9. **Panel save with match removed** → verify becomes manual-only script
+10. **REPL save with match removed** → verify becomes manual-only script
 
 ## Original Plan-Producing Prompt
 
@@ -182,5 +249,6 @@ Create an implementation plan for the decided API changes before 1.0 release:
 8. Change `save!` from `{:fs/success :fs/name :fs/error}` to base info + `:fs/newly-created?`
 9. Change `mv!` to return base info + `:fs/from-name`
 10. Change `rm!` to return deleted script's base info
+11. **Auto-run revocation**: Removing `:epupp/auto-run-match` from manifest MUST clear match and reset enabled to false (regression fix for merge-preserving-old-values bug)
 
 Breaking changes acceptable - pre-1.0 in userscripts branch. Use plan format from recent dev/docs plans (checklist, files table, implementation notes, verification).
