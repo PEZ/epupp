@@ -1,5 +1,5 @@
 * [x] Rename to Epupp: Live Tamper your Web
-* [s] Build-in scripts should have special meta, and special UI
+* [x] Build-in scripts should have special meta, and special UI
 * [x] Scripts should have descriptions
 * [x] Script names should be valid clojurescript filenames
   * [x] Friendly UI to help with this
@@ -64,3 +64,4 @@
 * [ ] Centralize UI announcements to the banner
 * [ ] Use e2e-prefixed classes for e2e needed checks
 * [ ] The new-script template should add a pattern matching the current page
+* [ ] Built in scripts should be fully replaced on extension update
