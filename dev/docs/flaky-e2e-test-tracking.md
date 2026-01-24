@@ -6,7 +6,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 
 | Metric | Count |
 |--------|-------|
-| Active flaky tests | 4 |
+| Active flaky tests | 5 |
 | Hypotheses pending | 2 |
 | Successful fixes | 2 |
 
@@ -22,6 +22,7 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 | FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
 | FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
 | Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L118) | Rare flake | Jan 2026 |
+| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs#L283) | Rare flake (CI) | Jan 2026 |
 
 **Pattern types:** Intermittent timeout, race condition, state pollution, resource contention, timing sensitivity
 
