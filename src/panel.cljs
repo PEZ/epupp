@@ -549,7 +549,7 @@
         run-at (if run-at-invalid?
                  "document-idle"
                  raw-run-at)]
-    [:div.save-script-section {:data-scripts-count (count scripts-list)}
+    [:div.save-script-section {:data-e2e-scripts-count (count scripts-list)}
      [:div.save-script-header
       [:span.header-title (if original-name "Edit Userscript" "Save as Userscript")]
       [new-script-button _state]]

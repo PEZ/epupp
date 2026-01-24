@@ -101,6 +101,37 @@ There is an extensive library of helpers in `e2e/fixtures.cljs`, covering:
 
 For migration of legacy nested structures, see [e2e-test-structure-migration-plan.md](e2e-test-structure-migration-plan.md).
 
+### Data Attributes for Test Observability
+
+Use `data-e2e-*` prefixed attributes to create explicit contracts between UI code and E2E tests. This decouples tests from implementation details like CSS classes, element structure, and copy text.
+
+**Benefits:**
+- **Explicit intent**: When you see `data-e2e-*` in UI code, you know tests depend on it
+- **Refactor-safe**: Change CSS classes, DOM structure, or copy freely without breaking tests
+- **Self-documenting**: The prefix signals "this exists for E2E observability"
+- **Searchable**: `grep data-e2e` shows all test touchpoints in the codebase
+
+**Example - waiting for async state:**
+
+```clojure
+;; In UI component (panel.cljs)
+[:div.save-script-section {:data-e2e-scripts-count (count scripts-list)}
+  ...]
+
+;; In test helper (fixtures.cljs)
+(defn ^:async wait-for-scripts-loaded [panel expected-count]
+  (let [save-section (.locator panel ".save-script-section")]
+    (js-await (-> (expect save-section)
+                  (.toHaveAttribute "data-e2e-scripts-count" (str expected-count))))))
+```
+
+**When to use data attributes vs CSS selectors:**
+- Use `data-e2e-*` for: state values, counts, IDs, statuses - anything tests need to observe
+- Use CSS classes for: finding elements that have stable semantic meaning (`.btn-save`, `#code-area`)
+- Avoid depending on: text content, styling classes, structural nesting
+
+**Convention**: When updating UI that has `data-e2e-*` attributes, consider whether E2E tests need updating. The prefix makes this relationship visible.
+
 ### Performance: No Fixed Sleeps
 
 **Critical**: Never use fixed-delay sleeps. They waste time and make tests flaky.

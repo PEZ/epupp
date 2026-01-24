@@ -149,6 +149,34 @@ Observe internal behavior invisible to UI using event logging:
 - Internal state transitions
 - Performance tracking
 
+### Data Attributes for Test Observability
+
+Use `data-e2e-*` prefixed attributes to create explicit contracts between UI code and tests. This decouples tests from brittle implementation details like CSS classes, DOM structure, and copy text.
+
+**Benefits:**
+- **Explicit intent**: `data-e2e-*` in UI code signals test dependency
+- **Refactor-safe**: Change classes, structure, or copy without breaking tests
+- **Searchable**: `grep data-e2e` shows all test touchpoints
+
+**Example - waiting for async state:**
+
+```clojure
+;; In UI component (panel.cljs)
+[:div.save-script-section {:data-e2e-scripts-count (count scripts-list)}
+  ...]
+
+;; In test helper (fixtures.cljs - see wait-for-scripts-loaded)
+(js-await (-> (expect save-section)
+              (.toHaveAttribute "data-e2e-scripts-count" (str expected-count))))
+```
+
+**When to use:**
+- `data-e2e-*` for: state values, counts, IDs, statuses - anything tests observe
+- CSS classes for: elements with stable semantic meaning (`.btn-save`, `#code-area`)
+- Avoid depending on: text content, styling classes, structural nesting
+
+**Reference implementation**: See `wait-for-scripts-loaded` in [e2e/fixtures.cljs](../../e2e/fixtures.cljs) and `save-script-section` in [src/panel.cljs](../../src/panel.cljs).
+
 ## Test File Organization
 
 Split tests for parallel distribution:

@@ -280,12 +280,12 @@
 
 (defn ^:async wait-for-scripts-loaded
   "Wait for panel to load scripts-list from storage.
-   Uses data-scripts-count attribute on save-script-section.
+   Uses data-e2e-scripts-count attribute on save-script-section.
    Call after wait-for-panel-ready when testing conflict detection."
   [panel expected-count]
   (let [save-section (.locator panel ".save-script-section")]
     (js-await (-> (expect save-section)
-                  (.toHaveAttribute "data-scripts-count" (str expected-count))))))
+                  (.toHaveAttribute "data-e2e-scripts-count" (str expected-count))))))
 
 ;; =============================================================================
 ;; Test Event Helpers - for true E2E testing via structured logging
