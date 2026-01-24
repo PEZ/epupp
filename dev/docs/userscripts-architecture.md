@@ -59,7 +59,7 @@ See [architecture/state-management.md](architecture/state-management.md) for com
  :script/created "2026-01-02T..."         ; ISO timestamp
  :script/modified "2026-01-02T..."        ; ISO timestamp
  :script/run-at "document-idle"           ; injection timing (see below)
- :script/require ["scittle://reagent.js"]}  ; Scittle libraries to load
+ :script/inject ["scittle://reagent.js"]}  ; Scittle libraries to load
 ```
 
 **`:script/run-at` values:**
@@ -67,7 +67,7 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 - `"document-end"` - Runs at DOMContentLoaded (via `registerContentScripts` + loader)
 - `"document-idle"` - Runs after page load (default, via `webNavigation.onCompleted`)
 
-**`:script/require` values:**
+**`:script/inject` values:**
 - Vector of `scittle://` URLs for bundled Scittle ecosystem libraries
 - Dependencies are resolved automatically (e.g., `scittle://reagent.js` loads React)
 - See README for available libraries
@@ -79,7 +79,7 @@ Scripts specify timing via a manifest map at the top of the file:
  :epupp/site-match "https://github.com/*"
  :epupp/description "Enhance GitHub UX"
  :epupp/run-at "document-start"
- :epupp/require ["scittle://reagent.js"]}
+ :epupp/inject ["scittle://reagent.js"]}
 
 (ns my-userscript)
 
@@ -87,7 +87,7 @@ Scripts specify timing via a manifest map at the top of the file:
 (js/console.log "Intercepting page initialization!")
 ```
 
-The manifest is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at` and `:script/require`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
+The manifest is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at` and `:script/inject`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
 

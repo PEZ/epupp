@@ -145,7 +145,7 @@ Once connected, evaluate code from your editor. It runs in the browser page:
 Use `epupp/manifest!` to load Scittle libraries at runtime:
 
 ```clojure
-(epupp/manifest! {:epupp/require ["scittle://reagent.js"]})
+(epupp/manifest! {:epupp/inject ["scittle://reagent.js"]})
 
 ;; Now Reagent is available
 (require '[reagent.core :as r])
@@ -212,7 +212,7 @@ Every userscript starts with a manifest map:
 |-----|-------------|
 | `:epupp/description` | Human-readable description |
 | `:epupp/run-at` | When to run: `"document-start"`, `"document-end"`, or `"document-idle"` (default) |
-| `:epupp/require` | Scittle libraries to load (see [Using Libraries](#using-scittle-libraries)) |
+| `:epupp/inject` | Scittle libraries to load (see [Using Libraries](#using-scittle-libraries)) |
 
 ### URL Patterns
 
@@ -348,12 +348,12 @@ Dependencies resolve automatically: `re-frame.js` loads Reagent and React.
 
 ### In Userscripts
 
-Add `:epupp/require` to your manifest:
+Add `:epupp/inject` to your manifest:
 
 ```clojure
 {:epupp/script-name "reagent_counter.cljs"
  :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]}
+ :epupp/inject ["scittle://reagent.js"]}
 
 (ns reagent-counter
   (:require [reagent.core :as r]
@@ -367,7 +367,7 @@ Add `:epupp/require` to your manifest:
 Use `epupp/manifest!`:
 
 ```clojure
-(epupp/manifest! {:epupp/require ["scittle://pprint.js"]})
+(epupp/manifest! {:epupp/inject ["scittle://pprint.js"]})
 (require '[cljs.pprint :as pprint])
 (pprint/pprint {:some "data"})
 ```
@@ -427,7 +427,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 ```clojure
 {:epupp/script-name "reagent_counter.cljs"
  :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]
+ :epupp/inject ["scittle://reagent.js"]
  :epupp/description "Interactive counter widget"}
 
 (ns reagent-counter
@@ -455,7 +455,7 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 ```clojure
 {:epupp/script-name "debug_helper.cljs"
  :epupp/site-match "*"
- :epupp/require ["scittle://pprint.js"]
+ :epupp/inject ["scittle://pprint.js"]
  :epupp/description "Pretty print page metadata"}
 
 (ns debug-helper
@@ -594,7 +594,7 @@ The popup automatically refreshes when scripts change via the fs API. You don't 
 For formatted output, use `cljs.pprint`:
 
 ```clojure
-(epupp.repl/manifest! {:epupp/require ["scittle://pprint.js"]})
+(epupp.repl/manifest! {:epupp/inject ["scittle://pprint.js"]})
 (require '[cljs.pprint :refer [print-table]])
 
 ;; Print all scripts as table
@@ -642,7 +642,7 @@ Some sites have strict Content Security Policies. Epupp patches Scittle to avoid
 | `:epupp/site-match` | Yes | String or Vector | URL pattern(s) |
 | `:epupp/description` | No | String | Human-readable description |
 | `:epupp/run-at` | No | String | `"document-start"`, `"document-end"`, `"document-idle"` |
-| `:epupp/require` | No | Vector | Scittle library URLs |
+| `:epupp/inject` | No | Vector | Scittle library URLs |
 
 ### Libraries
 

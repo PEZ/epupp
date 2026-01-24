@@ -193,69 +193,69 @@
                           (.toBe "invalid-value")))))))
 
 ;; ============================================================
-;; Phase 2: Require parsing tests
+;; Phase 2: Inject parsing tests
 ;; ============================================================
 
-(describe "manifest-parser require feature"
+(describe "manifest-parser inject feature"
           (fn []
-            (test "parses single require as vector"
+            (test "parses single inject as vector"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/require \"scittle://pprint.js\"}
+  :epupp/inject \"scittle://pprint.js\"}
 (ns test)"
                           manifest (mp/extract-manifest code)]
-                      (-> (expect (:require manifest))
+                      (-> (expect (:inject manifest))
                           (.toEqual ["scittle://pprint.js"])))))
 
-            (test "parses require as vector of strings"
+            (test "parses inject as vector of strings"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/require [\"scittle://pprint.js\" \"scittle://reagent.js\"]}
+  :epupp/inject [\"scittle://pprint.js\" \"scittle://reagent.js\"]}
 (ns test)"
                           manifest (mp/extract-manifest code)]
-                      (-> (expect (:require manifest))
+                      (-> (expect (:inject manifest))
                           (.toEqual ["scittle://pprint.js" "scittle://reagent.js"])))))
 
-            (test "returns empty vector when require is missing"
+            (test "returns empty vector when inject is missing"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"}
 (ns test)"
                           manifest (mp/extract-manifest code)]
-                      (-> (expect (:require manifest))
+                      (-> (expect (:inject manifest))
                           (.toEqual [])))))
 
-            (test "recognizes require as known key"
+            (test "recognizes inject as known key"
                   (fn []
                     (let [code "^{:epupp/script-name \"test.cljs\"
-  :epupp/require \"scittle://pprint.js\"}
+  :epupp/inject \"scittle://pprint.js\"}
 (ns test)"
                           manifest (mp/extract-manifest code)]
                       (-> (expect (:found-keys manifest))
-                          (.toContain "epupp/require"))
-                      ;; require should NOT be in unknown-keys
+                          (.toContain "epupp/inject"))
+                      ;; inject should NOT be in unknown-keys
                       (-> (expect (:unknown-keys manifest))
-                          (.not.toContain "epupp/require")))))))
+                          (.not.toContain "epupp/inject")))))))
 
-(describe "normalize-require"
+(describe "normalize-inject"
           (fn []
             (test "normalizes nil to empty vector"
                   (fn []
-                    (-> (expect (mp/normalize-require nil))
+                    (-> (expect (mp/normalize-inject nil))
                         (.toEqual []))))
 
             (test "normalizes string to single-element vector"
                   (fn []
-                    (-> (expect (mp/normalize-require "scittle://pprint.js"))
+                    (-> (expect (mp/normalize-inject "scittle://pprint.js"))
                         (.toEqual ["scittle://pprint.js"]))))
 
             (test "preserves vector as-is"
                   (fn []
-                    (-> (expect (mp/normalize-require ["a" "b" "c"]))
+                    (-> (expect (mp/normalize-inject ["a" "b" "c"]))
                         (.toEqual ["a" "b" "c"]))))
 
             (test "normalizes invalid types to empty vector"
                   (fn []
-                    (-> (expect (mp/normalize-require 123))
+                    (-> (expect (mp/normalize-inject 123))
                         (.toEqual []))
-                    (-> (expect (mp/normalize-require {}))
+                    (-> (expect (mp/normalize-inject {}))
                         (.toEqual []))))))

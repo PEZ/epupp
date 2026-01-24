@@ -165,13 +165,13 @@ In ClojureScript, sets can be used as functions for membership testing. In Squin
 
 ```clojure
 ;; In Scittle (SCI)
-(clj->js {:epupp/require ["scittle://reagent.js"]})
-;; => #js {:require #js ["scittle://reagent.js"]}
-;;         ^^^^^^^^ namespace stripped!
+(clj->js {:epupp/inject ["scittle://reagent.js"]})
+;; => #js {:inject #js ["scittle://reagent.js"]}
+;;         ^^^^^^^ namespace stripped!
 
 ;; So when reading in Squint background code:
-(aget manifest "epupp/require")  ; ❌ nil - key doesn't exist
-(aget manifest "require")        ; ✅ finds the value
+(aget manifest "epupp/inject")  ; ❌ nil - key doesn't exist
+(aget manifest "inject")        ; ✅ finds the value
 ```
 
 This affects any code where Scittle sends data to Squint extension code via messages. Always check `(js/Object.keys obj)` to see actual keys.

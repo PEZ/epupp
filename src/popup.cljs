@@ -234,7 +234,7 @@
             :tabId (.-id tab)
             :scriptId (:script/id script)
             :code (:script/code script)
-            :require (clj->js (:script/require script))}))
+            :inject (clj->js (:script/inject script))}))
 
     :popup/fx.load-user-origins
     (js/chrome.storage.local.get

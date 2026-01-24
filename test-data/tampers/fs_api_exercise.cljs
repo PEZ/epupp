@@ -1,4 +1,4 @@
-(epupp.repl/manifest! {:epupp/require ["scittle://promesa.js"]})
+(epupp.repl/manifest! {:epupp/inject ["scittle://promesa.js"]})
 
 (ns tampers.fs-api-exercise
   (:require [promesa.core :as p]

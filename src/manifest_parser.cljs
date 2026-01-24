@@ -12,7 +12,7 @@
 
 (def known-epupp-keys
   "Set of known epupp manifest keys."
-  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at" "epupp/require"})
+  #{"epupp/script-name" "epupp/site-match" "epupp/description" "epupp/run-at" "epupp/inject"})
 
 (defn- get-epupp-keys
   "Returns vector of all epupp/ prefixed keys found in parsed object."
@@ -22,8 +22,8 @@
          (filter #(string/starts-with? % "epupp/"))
          vec)))
 
-(defn normalize-require
-  "Normalize :epupp/require to vector of strings.
+(defn normalize-inject
+  "Normalize :epupp/inject to vector of strings.
    Accepts nil, string, or vector/array."
   [require-value]
   (cond
@@ -60,7 +60,7 @@
             description (let [d (aget parsed "epupp/description")]
                           (when (string? d) d))
             raw-run-at (aget parsed "epupp/run-at")
-            raw-require (aget parsed "epupp/require")
+            raw-inject (aget parsed "epupp/inject")
             ;; Coerced values
             script-name (when raw-script-name
                           (script-utils/normalize-script-name raw-script-name))
@@ -71,7 +71,7 @@
             run-at (if (or (nil? raw-run-at) run-at-invalid?)
                      default-run-at
                      raw-run-at)
-            require-urls (normalize-require raw-require)
+            inject-urls (normalize-inject raw-inject)
             ;; Identify unknown keys
             unknown-keys (->> found-keys
                               (remove #(contains? known-epupp-keys %))
@@ -84,7 +84,7 @@
          "run-at" run-at
          "raw-run-at" raw-run-at
          "run-at-invalid?" run-at-invalid?
-         "require" require-urls
+         "inject" inject-urls
          "found-keys" found-keys
          "unknown-keys" unknown-keys}))))
 

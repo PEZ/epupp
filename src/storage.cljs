@@ -247,15 +247,15 @@
 (defn ^:async ensure-gist-installer!
   "Ensure the gist installer built-in userscript exists in storage.
    Loads it from userscripts/gist_installer.cljs and updates if code changed.
-   Parses manifest to extract :epupp/require for library dependencies."
+   Parses manifest to extract :epupp/inject for library dependencies."
   []
   (let [installer-id "epupp-builtin-gist-installer"]
     (try
       (let [response (js-await (js/fetch (js/chrome.runtime.getURL "userscripts/gist_installer.cljs")))
             code (js-await (.text response))
             manifest (mp/extract-manifest code)
-            ;; manifest-parser returns string keys like "require", not :epupp/require
-            requires (or (get manifest "require") [])
+            ;; manifest-parser returns string keys like "inject", not :epupp/inject
+            injects (or (get manifest "inject") [])
             existing (get-script installer-id)]
         ;; Install if missing, or update if code changed
         (when (or (not existing)
@@ -266,7 +266,7 @@
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code
                          :script/enabled true
-                         :script/require requires
+                         :script/inject injects
                          :script/builtin? true})
           (log/info "Storage" nil "Installed/updated built-in gist installer")))
       (catch :default err

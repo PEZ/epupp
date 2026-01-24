@@ -1,9 +1,9 @@
-(ns e2e.require-test
-  "E2E tests for the :epupp/require feature (Scittle library dependencies).
+(ns e2e.inject-test
+  "E2E tests for the :epupp/inject feature (Scittle library injection).
 
    These tests verify that:
-   1. Scripts with `:epupp/require` are saved correctly to storage
-   2. The background worker reads the require field from storage
+   1. Scripts with `:epupp/inject` are saved correctly to storage
+   2. The background worker reads the inject field from storage
    3. Libraries are injected before userscript execution"
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
@@ -13,35 +13,35 @@
                               clear-test-events! assert-no-errors!]]))
 
 (defn code-with-manifest
-  "Generate test code with epupp manifest metadata including require."
-  [{:keys [name match description run-at require code]
+  "Generate test code with epupp manifest metadata including inject."
+  [{:keys [name match description run-at inject code]
     :or {code "(println \"Test script\")"}}]
-  (let [;; Format require as vector string
-        require-str (when require
-                      (str "[" (str/join " " (map #(str "\"" % "\"") require)) "]"))
+  (let [;; Format inject as vector string
+        inject-str (when inject
+                     (str "[" (str/join " " (map #(str "\"" % "\"") inject)) "]"))
         meta-parts (cond-> []
                      name (conj (str ":epupp/script-name \"" name "\""))
                      match (conj (str ":epupp/site-match \"" match "\""))
                      description (conj (str ":epupp/description \"" description "\""))
                      run-at (conj (str ":epupp/run-at \"" run-at "\""))
-                     require (conj (str ":epupp/require " require-str)))
+                     inject (conj (str ":epupp/inject " inject-str)))
         meta-block (when (seq meta-parts)
                      (str "{" (str/join "\n " meta-parts) "}\n\n"))]
     (str meta-block code)))
 
 ;; =============================================================================
-;; Test: Require field persisted to storage
+;; Test: Inject field persisted to storage
 ;; =============================================================================
 
-(defn- ^:async test_require_field_persisted_to_storage []
+(defn- ^:async test_inject_field_persisted_to_storage []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Create a script with require in manifest
+      ;; Create a script with inject in manifest
       (let [panel (js-await (create-panel-page context ext-id))
-            code (code-with-manifest {:name "Require Test"
+            code (code-with-manifest {:name "Inject Test"
                                       :match "http://localhost:18080/*"
-                                      :require ["scittle://reagent.js"]
+                                      :inject ["scittle://reagent.js"]
                                       :code "(js/console.log \"Has reagent!\")"})]
         (js/console.log "Test code:" code)
         (js-await (.fill (.locator panel "#code-area") code))
@@ -49,7 +49,7 @@
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Read storage to verify require was saved
+      ;; Read storage to verify inject was saved
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (wait-for-popup-ready popup))
 
@@ -62,15 +62,15 @@
                                                                          (resolve result))))))))
               scripts (.-scripts storage-data)
               _ (js/console.log "Storage scripts:" (js/JSON.stringify scripts nil 2))
-              our-script (.find scripts (fn [s] (= (.-name s) "require_test.cljs")))]
+              our-script (.find scripts (fn [s] (= (.-name s) "inject_test.cljs")))]
 
           ;; Verify the script exists
           (js-await (-> (expect our-script) (.toBeTruthy)))
           (js/console.log "Our script:" (js/JSON.stringify our-script nil 2))
 
-          ;; CRITICAL: Verify require field was saved
-          (js-await (-> (expect (.-require our-script)) (.toBeTruthy)))
-          (js-await (-> (expect (aget (.-require our-script) 0)) (.toBe "scittle://reagent.js"))))
+          ;; CRITICAL: Verify inject field was saved
+          (js-await (-> (expect (.-inject our-script)) (.toBeTruthy)))
+          (js-await (-> (expect (aget (.-inject our-script) 0)) (.toBe "scittle://reagent.js"))))
 
         (js-await (assert-no-errors! popup))
         (js-await (.close popup)))
@@ -79,18 +79,18 @@
         (js-await (.close context))))))
 
 ;; =============================================================================
-;; Test: INJECTING_REQUIRES event is emitted
+;; Test: INJECTING_LIBS event is emitted
 ;; =============================================================================
 
-(defn- ^:async test_injecting_requires_event_emitted []
+(defn- ^:async test_injecting_libs_event_emitted []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Create a script with require
+      ;; Create a script with inject
       (let [panel (js-await (create-panel-page context ext-id))
-            code (code-with-manifest {:name "Require Event Test"
+            code (code-with-manifest {:name "Inject Event Test"
                                       :match "http://localhost:18080/*"
-                                      :require ["scittle://pprint.js"]
+                                      :inject ["scittle://pprint.js"]
                                       :code "(js/console.log \"Has pprint!\")"})]
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
@@ -103,7 +103,7 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"require_event_test.cljs\")")
+        (let [script-item (.locator popup ".script-item:has-text(\"inject_event_test.cljs\")")
               checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
           (when-not (js-await (.isChecked checkbox))
@@ -124,17 +124,17 @@
           (js/console.log "Waiting for SCRIPT_INJECTED event (page still open)...")
           (js-await (wait-for-event popup "SCRIPT_INJECTED" 10000))
 
-          ;; Now check for INJECTING_REQUIRES event (should have happened before SCRIPT_INJECTED)
+          ;; Now check for INJECTING_LIBS event (should have happened before SCRIPT_INJECTED)
           (let [events (js-await (get-test-events popup))
-                require-events (.filter events (fn [e] (= (.-event e) "INJECTING_REQUIRES")))]
+                inject-events (.filter events (fn [e] (= (.-event e) "INJECTING_LIBS")))]
             (js/console.log "All events:" (js/JSON.stringify events nil 2))
-            (js/console.log "INJECTING_REQUIRES events:" (js/JSON.stringify require-events nil 2))
+            (js/console.log "INJECTING_LIBS events:" (js/JSON.stringify inject-events nil 2))
 
-            ;; Should have at least one INJECTING_REQUIRES event
-            (js-await (-> (expect (.-length require-events)) (.toBeGreaterThanOrEqual 1)))
+            ;; Should have at least one INJECTING_LIBS event
+            (js-await (-> (expect (.-length inject-events)) (.toBeGreaterThanOrEqual 1)))
 
             ;; Event should list the pprint file
-            (let [first-event (aget require-events 0)
+            (let [first-event (aget inject-events 0)
                   files (.-files (.-data first-event))]
               (js/console.log "Injected files:" (js/JSON.stringify files))
               (js-await (-> (expect (.some files (fn [f] (.includes f "pprint")))) (.toBe true)))))
@@ -155,11 +155,11 @@
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Create a script requiring reagent
+      ;; Create a script injecting reagent
       (let [panel (js-await (create-panel-page context ext-id))
             code (code-with-manifest {:name "Reagent DOM Test"
                                       :match "http://localhost:18080/*"
-                                      :require ["scittle://reagent.js"]
+                                      :inject ["scittle://reagent.js"]
                                       :code "(js/console.log \"Reagent loaded?\" (boolean (aget js/window \"React\")))"})]
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
@@ -232,18 +232,18 @@
         (js-await (.close context))))))
 
 ;; =============================================================================
-;; Test: No INJECTING_REQUIRES when script has no require
+;; Test: No INJECTING_LIBS when script has no inject
 ;; =============================================================================
 
-(defn- ^:async test_no_injecting_requires_when_script_has_no_require []
+(defn- ^:async test_no_injecting_libs_when_script_has_no_inject []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Create a script WITHOUT require
+      ;; Create a script WITHOUT inject
       (let [panel (js-await (create-panel-page context ext-id))
-            code (code-with-manifest {:name "No Require Test"
+            code (code-with-manifest {:name "No Inject Test"
                                       :match "http://localhost:18080/*"
-                                      ;; Note: no :require field
+                                      ;; Note: no :inject field
                                       :code "(js/console.log \"No deps!\")"})]
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
@@ -256,7 +256,7 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        (let [script-item (.locator popup ".script-item:has-text(\"no_require_test.cljs\")")
+        (let [script-item (.locator popup ".script-item:has-text(\"no_inject_test.cljs\")")
               checkbox (.locator script-item "input[type='checkbox']")]
           (js-await (-> (expect script-item) (.toBeVisible)))
           (when-not (js-await (.isChecked checkbox))
@@ -272,14 +272,14 @@
         (js-await (-> (expect (.locator page "#test-marker"))
                       (.toContainText "ready")))
 
-        ;; Check for events - should NOT have INJECTING_REQUIRES
+        ;; Check for events - should NOT have INJECTING_LIBS
         (let [popup (js-await (create-popup-page context ext-id))
               events (js-await (get-test-events popup))
-              require-events (.filter events (fn [e] (= (.-event e) "INJECTING_REQUIRES")))]
+              inject-events (.filter events (fn [e] (= (.-event e) "INJECTING_LIBS")))]
           (js/console.log "Events:" (js/JSON.stringify events nil 2))
 
-          ;; Should have NO INJECTING_REQUIRES events (script has no require)
-          (js-await (-> (expect (.-length require-events)) (.toBe 0)))
+          ;; Should have NO INJECTING_LIBS events (script has no inject)
+          (js-await (-> (expect (.-length inject-events)) (.toBe 0)))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
@@ -297,11 +297,11 @@
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Create a script requiring pprint
+      ;; Create a script injecting pprint
       (let [panel (js-await (create-panel-page context ext-id))
             code (code-with-manifest {:name "Pprint DOM Test"
                                       :match "http://localhost:18080/*"
-                                      :require ["scittle://pprint.js"]
+                                      :inject ["scittle://pprint.js"]
                                       :code "(js/console.log \"pprint loaded\")"})]
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
@@ -357,30 +357,30 @@
 
 ;; =============================================================================
 ;; Note: Additional test scenarios documented in scittle-dependencies-implementation.md:
-;; - Panel evaluation with :epupp/require (tests the inject-requires message path)
+;; - Panel evaluation with :epupp/inject (tests the inject-libs message path)
 ;; - Popup Run button (uses mock tab ID in tests, requires different test approach)
 ;;
 ;; The current tests cover:
-;; 1. Storage persistence of :script/require field
-;; 2. INJECTING_REQUIRES event emission via auto-injection
+;; 1. Storage persistence of :script/inject field
+;; 2. INJECTING_LIBS event emission via auto-injection
 ;; 3. Reagent (with React deps) script tags in DOM
-;; 4. Negative case: no INJECTING_REQUIRES for scripts without require
+;; 4. Negative case: no INJECTING_LIBS for scripts without inject
 ;; 5. Pprint script tags in DOM (verifies non-React library loading)
 ;; =============================================================================
 
-(.describe test "Require"
+(.describe test "Inject"
            (fn []
-             (test "Require: script with :epupp/require is saved with require field"
-                   test_require_field_persisted_to_storage)
+             (test "Inject: script with :epupp/inject is saved with inject field"
+                   test_inject_field_persisted_to_storage)
 
-             (test "Require: INJECTING_REQUIRES event emitted when script has require"
-                   test_injecting_requires_event_emitted)
+             (test "Inject: INJECTING_LIBS event emitted when script has inject"
+                   test_injecting_libs_event_emitted)
 
-             (test "Require: Reagent library files are injected into page DOM"
+             (test "Inject: Reagent library files are injected into page DOM"
                    test_reagent_library_files_injected)
 
-             (test "Require: no INJECTING_REQUIRES event when script has no require"
-                   test_no_injecting_requires_when_script_has_no_require)
+             (test "Inject: no INJECTING_LIBS event when script has no inject"
+                   test_no_injecting_libs_when_script_has_no_inject)
 
-             (test "Require: pprint library script tags are injected into page DOM"
+             (test "Inject: pprint library script tags are injected into page DOM"
                    test_pprint_library_script_tags_injected)))

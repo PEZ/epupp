@@ -42,7 +42,7 @@
      :run-at-invalid? (get manifest "run-at-invalid?")
      :raw-run-at (get manifest "raw-run-at")
      :run-at (get manifest "run-at")
-     :require (get manifest "require")}))
+     :inject (get manifest "inject")}))
 
 (defn- get-code-to-eval
   "Determine code to evaluate: selection text if present and non-empty, else full code."
@@ -106,7 +106,7 @@
         {:uf/db (-> state
                     (assoc :panel/evaluating? true)
                     (update :panel/results conj {:type :input :text code}))
-         :uf/fxs [[:editor/fx.eval-in-page code (:require (:panel/manifest-hints state))]]}
+         :uf/fxs [[:editor/fx.eval-in-page code (:inject (:panel/manifest-hints state))]]}
 
         ;; Scittle not ready - inject first
         :else
@@ -138,7 +138,7 @@
               ;; Normalize match to vector (manifest allows string or vector)
               normalized-match (script-utils/normalize-match-patterns script-match)
               ;; Get require and run-at from manifest hints
-              script-require (:require manifest-hints)
+              script-inject (:inject manifest-hints)
               script-run-at (:run-at manifest-hints)
               ;; Don't set :script/enabled here - let storage.cljs default it appropriately
               ;; Don't set :script/id here - let background generate/manage IDs
@@ -146,7 +146,7 @@
                               :script/match normalized-match
                               :script/code code}
                        (seq script-description) (assoc :script/description script-description)
-                       (seq script-require) (assoc :script/require script-require)
+                       (seq script-inject) (assoc :script/inject script-inject)
                        script-run-at (assoc :script/run-at script-run-at))
               ;; "Created" for new scripts OR when forking (name changed)
               ;; "Saved" only when updating existing script with same name
@@ -161,14 +161,14 @@
         {:uf/dxs [[:editor/ax.show-system-banner "error" "Name and code are required"]]}
         (let [normalized-name (script-utils/normalize-script-name script-name)
               normalized-match (script-utils/normalize-match-patterns script-match)
-              script-require (:require manifest-hints)
+              script-inject (:inject manifest-hints)
               script-run-at (:run-at manifest-hints)
               script (cond-> {:script/name normalized-name
                               :script/match normalized-match
                               :script/code code
                               :script/force? true}  ;; Force overwrite
                        (seq script-description) (assoc :script/description script-description)
-                       (seq script-require) (assoc :script/require script-require)
+                       (seq script-inject) (assoc :script/inject script-inject)
                        script-run-at (assoc :script/run-at script-run-at))]
           {:uf/fxs [[:editor/fx.save-script script normalized-name "Replaced"]]})))
 
@@ -295,7 +295,7 @@
                     (assoc :panel/evaluating? true)
                     (assoc :panel/scittle-status :loading)
                     (update :panel/results conj {:type :input :text code-to-eval}))
-         :uf/fxs [[:editor/fx.inject-and-eval code-to-eval (:require (:panel/manifest-hints state))]]}))
+         :uf/fxs [[:editor/fx.inject-and-eval code-to-eval (:inject (:panel/manifest-hints state))]]}))
 
     :editor/ax.reload-script-from-storage
     (let [[script-name] args]

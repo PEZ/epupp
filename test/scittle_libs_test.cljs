@@ -94,34 +94,34 @@
                                 (-> (expect (libs/resolve-dependencies :scittle/re-frame))
                                     (.toEqual ["scittle/reagent" "scittle/re-frame"]))))))
 
-            (describe "expand-require"
+            (describe "expand-inject"
                       (fn []
                         (test "expands simple library without React"
                               (fn []
-                                (let [result (libs/expand-require "scittle://pprint.js")]
-                                  (-> (expect (:require/lib result))
+                                (let [result (libs/expand-inject "scittle://pprint.js")]
+                                  (-> (expect (:inject/lib result))
                                       (.toBe "scittle/pprint"))
-                                  (-> (expect (:require/files result))
+                                  (-> (expect (:inject/files result))
                                       (.toEqual ["scittle.pprint.js"])))))
 
                         (test "expands library with React dependency"
                               (fn []
-                                (let [result (libs/expand-require "scittle://reagent.js")]
-                                  (-> (expect (:require/lib result))
+                                (let [result (libs/expand-inject "scittle://reagent.js")]
+                                  (-> (expect (:inject/lib result))
                                       (.toBe "scittle/reagent"))
                                   ;; Should include React files first
-                                  (-> (expect (:require/files result))
+                                  (-> (expect (:inject/files result))
                                       (.toEqual ["react.production.min.js"
                                                  "react-dom.production.min.js"
                                                  "scittle.reagent.js"])))))
 
                         (test "expands library with transitive dependency"
                               (fn []
-                                (let [result (libs/expand-require "scittle://re-frame.js")]
-                                  (-> (expect (:require/lib result))
+                                (let [result (libs/expand-inject "scittle://re-frame.js")]
+                                  (-> (expect (:inject/lib result))
                                       (.toBe "scittle/re-frame"))
                                   ;; Should include React, then Reagent, then Re-frame
-                                  (-> (expect (:require/files result))
+                                  (-> (expect (:inject/files result))
                                       (.toEqual ["react.production.min.js"
                                                  "react-dom.production.min.js"
                                                  "scittle.reagent.js"
@@ -129,17 +129,17 @@
 
                         (test "returns nil for internal library"
                               (fn []
-                                (-> (expect (libs/expand-require "scittle://core.js"))
+                                (-> (expect (libs/expand-inject "scittle://core.js"))
                                     (.toBeFalsy))))
 
                         (test "returns nil for unknown library"
                               (fn []
-                                (-> (expect (libs/expand-require "scittle://unknown.js"))
+                                (-> (expect (libs/expand-inject "scittle://unknown.js"))
                                     (.toBeFalsy))))
 
                         (test "returns nil for non-scittle URL"
                               (fn []
-                                (-> (expect (libs/expand-require "https://example.com/lib.js"))
+                                (-> (expect (libs/expand-inject "https://example.com/lib.js"))
                                     (.toBeFalsy))))))
 
             (describe "available-libraries"
@@ -158,19 +158,19 @@
                                   (-> (expect libs-list)
                                       (.not.toContain "scittle/react")))))))))
 
-(describe "collect-require-files"
+(describe "collect-lib-files"
           (fn []
             (test "collects files from single script"
                   (fn []
-                    (let [scripts [{:script/require ["scittle://pprint.js"]}]
-                          result (libs/collect-require-files scripts)]
+                    (let [scripts [{:script/inject ["scittle://pprint.js"]}]
+                          result (libs/collect-lib-files scripts)]
                       (-> (expect result)
                           (.toEqual ["scittle.pprint.js"])))))
 
             (test "collects files with dependencies"
                   (fn []
-                    (let [scripts [{:script/require ["scittle://reagent.js"]}]
-                          result (libs/collect-require-files scripts)]
+                    (let [scripts [{:script/inject ["scittle://reagent.js"]}]
+                          result (libs/collect-lib-files scripts)]
                       (-> (expect result)
                           (.toEqual ["react.production.min.js"
                                      "react-dom.production.min.js"
@@ -178,9 +178,9 @@
 
             (test "deduplicates files across scripts"
                   (fn []
-                    (let [scripts [{:script/require ["scittle://reagent.js"]}
-                                   {:script/require ["scittle://pprint.js" "scittle://reagent.js"]}]
-                          result (libs/collect-require-files scripts)]
+                    (let [scripts [{:script/inject ["scittle://reagent.js"]}
+                                   {:script/inject ["scittle://pprint.js" "scittle://reagent.js"]}]
+                          result (libs/collect-lib-files scripts)]
                       ;; React and reagent from first script, pprint from second
                       ;; Reagent duplicate in second script is ignored
                       (-> (expect result)
@@ -192,23 +192,23 @@
             (test "handles scripts without requires"
                   (fn []
                     (let [scripts [{:script/name "no-requires"}
-                                   {:script/require []}]
-                          result (libs/collect-require-files scripts)]
+                                   {:script/inject []}]
+                          result (libs/collect-lib-files scripts)]
                       (-> (expect result)
                           (.toEqual [])))))
 
             (test "ignores non-scittle URLs"
                   (fn []
-                    (let [scripts [{:script/require ["https://example.com/lib.js"
+                    (let [scripts [{:script/inject ["https://example.com/lib.js"
                                                      "scittle://pprint.js"]}]
-                          result (libs/collect-require-files scripts)]
+                          result (libs/collect-lib-files scripts)]
                       (-> (expect result)
                           (.toEqual ["scittle.pprint.js"])))))
 
             (test "handles transitive dependencies correctly"
                   (fn []
-                    (let [scripts [{:script/require ["scittle://re-frame.js"]}]
-                          result (libs/collect-require-files scripts)]
+                    (let [scripts [{:script/inject ["scittle://re-frame.js"]}]
+                          result (libs/collect-lib-files scripts)]
                       ;; re-frame needs reagent which needs react
                       (-> (expect result)
                           (.toEqual ["react.production.min.js"

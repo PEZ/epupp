@@ -496,7 +496,7 @@
                                        normalized-name (when raw-name
                                                          (script-utils/normalize-script-name raw-name))
                                        site-match (get manifest "site-match")
-                                       requires (get manifest "require")
+                                       injects (get manifest "inject")
                                        run-at (script-utils/normalize-run-at (get manifest "run-at"))]
                                    (if-not normalized-name
                                      (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
@@ -511,7 +511,7 @@
                                                            :script/name normalized-name
                                                            :script/code code
                                                            :script/match (if (vector? site-match) site-match [site-match])
-                                                           :script/require (or requires [])
+                                                           :script/inject (or injects [])
                                                            :script/enabled enabled
                                                            :script/run-at run-at
                                                            :script/force? force?}
@@ -533,9 +533,9 @@
                                               :script/code (.-code js-script)
                                               :script/enabled (.-enabled js-script)
                                               :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
-                                              :script/require (if (.-require js-script)
-                                                                (vec (.-require js-script))
-                                                                [])}
+                                              :script/inject (if (.-inject js-script)
+                                                               (vec (.-inject js-script))
+                                                               [])}
                                        (.-id js-script) (assoc :script/id (.-id js-script))
                                        (.-force js-script) (assoc :script/force? true))]
                           (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
@@ -671,21 +671,21 @@
                         (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
                         true)  ; Return true to indicate async response
 
-                      ;; Panel - inject required libraries before evaluation
-                      "inject-requires"
+                      ;; Panel - inject libraries before evaluation
+                      "inject-libs"
                       (let [target-tab-id (.-tabId message)
-                            requires (when (.-requires message)
-                                       (vec (.-requires message)))]
-                        (dispatch! [[:msg/ax.inject-requires send-response target-tab-id requires]])
+                            libs (when (.-libs message)
+                                   (vec (.-libs message)))]
+                        (dispatch! [[:msg/ax.inject-libs send-response target-tab-id libs]])
                         true)
 
                       ;; Popup/Panel - evaluate a userscript in current tab
                       "evaluate-script"
                       (let [target-tab-id (.-tabId message)
                             code (.-code message)
-                            requires (when (.-require message)
-                                       (vec (.-require message)))]
-                        (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code requires (.-scriptId message)]])
+                            libs (when (.-inject message)
+                                   (vec (.-inject message)))]
+                        (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code libs (.-scriptId message)]])
                         true)  ; Return true to indicate async response
 
                       ;; Unknown
@@ -851,9 +851,9 @@
     (let [[tab-id] args]
       (bg-inject/wait-for-bridge-ready tab-id))
 
-    :msg/fx.inject-require-file
+    :msg/fx.inject-lib-file
     (let [[tab-id file] args]
-      (bg-inject/inject-requires-sequentially! tab-id [file]))
+      (bg-inject/inject-libs-sequentially! tab-id [file]))
 
     :msg/fx.send-response
     (let [[send-response response-data] args]

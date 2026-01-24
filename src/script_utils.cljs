@@ -45,7 +45,7 @@
                 :script/modified (.-modified s)
                 :script/approved-patterns (js-arr->vec (.-approvedPatterns s))
                 :script/run-at (normalize-run-at (.-runAt s))
-                :script/require (js-arr->vec (.-require s))
+                :script/inject (js-arr->vec (.-inject s))
                 :script/builtin? (boolean (.-builtin s))}))))
 
 (defn script->js
@@ -61,7 +61,7 @@
        :modified (:script/modified script)
        :approvedPatterns (clj->js (:script/approved-patterns script))
        :runAt (:script/run-at script)
-       :require (clj->js (:script/require script))
+       :inject (clj->js (:script/inject script))
        :builtin (:script/builtin? script)
        :force (:script/force? script)})
 

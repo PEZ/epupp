@@ -1,7 +1,7 @@
 {:epupp/script-name "Gist Installer"
  :epupp/site-match "https://gist.github.com/*"
  :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"
- :epupp/require ["scittle://replicant.js"]}
+ :epupp/inject ["scittle://replicant.js"]}
 
 ;; Epupp Gist Installer - Runs in Scittle on GitHub gist pages
 ;;

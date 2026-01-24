@@ -235,7 +235,7 @@
                      ;; Call manifest! - it returns a promise but we can't wait for it in nREPL
                      ;; Just verify it doesn't error and returns a promise
                      (let [manifest-result (js-await (eval-in-browser
-                                                      "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                      "(epupp.repl/manifest! {:epupp/inject [\"scittle://replicant.js\"]})"))]
                        (js/console.log "=== manifest-result ===" (js/JSON.stringify manifest-result))
                        (-> (expect (.-success manifest-result)) (.toBe true)))
 
@@ -271,7 +271,7 @@
                    (^:async fn []
                      ;; First, load Replicant
                      (let [first-load (js-await (eval-in-browser
-                                                 "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                 "(epupp.repl/manifest! {:epupp/inject [\"scittle://replicant.js\"]})"))]
                        (-> (expect (.-success first-load)) (.toBe true)))
 
                      ;; Wait for replicant script tag to appear (poll instead of fixed sleep)
@@ -287,7 +287,7 @@
 
                        ;; Call manifest! again - should be idempotent (no new script added)
                        (let [second-load (js-await (eval-in-browser
-                                                    "(epupp.repl/manifest! {:epupp/require [\"scittle://replicant.js\"]})"))]
+                                                    "(epupp.repl/manifest! {:epupp/inject [\"scittle://replicant.js\"]})"))]
                          (-> (expect (.-success second-load)) (.toBe true)))
 
                        ;; Count replicant script tags after second load

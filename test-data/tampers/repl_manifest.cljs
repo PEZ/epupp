@@ -16,7 +16,7 @@
   ;; => true
 
   ;; Step 2: Load Replicant library
-  (epupp/manifest! {:epupp/require ["scittle://replicant.js"]})
+  (epupp/manifest! {:epupp/inject ["scittle://replicant.js"]})
   ;; => #object[Promise [object Promise]]
   ;; Wait ~1 second for injection to complete
 
@@ -43,11 +43,11 @@
   ;; => true
 
   ;; Step 6: Test idempotency - call manifest! again
-  (epupp/manifest! {:epupp/require ["scittle://replicant.js"]})
+  (epupp/manifest! {:epupp/inject ["scittle://replicant.js"]})
   ;; Should not error, libraries already loaded
 
   ;; Step 7: Test pprint library
-  (epupp/manifest! {:epupp/require ["scittle://pprint.js"]})
+  (epupp/manifest! {:epupp/inject ["scittle://pprint.js"]})
   ;; Wait a moment...
 
   (require '[cljs.pprint :refer [pprint]])

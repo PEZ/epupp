@@ -129,8 +129,8 @@ Via `chrome.runtime.sendMessage`.
 | `disconnect-tab` | `{tabId}` | - | Disconnect REPL from a tab |
 | `check-status` | `{tabId}` | `{success, status}` | Check Scittle and bridge status |
 | `ensure-scittle` | `{tabId}` | `{success, error?}` | Request Scittle injection |
-| `inject-requires` | `{tabId, requires}` | `{success, error?}` | Inject Scittle libraries for eval |
-| `evaluate-script` | `{tabId, scriptId, code, require}` | `{success, error?}` | Run a script in the current tab |
+| `inject-libs` | `{tabId, libs}` | `{success, error?}` | Inject Scittle libraries for eval |
+| `evaluate-script` | `{tabId, scriptId, code, inject}` | `{success, error?}` | Run a script in the current tab |
 | `panel-save-script` | `{script}` | `{success, error?, isUpdate?, id?}` | Save script from DevTools panel |
 | `panel-rename-script` | `{from, to}` | `{success, error?}` | Rename script from DevTools panel |
 

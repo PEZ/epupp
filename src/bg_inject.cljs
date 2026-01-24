@@ -190,8 +190,8 @@
 ;; Script Injection
 ;; ============================================================
 
-(defn ^:async inject-requires-sequentially!
-  "Inject required library files sequentially, awaiting each load.
+(defn ^:async inject-libs-sequentially!
+  "Inject library files sequentially, awaiting each load.
    Uses loop/recur instead of doseq because doseq doesn't properly
    await js-await calls in Squint."
   [tab-id files]
@@ -211,7 +211,7 @@
   (when (seq scripts)
     (try
       (let [;; Collect all required library files from scripts
-            require-files (scittle-libs/collect-require-files scripts)]
+            lib-files (scittle-libs/collect-lib-files scripts)]
         ;; First ensure content bridge is loaded
         (js-await (inject-content-script tab-id "content-bridge.js"))
         (js-await (test-logger/log-event! "BRIDGE_INJECTED" {:tab-id tab-id}))
@@ -221,11 +221,11 @@
         ;; Clear any old userscript tags (prevents re-execution on bfcache navigation)
         (js-await (send-tab-message tab-id {:type "clear-userscripts"}))
         ;; Inject required Scittle libraries (in dependency order)
-        (when (seq require-files)
-          (js-await (test-logger/log-event! "INJECTING_REQUIRES" {:files require-files}))
+        (when (seq lib-files)
+          (js-await (test-logger/log-event! "INJECTING_LIBS" {:files lib-files}))
           ;; Use sequential await helper - doseq doesn't await properly in Squint
-          (js-await (inject-requires-sequentially! tab-id require-files))
-          (js-await (test-logger/log-event! "REQUIRES_INJECTED" {:count (count require-files)})))
+          (js-await (inject-libs-sequentially! tab-id lib-files))
+          (js-await (test-logger/log-event! "LIBS_INJECTED" {:count (count lib-files)})))
         ;; Inject all userscript tags
         (js-await
          (js/Promise.all

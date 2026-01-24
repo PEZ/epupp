@@ -149,20 +149,20 @@
       (restore-panel-state! dispatch callback))
 
     :editor/fx.eval-in-page
-    (let [[code requires] args]
-      (if (seq requires)
-        ;; Inject requires before eval (even if Scittle already loaded - libs might not be)
+    (let [[code libs] args]
+      (if (seq libs)
+        ;; Inject libs before eval (even if Scittle already loaded - libs might not be)
         (js/chrome.runtime.sendMessage
-         #js {:type "inject-requires"
+         #js {:type "inject-libs"
               :tabId js/chrome.devtools.inspectedWindow.tabId
-              :requires (clj->js requires)}
+              :libs (clj->js libs)}
          (fn [_response]
            ;; Proceed with eval regardless (best effort)
            (eval-in-page!
             code
             (fn [result]
               (dispatch [[:editor/ax.handle-eval-result result]])))))
-        ;; No requires - eval directly
+        ;; No libs - eval directly
         (eval-in-page!
          code
          (fn [result]
@@ -174,16 +174,16 @@
        (dispatch [[:editor/ax.update-scittle-status status]])))
 
     :editor/fx.inject-and-eval
-    (let [[code requires] args]
-      ;; If requires exist, inject them first via background worker
-      (if (seq requires)
+    (let [[code libs] args]
+      ;; If libs exist, inject them first via background worker
+      (if (seq libs)
         (js/chrome.runtime.sendMessage
-         #js {:type "inject-requires"
+         #js {:type "inject-libs"
               :tabId js/chrome.devtools.inspectedWindow.tabId
-              :requires (clj->js requires)}
+              :libs (clj->js libs)}
          (fn [response]
            (if (and response (.-success response))
-             ;; Requires injected - now inject Scittle and eval
+             ;; Libs injected - now inject Scittle and eval
              (ensure-scittle!
               (fn [err]
                 (if err
@@ -191,10 +191,10 @@
                              [:editor/ax.handle-eval-result err]])
                   (dispatch [[:editor/ax.update-scittle-status "loaded"]
                              [:editor/ax.do-eval code]]))))
-             ;; Require injection failed
+             ;; Lib injection failed
              (dispatch [[:editor/ax.update-scittle-status "error"]
-                        [:editor/ax.handle-eval-result {:error (or (.-error response) "Failed to inject requires")}]]))))
-        ;; No requires - proceed as before
+                        [:editor/ax.handle-eval-result {:error (or (.-error response) "Failed to inject libs")}]]))))
+        ;; No libs - proceed as before
         (ensure-scittle!
          (fn [err]
            (if err
@@ -500,9 +500,9 @@
   (let [;; Check if we have manifest data (hints present means manifest was parsed)
         has-manifest? (some? manifest-hints)
         ;; Extract hint details
-        {:keys [name-normalized? raw-script-name unknown-keys run-at-invalid? raw-run-at require]} manifest-hints
+        {:keys [name-normalized? raw-script-name unknown-keys run-at-invalid? raw-run-at inject]} manifest-hints
         ;; Categorize require URLs for validation display
-        {:keys [valid invalid]} (categorize-requires require)
+        {:keys [valid invalid]} (categorize-requires inject)
         ;; Site match can be string or already joined (from panel actions)
         site-matches (format-site-match script-match)
         ;; Normalize current name for comparison

@@ -71,7 +71,7 @@
       (visit lib-key)
       @result)))
 
-(defn expand-require
+(defn expand-inject
   "Expand a scittle:// require URL to ordered list of vendor files.
    Returns {:lib lib-key :files [...]} or nil if invalid.
    Includes all dependencies (internal deps like React injected first)."
@@ -89,8 +89,8 @@
               internal-files (if needs-react?
                                (get-library-files :scittle/react)
                                [])]
-          {:require/lib lib-key
-           :require/files (vec (concat internal-files
+          {:inject/lib lib-key
+           :inject/files (vec (concat internal-files
                                        (mapcat get-library-files all-deps)))})))))
 
 (defn available-libraries
@@ -102,15 +102,15 @@
        sort
        vec))
 
-(defn collect-require-files
-  "Collect all required library files from multiple scripts.
-   Processes each script's :script/require and expands scittle:// URLs.
+(defn collect-lib-files
+  "Collect all library files from multiple scripts.
+   Processes each script's :script/inject and expands scittle:// URLs.
    Returns deduplicated vector of vendor filenames in correct load order.
    Non-scittle URLs are ignored (may be handled elsewhere)."
   [scripts]
-  (let [all-requires (mapcat #(get % :script/require []) scripts)
-        scittle-urls (filter #(and (string? %) (.startsWith % "scittle://")) all-requires)
-        expanded (keep expand-require scittle-urls)
-        all-files (mapcat :require/files expanded)]
+  (let [all-injects (mapcat #(get % :script/inject []) scripts)
+        scittle-urls (filter #(and (string? %) (.startsWith % "scittle://")) all-injects)
+        expanded (keep expand-inject scittle-urls)
+        all-files (mapcat :inject/files expanded)]
     ;; Dedupe while preserving order (earlier files stay)
     (vec (distinct all-files))))

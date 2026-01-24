@@ -120,11 +120,11 @@
       {:uf/fxs [[:msg/fx.send-response send-response response]]})
 
     :msg/ax.evaluate-script
-    (let [[send-response tab-id code requires script-id] args
+    (let [[send-response tab-id code libs script-id] args
           script (cond-> {:script/id script-id
                           :script/name "popup-eval"
                           :script/code code}
-                   requires (assoc :script/require requires))]
+                   libs (assoc :script/inject libs))]
       {:uf/fxs [[:uf/await :script/fx.evaluate tab-id script]
                 [:msg/fx.send-response send-response :uf/prev-result]]})
 
@@ -144,14 +144,14 @@
         {:uf/fxs [[:msg/fx.send-response send-response {:success false
                                                         :error "Missing key"}]]}))
 
-    :msg/ax.inject-requires
-    (let [[send-response tab-id requires] args
-          files (when (seq requires)
-                  (scittle-libs/collect-require-files [{:script/require requires}]))]
+    :msg/ax.inject-libs
+    (let [[send-response tab-id libs] args
+          files (when (seq libs)
+                  (scittle-libs/collect-lib-files [{:script/inject libs}]))]
       (if (seq files)
         {:uf/fxs (-> [[:uf/await :msg/fx.inject-bridge tab-id]
                       [:uf/await :msg/fx.wait-bridge-ready tab-id]]
-                     (into (mapv (fn [f] [:uf/await :msg/fx.inject-require-file tab-id f]) files))
+                     (into (mapv (fn [f] [:uf/await :msg/fx.inject-lib-file tab-id f]) files))
                      (conj [:uf/await :msg/fx.send-response send-response {:success true}]))}
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
@@ -185,11 +185,11 @@
 
     :msg/ax.load-manifest
     (let [[send-response tab-id manifest] args
-          requires (when manifest (vec (aget manifest "require")))
-          files (when (seq requires)
-                  (scittle-libs/collect-require-files [{:script/require requires}]))]
+          libs (when manifest (vec (aget manifest "inject")))
+          files (when (seq libs)
+                  (scittle-libs/collect-lib-files [{:script/inject libs}]))]
       (if (seq files)
-        {:uf/fxs (conj (mapv (fn [f] [:uf/await :msg/fx.inject-require-file tab-id f]) files)
+        {:uf/fxs (conj (mapv (fn [f] [:uf/await :msg/fx.inject-lib-file tab-id f]) files)
                        [:uf/await :msg/fx.send-response send-response {:success true}])}
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 

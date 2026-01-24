@@ -251,13 +251,13 @@
                   gist-installer (when scripts
                                    (.find scripts (fn [s]
                                                     (= (.-id s) "epupp-builtin-gist-installer"))))
-                  has-requires (and gist-installer
-                                    (.-require gist-installer)
-                                    (pos? (.-length (.-require gist-installer))))]
-              (if has-requires
-                (js/console.log "Gist installer re-installed with requires")
+                  has-injects (and gist-installer
+                                   (.-inject gist-installer)
+                                   (pos? (.-length (.-inject gist-installer))))]
+              (if has-injects
+                (js/console.log "Gist installer re-installed with injects")
                 (if (> (- (.now js/Date) start) timeout-ms)
-                  (throw (js/Error. "Timeout waiting for gist installer with requires"))
+                  (throw (js/Error. "Timeout waiting for gist installer with injects"))
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))

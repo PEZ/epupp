@@ -18,7 +18,7 @@
    :script/modified "2026-01-01T00:00:00.000Z"
    :script/approved-patterns []
    :script/run-at "document-idle"
-   :script/require []})
+   :script/inject []})
 
 (def builtin-script
   (assoc base-script

@@ -578,22 +578,22 @@
                       (-> (expect result)
                           (.toBeNull)))))))
 
-(describe "parse-scripts with require"
+(describe "parse-scripts with inject"
           (fn []
-            (test "parses require field as vector"
+            (test "parses inject field as vector"
                   (fn []
                     (let [js-script #js {:id "test"
                                          :name "Test"
                                          :match #js ["*://example.com/*"]
                                          :code "()"
                                          :enabled true
-                                         :require #js ["scittle://reagent.js" "scittle://pprint.js"]}
+                                         :inject #js ["scittle://reagent.js" "scittle://pprint.js"]}
                           result (script-utils/parse-scripts #js [js-script])
                           script (first result)]
-                      (-> (expect (:script/require script))
+                      (-> (expect (:script/inject script))
                           (.toEqual ["scittle://reagent.js" "scittle://pprint.js"])))))
 
-            (test "defaults to empty vector when require missing"
+            (test "defaults to empty vector when inject missing"
                   (fn []
                     (let [js-script #js {:id "test"
                                          :name "Test"
@@ -602,24 +602,24 @@
                                          :enabled true}
                           result (script-utils/parse-scripts #js [js-script])
                           script (first result)]
-                      (-> (expect (:script/require script))
+                      (-> (expect (:script/inject script))
                           (.toEqual [])))))))
 
-(describe "script->js with require"
+(describe "script->js with inject"
           (fn []
-            (test "serializes require field"
+            (test "serializes inject field"
                   (fn []
                     (let [script {:script/id "test"
                                   :script/name "Test"
                                   :script/match ["*://example.com/*"]
                                   :script/code "()"
                                   :script/enabled true
-                                  :script/require ["scittle://reagent.js"]}
+                                  :script/inject ["scittle://reagent.js"]}
                           result (script-utils/script->js script)]
-                      (-> (expect (.-require result))
+                      (-> (expect (.-inject result))
                           (.toEqual #js ["scittle://reagent.js"])))))
 
-            (test "handles nil require"
+            (test "handles nil inject"
                   (fn []
                     (let [script {:script/id "test"
                                   :script/name "Test"
@@ -628,7 +628,7 @@
                                   :script/enabled true}
                           result (script-utils/script->js script)]
                       ;; Squint: nil becomes undefined (not null)
-                      (-> (expect (.-require result))
+                      (-> (expect (.-inject result))
                           (.toBeFalsy)))))
 
             (test "round-trips require through parse-scripts and script->js"
@@ -638,8 +638,8 @@
                                     :script/match ["*://example.com/*"]
                                     :script/code "()"
                                     :script/enabled true
-                                    :script/require ["scittle://pprint.js" "scittle://reagent.js"]}
+                                    :script/inject ["scittle://pprint.js" "scittle://reagent.js"]}
                           js-obj (script-utils/script->js original)
                           parsed (first (script-utils/parse-scripts #js [js-obj]))]
-                      (-> (expect (:script/require parsed))
+                      (-> (expect (:script/inject parsed))
                           (.toEqual ["scittle://pprint.js" "scittle://reagent.js"])))))))

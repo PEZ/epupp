@@ -1,4 +1,4 @@
-(epupp.repl/manifest! {:epupp/require ["scittle://promesa.js"
+(epupp.repl/manifest! {:epupp/inject ["scittle://promesa.js"
                                        "scittle://pprint.js"]})
 ;; Now load the file
 

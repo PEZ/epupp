@@ -300,15 +300,15 @@
     (-> (expect (aget (:script/match script) 1))
         (.toBe "*://foo.com/*"))))
 
-(defn- test_save_script_includes_require_from_manifest_hints []
+(defn- test_save_script_includes_inject_from_manifest_hints []
   (let [state (-> initial-state
                   (assoc :panel/code "(ns test)")
                   (assoc :panel/script-name "My Script")
                   (assoc :panel/script-match "*://example.com/*")
-                  (assoc :panel/manifest-hints {:require ["scittle://reagent.js"]}))
+                  (assoc :panel/manifest-hints {:inject ["scittle://reagent.js"]}))
         result (panel-actions/handle-action state uf-data [:editor/ax.save-script])
         [_fx-name script] (first (:uf/fxs result))]
-    (-> (expect (:script/require script))
+    (-> (expect (:script/inject script))
         (.toEqual ["scittle://reagent.js"]))))
 
 (defn- test_save_script_succeeds_without_site_match []
@@ -352,7 +352,7 @@
             (test ":editor/ax.save-script omits description when empty" test_save_script_omits_description_when_empty)
             (test ":editor/ax.save-script includes description in effect when set" test_save_script_includes_description_in_effect_when_set)
             (test ":editor/ax.save-script preserves vector match without double-wrapping" test_save_script_preserves_vector_match_without_double_wrapping)
-            (test ":editor/ax.save-script includes require from manifest hints" test_save_script_includes_require_from_manifest_hints)))
+            (test ":editor/ax.save-script includes inject from manifest hints" test_save_script_includes_inject_from_manifest_hints)))
 
 ;; ============================================================
 ;; Panel save response handling tests
@@ -523,23 +523,23 @@
     (-> (expect (:raw-run-at (:panel/manifest-hints new-state)))
         (.toBe "invalid-timing"))))
 
-(defn- test_set_code_stores_require_in_manifest_hints []
+(defn- test_set_code_stores_inject_in_manifest_hints []
   (let [code "{:epupp/script-name \"test.cljs\"
-  :epupp/require [\"scittle://reagent.js\" \"scittle://pprint.js\"]}
+  :epupp/inject [\"scittle://reagent.js\" \"scittle://pprint.js\"]}
 (ns test)"
         result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
         new-state (:uf/db result)]
-    ;; Should store require in hints
-    (-> (expect (:require (:panel/manifest-hints new-state)))
+    ;; Should store inject in hints
+    (-> (expect (:inject (:panel/manifest-hints new-state)))
         (.toEqual ["scittle://reagent.js" "scittle://pprint.js"]))))
 
-(defn- test_set_code_stores_empty_require_when_missing []
+(defn- test_set_code_stores_empty_inject_when_missing []
   (let [code "{:epupp/script-name \"test.cljs\"}
 (ns test)"
         result (panel-actions/handle-action initial-state uf-data [:editor/ax.set-code code])
         new-state (:uf/db result)]
-    ;; Should store empty vector when require is missing
-    (-> (expect (:require (:panel/manifest-hints new-state)))
+    ;; Should store empty vector when inject is missing
+    (-> (expect (:inject (:panel/manifest-hints new-state)))
         (.toEqual []))))
 
 (describe "panel set-code with manifest parsing"
@@ -550,8 +550,8 @@
             (test ":editor/ax.set-code clears hints when no manifest" test_set_code_clears_hints_when_no_manifest)
             (test ":editor/ax.set-code handles site-match as vector" test_set_code_handles_site_match_as_vector)
             (test ":editor/ax.set-code stores run-at invalid flag in hints" test_set_code_stores_run_at_invalid_flag_in_hints)
-            (test ":editor/ax.set-code stores require in manifest hints" test_set_code_stores_require_in_manifest_hints)
-            (test ":editor/ax.set-code stores empty require when missing" test_set_code_stores_empty_require_when_missing)))
+            (test ":editor/ax.set-code stores inject in manifest hints" test_set_code_stores_inject_in_manifest_hints)
+            (test ":editor/ax.set-code stores empty inject when missing" test_set_code_stores_empty_inject_when_missing)))
 
 ;; ============================================================
 ;; Panel initialization tests

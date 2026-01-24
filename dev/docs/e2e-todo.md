@@ -30,7 +30,7 @@ Tracking gaps in E2E test coverage and planned additions.
 - [ ] Multiple installable files on same gist page
 - [ ] Reinstalling already-installed script (update behavior)
 - [ ] Vector `:epupp/site-match` (vs string)
-- [ ] Script with `:epupp/require` installs correctly
+- [ ] Script with `:epupp/inject` installs correctly
 
 **Functional Verification:**
 - [ ] Installed script actually runs on matching page
@@ -51,8 +51,8 @@ May need additional mock files for edge case testing.
 
 ### Missing Tests
 
-- [ ] Panel eval with `:epupp/require` injects libraries
-- [ ] Popup "Run" button with script that has requires injects libraries
+- [ ] Panel eval with `:epupp/inject` injects libraries
+- [ ] Popup "Run" button with script that has libs injects libraries
 - [ ] Requires injected even when Scittle already loaded (libraries might not be)
 
 See [scittle-dependencies-implementation.md](scittle-dependencies-implementation.md) for test specifications.
