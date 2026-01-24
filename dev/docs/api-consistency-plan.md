@@ -37,15 +37,14 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 ### Phase 2: Return Shape Consistency
 
-- [ ] **bg_fs_dispatch.cljs**: Add `script->base-info` builder function
-- [ ] **bg_fs_dispatch.cljs**: Update `list-scripts` to use builder
-- [ ] **bg_fs_dispatch.cljs**: Update `save-script` response to include base info
-- [ ] **bg_fs_dispatch.cljs**: Update `rename-script` response to include base info
-- [ ] **bg_fs_dispatch.cljs**: Update `delete-script` response to include base info
-- [ ] **bundled/epupp/fs.cljs**: Update return shape parsing for `ls`
-- [ ] **bundled/epupp/fs.cljs**: Update return shape parsing for `save!`
-- [ ] **bundled/epupp/fs.cljs**: Update return shape parsing for `mv!`
-- [ ] **bundled/epupp/fs.cljs**: Update return shape parsing for `rm!`
+- [x] **repl_fs_actions.cljs**: Add `script->base-info` builder function
+- [x] **repl_fs_actions.cljs**: Update `list-scripts` to use builder
+- [x] **repl_fs_actions.cljs**: Update `save-script` response to include base info + `:fs/newly-created?`
+- [x] **repl_fs_actions.cljs**: Update `rename-script` response to include base info + `:fs/from-name` + `:fs/to-name`
+- [x] **repl_fs_actions.cljs**: Update `delete-script` response to include base info + `:fs/existed?`
+- [x] **content_bridge.cljs**: Forward all response properties via `js/Object.assign`
+- [x] **bundled/epupp/fs.cljs**: Transform `:success` → `:fs/success` for all operations
+- [x] **E2E tests**: Updated to expect namespaced keys (`:fs/success`, `:fs/enabled?`, etc.)
 
 ### Phase 3: Boolean Naming Convention
 

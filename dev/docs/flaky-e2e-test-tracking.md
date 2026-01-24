@@ -21,7 +21,8 @@ Systematic tracking of flaky tests, attempted fixes, and hypotheses to prevent r
 | FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
 | FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Intermittent timeout | Pre-Jan 2026 |
 | FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs#L317) | Intermittent timeout | Jan 2026 |
-| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L118) | Rare flake (recurring) | Jan 2026 |
+| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L118) | Rare flake (recurring; separate runs) | Jan 2026 |
+| Popup Icon: toolbar icon reflects REPL connection state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs#L22) | Rare flake (recurring) | Jan 2026 |
 | FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs#L283) | Rare flake (CI) | Jan 2026 |
 | Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | Jan 2026 |
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs#L247) | Assertion fail | Jan 2026 |
@@ -53,6 +54,7 @@ Track each investigation to prevent re-testing failed approaches.
 | Jan 2026 | H8: rm existed flag flake | Remove save-result string assertion (avoid key format mismatch) | SUCCESS | 3 serial runs passed; 3 full runs passed |
 | Jan 2026 | H6: save builtin flake | Add e2e/ensure-builtin before save tests | SUCCESS | 3 serial runs passed; 3 full runs passed |
 | Jan 2026 | H3: Tab activation event timing | New flake reported post-fix; investigation deferred | INCONCLUSIVE | Logged only |
+| Jan 2026 | H3: Tab activation event timing | Reported two popup icon tests flaked in separate runs; no action | INCONCLUSIVE | Logged only |
 
 **Outcome values:** SUCCESS, FAILED, PARTIAL, INCONCLUSIVE
 

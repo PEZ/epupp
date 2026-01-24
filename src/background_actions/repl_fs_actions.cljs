@@ -74,6 +74,28 @@
 ;; Action Implementations
 ;; ============================================================
 
+(defn script->base-info
+  "Build consistent base info map from script record.
+   Returns normalized return shape for all epupp.fs operations."
+  [script]
+  (let [match (:script/match script)
+        has-auto-run? (and match (seq match))]
+    (cond-> {:fs/name (:script/name script)
+             :fs/modified (:script/modified script)
+             :fs/created (:script/created script)
+             :fs/auto-run-match (if has-auto-run? match :fs/no-auto-run)}
+      has-auto-run?
+      (assoc :fs/enabled? (:script/enabled script))
+
+      (seq (:script/description script))
+      (assoc :fs/description (:script/description script))
+
+      (:script/run-at script)
+      (assoc :fs/run-at (:script/run-at script))
+
+      (seq (:script/inject script))
+      (assoc :fs/inject (:script/inject script)))))
+
 (defn rename-script
   "Rename a script by name."
   [state {:fs/keys [now-iso from-name to-name]}]
@@ -95,13 +117,15 @@
       ;; All checks pass - allow rename
       :else
       (let [updated-scripts (update-script-in-list scripts (:script/id source-script)
-                                                   #(assoc % :script/name to-name :script/modified now-iso))]
+                                                   #(assoc % :script/name to-name :script/modified now-iso))
+            renamed-script (find-script-by-name updated-scripts to-name)]
         (make-success-response updated-scripts "rename" to-name
                                {:event-data {:script-id (:script/id source-script)
                                              :from-name from-name
                                              :to-name to-name}
-                                :response-data {:from-name from-name
-                                                :to-name to-name}})))))
+                                :response-data (merge (script->base-info renamed-script)
+                                                      {:fs/from-name from-name
+                                                       :fs/to-name to-name})})))))
 
 (defn delete-script
   "Delete a script by name."
@@ -133,7 +157,7 @@
         (make-success-response updated-scripts "delete" script-name
                                {:event-data (merge {:script-id (:script/id script)}
                                                    bulk-event-data)
-                                :response-data {:name script-name}})))))
+                                :response-data (script->base-info script)})))))
 
 (defn save-script
   "Create or update a script. When force-overwriting by name, preserves the
@@ -207,10 +231,8 @@
                                          (some? bulk-id) (assoc :bulk-id bulk-id)
                                          (some? bulk-index) (assoc :bulk-index bulk-index)
                                          (some? bulk-count) (assoc :bulk-count bulk-count))
-                           :response-data {:name script-name
-                                           :id script-id
-                                           :is-update true
-                                           :unchanged true}})
+                           :response-data (merge (script->base-info existing-by-id)
+                                                 {:fs/unchanged? true})})
 
       ;; All checks pass - create or update
       :else
@@ -241,6 +263,5 @@
                                               (some? bulk-id) (assoc :bulk-id bulk-id)
                                               (some? bulk-index) (assoc :bulk-index bulk-index)
                                               (some? bulk-count) (assoc :bulk-count bulk-count))
-                                :response-data {:name script-name
-                                                :id script-id
-                                                :is-update is-update?}})))))
+                                :response-data (merge (script->base-info timestamped-script)
+                                                      {:fs/newly-created? (not is-update?)})})))))

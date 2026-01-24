@@ -158,13 +158,7 @@
     :msg/ax.list-scripts-result
     (let [[send-response {:keys [include-hidden? scripts]}] args
           visible-scripts (script-utils/filter-visible-scripts scripts include-hidden?)
-          public-scripts (mapv (fn [s]
-                                 {:fs/id (:script/id s)
-                                  :fs/name (:script/name s)
-                                  :fs/enabled (:script/enabled s)
-                                  :fs/match (:script/match s)
-                                  :fs/modified (:script/modified s)})
-                               visible-scripts)]
+          public-scripts (mapv repl-fs-actions/script->base-info visible-scripts)]
       {:uf/fxs [[:msg/fx.send-response send-response {:success true
                                                       :scripts public-scripts}]]})
 

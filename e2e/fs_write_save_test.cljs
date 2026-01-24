@@ -154,7 +154,7 @@
             (-> (expect (.includes result-str "disabled_by_default.cljs"))
                 (.toBe true))
             (let [scripts-check (js-await (eval-in-browser
-                                           "(some (fn [s] (and (= (:fs/name s) \"disabled_by_default.cljs\")\n                                                                                 (false? (:fs/enabled s))))\n                                                                  @!ls-check-disabled)"))]
+                                           "(some (fn [s] (and (= (:fs/name s) \"disabled_by_default.cljs\")\n                                                                                 (false? (:fs/enabled? s))))\n                                                                  @!ls-check-disabled)"))]
               (-> (expect (.-success scripts-check)) (.toBe true))
               (-> (expect (.-values scripts-check)) (.toContain "true"))))
           (if (> (- (.now js/Date) start) timeout-ms)
@@ -188,7 +188,7 @@
                   (.toBe true))
               (-> (expect (.includes result-str "1"))
                   (.toBe true))
-              (-> (expect (.includes result-str ":success true"))
+              (-> (expect (.includes result-str ":fs/success true"))
                   (.toBe true))
               (-> (expect (.includes result-str "bulk_save_test_1.cljs"))
                   (.toBe true))

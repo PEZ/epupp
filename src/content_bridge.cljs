@@ -125,12 +125,11 @@
               :bulkCount (aget msg "bulk-count")}
                (fn [response]
                  (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "save-script-response"
-                                    :requestId (.-requestId msg)
-                                    :success (.-success response)
-                                    :name (.-name response)
-                                    :error (.-error response)}
+                               (js/Object.assign
+                                #js {:source "epupp-bridge"
+                                     :type "save-script-response"
+                                     :requestId (.-requestId msg)}
+                                response)
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
@@ -149,11 +148,11 @@
                     :force (.-force msg)}
                (fn [response]
                  (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "rename-script-response"
-                                    :requestId (.-requestId msg)
-                                    :success (.-success response)
-                                    :error (.-error response)}
+                               (js/Object.assign
+                                #js {:source "epupp-bridge"
+                                     :type "rename-script-response"
+                                     :requestId (.-requestId msg)}
+                                response)
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
@@ -174,11 +173,11 @@
                     :bulkCount (aget msg "bulk-count")}
                (fn [response]
                  (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "delete-script-response"
-                                    :requestId (.-requestId msg)
-                                    :success (.-success response)
-                                    :error (.-error response)}
+                               (js/Object.assign
+                                #js {:source "epupp-bridge"
+                                     :type "delete-script-response"
+                                     :requestId (.-requestId msg)}
+                                response)
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
