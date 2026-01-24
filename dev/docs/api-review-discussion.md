@@ -16,7 +16,6 @@ These are exposed to userscripts, REPL code, or users. Must be stable.
 | **Script Manifest Format** | `:epupp/script-name`, `:epupp/inject`, `:epupp/run-at` keys | |
 | **URL Matching Syntax** | TamperMonkey-compatible patterns (`*://example.com/*`) | |
 | **Scittle Library Catalog** | `scittle://reagent.js` URLs | |
-| **Extension Permissions** | Manifest permissions (user consent required) | |
 
 ### Subtle External APIs
 

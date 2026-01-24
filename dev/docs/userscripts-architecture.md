@@ -127,13 +127,26 @@ We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScr
 }
 ```
 
+**Why each permission is needed:**
+
+- `scripting` - Inject userscripts via `chrome.scripting.executeScript`
+  - **Without it:** Userscript injection fails completely
+- `<all_urls>` - Host permissions for any site
+  - **Without it:** Cannot inject into pages (required by `scripting.executeScript`)
+- `storage` - Persist scripts and settings to `chrome.storage.local`
+  - **Without it:** Scripts and settings lost on extension reload/browser restart
+- `webNavigation` - Track page loads for auto-injection
+  - **Without it:** Auto-injection on page navigation doesn't work
+- `activeTab` - DevTools panel integration
+  - **Without it:** DevTools panel cannot access inspected page
+
 **How it works:**
 1. Extension installs with permission to access all URLs (required for `scripting.executeScript`)
 2. Scripts specify which URLs they match via `:script/match` patterns
 3. Auto-injection is controlled by the `:script/enabled` checkbox in the popup
 4. When enabled, scripts automatically run on matching URLs; when disabled, they don't
 
-**Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality.
+**Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality. Epupp uses the minimal permission set required for full functionality.
 
 The `granted-origins` storage key is retained for potential future use but currently unused.
 
