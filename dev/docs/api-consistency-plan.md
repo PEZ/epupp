@@ -9,7 +9,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | Manifest key | `:epupp/site-match` | `:epupp/auto-run-match` |
 | Return key | `:fs/match` | `:fs/auto-run-match` |
 | Boolean naming | `:fs/enabled` | `:fs/enabled?` |
-| No-pattern value | `[]` | `:fs/no-auto-run` sentinel |
+| No-pattern value | `[]` | Key omitted |
 | `save!` return | `{:fs/success :fs/name :fs/error}` | Base info + `:fs/newly-created?` |
 | Scripts without match | Created enabled | Created disabled |
 
@@ -58,7 +58,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 - [x] **storage.cljs**: Scripts without match created with `enabled: false`
 - [x] **bg_fs_dispatch.cljs**: Omit `:fs/enabled?` when no auto-run patterns
-- [x] **bg_fs_dispatch.cljs**: Use `:fs/no-auto-run` sentinel value
+- [x] **bg_fs_dispatch.cljs**: Omit `:fs/auto-run-match` when no patterns
 - [x] **panel_actions.cljs**: Verify save behavior for scripts without match
 - [x] **Unit tests**: Test enabled default based on match presence
 - [x] **E2E tests**: Verify behavior for manual-only scripts
@@ -84,8 +84,8 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 {:fs/name "script.cljs"                    ; Always present
  :fs/modified "2026-01-24T..."             ; Always present
  :fs/created "2026-01-20T..."              ; Always present
- :fs/auto-run-match ["pattern"]            ; Always present (or :fs/no-auto-run)
- :fs/enabled? true                         ; Only if auto-run-match exists
+ :fs/auto-run-match ["pattern"]            ; Only when has-auto-run?
+ :fs/enabled? true                         ; Only when has-auto-run?
  :fs/description "..."                     ; If present in manifest
  :fs/run-at "document-idle"                ; If present in manifest
  :fs/inject ["scittle://..."]              ; If present in manifest}
@@ -139,10 +139,10 @@ This is a clean break. Users updating the extension will need to update any save
         has-auto-run? (and match (seq match))]
     (cond-> {:fs/name (:script/name script)
              :fs/modified (:script/modified script)
-             :fs/created (:script/created script)
-             :fs/auto-run-match (if has-auto-run? match :fs/no-auto-run)}
+             :fs/created (:script/created script)}
       has-auto-run?
-      (assoc :fs/enabled? (:script/enabled script))
+      (assoc :fs/auto-run-match match
+             :fs/enabled? (:script/enabled script))
 
       (seq (:script/description script))
       (assoc :fs/description (:script/description script))
@@ -161,7 +161,7 @@ All write operations (`save!`, `mv!`, `rm!`) throw on failure (reject promise). 
 ## Verification
 
 1. Create script WITH `:epupp/auto-run-match`, verify `:fs/enabled?` in return
-2. Create script WITHOUT match, verify `:fs/no-auto-run` and NO `:fs/enabled?`
+2. Create script WITHOUT match, verify NO `:fs/auto-run-match` and NO `:fs/enabled?`
 3. Verify `ls` returns consistent base info for all scripts
 4. Verify `save!` includes `:fs/newly-created?` boolean
 5. Verify `mv!` includes `:fs/from-name` string
@@ -176,7 +176,7 @@ Create an implementation plan for the decided API changes before 1.0 release:
 2. Align manifest and return map naming (`:epupp/X` → `:fs/X`)
 3. Use `?` suffix for boolean keywords (`:fs/enabled?`, `:fs/newly-created?`)
 4. Scripts without auto-run patterns: create disabled, omit `:fs/enabled?` from return
-5. `:fs/auto-run-match` always present, use `:fs/no-auto-run` sentinel for manual-only scripts
+5. `:fs/auto-run-match` omitted for manual-only scripts (key absence = no auto-run)
 6. Consistent `epupp.fs` return shapes: all functions use shared base info builder
 7. Include `:fs/description`, `:fs/run-at`, `:fs/inject` (if in manifest, independent of auto-run)
 8. Change `save!` from `{:fs/success :fs/name :fs/error}` to base info + `:fs/newly-created?`

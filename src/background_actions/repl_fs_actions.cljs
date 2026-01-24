@@ -76,16 +76,17 @@
 
 (defn script->base-info
   "Build consistent base info map from script record.
-   Returns normalized return shape for all epupp.fs operations."
+   Returns normalized return shape for all epupp.fs operations.
+   When script has no auto-run patterns, omits :fs/auto-run-match and :fs/enabled? keys."
   [script]
   (let [match (:script/match script)
         has-auto-run? (and match (seq match))]
     (cond-> {:fs/name (:script/name script)
              :fs/modified (:script/modified script)
-             :fs/created (:script/created script)
-             :fs/auto-run-match (if has-auto-run? match :fs/no-auto-run)}
+             :fs/created (:script/created script)}
       has-auto-run?
-      (assoc :fs/enabled? (:script/enabled script))
+      (assoc :fs/auto-run-match match
+             :fs/enabled? (:script/enabled script))
 
       (seq (:script/description script))
       (assoc :fs/description (:script/description script))

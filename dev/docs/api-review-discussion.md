@@ -180,6 +180,8 @@ User refined: "description should be included in the return shape, I think. Or, 
 
 User further refined: "The return map should be in sync with the manifest, so match should be site-match... I think `:epupp/auto-run-match` is clearer. Scripts without auto-run-match should be created with `enabled?` false, should omit `enabled?` in their return map, and all script return maps should include auto-run-match with `:fs/no-auto-run` for when the match is missing or empty."
 
+**Note (2026-01-24)**: The `:fs/no-auto-run` sentinel was later removed. Since Squint treats keywords as strings, the sentinel appeared as `"fs/no-auto-run"` in responses - confusing for users. The final design omits `:fs/auto-run-match` entirely when scripts have no patterns, consistent with the omission of `:fs/enabled?`.
+
 
 ---
 
