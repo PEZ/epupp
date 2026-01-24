@@ -516,8 +516,10 @@
                            normalized-name
                            (not= normalized-name original-name))
         ;; Check if the new name conflicts with an existing script (not the one we're editing)
+        ;; Compare normalized names since scripts-list stores display names
         existing-script (when normalized-name
-                          (some #(when (= (:script/name %) normalized-name) %) scripts-list))
+                          (some #(when (= (script-utils/normalize-script-name (:script/name %)) normalized-name) %)
+                                scripts-list))
         ;; Conflict: name exists AND it's not the same script we're editing
         has-name-conflict? (and existing-script
                                 (not= normalized-name original-name))
@@ -547,7 +549,7 @@
         run-at (if run-at-invalid?
                  "document-idle"
                  raw-run-at)]
-    [:div.save-script-section
+    [:div.save-script-section {:data-scripts-count (count scripts-list)}
      [:div.save-script-header
       [:span.header-title (if original-name "Edit Userscript" "Save as Userscript")]
       [new-script-button _state]]
