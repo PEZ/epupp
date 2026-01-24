@@ -52,6 +52,7 @@ This document is your source of truth:
 1. **Read the tracking document** - Check what's known, what's been tried
 2. **Reproduce the flakiness**:
    - `bb test:e2e --serial -- --grep "test name"` (2-3 runs)
+   - `bb test:e2e` (2-5 runs, parallel, doesn't take a long time)
    - Note failure rate, error messages, timing patterns
 3. **Collect evidence**:
    - Playwright report: `npx playwright show-report`
