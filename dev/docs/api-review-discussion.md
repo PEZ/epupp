@@ -100,6 +100,27 @@ These are internal but need version fields for smooth upgrades.
 
 ---
 
+### 5. Reserved Script Namespace
+
+**Decision:** Reserve `epupp/` prefix for system scripts before 1.0
+
+**Contract:**
+- Users cannot create scripts with names starting `epupp/`
+- Built-ins use pattern: `epupp/built-in/<name>.cljs`
+- Future system scripts: `epupp/examples/...`, `epupp/tools/...`, etc.
+- Error message: "Script names cannot start with 'epupp/' - reserved for system scripts"
+
+**Validation:**
+- Enforce at storage level (`save-script!` in `storage.cljs`)
+- Single chokepoint covers all entry points
+
+**Impact:** User-facing restriction - this is API
+
+**Discussion:** ✅ Decided - `epupp/` namespace reserved
+
+
+---
+
 ## Migration Concerns
 
 ### 1. Storage Schema Versioning
@@ -137,14 +158,19 @@ These are internal but need version fields for smooth upgrades.
 
 ---
 
-### 4. Built-in Script Updates
+### 4. Built-in Script Clean Reinstall
 
 **Current:** Code overwrites on version change, no tracking
-**Risk:** User modifications lost silently (though built-ins aren't editable in UI)
-**Decision needed:** Add version tracking or accept current behavior?
-**Recommendation:**
 
-**Discussion:**
+**Decision:** Remove and reinstall all built-ins on extension update
+
+**Strategy:**
+- On extension startup, remove all scripts with IDs matching `epupp-builtin-*`
+- Reinstall from fresh source code
+- Guarantees users always have latest built-in code
+- No version tracking needed - just nuke and pave
+
+**Discussion:** ✅ Decided - clean reinstall on update
 
 
 ---
@@ -153,14 +179,64 @@ These are internal but need version fields for smooth upgrades.
 
 **Current:** Saves `{code, scriptName, scriptMatch, scriptDescription, originalName}`
 **Problem:** Metadata can get out of sync with manifest in code
-**Recommendation:** Only persist `{code}`, parse manifest on restore
+**Decision:** Only persist `{code}`, parse manifest on restore
 **Benefits:**
 - Code is source of truth
 - No sync issues
 - Simpler migration (one field)
 - Follows "parse, don't validate"
 
-**Discussion:**
+**Discussion:** ✅ Decided - simplify to code-only persistence
+
+
+---
+
+### 6. Storage Schema Redundancy
+
+**Current storage per script:**
+```clojure
+{:script/id "..."              ; Can't derive
+ :script/code "..."            ; Source of truth
+ :script/name "..."            ; Derivable from manifest
+ :script/match [...]           ; Derivable from manifest
+ :script/run-at "..."          ; Derivable from manifest
+ :script/inject [...]          ; Derivable from manifest
+ :script/description "..."     ; Derivable from manifest
+ :script/enabled true          ; User preference (not in manifest)
+ :script/created "..."         ; Metadata
+ :script/modified "..."        ; Metadata
+ :script/approved-patterns []} ; UNUSED, legacy
+```
+
+**Problem:** Manifest-derived fields cached in storage can get out of sync with code
+
+**Decision:** Store only non-derivable fields, derive rest on startup/save:
+
+**Store:**
+```clojure
+{:script/id "..."           ; Can't derive
+ :script/code "..."         ; Source of truth
+ :script/enabled true       ; User preference
+ :script/created "..."      ; Metadata
+ :script/modified "..."}    ; Metadata
+```
+
+**Derive on load (from manifest in code):**
+- `:script/name` - from `:epupp/script-name`
+- `:script/match` - from `:epupp/site-match`
+- `:script/run-at` - from `:epupp/run-at`
+- `:script/inject` - from `:epupp/inject`
+- `:script/description` - from `:epupp/description`
+
+**Performance:** Parse manifests once at extension startup and cache in memory. No impact on page navigation (reads from memory cache, not storage).
+
+**Benefits:**
+- Code is source of truth
+- No sync issues between storage and manifest
+- Simpler migration (fewer fields)
+- Removes `:script/approved-patterns` (unused legacy field)
+
+**Discussion:** ✅ Decided - parse-on-load strategy
 
 
 ---
