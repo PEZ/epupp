@@ -16,12 +16,12 @@ Once you have saved the script, it will be added to a list of scripts in the ext
 
 ### Using Scittle Libraries
 
-Userscripts can load bundled Scittle ecosystem libraries via `:epupp/require`:
+Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
 ```clojure
 {:epupp/script-name "reagent_widget.cljs"
  :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]}
+ :epupp/inject ["scittle://reagent.js"]}
 
 (ns reagent-widget
   (:require [reagent.core :as r]

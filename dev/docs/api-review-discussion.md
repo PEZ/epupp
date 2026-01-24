@@ -39,14 +39,13 @@ These are internal but need version fields for smooth upgrades.
 
 ## External API Concerns
 
-### 1. Naming Inconsistency: `:epupp/inject` vs `:epupp/require`
+### 1. Naming Consistency: `:epupp/inject` (Decided)
 
-**Status:** Both terms appear in code/docs for script manifest
+**Status:** Code uses `:epupp/inject`, README.md fixed to match
 **Impact:** CRITICAL - users write this in their userscript code
-**Decision needed:** Pick one canonical name before 1.0
-**Recommendation:**
+**Decision:** Use `:epupp/inject` as the canonical name
 
-**Discussion:**
+**Discussion:** ✅ Decided - `:epupp/inject` is the standard manifest key for library dependencies
 
 
 ---
@@ -58,7 +57,7 @@ These are internal but need version fields for smooth upgrades.
 - `:epupp/site-match` - URL pattern(s) for auto-injection
 - `:epupp/description` - Human-readable description
 - `:epupp/run-at` - Timing: document-start/end/idle
-- `:epupp/inject` (or `:epupp/require`?) - Library dependencies
+- `:epupp/inject` - Library dependencies
 
 **Decision: Required vs Optional - Context Matters**
 
