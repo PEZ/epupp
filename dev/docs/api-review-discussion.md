@@ -94,15 +94,61 @@ These are internal but need version fields for smooth upgrades.
 
 ### 3. `epupp.fs` Return Shape Stability
 
-**Current return shapes use namespaced keywords:**
-- `ls`: `{:fs/name :fs/enabled :fs/match :fs/modified ...}`
-- `save!`: `{:fs/success :fs/name :fs/error}`
-- etc.
+**Current implementation analysis:**
+- `ls`: Returns `[{:fs/name :fs/enabled :fs/match :fs/modified} ...]`
+- `show`: Returns code string (or nil), or map of name->code for bulk
+- `save!`: Returns `{:fs/success :fs/name :fs/error}` (throws on failure)
+- `mv!`: Returns `{:fs/success :fs/from-name :fs/to-name :fs/error}` (throws on failure)
+- `rm!`: Returns `{:fs/success :fs/name :fs/existed?}` (throws on failure)
 
-**Decision needed:** Commit to these shapes? What's additive vs breaking?
-**Recommendation:**
+**Consistency issue:** Write operations return different shapes than read operations. No shared base.
+
+**Proposed 1.0 API commitment:**
+
+**Base script info shape (all functions returning script metadata):**
+```clojure
+{:fs/name "script.cljs"           ; Always present
+ :fs/enabled? true                ; Always present (boolean)
+ :fs/modified "2026-01-24T..."    ; Always present
+ :fs/created "2026-01-20T..."     ; Always present
+ :fs/match ["pattern"]            ; Only if present in manifest (optional)
+ :fs/description "..."            ; Only if present in manifest (optional)}
+```
+
+**Naming convention:** Boolean keywords use `?` suffix (`:fs/enabled?`, `:fs/newly-created?`)
+
+**Optional fields:** `:fs/match` and `:fs/description` only included if present in the script's manifest
+
+**Function return shapes:**
+- `ls` → vector of base info maps
+- `show` → code string or nil (single), map of name->code (bulk) - **no change**
+- `save!` → base info + `:fs/newly-created?` boolean
+- `mv!` → base info + `:fs/from-name` string (the old name)
+- `rm!` → base info (the deleted script's info)
+
+**Error handling:** All write operations throw on failure (reject promise). No `:fs/success false` returns.
+
+**Implementation approach:**
+1. Background worker message handlers include full script info in responses
+2. Scittle `fs.cljs` uses shared `script-info` builder function
+3. Each function extends base with operation-specific fields
+4. Builder conditionally includes `:fs/match` and `:fs/description` based on manifest content
+
+**Breaking vs additive:**
+- ✅ Adding `:fs/created` to base shape: ADDITIVE (new field, existing code ignores)
+- ✅ Adding `:fs/description` to base shape: ADDITIVE (new field, optional)
+- ✅ Adding `:fs/newly-created?` to `save!`: ADDITIVE (new field)
+- ⚠️ Renaming `:fs/enabled` → `:fs/enabled?`: BREAKING (field name change)
+- ⚠️ Changing `save!` from `{:fs/success :fs/name :fs/error}` to base info shape: BREAKING (different fields)
+
+**Pre-1.0 acceptable:** These breaking changes are acceptable since we're in userscripts branch before 1.0 release.
+
+**Decision:** Accepted - implement consistency with shared base info builder
 
 **Discussion:**
+User confirmed: "The `ls` one looks pretty good. Probably whatever builds those should share a function for what's included in a file return, and then each function may want to add specific things to the map."
+
+User refined: "description should be included in the return shape, I think. Or, maybe include it only if it is included in the manifest. Same for match. And we could consider `:fs/enabled?` because I like that convention (it is a bit controversial in the Clojure community, but I'm on the `?` team for boolean keyword names.)"
 
 
 ---
@@ -114,10 +160,10 @@ These are internal but need version fields for smooth upgrades.
 - `autoReconnectRepl`: `true`
 - `fsReplSyncEnabled`: `false`
 
-**Decision needed:** Lock these defaults for 1.0?
-**Recommendation:**
+✅ **Decided:** These defaults are locked for 1.0
 
 **Discussion:**
+User confirmed: "I think the settings defaults are good."
 
 
 ---
