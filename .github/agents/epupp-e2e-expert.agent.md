@@ -205,7 +205,7 @@ bb test:e2e:ui:headed  # Playwright UI mode
 
 | Anti-Pattern | Why Bad | Fix |
 |--------------|---------|-----|
-| `(sleep 500)` after action | Wastes time | Use Playwright polling assertions |
+| `(sleep 500)` after action | Wastes time | Use Playwright polling assertions, or our own helpers |
 | Nested `describe` blocks | Breaks structural editing | Flat structure with top-level `defn-` |
 | Isolated click tests | Fragments user journey | Consolidated workflow tests |
 | Long timeouts (5000ms+) | Slows TDD cycle | Use 500ms, increase only when needed |

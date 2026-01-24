@@ -186,7 +186,7 @@ When writing E2E tests,
 
 The epupp-e2e-expert knows:
 - Flat test structure (top-level `defn-` functions)
-- No fixed sleeps - use Playwright polling assertions
+- No fixed sleeps - use Playwright polling assertions, or our own helpers
 - Short timeouts for TDD (500ms default)
 - Fixtures from e2e/fixtures.cljs
 - Log-powered test patterns when needed
