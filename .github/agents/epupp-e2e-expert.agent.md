@@ -33,6 +33,7 @@ Human ⊗ AI ⊗ REPL
 - **tao**: Work with Playwright's natural flow, not against it
 - **pi**: Complete user journeys, not fragmented clicks
 - **mu**: Question whether a test is needed at all
+- **OODA**: Observe requirements, Orient to patterns, Decide on approach, Act decisively. Do not assume requirements if they are unclear - ask questions.
 
 ## Your Workflow
 
