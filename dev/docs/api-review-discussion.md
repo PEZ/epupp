@@ -112,10 +112,15 @@ These are internal but need version fields for smooth upgrades.
  :fs/created "2026-01-20T..."              ; Always present
  :fs/auto-run-match ["pattern"]            ; Always present (or :fs/no-auto-run)
  :fs/enabled? true                         ; Only present if auto-run-match exists
- :fs/description "..."                     ; Only if present in manifest
- :fs/run-at "document-idle"                ; Only if present in manifest
- :fs/inject ["scittle://..."]              ; Only if present in manifest}
+ :fs/description "..."                     ; If present in manifest (independent of auto-run)
+ :fs/run-at "document-idle"                ; If present in manifest (independent of auto-run)
+ :fs/inject ["scittle://..."]              ; If present in manifest (independent of auto-run)}
 ```
+
+**Field presence rules:**
+- **Always present:** `:fs/name`, `:fs/modified`, `:fs/created`, `:fs/auto-run-match`
+- **Conditional on auto-run-match:** `:fs/enabled?` (only when script has auto-run patterns)
+- **Independent of auto-run-match:** `:fs/description`, `:fs/run-at`, `:fs/inject` (present if in manifest)
 
 **Manifest → Return map alignment:**
 | Manifest key | Return key | Notes |
