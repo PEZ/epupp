@@ -344,7 +344,7 @@
 
 (defn code-input [{:panel/keys [code evaluating? scittle-status]}]
   (let [loading? (= :loading scittle-status)]
-    [:div.code-input-area
+    [:div.code-input-area {:data-e2e-scittle-status scittle-status}
      [:textarea#code-area {:value code
                            :rows 10
                            :placeholder "(+ 1 2 3)\n\n; Ctrl+Enter evaluates selection"
@@ -410,7 +410,7 @@
 (defn- property-row
   "Render a single row in the metadata property table."
   [{:keys [label value values hint badge]}]
-  [:tr.property-row
+  [:tr.property-row {:data-e2e-property (-> label str/lower-case (str/replace " " "-"))}
    [:th.property-label label]
    [:td.property-value
     (cond
@@ -549,7 +549,9 @@
         run-at (if run-at-invalid?
                  "document-idle"
                  raw-run-at)]
-    [:div.save-script-section {:data-e2e-scripts-count (count scripts-list)}
+    [:div.save-script-section {:data-e2e-scripts-count (count scripts-list)
+                               :data-e2e-editing (boolean original-name)
+                               :data-e2e-conflict (boolean has-name-conflict?)}
      [:div.save-script-header
       [:span.header-title (if original-name "Edit Userscript" "Save as Userscript")]
       [new-script-button _state]]

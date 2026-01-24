@@ -169,7 +169,8 @@
                        "success" "fs-success-banner"
                        "info" "fs-info-banner"
                        "fs-error-banner")
-                     (when leaving " leaving"))}
+                     (when leaving " leaving"))
+         :data-e2e-banner-type type}
    (when favicon
      [:img.system-banner-favicon {:src favicon :width 16 :height 16}])
    [:span message]])

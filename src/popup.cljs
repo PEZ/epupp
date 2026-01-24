@@ -461,8 +461,11 @@
      :button/title "Copy browser-nrepl server command line. (You need Babashka to run it)"
      :button/on-click #(dispatch! [[:popup/ax.copy-command]])}]])
 
-(defn collapsible-section [{:keys [id title expanded? badge-count max-height]} & children]
-  [:div.collapsible-section {:class (when-not expanded? "collapsed")}
+(defn collapsible-section [{:keys [id title expanded? badge-count max-height data-attrs]} & children]
+  [:div.collapsible-section (merge {:class (when-not expanded? "collapsed")
+                                    :data-e2e-section id
+                                    :data-e2e-expanded (boolean expanded?)}
+                                   data-attrs)
    [:div.section-header {:on-click #(dispatch! [[:popup/ax.toggle-section id]])}
     [icons/chevron-right {:class (str "chevron " (when expanded? "expanded"))}]
     [:span.section-title title]
@@ -891,7 +894,8 @@
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
                            :expanded? (not (:repl-connect sections-collapsed))
-                           :max-height (str (+ 500 (* 35 (count connections))) "px")}
+                           :max-height (str (+ 500 (* 35 (count connections))) "px")
+                           :data-attrs {:data-e2e-connection-count (count connections)}}
       [repl-connect-content state]]
      [collapsible-section {:id :matching-scripts
                            :title "Auto-run for This Page"

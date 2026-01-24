@@ -287,6 +287,62 @@
     (js-await (-> (expect save-section)
                   (.toHaveAttribute "data-e2e-scripts-count" (str expected-count))))))
 
+(defn ^:async wait-for-property-value
+  "Wait for a property-row to have a specific value.
+   Uses data-e2e-property attribute to find the row.
+   Example: (wait-for-property-value panel \"name\" \"my_script.cljs\")"
+  [panel property-name expected-value]
+  (let [row (.locator panel (str "[data-e2e-property=\"" property-name "\"] .property-value"))]
+    (js-await (-> (expect row)
+                  (.toContainText expected-value #js {:timeout 500})))))
+
+(defn ^:async wait-for-editing-state
+  "Wait for panel to be in editing or new-script state.
+   Uses data-e2e-editing attribute on save-script-section."
+  [panel editing?]
+  (let [save-section (.locator panel ".save-script-section")]
+    (js-await (-> (expect save-section)
+                  (.toHaveAttribute "data-e2e-editing" (str editing?) #js {:timeout 500})))))
+
+(defn ^:async wait-for-conflict-state
+  "Wait for panel to be in name conflict state or not.
+   Uses data-e2e-conflict attribute on save-script-section."
+  [panel has-conflict?]
+  (let [save-section (.locator panel ".save-script-section")]
+    (js-await (-> (expect save-section)
+                  (.toHaveAttribute "data-e2e-conflict" (str has-conflict?) #js {:timeout 500})))))
+
+(defn ^:async wait-for-banner-type
+  "Wait for a system banner of a specific type to appear.
+   Uses data-e2e-banner-type attribute."
+  [page banner-type]
+  (let [banner (.locator page (str "[data-e2e-banner-type=\"" banner-type "\"]"))]
+    (js-await (-> (expect (.first banner))
+                  (.toBeVisible #js {:timeout 500})))))
+
+(defn ^:async wait-for-scittle-status
+  "Wait for Scittle to reach a specific status.
+   Uses data-e2e-scittle-status attribute on code-input-area."
+  [panel status]
+  (let [code-area (.locator panel ".code-input-area")]
+    (js-await (-> (expect code-area)
+                  (.toHaveAttribute "data-e2e-scittle-status" status #js {:timeout 5000})))))
+
+(defn ^:async wait-for-connection-count
+  "Wait for popup to show specific number of connections.
+   Uses data-e2e-connection-count attribute on repl-connect section."
+  [popup expected-count]
+  (let [section (.locator popup "[data-e2e-section=\"repl-connect\"]")]
+    (js-await (-> (expect section)
+                  (.toHaveAttribute "data-e2e-connection-count" (str expected-count) #js {:timeout 5000})))))
+
+(defn get-script-item
+  "Get a script item locator by name using data-script-name attribute.
+   More reliable than :has-text() which is a substring match.
+   Returns a Playwright Locator."
+  [page script-name]
+  (.locator page (str ".script-item[data-script-name=\"" script-name "\"]")))
+
 ;; =============================================================================
 ;; Test Event Helpers - for true E2E testing via structured logging
 ;; =============================================================================
