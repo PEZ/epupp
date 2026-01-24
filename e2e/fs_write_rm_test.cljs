@@ -20,12 +20,15 @@
         timeout-ms 3000]
     (loop []
       (let [check-result (js-await (eval-in-browser "(pr-str @!rm-setup)"))]
-        (when (or (not (.-success check-result))
-                  (empty? (.-values check-result))
-                  (= (first (.-values check-result)) ":pending"))
-          (when (< (- (.now js/Date) start) timeout-ms)
-            (js-await (sleep 20))
-            (recur))))))
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          true
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for save setup"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !ls-before-rm (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-before-rm scripts))))\n                                                :setup-done"))]
