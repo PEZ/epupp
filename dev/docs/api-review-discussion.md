@@ -16,7 +16,6 @@ These are exposed to userscripts, REPL code, or users. Must be stable.
 | **Script Manifest Format** | `:epupp/script-name`, `:epupp/inject`, `:epupp/run-at` keys | |
 | **URL Matching Syntax** | TamperMonkey-compatible patterns (`*://example.com/*`) | |
 | **Scittle Library Catalog** | `scittle://reagent.js` URLs | |
-| **Settings API** | Auto-connect, FS sync defaults and behavior | |
 | **Extension Permissions** | Manifest permissions (user consent required) | |
 
 ### Subtle External APIs
@@ -56,16 +55,41 @@ These are internal but need version fields for smooth upgrades.
 ### 2. Script Manifest Keys Stability
 
 **Current manifest keys:**
-- `:epupp/script-name`
-- `:epupp/site-match`
-- `:epupp/description`
-- `:epupp/run-at`
-- `:epupp/inject` (or `:epupp/require`?)
+- `:epupp/script-name` - Display name
+- `:epupp/site-match` - URL pattern(s) for auto-injection
+- `:epupp/description` - Human-readable description
+- `:epupp/run-at` - Timing: document-start/end/idle
+- `:epupp/inject` (or `:epupp/require`?) - Library dependencies
 
-**Decision needed:** Commit to these names? Add version field?
-**Recommendation:**
+**Decision: Required vs Optional - Context Matters**
 
-**Discussion:**
+**Epupp Script Recognition:**
+- First form is a map with at least one `:epupp/` namespaced key
+- Minimal valid manifest: `{:epupp/inject []}` or even `{:epupp/script-name "foo.cljs"}`
+
+**REPL Session (`epupp.repl/manifest!`):**
+- Ephemeral, no persistence
+- Any `:epupp/` key(s) valid: `{:epupp/inject ["scittle://reagent.js"]}`
+- No `:epupp/script-name` required
+
+**Storage Gate (`save-script!`):**
+- Persistence requires identity
+- **REQUIRED: `:epupp/script-name`** - cannot save without it
+- Error if missing: "Cannot save script without :epupp/script-name in manifest"
+
+**Optional Keys (all contexts, sensible defaults):**
+- `:epupp/description` → `""` (empty)
+- `:epupp/run-at` → `"document-idle"`
+- `:epupp/inject` → `[]` (no libraries)
+- `:epupp/site-match` → `[]` (no auto-injection, manual only)
+
+**Benefits:**
+- Flexible REPL exploration
+- Strict storage validation
+- Clear error messages
+- Code is portable (name travels with it)
+
+**Discussion:** ✅ Decided - `:epupp/script-name` required at storage gate, optional elsewhere
 
 
 ---
@@ -117,6 +141,32 @@ These are internal but need version fields for smooth upgrades.
 **Impact:** User-facing restriction - this is API
 
 **Discussion:** ✅ Decided - `epupp/` namespace reserved
+
+
+---
+
+### 6. Reserved URI Schemes
+
+**Decision:** Reserve URI schemes for system use
+
+**Current schemes:**
+- `scittle://` - Scittle library loading (in use)
+  - Example: `scittle://reagent.js`, `scittle://re-frame.js`
+- `epupp://` - Epupp-specific resources (reserved, future use)
+
+**Potential `epupp://` uses:**
+- `epupp://api/...` - Internal API endpoints
+- `epupp://docs/...` - Bundled documentation
+- `epupp://examples/...` - Bundled example scripts
+- `epupp://tools/...` - Extension tools/utilities
+
+**Why reserve now:**
+- Can't unreserve later without breaking users
+- Zero cost (just validation)
+- Provides namespace for future features
+- Consistent with `:epupp/` and `epupp/` reservations
+
+**Discussion:** ✅ Decided - `epupp://` scheme reserved
 
 
 ---
@@ -250,6 +300,7 @@ These are internal but need version fields for smooth upgrades.
 | **Clear error semantics** | `{:fs/success false :fs/error "message"}` - check `:fs/success` first |
 | **Idempotent operations** | `save!` with `:fs/force? true` - same input, same outcome |
 | **Documented contracts** | TamperMonkey-compatible URL matching - users know the syntax |
+| **Start conservative** | Permissive → restrictive breaks users. Restrictive → permissive is safe. When uncertain, restrict first, relax later. |
 
 ---
 
