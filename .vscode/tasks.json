@@ -88,7 +88,7 @@
     {
       "label": "Babashka REPL",
       "type": "shell",
-      "command": "bb nrepl-server",
+      "command": "bb nrepl-server :0",
       "group": "build",
       "isBackground": true,
       "problemMatcher": [],
@@ -104,9 +104,6 @@
         "Unit Test Watch",
         "Squint REPL",
         "Scittle Dev REPL",
-        "Epupp Gitlab REPL",
-        "Epupp YouTube REPL",
-        "Epupp GitHub REPL",
         "Babashka REPL"
       ],
       "group": {

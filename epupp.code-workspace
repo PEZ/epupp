@@ -1,0 +1,75 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../vscode-my-epupp-hq"
+		}
+	],
+	"settings": {
+		"calva.replConnectSequences": [
+			{
+				"name": "squint",
+				"projectType": "generic",
+				"fallbackPort": 1337,
+				"replSessionNames": {
+					"primary": "squint"
+				}
+			},
+			{
+				"name": "Scittle Dev REPL",
+				"projectType": "scittle",
+				"fallbackPort": 31337,
+				"replSessionNames": {
+					"primary": "scittle-dev-repl"
+				}
+			},
+			{
+				"name": "Epupp GitLab REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11333,
+				"replSessionNames": {
+					"primary": "epupp-gitlab"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn"
+					]
+				}
+			},
+			{
+				"name": "Epupp YouTube REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11335,
+				"replSessionNames": {
+					"primary": "epupp-youtube"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn"
+					]
+				}
+			},
+			{
+				"name": "Epupp X REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11339,
+				"replSessionNames": {
+					"primary": "epupp-twitter"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"epupp/*.clj*",
+						"epupp/*.edn"
+					]
+				}
+			}
+		],
+		"chat.tools.terminal.autoApprove": {
+			"bb": true
+		}
+	}
+}
