@@ -89,7 +89,7 @@
 
 (defn- ^:async test_rm_rejects_deleting_builtin_scripts []
   (let [setup-result (js-await (eval-in-browser
-                                "(def !rm-builtin-result (atom :pending))\n                                (-> (epupp.fs/rm! \"GitHub Gist Installer (Built-in)\")\n                                  (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !rm-builtin-result (atom :pending))\n                                (-> (epupp.fs/rm! \"epupp/built-in/gist_installer.cljs\")\n                                  (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)

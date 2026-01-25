@@ -59,8 +59,8 @@
         (js-await (clear-storage popup))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
-        ;; Built-in Gist Installer script is auto-created, so we have 1 script
-        (js-await (-> (expect (.locator popup ".script-item:has-text(\"Gist Installer\")"))
+        ;; Built-in gist installer script is auto-created, so we have 1 script
+        (js-await (-> (expect (.locator popup ".script-item:has-text(\"gist_installer.cljs\")"))
                       (.toBeVisible)))
         (js-await (.close popup)))
 

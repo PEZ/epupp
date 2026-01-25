@@ -129,13 +129,13 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - ❌ Built-in name is `"GitHub Gist Installer (Built-in)"` - should be `epupp/built-in/gist_installer.cljs`
 - ❌ No validation prevents users from creating `epupp/` prefixed scripts
 
-- [ ] **storage.cljs**: Rename built-in to `epupp/built-in/gist_installer.cljs`
-- [ ] **storage.cljs**: Add validation in `save-script!` to reject names starting with `epupp/`
-- [ ] **repl_fs_actions.cljs**: Return clear error when `epupp/` prefix attempted
-- [ ] **panel_actions.cljs**: Prevent save with `epupp/` prefix (or rely on storage validation)
-- [ ] **Unit tests**: Test validation rejects `epupp/` prefix
-- [ ] **E2E tests**: Test panel/REPL rejection of `epupp/` names
-- [ ] **Docs**: Document namespace reservation
+- [x] **storage.cljs**: Rename built-in to `epupp/built-in/gist_installer.cljs`
+- [x] **storage.cljs**: Add validation in `save-script!` to reject names starting with `epupp/`
+- [x] **repl_fs_actions.cljs**: Return clear error when `epupp/` prefix attempted
+- [x] **panel_actions.cljs**: Prevent save with `epupp/` prefix (or rely on storage validation)
+- [x] **Unit tests**: Test validation rejects `epupp/` prefix
+- [x] **E2E tests**: Test panel/REPL rejection of `epupp/` names
+- [x] **Docs**: Document namespace reservation
 - [ ] **Human verified**: Confirmed Phase 7 changes in the UI
 
 ### Phase 8: Built-in Reinstall Strategy

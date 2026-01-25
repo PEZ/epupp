@@ -129,7 +129,7 @@
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !show-result (atom nil))
-                                 (-> (epupp.fs/show \"GitHub Gist Installer (Built-in)\")
+                                 (-> (epupp.fs/show \"epupp/built-in/gist_installer.cljs\")
                                      (.then (fn [code] (reset! !show-result code))))
                                  :pending"))]
     (js/console.log "=== setup result ===" (js/JSON.stringify setup-result))
@@ -177,7 +177,7 @@
 (defn- ^:async test_show_with_vector_returns_map []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !bulk-show-result (atom :pending))
-                                 (-> (epupp.fs/show [\"GitHub Gist Installer (Built-in)\" \"does-not-exist.cljs\"])
+                                 (-> (epupp.fs/show [\"epupp/built-in/gist_installer.cljs\" \"does-not-exist.cljs\"])
                                      (.then (fn [result] (reset! !bulk-show-result result))))
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -190,7 +190,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "GitHub Gist Installer (Built-in)"))
+            (-> (expect (.includes result-str "epupp/built-in/gist_installer.cljs"))
                 (.toBe true))
             (-> (expect (.includes result-str "epupp/script-name"))
                 (.toBe true))
@@ -224,7 +224,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe false))
+            (-> (expect (.includes result-str "epupp/built-in/gist_installer.cljs")) (.toBe false))
             )
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls result"))
@@ -248,7 +248,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "GitHub Gist Installer")) (.toBe true)))
+            (-> (expect (.includes result-str "epupp/built-in/gist_installer.cljs")) (.toBe true)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls hidden result"))
             (do

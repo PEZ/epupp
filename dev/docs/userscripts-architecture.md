@@ -94,6 +94,8 @@ Note: `granted-origins` storage key exists for potential future use but is curre
 **Script IDs are immutable.** Renaming a script updates `:script/name` but
 preserves `:script/id` for stable identity.
 
+**Namespace Reservation:** The `epupp/` prefix is reserved for system scripts. User scripts cannot begin with `epupp/` to prevent conflicts with built-in functionality. This validation occurs at save time in the panel and via the FS API.
+
 ### Storage Access Pattern
 
 `chrome.storage.local` is key-value blob storage - no queries, read-modify-write only. Our pattern:

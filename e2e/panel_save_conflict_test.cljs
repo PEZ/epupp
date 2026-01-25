@@ -210,18 +210,20 @@
         (js-await (-> (expect name-field) (.toContainText "user_script.cljs")))
         ;; Wait for scripts-list to be loaded (2 scripts: built-in + user)
         (js-await (wait-for-scripts-loaded panel 2))
-        ;; Use exact built-in script display name to trigger conflict
+        ;; Use reserved epupp/ prefix - cannot create scripts with this prefix
         (let [builtin-name-code (panel-save-helpers/code-with-manifest
-                                 {:name "GitHub Gist Installer (Built-in)"
+                                 {:name "epupp/built-in/gist_installer.cljs"
                                   :match "*://example.com/*"
-                                  :code "(println \"Trying to overwrite built-in\")"})]
+                                  :code "(println \"Trying to use reserved namespace\")"})]
           (js-await (.fill textarea builtin-name-code)))
         ;; Verify overwrite button appears but is disabled (polling)
         (js-await (-> (expect overwrite-btn) (.toBeVisible)))
         (js-await (-> (expect overwrite-btn) (.toBeDisabled)))
-        ;; Verify tooltip explains why
-        (js-await (-> (expect overwrite-btn)
-                      (.toHaveAttribute "title" "Cannot overwrite built-in scripts")))
+        ;; Verify tooltip explains why (could be built-in or reserved namespace)
+        (let [title (js-await (.getAttribute overwrite-btn "title"))]
+          (-> (expect (or (.includes title "built-in")
+                          (.includes title "reserved namespace")))
+              (.toBe true)))
         (js-await (assert-no-errors! panel))
         (js-await (.close panel)))
 

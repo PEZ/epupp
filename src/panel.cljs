@@ -533,10 +533,12 @@
         ;; - Editing built-in with unchanged name (can't overwrite built-in)
         ;; - No manifest present (can't save without manifest)
         ;; - Name conflict (need to use overwrite button instead)
+        reserved-namespace? (and normalized-name (.startsWith normalized-name "epupp/"))
         save-disabled? (or (empty? code)
                            (empty? script-name)
                            (not has-manifest?)
                            has-name-conflict?
+                           reserved-namespace?
                            (and editing-builtin? (not name-changed?)))
         ;; Button text: "Create Script" when name changed (no conflict), otherwise "Save Script"
         save-button-text (cond
@@ -617,6 +619,8 @@
            :button/title (cond
                            has-name-conflict?
                            (str "Script \"" normalized-name "\" already exists - use Overwrite to replace it")
+                           reserved-namespace?
+                           "Cannot create scripts in reserved namespace: epupp/"
                            (and editing-builtin? (not name-changed?))
                            "Cannot overwrite built-in script - change the name to create a copy"
                            (empty? script-name)
@@ -628,11 +632,14 @@
            [view-elements/action-button
             {:button/variant :warning
              :button/class "btn-overwrite"
-             :button/disabled? (script-utils/builtin-script? existing-script)
+             :button/disabled? (or reserved-namespace? (script-utils/builtin-script? existing-script))
              :button/on-click #(dispatch! [[:editor/ax.save-script-overwrite]])
-             :button/title (if (script-utils/builtin-script? existing-script)
+             :button/title (cond
+                             reserved-namespace?
+                             "Cannot create scripts in reserved namespace: epupp/"
+                             (script-utils/builtin-script? existing-script)
                              "Cannot overwrite built-in scripts"
-                             (str "Replace existing \"" normalized-name "\" with this code"))}
+                             :else (str "Replace existing \"" normalized-name "\" with this code"))}
             "Overwrite"])
          ;; Rename button - appears when editing and name differs (no conflict)
          (when show-rename?

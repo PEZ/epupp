@@ -234,6 +234,11 @@
                            (when (and force? existing-by-name) existing-by-name)
                            (when (and (nil? incoming-id) existing-by-name) existing-by-name))]
     (cond
+      ;; Reject reserved namespace prefix (must be first check)
+      (and script-name (.startsWith script-name "epupp/"))
+      (make-error-response "Cannot create scripts in reserved namespace: epupp/"
+                           {:operation "save" :script-name script-name})
+
       ;; Trying to update a builtin script
       (and is-update? existing-by-id (script-utils/builtin-script? existing-by-id))
       (make-error-response "Cannot modify built-in scripts" {:operation "save" :script-name script-name})

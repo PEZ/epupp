@@ -288,12 +288,13 @@
 
 (defn- ^:async test_save_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
-  (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
+  (js-await (wait-for-builtin-script! "epupp/built-in/gist_installer.cljs" 5000))
   ;; Small delay to let any pending storage operations settle
   (js-await (sleep 50))
 
   ;; Try to save a script with a built-in name - should reject
-  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
+  ;; Note: epupp/ prefix is rejected by reserved namespace check (correct behavior)
+  (let [test-code "{:epupp/script-name \"epupp/built-in/gist_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) ")\n                                       (.then (fn [r] (reset! !save-builtin-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -306,10 +307,11 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            ;; Should be rejected because it's a built-in name
+            ;; Should be rejected - either by reserved namespace or built-in check
             (-> (expect (.includes result-str "rejected"))
                 (.toBe true))
             (-> (expect (or (.includes result-str "built-in")
+                            (.includes result-str "reserved namespace")
                             (.includes result-str "Cannot save built-in scripts")
                             (.includes result-str "Cannot overwrite built-in scripts")))
                 (.toBe true)))
@@ -321,12 +323,12 @@
 
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
-  (js-await (wait-for-builtin-script! "GitHub Gist Installer (Built-in)" 5000))
+  (js-await (wait-for-builtin-script! "epupp/built-in/gist_installer.cljs" 5000))
   ;; Small delay to let any pending storage operations settle
   (js-await (sleep 50))
 
-  ;; Try to save with force - still should reject for built-in
-  (let [test-code "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
+  ;; Try to save with force - still should reject (reserved namespace)
+  (let [test-code "{:epupp/script-name \"epupp/built-in/gist_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-force-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-builtin-force-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-force-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -343,6 +345,7 @@
             (-> (expect (.includes result-str "rejected"))
                 (.toBe true))
             (-> (expect (or (.includes result-str "built-in")
+                            (.includes result-str "reserved namespace")
                             (.includes result-str "Cannot save built-in scripts")
                             (.includes result-str "Cannot overwrite built-in scripts")))
                 (.toBe true)))

@@ -242,6 +242,15 @@ Script names are normalized to filename format:
 - Uppercase becomes lowercase
 - `.cljs` extension added if missing
 
+### Reserved Namespace
+
+The `epupp/` prefix is reserved for system scripts. You cannot create scripts with names starting with `epupp/`:
+- `epupp/my-script.cljs` - rejected
+- `epupp/built-in/fake.cljs` - rejected
+- `my-epupp-helper.cljs` - allowed
+
+This ensures user scripts never conflict with built-in system functionality.
+
 ### Editing and Renaming
 
 To edit: Click the eye icon in the popup to load a script into the panel.

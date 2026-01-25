@@ -352,17 +352,84 @@
 ;; Icon State Tests
 ;; ============================================================
 
+(describe ":fs/ax.save-script - epupp/ namespace reservation"
+          (fn []
+            (test "rejects when creating script with epupp/ prefix"
+                  (fn []
+                    (let [state {:storage/scripts []}
+                          new-script {:script/id "script-attacker"
+                                      :script/name "epupp/my-script.cljs"
+                                      :script/code "(println \"test\")"}
+                          result (bg-actions/handle-action state uf-data
+                                                           [:fs/ax.save-script new-script])
+                          error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+                      (-> (expect error-response)
+                          (.toBeTruthy))
+                      (-> (expect (:success error-response))
+                          (.toBe false))
+                      (-> (expect (:error error-response))
+                          (.toContain "reserved namespace")))))
+
+            (test "rejects epupp/ prefix even with force flag"
+                  (fn []
+                    (let [state {:storage/scripts []}
+                          new-script {:script/id "script-attacker"
+                                      :script/name "epupp/test.cljs"
+                                      :script/code "(println \"test\")"
+                                      :script/force? true}
+                          result (bg-actions/handle-action state uf-data
+                                                           [:fs/ax.save-script new-script])
+                          error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+                      (-> (expect error-response)
+                          (.toBeTruthy))
+                      (-> (expect (:success error-response))
+                          (.toBe false))
+                      (-> (expect (:error error-response))
+                          (.toContain "reserved namespace")))))
+
+            (test "rejects epupp/built-in/ prefix (deep nesting)"
+                  (fn []
+                    (let [state {:storage/scripts []}
+                          new-script {:script/id "script-attacker"
+                                      :script/name "epupp/built-in/fake.cljs"
+                                      :script/code "(println \"test\")"}
+                          result (bg-actions/handle-action state uf-data
+                                                           [:fs/ax.save-script new-script])
+                          error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+                      (-> (expect error-response)
+                          (.toBeTruthy))
+                      (-> (expect (:success error-response))
+                          (.toBe false))
+                      (-> (expect (:error error-response))
+                          (.toContain "reserved namespace")))))
+
+            (test "allows scripts with epupp elsewhere in name"
+                  (fn []
+                    (let [state {:storage/scripts []}
+                          new-script {:script/id "script-ok"
+                                      :script/name "my-epupp-helper.cljs"
+                                      :script/code "(println \"test\")"}
+                          result (bg-actions/handle-action state uf-data
+                                                           [:fs/ax.save-script new-script])]
+                      ;; Should succeed
+                      (-> (expect (:uf/db result))
+                          (.toBeTruthy))
+                      ;; Should have success response
+                      (-> (expect (some #(and (= :bg/fx.send-response (first %))
+                                              (-> % second :success)) (:uf/fxs result)))
+                          (.toBeTruthy)))))))
+
 (describe ":icon/ax.set-state"
-  (fn []
-    (test "sets icon state and triggers toolbar update"
-      (fn []
-        (let [state {:icon/states {1 :disconnected}}
-              result (bg-actions/handle-action state uf-data
-                       [:icon/ax.set-state 1 :connected])]
-            (-> (expect (get-in result [:uf/db :icon/states 1]))
-              (.toBe :connected))
-          (-> (expect (some #(= [:icon/fx.update-toolbar! 1] %) (:uf/fxs result)))
-              (.toBeTruthy)))))))
+          (fn []
+            (test "sets icon state and triggers toolbar update"
+                  (fn []
+                    (let [state {:icon/states {1 :disconnected}}
+                          result (bg-actions/handle-action state uf-data
+                                                           [:icon/ax.set-state 1 :connected])]
+                      (-> (expect (get-in result [:uf/db :icon/states 1]))
+                          (.toBe :connected))
+                      (-> (expect (some #(= [:icon/fx.update-toolbar! 1] %) (:uf/fxs result)))
+                          (.toBeTruthy)))))))
 
 (describe ":icon/ax.clear"
   (fn []

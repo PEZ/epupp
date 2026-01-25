@@ -323,7 +323,7 @@
         (when (or (not existing)
                   (not= (:script/code existing) code))
           (save-script! {:script/id installer-id
-                         :script/name "GitHub Gist Installer (Built-in)"
+                         :script/name "epupp/built-in/gist_installer.cljs"
                          :script/match ["https://gist.github.com/*"
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code
