@@ -45,6 +45,13 @@
         (def save-force-result save-force-result))
       (p/catch (fn [e] (def save-force-error (.-message e)))))
 
+  ;; Save does not allow names starting with epupp/
+  (-> (p/let [epupp-prefix-save-result (epupp.fs/save!
+                           "{:epupp/script-name \"epupp/test-save-1\""
+                           #_{:fs/force? true})]
+        (def epupp-prefix-save-result epupp-prefix-save-result))
+      (p/catch (fn [e] (def epupp-prefix-save-error (.-message e)))))
+
   ;; Save does not overwrite built-in
   (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)")]
         (def save-built-in-result save-built-in-result))
@@ -68,6 +75,12 @@
   (-> (p/let [mv-result (epupp.fs/mv! "test_save_1.cljs" "test_renamed.cljs")]
         (def mv-result mv-result))
       (p/catch (fn [e] (def mv-error (.-message e)))))
+  ;; PEZ: Checks out! Also: doing ut twice gave the expected reject
+
+  ;; Rename script to start with `epupp/` rejects
+  (-> (p/let [epupp-prefix-mv-result (epupp.fs/mv! "test_save_1.cljs" "epupp/test_renamed.cljs")]
+        (def epupp-prefix-mv-result epupp-prefix-mv-result))
+      (p/catch (fn [e] (def epupp-prefix-mv-error (.-message e)))))
   ;; PEZ: Checks out! Also: doing ut twice gave the expected reject
 
   ;; Rename non-existent rejects
