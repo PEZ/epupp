@@ -288,3 +288,36 @@
                                   :is-new? false
                                   :is-builtin? true}))
                         (.toBe true))))))
+
+(describe "storage schema migration"
+  (fn []
+    (test "migrates unversioned storage and renames granted-origins"
+      (fn []
+        (let [result #js {:scripts #js []
+                          :granted-origins #js ["https://example.com/*"]
+                          :userAllowedOrigins #js ["https://allowed.example/*"]}
+              normalized (storage/normalize-storage-result result)]
+          (-> (expect (:storage/schema-version normalized))
+              (.toBe 1))
+          (-> (expect (:storage/granted-origins normalized))
+              (.toEqual ["https://example.com/*"]))
+          (-> (expect (:storage/remove-keys normalized))
+              (.toEqual ["granted-origins"]))
+          (-> (expect (:storage/migrated? normalized))
+              (.toBe true)))))
+
+    (test "keeps versioned storage unchanged when already v1"
+      (fn []
+        (let [result #js {:schemaVersion 1
+                          :scripts #js []
+                          :grantedOrigins #js ["https://example.com/*"]
+                          :userAllowedOrigins #js []}
+              normalized (storage/normalize-storage-result result)]
+          (-> (expect (:storage/schema-version normalized))
+              (.toBe 1))
+          (-> (expect (:storage/granted-origins normalized))
+              (.toEqual ["https://example.com/*"]))
+          (-> (expect (:storage/remove-keys normalized))
+              (.toEqual []))
+          (-> (expect (:storage/migrated? normalized))
+              (.toBe false)))))))

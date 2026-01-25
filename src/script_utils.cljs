@@ -30,40 +30,88 @@
   [arr]
   (if arr (vec arr) []))
 
+(defn normalize-match-patterns
+  "Normalize match patterns to a vector.
+   Accepts a string (single pattern) or vector of patterns.
+   Empty string or nil means no patterns (manual-only script).
+   Returns a vector of pattern strings."
+  [match]
+  (cond
+    (nil? match) []
+    (and (string? match) (empty? match)) []
+    (string? match) [match]
+    (vector? match) match
+    :else (vec match)))
+
+(defn derive-script-fields
+  "Derive script fields from manifest data.
+   When manifest is present, it becomes the source of truth for derived fields."
+  [script manifest]
+  (let [has-manifest? (some? manifest)
+        manifest-name (or (get manifest "script-name")
+                          (get manifest "raw-script-name"))
+        manifest-description (get manifest "description")
+        manifest-run-at (get manifest "run-at")
+        manifest-inject (get manifest "inject")
+        manifest-match (get manifest "auto-run-match")
+        manifest-has-auto-run-key? (when has-manifest?
+                                     (some #(= % "epupp/auto-run-match")
+                                           (get manifest "found-keys")))
+        match (cond
+                manifest-has-auto-run-key?
+                (normalize-match-patterns manifest-match)
+                has-manifest?
+                []
+                :else
+                (:script/match script))
+        inject (cond
+                 (not has-manifest?) (:script/inject script)
+                 (nil? manifest-inject) []
+                 (vector? manifest-inject) (vec manifest-inject)
+                 (js/Array.isArray manifest-inject) (vec manifest-inject)
+                 (string? manifest-inject) [manifest-inject]
+                 :else [])]
+    (cond-> script
+      has-manifest? (assoc :script/match match
+                           :script/run-at (normalize-run-at manifest-run-at)
+                           :script/inject inject)
+      (some? manifest-name) (assoc :script/name manifest-name)
+      (and has-manifest? (some? manifest-description)) (assoc :script/description manifest-description)
+      (and has-manifest? (nil? manifest-description)) (dissoc :script/description))))
+
 (defn parse-scripts
   "Convert JS scripts array to Clojure with namespaced keys"
-  [js-scripts]
-  (->> (js-arr->vec js-scripts)
-       (mapv (fn [s]
-               {:script/id (.-id s)
-                :script/name (.-name s)
-                :script/description (.-description s)
-                :script/match (js-arr->vec (.-match s))
-                :script/code (.-code s)
-                :script/enabled (.-enabled s)
-                :script/created (.-created s)
-                :script/modified (.-modified s)
-                :script/approved-patterns (js-arr->vec (.-approvedPatterns s))
-                :script/run-at (normalize-run-at (.-runAt s))
-                :script/inject (js-arr->vec (.-inject s))
-                :script/builtin? (boolean (.-builtin s))}))))
+  ([js-scripts] (parse-scripts js-scripts {}))
+  ([js-scripts {:keys [extract-manifest]}]
+   (->> (js-arr->vec js-scripts)
+        (mapv (fn [s]
+                (let [script {:script/id (.-id s)
+                              :script/name (.-name s)
+                              :script/description (.-description s)
+                              :script/match (js-arr->vec (.-match s))
+                              :script/code (.-code s)
+                              :script/enabled (.-enabled s)
+                              :script/created (.-created s)
+                              :script/modified (.-modified s)
+                              :script/run-at (normalize-run-at (.-runAt s))
+                              :script/inject (js-arr->vec (.-inject s))
+                              :script/builtin? (boolean (.-builtin s))}
+                      manifest (when (and extract-manifest (:script/code script))
+                                 (try (extract-manifest (:script/code script))
+                                      (catch :default _ nil)))]
+                  (if extract-manifest
+                    (derive-script-fields script manifest)
+                    script)))))))
 
 (defn script->js
   "Convert script map to JS object with simple keys for storage"
   [script]
   #js {:id (:script/id script)
-       :name (:script/name script)
-       :description (:script/description script)
-       :match (clj->js (:script/match script))
        :code (:script/code script)
        :enabled (:script/enabled script)
        :created (:script/created script)
        :modified (:script/modified script)
-       :approvedPatterns (clj->js (:script/approved-patterns script))
-       :runAt (:script/run-at script)
-       :inject (clj->js (:script/inject script))
-       :builtin (:script/builtin? script)
-       :force (:script/force? script)})
+       :builtin (:script/builtin? script)})
 
 ;; ============================================================
 ;; URL pattern matching
@@ -200,23 +248,6 @@
    The ID is immutable once created - it does not change when the script is renamed."
   []
   (str "script-" (.now js/Date)))
-
-;; ============================================================
-;; Match pattern normalization
-;; ============================================================
-
-(defn normalize-match-patterns
-  "Normalize match patterns to a vector.
-   Accepts a string (single pattern) or vector of patterns.
-   Empty string or nil means no patterns (manual-only script).
-   Returns a vector of pattern strings."
-  [match]
-  (cond
-    (nil? match) []
-    (and (string? match) (empty? match)) []
-    (string? match) [match]
-    (vector? match) match
-    :else (vec match)))
 
 ;; ============================================================
 ;; URL to match pattern conversion

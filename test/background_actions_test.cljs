@@ -16,7 +16,6 @@
    :script/enabled true
    :script/created "2026-01-01T00:00:00.000Z"
    :script/modified "2026-01-01T00:00:00.000Z"
-   :script/approved-patterns []
    :script/run-at "document-idle"
    :script/inject []})
 

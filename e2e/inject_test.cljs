@@ -2,9 +2,8 @@
   "E2E tests for the :epupp/inject feature (Scittle library injection).
 
    These tests verify that:
-   1. Scripts with `:epupp/inject` are saved correctly to storage
-   2. The background worker reads the inject field from storage
-   3. Libraries are injected before userscript execution"
+   1. Storage uses a minimal schema (manifest fields derived from code)
+   2. Libraries are injected before userscript execution"
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
@@ -30,26 +29,28 @@
     (str meta-block code)))
 
 ;; =============================================================================
-;; Test: Inject field persisted to storage
+;; Test: Minimal storage - manifest fields derived from code, not stored
 ;; =============================================================================
 
-(defn- ^:async test_inject_field_persisted_to_storage []
+(defn- ^:async test_minimal_storage_schema []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
       ;; Create a script with inject in manifest
       (let [panel (js-await (create-panel-page context ext-id))
+            test-code "(js/console.log \"Has reagent!\")"
             code (code-with-manifest {:name "Inject Test"
                                       :match "http://localhost:18080/*"
+                                      :description "Test description"
                                       :inject ["scittle://reagent.js"]
-                                      :code "(js/console.log \"Has reagent!\")"})]
+                                      :code test-code})]
         (js/console.log "Test code:" code)
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
         (js-await (wait-for-save-status panel "Created"))
         (js-await (.close panel)))
 
-      ;; Read storage to verify inject was saved
+      ;; Read storage to verify minimal storage schema
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (wait-for-popup-ready popup))
 
@@ -62,15 +63,31 @@
                                                                          (resolve result))))))))
               scripts (.-scripts storage-data)
               _ (js/console.log "Storage scripts:" (js/JSON.stringify scripts nil 2))
-              our-script (.find scripts (fn [s] (= (.-name s) "inject_test.cljs")))]
+              ;; Find script by matching code content (name no longer stored)
+              our-script (.find scripts (fn [s]
+                                          (and (.-code s)
+                                               (.includes (.-code s) "Has reagent!"))))
+              has-enabled (.call (.-hasOwnProperty js/Object.prototype) our-script "enabled")
+              has-builtin (.call (.-hasOwnProperty js/Object.prototype) our-script "builtin")]
 
           ;; Verify the script exists
           (js-await (-> (expect our-script) (.toBeTruthy)))
           (js/console.log "Our script:" (js/JSON.stringify our-script nil 2))
 
-          ;; CRITICAL: Verify inject field was saved
-          (js-await (-> (expect (.-inject our-script)) (.toBeTruthy)))
-          (js-await (-> (expect (aget (.-inject our-script) 0)) (.toBe "scittle://reagent.js"))))
+          ;; CRITICAL: Verify manifest fields are NOT stored (derived from code)
+          (js-await (-> (expect (.-inject our-script)) (.toBeFalsy)))
+          (js-await (-> (expect (.-name our-script)) (.toBeFalsy)))
+          (js-await (-> (expect (.-match our-script)) (.toBeFalsy)))
+          (js-await (-> (expect (.-description our-script)) (.toBeFalsy)))
+          (js-await (-> (expect (.-runAt our-script)) (.toBeFalsy)))
+
+          ;; Verify required storage fields ARE present
+          (js-await (-> (expect (.-id our-script)) (.toBeTruthy)))
+          (js-await (-> (expect (.-code our-script)) (.toBeTruthy)))
+          (js-await (-> (expect has-enabled) (.toBe true)))
+          (js-await (-> (expect (.-created our-script)) (.toBeTruthy)))
+          (js-await (-> (expect (.-modified our-script)) (.toBeTruthy)))
+          (js-await (-> (expect has-builtin) (.toBe true))))
 
         (js-await (assert-no-errors! popup))
         (js-await (.close popup)))
@@ -361,7 +378,7 @@
 ;; - Popup Run button (uses mock tab ID in tests, requires different test approach)
 ;;
 ;; The current tests cover:
-;; 1. Storage persistence of :script/inject field
+;; 1. Minimal storage schema (manifest fields derived from code)
 ;; 2. INJECTING_LIBS event emission via auto-injection
 ;; 3. Reagent (with React deps) script tags in DOM
 ;; 4. Negative case: no INJECTING_LIBS for scripts without inject
@@ -370,8 +387,8 @@
 
 (.describe test "Inject"
            (fn []
-             (test "Inject: script with :epupp/inject is saved with inject field"
-                   test_inject_field_persisted_to_storage)
+             (test "Inject: minimal storage schema - manifest fields derived from code"
+                   test_minimal_storage_schema)
 
              (test "Inject: INJECTING_LIBS event emitted when script has inject"
                    test_injecting_libs_event_emitted)

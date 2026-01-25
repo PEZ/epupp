@@ -1,6 +1,7 @@
 (ns script-utils-test
   "Unit and property-style tests for script name validation."
   (:require ["vitest" :refer [describe test expect]]
+            [manifest-parser :as mp]
             [script-utils :as script-utils]))
 
 ;; ============================================================
@@ -108,3 +109,116 @@
                   err (script-utils/validate-script-name bad-name)]
               (-> (expect err) (.toContain "./' or '../'"))
               (recur seed (inc idx)))))))))
+
+(describe "derive-script-fields"
+  (fn []
+    (test "derives fields from manifest"
+      (fn []
+        (let [code "^{:epupp/script-name \"derived.cljs\"\n  :epupp/auto-run-match \"https://example.com/*\"\n  :epupp/description \"Example\"\n  :epupp/run-at \"document-end\"\n  :epupp/inject \"scittle://reagent.js\"}\n(ns derived)"
+              script {:script/id "script-1" :script/code code}
+              manifest (mp/extract-manifest code)
+              derived (script-utils/derive-script-fields script manifest)]
+          (-> (expect (:script/name derived))
+              (.toBe "derived.cljs"))
+          (-> (expect (:script/match derived))
+              (.toEqual ["https://example.com/*"]))
+          (-> (expect (:script/description derived))
+              (.toBe "Example"))
+          (-> (expect (:script/run-at derived))
+              (.toBe "document-end"))
+          (-> (expect (:script/inject derived))
+              (.toEqual ["scittle://reagent.js"])))))
+
+    (test "manifest without auto-run-match clears match"
+      (fn []
+        (let [code "^{:epupp/script-name \"manual.cljs\"}\n(ns manual)"
+              script {:script/id "script-2"
+                      :script/code code
+                      :script/match ["https://old.example/*"]}
+              manifest (mp/extract-manifest code)
+              derived (script-utils/derive-script-fields script manifest)]
+          (-> (expect (:script/match derived))
+              (.toEqual [])))))
+
+    (test "nil manifest preserves existing fields"
+      (fn []
+        (let [script {:script/id "script-3"
+                      :script/code "(ns no-manifest)"
+                      :script/name "old.cljs"
+                      :script/description "Old"
+                      :script/match ["https://old.example/*"]
+                      :script/run-at "document-start"
+                      :script/inject ["scittle://reagent.js"]}
+              derived (script-utils/derive-script-fields script nil)]
+          (-> (expect (:script/name derived))
+              (.toBe "old.cljs"))
+          (-> (expect (:script/match derived))
+              (.toEqual ["https://old.example/*"]))
+          (-> (expect (:script/run-at derived))
+              (.toBe "document-start"))
+          (-> (expect (:script/inject derived))
+              (.toEqual ["scittle://reagent.js"])))))))
+
+(describe "parse-scripts"
+  (fn []
+    (test "derives fields when extractor is provided"
+      (fn []
+        (let [code "^{:epupp/script-name \"derived.cljs\"\n  :epupp/auto-run-match \"https://example.com/*\"}\n(ns derived)"
+              js-scripts #js [#js {:id "script-1"
+                                   :code code
+                                   :enabled false
+                                   :created "2026-01-01T00:00:00.000Z"
+                                   :modified "2026-01-02T00:00:00.000Z"
+                                   :builtin false}]
+              scripts (script-utils/parse-scripts js-scripts {:extract-manifest mp/extract-manifest})
+              script (first scripts)]
+          (-> (expect (:script/name script))
+              (.toBe "derived.cljs"))
+          (-> (expect (:script/match script))
+              (.toEqual ["https://example.com/*"]))
+          (-> (expect (:script/enabled script))
+              (.toBe false)))))))
+
+(describe "script->js"
+  (fn []
+    (test "emits only non-derivable fields"
+      (fn []
+        (let [script {:script/id "script-1"
+                      :script/name "derived.cljs"
+                      :script/description "Example"
+                      :script/match ["https://example.com/*"]
+                      :script/code "(ns derived)"
+                      :script/enabled true
+                      :script/created "2026-01-01T00:00:00.000Z"
+                      :script/modified "2026-01-02T00:00:00.000Z"
+                      :script/run-at "document-end"
+                      :script/inject ["scittle://reagent.js"]
+                      :script/builtin? true}
+              js-script (script-utils/script->js script)
+              keys (js/Object.keys js-script)]
+          (-> (expect (.-length keys))
+              (.toBe 6))
+          (-> (expect (.includes keys "id"))
+              (.toBe true))
+          (-> (expect (.includes keys "code"))
+              (.toBe true))
+          (-> (expect (.includes keys "enabled"))
+              (.toBe true))
+          (-> (expect (.includes keys "created"))
+              (.toBe true))
+          (-> (expect (.includes keys "modified"))
+              (.toBe true))
+          (-> (expect (.includes keys "builtin"))
+              (.toBe true))
+          (-> (expect (aget js-script "name"))
+              (.toBeUndefined))
+          (-> (expect (aget js-script "match"))
+              (.toBeUndefined))
+          (-> (expect (aget js-script "description"))
+              (.toBeUndefined))
+          (-> (expect (aget js-script "runAt"))
+              (.toBeUndefined))
+          (-> (expect (aget js-script "inject"))
+              (.toBeUndefined))
+          (-> (expect (.-builtin js-script))
+              (.toBe true)))))))

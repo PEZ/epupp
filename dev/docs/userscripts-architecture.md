@@ -49,18 +49,20 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 
 ```clojure
 ;; Stored in chrome.storage.local under key "scripts"
-{:script/id "script-1700000000000"        ; immutable identifier
- :script/name "github_tweaks.cljs"        ; display name (normalized)
- :script/description "Enhance GitHub UX"  ; optional description
- :script/match ["https://github.com/*"    ; URL patterns (glob)
-                "https://gist.github.com/*"]
- :script/code "(println \"Hello GitHub!\")" ; ClojureScript source
- :script/enabled true                     ; auto-run enabled flag
- :script/created "2026-01-02T..."         ; ISO timestamp
- :script/modified "2026-01-02T..."        ; ISO timestamp
- :script/run-at "document-idle"           ; injection timing (see below)
- :script/inject ["scittle://reagent.js"]}  ; Scittle libraries to load
+{:script/id "script-1700000000000"         ; immutable identifier
+ :script/code "(println \"Hello GitHub!\")"  ; ClojureScript source
+ :script/enabled true                      ; auto-run enabled flag
+ :script/created "2026-01-02T..."          ; ISO timestamp
+ :script/modified "2026-01-02T..."         ; ISO timestamp
+ :script/builtin? false}                   ; built-in flag
 ```
+
+**Derived on load (from manifest in `:script/code`):**
+- `:script/name` - `:epupp/script-name`
+- `:script/match` - `:epupp/auto-run-match`
+- `:script/description` - `:epupp/description`
+- `:script/run-at` - `:epupp/run-at`
+- `:script/inject` - `:epupp/inject`
 
 **`:script/run-at` values:**
 - `"document-start"` - Runs before page scripts (via `registerContentScripts` + loader)
@@ -87,7 +89,7 @@ Scripts specify timing via a manifest map at the top of the file:
 (js/console.log "Intercepting page initialization!")
 ```
 
-The manifest is parsed by `manifest_parser.cljs` at save time and stored in `:script/run-at` and `:script/inject`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
+The manifest is parsed on load to derive runtime fields like `:script/run-at` and `:script/inject`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
 Note: `granted-origins` storage key exists for potential future use but is currently unused.
 

@@ -265,12 +265,12 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 
 **Performance**: Parse manifests once at extension startup, cache in memory. No impact on page navigation.
 
-- [ ] **storage.cljs**: Update `persist!` to save only non-derivable fields
-- [ ] **storage.cljs**: Update `load!` to derive fields from manifest after loading
-- [ ] **storage.cljs**: Remove `:script/approved-patterns` (unused legacy field)
-- [ ] **script_utils.cljs**: Add `derive-script-fields` function
-- [ ] **Unit tests**: Test round-trip (save minimal, load with derived fields)
-- [ ] **E2E tests**: Test that manifest changes in code are reflected after reload
+- [x] **storage.cljs**: Update `persist!` to save only non-derivable fields
+- [x] **storage.cljs**: Update `load!` to derive fields from manifest after loading
+- [x] **storage.cljs**: Remove `:script/approved-patterns` (unused legacy field)
+- [x] **script_utils.cljs**: Add `derive-script-fields` function
+- [x] **Unit tests**: Test round-trip (save minimal, load with derived fields)
+- [x] **E2E tests**: Verify minimal storage schema and manifest-derived fields
 - [ ] **Human verified**: Confirmed Phase 10 changes in the UI
 
 ### Phase 11: Schema Versioning and Key Naming
@@ -307,27 +307,16 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 }
 ```
 
-- [ ] **storage.cljs**: Add `schemaVersion` field to storage
-- [ ] **storage.cljs**: Rename `granted-origins` → `grantedOrigins` in persist/load
-- [ ] **storage.cljs**: Check version on load, run migrations if needed
-- [ ] **storage.cljs**: Add migration framework (version 0 → 1)
-- [ ] **Unit tests**: Test migration from unversioned to version 1
-- [ ] **Unit tests**: Test `granted-origins` → `grantedOrigins` migration
-- [ ] **Docs**: Document storage schema version
-- [ ] **Human verified**: Confirmed Phase 11 changes in the UI
+- [x] **storage.cljs**: Add `schemaVersion` field to storage
+- [x] **storage.cljs**: Rename `granted-origins` → `grantedOrigins` in persist/load
+- [x] **storage.cljs**: Check version on load, run migrations if needed
+- [x] **storage.cljs**: Add migration framework (version 0 → 1)
+- [x] **Unit tests**: Test migration from unversioned to version 1
+- [x] **Unit tests**: Test `granted-origins` → `grantedOrigins` migration
+- [x] **Docs**: Document storage schema version
+- [x] **Human verified**: Confirmed Phase 11 changes in the UI
 
-### Phase 12: Scheme Reservation (`epupp://`)
-
-**Status**: Reserved for future use. No enforcement needed yet.
-
-**Decision**: The `epupp://` scheme is reserved for internal use. Currently `scittle://` is used for Scittle libraries. When `epupp://` is needed for internal resources, enforcement can be added.
-
-- [x] **Decided**: Scheme is reserved (documented in api-review-discussion.md)
-- [ ] **Docs**: Add note about scheme reservation
-- [ ] **Future**: Add validation when scheme is actually used
-- [ ] **Human verified**: Confirmed Phase 12 changes in the docs
-
-### Phase 13: Final Verification
+### Phase 12: Final Verification
 
 - [ ] **Unit tests pass**: `bb test`
 - [ ] **E2E tests pass**: `bb test:e2e`

@@ -141,31 +141,31 @@ This document identifies every "API" in Epupp - both obvious and subtle - that e
 **Schema per script:**
 ```javascript
 {
-  id: "script-TIMESTAMP",           // Immutable identifier
-  name: "script_name.cljs",          // Normalized, mutable
-  description: "...",                // Optional
-  match: ["https://.../*"],          // URL patterns (array)
-  code: "(ns ...)",                  // ClojureScript source
-  enabled: true,                     // Auto-run flag
-  created: "2026-01-24T...",         // ISO timestamp
-  modified: "2026-01-24T...",        // ISO timestamp
-  approvedPatterns: [],              // Legacy, unused
-  runAt: "document-idle",            // Timing: start/end/idle
-  inject: ["scittle://reagent.js"],  // Library dependencies
-  builtin: true                      // Built-in flag (optional)
+  id: "script-TIMESTAMP",    // Immutable identifier
+  code: "(ns ...)",           // ClojureScript source
+  enabled: true,              // Auto-run flag
+  created: "2026-01-24T...",  // ISO timestamp
+  modified: "2026-01-24T...", // ISO timestamp
+  builtin: true               // Built-in flag (optional)
 }
 ```
 
+**Derived on load (from manifest in `code`):**
+- `name` - `:epupp/script-name`
+- `match` - `:epupp/auto-run-match`
+- `description` - `:epupp/description`
+- `runAt` - `:epupp/run-at`
+- `inject` - `:epupp/inject`
+
 **Field constraints:**
 - `id` - Immutable after creation
-- `name` - Normalized via `normalize-script-name` (lowercase, underscores, `.cljs` suffix)
-- `match` - MUST be flat array of strings (no nesting)
-- `runAt` - One of: `"document-start"`, `"document-end"`, `"document-idle"` (default)
-- `inject` - Array of `scittle://` URLs
+- `code` - Source of truth for manifest-derived fields
+- `enabled` - Auto-run flag, only meaningful when `match` is present
+- `builtin` - Only set for built-in scripts
 
 **Stability:** HIGH - Core data model
-**Versioning indicators:** None (should add schema version)
-**Volatile aspects:** New fields may be added, `approvedPatterns` may be removed
+**Versioning indicators:** `schemaVersion` (current: 1)
+**Volatile aspects:** Derived fields may expand, schema migrations may add keys
 
 ---
 
@@ -176,16 +176,19 @@ This document identifies every "API" in Epupp - both obvious and subtle - that e
 - `"autoReconnectRepl"` (bool) - Auto-reconnect to previously connected tabs (default: true)
 - `"fsReplSyncEnabled"` (bool) - Allow REPL to write scripts (default: false)
 
+**Schema versioning:**
+- `"schemaVersion"` (number) - Storage schema version (current: 1)
+
 **Script origin management:**
-- `"granted-origins"` (array) - Granted origin patterns (currently unused in permission flow)
+- `"grantedOrigins"` (array) - Granted origin patterns (currently unused in permission flow)
 - `"userAllowedOrigins"` (array) - User-added allowed origins for userscript installation
 
 **Panel state (per-hostname):**
 - `"panelState.HOSTNAME"` - Persisted editor content keyed by hostname
 
 **Stability:** HIGH for auto-connect/sync settings, MEDIUM for others
-**Versioning indicators:** None
-**Volatile aspects:** Storage key names (camelCase vs kebab-case inconsistency)
+**Versioning indicators:** `schemaVersion` (current: 1)
+**Volatile aspects:** Storage keys may be extended, migration steps may be added
 
 ---
 

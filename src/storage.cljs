@@ -16,10 +16,13 @@
 ;; Forward declaration for function defined later
 (declare sync-builtin-scripts!)
 
+(def ^:private current-schema-version 1)
+
 (def !db
   "In-memory mirror of chrome.storage.local for fast access.
    Synced via persist! and onChanged listener."
-  (atom {:storage/scripts []
+  (atom {:storage/schema-version current-schema-version
+         :storage/scripts []
          :storage/granted-origins []
          :storage/user-allowed-origins []}))
 
@@ -41,15 +44,42 @@
 ;; Persistence helpers
 ;; ============================================================
 
+(defn normalize-storage-result
+  "Normalize storage data and apply schema migrations."
+  [result]
+  (let [schema-version (or (.-schemaVersion result) 0)
+        old-granted (aget result "granted-origins")
+        new-granted (.-grantedOrigins result)
+        granted-origins (cond
+                          (some? new-granted) (vec new-granted)
+                          (some? old-granted) (vec old-granted)
+                          :else [])
+        user-allowed-origins (if (.-userAllowedOrigins result)
+                               (vec (.-userAllowedOrigins result))
+                               [])
+        scripts (script-utils/parse-scripts (.-scripts result)
+                                            {:extract-manifest mp/extract-manifest})
+        migrated? (or (< schema-version current-schema-version)
+                      (some? old-granted))
+        remove-keys (cond-> []
+                      (some? old-granted) (conj "granted-origins"))]
+    {:storage/schema-version (if migrated? current-schema-version schema-version)
+     :storage/scripts scripts
+     :storage/granted-origins granted-origins
+     :storage/user-allowed-origins user-allowed-origins
+     :storage/remove-keys remove-keys
+     :storage/migrated? migrated?}))
+
 (defn ^:async persist!
   "Write current !db state to chrome.storage.local"
   []
-  (let [{:storage/keys [scripts granted-origins user-allowed-origins]} @!db]
+  (let [{:storage/keys [scripts granted-origins user-allowed-origins schema-version]} @!db]
     (js-await (js/Promise.
                (fn [resolve]
                  (js/chrome.storage.local.set
-                  #js {:scripts (clj->js (mapv script-utils/script->js scripts))
-                       :granted-origins (clj->js granted-origins)
+                  #js {:schemaVersion schema-version
+                       :scripts (clj->js (mapv script-utils/script->js scripts))
+                       :grantedOrigins (clj->js granted-origins)
                        :userAllowedOrigins (clj->js user-allowed-origins)}
                   (fn [] (resolve nil))))))))
 
@@ -57,17 +87,21 @@
   "Load scripts from chrome.storage.local into !db atom.
    Returns a promise that resolves when loaded."
   []
-  (let [result (js-await (js/chrome.storage.local.get #js ["scripts" "granted-origins" "userAllowedOrigins"]))
-        scripts (script-utils/parse-scripts (.-scripts result))
-        granted-origins (if (.-granted-origins result)
-                          (vec (.-granted-origins result))
-                          [])
-        user-allowed-origins (if (.-userAllowedOrigins result)
-                               (vec (.-userAllowedOrigins result))
-                               [])]
-    (reset! !db {:storage/scripts scripts
+  (let [result (js-await (js/chrome.storage.local.get #js ["schemaVersion" "scripts" "grantedOrigins" "granted-origins" "userAllowedOrigins"]))
+        {:storage/keys [schema-version scripts granted-origins user-allowed-origins remove-keys migrated?]}
+        (normalize-storage-result result)]
+    (reset! !db {:storage/schema-version schema-version
+                 :storage/scripts scripts
                  :storage/granted-origins granted-origins
                  :storage/user-allowed-origins user-allowed-origins})
+    (when migrated?
+      (js-await (persist!)))
+    (when (seq remove-keys)
+      (js-await (js/Promise.
+                 (fn [resolve]
+                   (js/chrome.storage.local.remove
+                    (clj->js remove-keys)
+                    (fn [] (resolve nil)))))))
     (log/info "Storage" nil "Loaded" (count scripts) "scripts")
     @!db))
 
@@ -81,7 +115,8 @@
    (fn [changes area]
      (when (= area "local")
        (when-let [scripts-change (.-scripts changes)]
-         (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change))
+         (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change)
+                                                       {:extract-manifest mp/extract-manifest})
                bundled-ids (bundled-builtin-ids)
                bundled-ids-set (set bundled-ids)
                missing-builtin? (some (fn [builtin-id]
@@ -95,7 +130,11 @@
            ;; Re-sync built-ins if missing or stale (e.g., by storage.clear())
            (when (or missing-builtin? stale-builtin?)
              (sync-builtin-scripts!))))
-       (when-let [origins-change (.-granted-origins changes)]
+       (when-let [schema-change (.-schemaVersion changes)]
+         (when-let [new-version (.-newValue schema-change)]
+           (swap! !db assoc :storage/schema-version new-version)))
+       (when-let [origins-change (or (.-grantedOrigins changes)
+                                     (aget changes "granted-origins"))]
          (let [new-origins (if (.-newValue origins-change)
                              (vec (.-newValue origins-change))
                              [])]

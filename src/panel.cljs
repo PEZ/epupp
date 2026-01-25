@@ -6,6 +6,7 @@
             [event-handler :as event-handler]
             [icons :as icons]
             [log :as log]
+            [manifest-parser :as mp]
             [panel-actions :as panel-actions]
             [scittle-libs :as scittle-libs]
             [script-utils :as script-utils]
@@ -266,7 +267,7 @@
        #js ["scripts"]
        (fn [result]
          (when-let [scripts-raw (.-scripts result)]
-           (let [scripts (script-utils/parse-scripts scripts-raw)
+           (let [scripts (script-utils/parse-scripts scripts-raw {:extract-manifest mp/extract-manifest})
                  script (some #(when (= (:script/name %) script-name) %) scripts)]
              (when script
                ;; Reload the script content into the editor
@@ -282,7 +283,7 @@
      (fn [result]
        (let [scripts-raw (.-scripts result)
              scripts (if scripts-raw
-                       (script-utils/parse-scripts scripts-raw)
+                       (script-utils/parse-scripts scripts-raw {:extract-manifest mp/extract-manifest})
                        [])]
          (dispatch [[:editor/ax.update-scripts-list scripts]]))))
 
@@ -777,7 +778,7 @@
      (when (.-scripts changes)
        (let [new-scripts (.-newValue (.-scripts changes))
              parsed (if new-scripts
-                      (script-utils/parse-scripts new-scripts)
+                      (script-utils/parse-scripts new-scripts {:extract-manifest mp/extract-manifest})
                       [])]
          (dispatch! [[:editor/ax.update-scripts-list parsed]])))
      ;; Check for script to edit when popup sets editingScript

@@ -4,6 +4,7 @@
   (:require [reagami :as r]
             [event-handler :as event-handler]
             [icons :as icons]
+            [manifest-parser :as mp]
             [script-utils :as script-utils]
             [popup-utils :as popup-utils]
             [popup-actions :as popup-actions]
@@ -191,7 +192,7 @@
     (js/chrome.storage.local.get
      #js ["scripts"]
      (fn [result]
-       (let [scripts (script-utils/parse-scripts (.-scripts result))]
+       (let [scripts (script-utils/parse-scripts (.-scripts result) {:extract-manifest mp/extract-manifest})]
          (dispatch [[:db/ax.assoc :scripts/list scripts]]))))
 
     :popup/fx.toggle-script
@@ -1002,9 +1003,9 @@
      (when (and (= area "local") (.-scripts changes))
        (let [scripts-change (.-scripts changes)
              old-scripts (when (.-oldValue scripts-change)
-                           (script-utils/parse-scripts (.-oldValue scripts-change)))
+                           (script-utils/parse-scripts (.-oldValue scripts-change) {:extract-manifest mp/extract-manifest}))
              new-scripts (when (.-newValue scripts-change)
-                           (script-utils/parse-scripts (.-newValue scripts-change)))]
+                           (script-utils/parse-scripts (.-newValue scripts-change) {:extract-manifest mp/extract-manifest}))]
          ;; Always reload scripts to update UI
          (dispatch! [[:popup/ax.load-scripts]])
          ;; If we have both old and new, diff to find modified scripts

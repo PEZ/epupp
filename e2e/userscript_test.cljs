@@ -237,7 +237,7 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Wait for gist installer to be re-installed with require field
+        ;; Wait for gist installer to exist in storage by id with non-empty code
         ;; Poll using .evaluate loop - same pattern as wait-for-event
         (let [start (.now js/Date)
               timeout-ms 5000]
@@ -251,13 +251,13 @@
                   gist-installer (when scripts
                                    (.find scripts (fn [s]
                                                     (= (.-id s) "epupp-builtin-gist-installer"))))
-                  has-injects (and gist-installer
-                                   (.-inject gist-installer)
-                                   (pos? (.-length (.-inject gist-installer))))]
-              (if has-injects
-                (js/console.log "Gist installer re-installed with injects")
+                  has-code (and gist-installer
+                                (.-code gist-installer)
+                                (pos? (.-length (.-code gist-installer))))]
+              (if has-code
+                (js/console.log "Gist installer re-installed with code")
                 (if (> (- (.now js/Date) start) timeout-ms)
-                  (throw (js/Error. "Timeout waiting for gist installer with injects"))
+                  (throw (js/Error. "Timeout waiting for gist installer with code"))
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
