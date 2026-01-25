@@ -117,21 +117,30 @@
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
         existing (get-script script-id)
-           ;; Extract manifest from code
-           code (:script/code script)
-           manifest (when code
-                (try (mp/extract-manifest code)
-                  (catch :default _ nil)))
-           is-builtin? (script-utils/builtin-script? script)
-           ;; Built-in scripts keep their explicit metadata; manifest does not override it.
-           has-manifest? (and (some? manifest) (not is-builtin?))
-           ;; Extract fields from manifest
-           run-at (if has-manifest?
-              (script-utils/normalize-run-at (get manifest "run-at"))
-              (:script/run-at script))
-           manifest-name (get manifest "script-name")
-           manifest-description (get manifest "description")
-           manifest-inject (or (get manifest "inject") [])
+        ;; Extract manifest from code
+        code (:script/code script)
+        manifest (when code
+                   (try (mp/extract-manifest code)
+                        (catch :default _ nil)))
+        is-builtin? (script-utils/builtin-script? script)
+        ;; Built-in scripts keep their explicit metadata; manifest does not override it.
+        has-manifest? (and (some? manifest) (not is-builtin?))
+        ;; Extract fields from manifest
+        run-at (if has-manifest?
+                 (script-utils/normalize-run-at (get manifest "run-at"))
+                 (:script/run-at script))
+        manifest-name (or (get manifest "raw-script-name")
+                          (get manifest "script-name"))
+        manifest-description (get manifest "description")
+        manifest-inject (or (get manifest "inject") [])
+        raw-name (or (and has-manifest? manifest-name)
+                     (:script/name script))
+        name-error (when (and raw-name (not is-builtin?))
+                     (script-utils/validate-script-name raw-name))
+        normalized-name (when raw-name
+                          (if is-builtin?
+                            raw-name
+                            (script-utils/normalize-script-name raw-name)))
         ;; CRITICAL: Auto-run match handling (Phase 6)
         ;; When manifest is present, it's the source of truth for match
         ;; Absence of auto-run-match in manifest = explicit revocation
@@ -177,8 +186,8 @@
         ;; Only override match when manifest is present (manifest is source of truth)
         script-with-manifest (cond-> script
                                (some? run-at) (assoc :script/run-at run-at)
+                               (some? normalized-name) (assoc :script/name normalized-name)
                                has-manifest? (assoc :script/match new-match)
-                               (and has-manifest? manifest-name) (assoc :script/name manifest-name)
                                (and has-manifest? manifest-description) (assoc :script/description manifest-description)
                                (and has-manifest? (seq manifest-inject)) (assoc :script/inject
                                                                                 (if (string? manifest-inject)
@@ -193,6 +202,8 @@
                              (assoc :script/created now)
                              (assoc :script/modified now)
                              (assoc :script/enabled new-enabled)))]
+    (when name-error
+      (throw (js/Error. name-error)))
     (swap! !db update :storage/scripts
            (fn [scripts]
              (if existing
@@ -233,12 +244,16 @@
 (defn rename-script!
   "Rename a script (update display name only, ID remains stable)"
   [script-id new-name]
-  (let [now (.toISOString (js/Date.))]
+  (let [name-error (script-utils/validate-script-name new-name)
+        normalized-name (when new-name (script-utils/normalize-script-name new-name))
+        now (.toISOString (js/Date.))]
+    (when name-error
+      (throw (js/Error. name-error)))
     (swap! !db update :storage/scripts
            (fn [scripts]
              (mapv #(if (= (:script/id %) script-id)
                       (assoc %
-                             :script/name new-name
+                             :script/name normalized-name
                              :script/modified now)
                       %)
                    scripts)))
@@ -318,12 +333,14 @@
             manifest (mp/extract-manifest code)
             ;; manifest-parser returns string keys like "inject", not :epupp/inject
             injects (or (get manifest "inject") [])
+            installer-name "epupp/built-in/gist_installer.cljs"
             existing (get-script installer-id)]
-        ;; Install if missing, or update if code changed
+        ;; Install if missing, or update if code/name changed
         (when (or (not existing)
-                  (not= (:script/code existing) code))
+                  (not= (:script/code existing) code)
+                  (not= (:script/name existing) installer-name))
           (save-script! {:script/id installer-id
-                         :script/name "epupp/built-in/gist_installer.cljs"
+                         :script/name installer-name
                          :script/match ["https://gist.github.com/*"
                                         "http://localhost:18080/mock-gist.html"]
                          :script/code code

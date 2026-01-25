@@ -337,6 +337,110 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_rename_to_reserved_namespace_shows_error []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; === PHASE 1: Create a script to edit ===
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")
+            save-btn (.locator panel "button.btn-save")]
+        (js-await (clear-storage panel))
+        (js-await (.reload panel))
+        (js-await (wait-for-panel-ready panel))
+        (let [initial-code (panel-save-helpers/code-with-manifest {:name "Valid Script"
+                                                                   :match "*://example.com/*"
+                                                                   :code "(println \"valid\")"})]
+          (js-await (.fill textarea initial-code)))
+        (js-await (.click save-btn))
+        (js-await (wait-for-save-status panel "valid_script.cljs"))
+        (js-await (.close panel)))
+
+      ;; === PHASE 2: Edit script via popup inspect ===
+      (let [popup (js-await (.newPage context))
+            popup-url (str "chrome-extension://" ext-id "/popup.html")]
+        (js-await (.goto popup popup-url #js {:timeout 1000}))
+        (js-await (wait-for-popup-ready popup))
+        (let [script-item (.locator popup ".script-item:has-text(\"valid_script.cljs\")")
+              inspect-btn (.locator script-item "button.script-inspect")]
+          (js-await (.click inspect-btn))
+          (js-await (wait-for-edit-hint popup)))
+        (js-await (.close popup)))
+
+      ;; === PHASE 3: Rename to epupp/ namespace - expect error hint ===
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")
+            save-section (.locator panel ".save-script-section")
+            name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")
+            name-hint (.locator save-section ".property-row:has(th:text('Name')) .field-hint")
+            rename-btn (.locator panel "button.btn-rename")
+            save-btn (.locator panel "button.btn-save")]
+        ;; Wait for script to load
+        (js-await (-> (expect name-field) (.toContainText "valid_script.cljs" #js {:timeout 500})))
+        ;; Change name to reserved namespace
+        (let [reserved-code (panel-save-helpers/code-with-manifest {:name "epupp/test.cljs"
+                                                                    :match "*://example.com/*"
+                                                                    :code "(println \"reserved\")"})]
+          (js-await (.fill textarea reserved-code)))
+        ;; Wait for name error hint to appear
+        (js-await (-> (expect name-hint) (.toBeVisible #js {:timeout 500})))
+        (js-await (-> (expect name-hint) (.toContainText "reserved" #js {:timeout 500})))
+        ;; Buttons should be disabled
+        (js-await (-> (expect rename-btn) (.toBeDisabled #js {:timeout 500})))
+        (js-await (-> (expect save-btn) (.toBeDisabled #js {:timeout 500})))
+        (js-await (assert-no-errors! panel))
+        (js-await (.close panel)))
+
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_name_with_path_traversal_shows_error []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")
+            save-btn (.locator panel "button.btn-save")
+            save-section (.locator panel ".save-script-section")
+            name-hint (.locator save-section ".property-row:has(th:text('Name')) .field-hint")]
+        (js-await (clear-storage panel))
+        (js-await (.reload panel))
+        (js-await (wait-for-panel-ready panel))
+
+        ;; Test leading slash
+        (let [code (panel-save-helpers/code-with-manifest {:name "/absolute/path.cljs"
+                                                           :code "(println \"bad\")"})]
+          (js-await (.fill textarea code)))
+        (js-await (-> (expect name-hint) (.toBeVisible #js {:timeout 500})))
+        (js-await (-> (expect save-btn) (.toBeDisabled #js {:timeout 500})))
+
+        ;; Test ./ prefix
+        (let [code (panel-save-helpers/code-with-manifest {:name "./relative.cljs"
+                                                           :code "(println \"bad\")"})]
+          (js-await (.fill textarea code)))
+        (js-await (-> (expect name-hint) (.toBeVisible #js {:timeout 500})))
+        (js-await (-> (expect save-btn) (.toBeDisabled #js {:timeout 500})))
+
+        ;; Test ../ prefix
+        (let [code (panel-save-helpers/code-with-manifest {:name "../parent.cljs"
+                                                           :code "(println \"bad\")"})]
+          (js-await (.fill textarea code)))
+        (js-await (-> (expect name-hint) (.toBeVisible #js {:timeout 500})))
+        (js-await (-> (expect save-btn) (.toBeDisabled #js {:timeout 500})))
+
+        ;; Test ../ in middle
+        (let [code (panel-save-helpers/code-with-manifest {:name "foo/../bar.cljs"
+                                                           :code "(println \"bad\")"})]
+          (js-await (.fill textarea code)))
+        (js-await (-> (expect name-hint) (.toBeVisible #js {:timeout 500})))
+        (js-await (-> (expect save-btn) (.toBeDisabled #js {:timeout 500})))
+
+        (js-await (assert-no-errors! panel))
+        (js-await (.close panel)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Panel Save"
            (fn []
              (test "Panel Save: rename script does not create duplicate"
@@ -349,4 +453,10 @@
                    test_panel_rename_triggers_popup_flash)
 
              (test "Panel Save: multiple renames do not create duplicates"
-                   test_multiple_renames_do_not_create_duplicates)))
+                   test_multiple_renames_do_not_create_duplicates)
+
+             (test "Panel Save: rename to reserved namespace shows error and disables buttons"
+                   test_rename_to_reserved_namespace_shows_error)
+
+             (test "Panel Save: path traversal names show error and disable save"
+                   test_name_with_path_traversal_shows_error)))

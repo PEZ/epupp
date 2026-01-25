@@ -128,8 +128,14 @@
   "Rename a script by name."
   [state {:fs/keys [now-iso from-name to-name]}]
   (let [scripts (:storage/scripts state)
+        name-error (script-utils/validate-script-name to-name)
+        normalized-to-name (when to-name (script-utils/normalize-script-name to-name))
         source-script (find-script-by-name scripts from-name)]
     (cond
+      ;; Invalid name
+      name-error
+      (make-error-response name-error {:operation "rename" :script-name to-name})
+
       ;; Source not found
       (nil? source-script)
       (make-error-response (str "Script not found: " from-name) {:operation "rename" :script-name from-name})
@@ -139,21 +145,21 @@
       (make-error-response "Cannot rename built-in scripts" {:operation "rename" :script-name from-name})
 
       ;; Target name exists
-      (find-script-by-name scripts to-name)
-      (make-error-response (str "Script already exists: " to-name) {:operation "rename" :script-name from-name})
+      (find-script-by-name scripts normalized-to-name)
+      (make-error-response (str "Script already exists: " normalized-to-name) {:operation "rename" :script-name from-name})
 
       ;; All checks pass - allow rename
       :else
       (let [updated-scripts (update-script-in-list scripts (:script/id source-script)
-                                                   #(assoc % :script/name to-name :script/modified now-iso))
-            renamed-script (find-script-by-name updated-scripts to-name)]
-        (make-success-response updated-scripts "rename" to-name
+                                                   #(assoc % :script/name normalized-to-name :script/modified now-iso))
+            renamed-script (find-script-by-name updated-scripts normalized-to-name)]
+        (make-success-response updated-scripts "rename" normalized-to-name
                                {:event-data {:script-id (:script/id source-script)
                                              :from-name from-name
-                                             :to-name to-name}
+                                             :to-name normalized-to-name}
                                 :response-data (merge (script->base-info renamed-script)
                                                       {:fs/from-name from-name
-                                                       :fs/to-name to-name})})))))
+                                                       :fs/to-name normalized-to-name})})))))
 
 (defn delete-script
   "Delete a script by name."
@@ -192,6 +198,15 @@
    existing script's ID to ensure stable identity."
   [state {:fs/keys [now-iso script]}]
   (let [scripts (:storage/scripts state)
+        code (:script/code script)
+        manifest (when code
+                   (try (mp/extract-manifest code)
+                        (catch :default _ nil)))
+        raw-name (or (get manifest "raw-script-name")
+                     (:script/name script))
+        name-error (script-utils/validate-script-name raw-name)
+        normalized-name (when raw-name (script-utils/normalize-script-name raw-name))
+        script (assoc script :script/name normalized-name)
         incoming-id (:script/id script)
         script-name (:script/name script)
         force? (:script/force? script)
@@ -234,10 +249,9 @@
                            (when (and force? existing-by-name) existing-by-name)
                            (when (and (nil? incoming-id) existing-by-name) existing-by-name))]
     (cond
-      ;; Reject reserved namespace prefix (must be first check)
-      (and script-name (.startsWith script-name "epupp/"))
-      (make-error-response "Cannot create scripts in reserved namespace: epupp/"
-                           {:operation "save" :script-name script-name})
+      ;; Invalid name
+      name-error
+      (make-error-response name-error {:operation "save" :script-name raw-name})
 
       ;; Trying to update a builtin script
       (and is-update? existing-by-id (script-utils/builtin-script? existing-by-id))

@@ -151,7 +151,7 @@
               script-run-at (:run-at manifest-hints)
               ;; Don't set :script/enabled here - let storage.cljs default it appropriately
               ;; Don't set :script/id here - let background generate/manage IDs
-              script (cond-> {:script/name normalized-name
+              script (cond-> {:script/name script-name
                               :script/match normalized-match
                               :script/code code}
                        (seq script-description) (assoc :script/description script-description)
@@ -172,7 +172,7 @@
               normalized-match (script-utils/normalize-match-patterns script-match)
               script-inject (:inject manifest-hints)
               script-run-at (:run-at manifest-hints)
-              script (cond-> {:script/name normalized-name
+              script (cond-> {:script/name script-name
                               :script/match normalized-match
                               :script/code code
                               :script/force? true}  ;; Force overwrite

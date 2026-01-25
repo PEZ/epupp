@@ -505,12 +505,15 @@
         {:keys [valid invalid]} (categorize-requires inject)
         ;; Site match can be string or already joined (from panel actions)
         auto-run-matches (format-auto-run-match script-match)
-        ;; Normalize current name for comparison
-        normalized-name (when (seq script-name)
-                          (script-utils/normalize-script-name script-name))
+        ;; Use raw name when present (for validation), normalize for comparisons
+        raw-name (or raw-script-name script-name)
+        normalized-name (when (seq raw-name)
+                          (script-utils/normalize-script-name raw-name))
         ;; Check if we're editing a built-in script (by name lookup)
         editing-builtin? (and original-name
                               (script-utils/name-matches-builtin? scripts-list original-name))
+        name-error (when (and raw-name (not editing-builtin?))
+                     (script-utils/validate-script-name raw-name))
         ;; Name changed from original?
         name-changed? (and original-name
                            normalized-name
@@ -533,20 +536,20 @@
         ;; - Editing built-in with unchanged name (can't overwrite built-in)
         ;; - No manifest present (can't save without manifest)
         ;; - Name conflict (need to use overwrite button instead)
-        reserved-namespace? (and normalized-name (.startsWith normalized-name "epupp/"))
+        ;; - Name validation error
         save-disabled? (or (empty? code)
                            (empty? script-name)
                            (not has-manifest?)
                            has-name-conflict?
-                           reserved-namespace?
+                           name-error
                            (and editing-builtin? (not name-changed?)))
         ;; Button text: "Create Script" when name changed (no conflict), otherwise "Save Script"
         save-button-text (cond
                            has-name-conflict? "Save Script"
                            name-changed? "Create Script"
                            :else "Save Script")
-        ;; Rename disabled for built-in scripts
-        rename-disabled? editing-builtin?
+        ;; Rename disabled for built-in scripts or invalid name
+        rename-disabled? (or editing-builtin? name-error)
         ;; Get run-at for display (from parsed manifest, via state)
         run-at (if run-at-invalid?
                  "document-idle"
@@ -569,6 +572,8 @@
            {:label "Name"
             :value script-name
             :hint (cond
+                    name-error
+                    {:type "error" :text name-error}
                     has-name-conflict?
                     {:type "warning" :text (str "\"" normalized-name "\" already exists")}
                     name-normalized?
@@ -617,10 +622,10 @@
            :button/disabled? save-disabled?
            :button/on-click #(dispatch! [[:editor/ax.save-script]])
            :button/title (cond
+                           name-error
+                           name-error
                            has-name-conflict?
                            (str "Script \"" normalized-name "\" already exists - use Overwrite to replace it")
-                           reserved-namespace?
-                           "Cannot create scripts in reserved namespace: epupp/"
                            (and editing-builtin? (not name-changed?))
                            "Cannot overwrite built-in script - change the name to create a copy"
                            (empty? script-name)
@@ -632,11 +637,11 @@
            [view-elements/action-button
             {:button/variant :warning
              :button/class "btn-overwrite"
-             :button/disabled? (or reserved-namespace? (script-utils/builtin-script? existing-script))
+             :button/disabled? (or name-error (script-utils/builtin-script? existing-script))
              :button/on-click #(dispatch! [[:editor/ax.save-script-overwrite]])
              :button/title (cond
-                             reserved-namespace?
-                             "Cannot create scripts in reserved namespace: epupp/"
+                             name-error
+                             name-error
                              (script-utils/builtin-script? existing-script)
                              "Cannot overwrite built-in scripts"
                              :else (str "Replace existing \"" normalized-name "\" with this code"))}
@@ -648,9 +653,12 @@
              :button/class "btn-rename"
              :button/disabled? rename-disabled?
              :button/on-click #(dispatch! [[:editor/ax.rename-script]])
-             :button/title (if rename-disabled?
+             :button/title (cond
+                             name-error
+                             name-error
+                             rename-disabled?
                              "Cannot rename built-in scripts"
-                             (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
+                             :else (str "Rename from \"" original-name "\" to \"" normalized-name "\""))}
             "Rename"])]]
 
        ;; No manifest: show guidance message

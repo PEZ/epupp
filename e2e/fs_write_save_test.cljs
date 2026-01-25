@@ -397,6 +397,73 @@
                                   "(-> (epupp.fs/rm! \"id_preserve_test.cljs\")\n                                     (.then (fn [_] :cleanup-done))\n                                     (.catch (fn [_] :cleanup-done)))"))]
     (-> (expect (.-success cleanup-result)) (.toBe true))))
 
+(defn- ^:async test_save_rejects_reserved_namespace_with_clear_error []
+  (let [test-code "{:epupp/script-name \"epupp/my-script.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns bad-namespace)"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !save-reserved-result (atom :pending))\n"
+                                     "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
+                                     "  (.then (fn [r] (reset! !save-reserved-result {:resolved r})))\n"
+                                     "  (.catch (fn [e] (reset! !save-reserved-result {:rejected (.-message e)}))))\n"
+                                     ":setup-done")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!save-reserved-result)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "rejected"))
+                (.toBe true (str "Expected rejection, got: " result-str)))
+            (-> (expect (.includes result-str "reserved"))
+                (.toBe true (str "Expected reserved error, got: " result-str)))
+            (-> (expect (.includes result-str "Missing")) (.toBe false)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for save reserved namespace result"))
+            (do (js-await (sleep 20)) (recur))))))))
+
+(defn- ^:async test_save_rejects_path_traversal_names []
+  (let [init-result (js-await (eval-in-browser "(def !save-path-results (atom {}))"))]
+    (-> (expect (.-success init-result)) (.toBe true)))
+
+  (doseq [[label name-pattern]
+          [["leading slash" "/absolute/path.cljs"]
+           ["dot-slash prefix" "./relative.cljs"]
+           ["dot-dot-slash prefix" "../parent.cljs"]
+           ["dot-dot-slash in middle" "foo/../bar.cljs"]]]
+    (let [test-code (str "{:epupp/script-name \"" name-pattern "\"\n"
+                         " :epupp/auto-run-match \"https://example.com/*\"}\n"
+                         "(ns path-traversal-test)")
+          label-key (pr-str label)
+          setup-result (js-await (eval-in-browser
+                                  (str "(swap! !save-path-results assoc " label-key " :pending)\n"
+                                       "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
+                                       "  (.then (fn [r] (swap! !save-path-results assoc " label-key " {:resolved r})))\n"
+                                       "  (.catch (fn [e] (swap! !save-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       ":setup-done")))]
+      (-> (expect (.-success setup-result)) (.toBe true))
+
+      (let [start (.now js/Date)
+            timeout-ms 3000]
+        (loop []
+          (let [check-result (js-await (eval-in-browser (str "(pr-str (get @!save-path-results " label-key "))")))]
+            (if (and (.-success check-result)
+                     (seq (.-values check-result))
+                     (not= (first (.-values check-result)) ":pending"))
+              (let [result-str (first (.-values check-result))]
+                (-> (expect (.includes result-str "rejected"))
+                    (.toBe true (str "Expected rejection for: " label)))
+                (let [expected (if (= label "leading slash")
+                                 "start with '/'"
+                                 "cannot contain './' or '../'")]
+                  (-> (expect (.includes result-str expected))
+                      (.toBe true (str "Expected clear error for: " label)))))
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. (str "Timeout waiting for save path traversal result: " label)))
+                (do (js-await (sleep 20)) (recur))))))))))
+
 (.describe test "REPL FS: save operations"
            (fn []
              (.beforeAll test
@@ -425,6 +492,12 @@
 
              (test "REPL FS: save - with {:fs/force? true} still rejects built-in script names"
                    test_save_with_force_rejects_builtin_script_names)
+
+             (test "REPL FS: save - rejects reserved namespace with clear error"
+                   test_save_rejects_reserved_namespace_with_clear_error)
+
+             (test "REPL FS: save - rejects path traversal names"
+                   test_save_rejects_path_traversal_names)
 
              (test "REPL FS: save - force update preserves script ID"
                    test_save_force_update_preserves_script_id)))

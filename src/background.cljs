@@ -330,6 +330,7 @@
     (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
   (js-await (ensure-initialized! dispatch!))
   (let [code (js-await (fetch-text! script-url))
+        name-error (script-utils/validate-script-name script-name)
         normalized-name (script-utils/normalize-script-name script-name)
         ;; Extract run-at from code manifest (more reliable than passed manifest)
         code-manifest (try
@@ -339,6 +340,8 @@
                    script-utils/default-run-at)
         ;; Check if a script with this ID already exists and is built-in
         existing-script (storage/get-script normalized-name)]
+    (when name-error
+      (throw (js/Error. name-error)))
     (when (and existing-script (script-utils/builtin-script? existing-script))
       (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
     (let [script (cond-> {:script/id normalized-name
@@ -493,14 +496,20 @@
                                    bulk-count (.-bulkCount message)]
                                (try
                                  (let [manifest (manifest-parser/extract-manifest code)
-                                       raw-name (get manifest "script-name")
-                                       normalized-name (when raw-name
-                                                         (script-utils/normalize-script-name raw-name))
+                                       raw-name (or (get manifest "raw-script-name")
+                                                   (get manifest "script-name"))
+                                       name-error (script-utils/validate-script-name raw-name)
                                        auto-run-match (get manifest "auto-run-match")
                                        injects (get manifest "inject")
                                        run-at (script-utils/normalize-run-at (get manifest "run-at"))]
-                                   (if-not normalized-name
+                                   (cond
+                                     (nil? raw-name)
                                      (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+
+                                     name-error
+                                     (send-response #js {:success false :error name-error})
+
+                                     :else
                                      ;; Always use fresh ID for REPL saves - the action handler
                                      ;; will decide if this is a create (reject if exists, no force)
                                      ;; or overwrite (allow if force flag is set)
@@ -509,7 +518,7 @@
                                                        (str "script-" (.randomUUID crypto))
                                                        (str "script-" (.now js/Date) "-" (.random js/Math)))
                                            script (cond-> {:script/id script-id
-                                                           :script/name normalized-name
+                                                           :script/name raw-name
                                                            :script/code code
                                                            :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
                                                            :script/inject (or injects [])
@@ -560,8 +569,11 @@
                                                              :error "FS REPL Sync is disabled in settings"})
                                (send-response #js {:success false :error "FS REPL Sync is disabled"}))
                              (let [from-name (.-from message)
-                                   to-name (.-to message)]
-                               (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])))))
+                                   to-name (.-to message)
+                                   name-error (script-utils/validate-script-name to-name)]
+                               (if name-error
+                                 (send-response #js {:success false :error name-error})
+                                 (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))))
                         true)
 
                       ;; Page context deletes script via epupp/rm!

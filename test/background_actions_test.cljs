@@ -78,6 +78,42 @@
           (-> (expect (:error error-response))
               (.toContain "already exists")))))
 
+    (test "rejects reserved namespace on rename"
+      (fn []
+        (let [result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.rename-script "test.cljs" "epupp/test.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
+              (.toBe false))
+          (-> (expect (:error error-response))
+              (.toContain "reserved namespace")))))
+
+    (test "rejects leading slash on rename"
+      (fn []
+        (let [result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.rename-script "test.cljs" "/test.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
+              (.toBe false))
+          (-> (expect (:error error-response))
+              (.toContain "start with '/")))))
+
+    (test "rejects path traversal on rename"
+      (fn []
+        (let [result (bg-actions/handle-action initial-state uf-data
+                       [:fs/ax.rename-script "test.cljs" "foo/../bar.cljs"])
+              error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          (-> (expect error-response)
+              (.toBeTruthy))
+          (-> (expect (:success error-response))
+              (.toBe false))
+          (-> (expect (:error error-response))
+              (.toContain "./' or '../'")))))
+
     (test "allows rename when target name is free"
       (fn []
         (let [result (bg-actions/handle-action initial-state uf-data

@@ -203,7 +203,7 @@
     ;; Effect args: [script normalized-name]
     (let [[_fx script name] (first (:uf/fxs result))]
       (-> (expect (:script/name script))
-          (.toBe "my_script.cljs"))
+          (.toBe "My Script"))
       (-> (expect name)
           (.toBe "my_script.cljs")))))
 
@@ -231,7 +231,7 @@
         [_fx-name script normalized-name] (first (:uf/fxs result))]
     ;; Name should be normalized to new name
     (-> (expect (:script/name script))
-        (.toBe "new_name.cljs"))
+        (.toBe "New Name"))
     (-> (expect normalized-name)
         (.toBe "new_name.cljs"))))
 
@@ -244,7 +244,7 @@
         [_fx-name script normalized-name] (first (:uf/fxs result))]
     ;; Name is normalized for display consistency
     (-> (expect (:script/name script))
-        (.toBe "my_cool_script.cljs"))
+        (.toBe "My Cool Script"))
     (-> (expect normalized-name)
         (.toBe "my_cool_script.cljs"))))
 

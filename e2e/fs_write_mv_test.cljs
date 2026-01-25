@@ -352,6 +352,106 @@
               (js-await (sleep 20))
               (recur))))))))
 
+(defn- ^:async test_mv_rejects_rename_to_reserved_namespace []
+  (let [test-code "{:epupp/script-name \"mv-reserved-source\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns mv-reserved-test)"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !mv-reserved-setup (atom :pending))\n"
+                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
+                                     "  (.then (fn [r] (reset! !mv-reserved-setup r))))\n"
+                                     ":setup-done")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-reserved-setup] (if (= r :pending) :pending (:fs/success r)))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (first (.-values check-result))) (.toBe "true"))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for setup save"))
+            (do (js-await (sleep 20)) (recur)))))))
+
+  (let [setup-result (js-await (eval-in-browser
+                                "(def !mv-reserved-result (atom :pending))\n(-> (epupp.fs/mv! \"mv_reserved_source.cljs\" \"epupp/test.cljs\")\n  (.then (fn [r] (reset! !mv-reserved-result {:resolved r})))\n  (.catch (fn [e] (reset! !mv-reserved-result {:rejected (.-message e)}))))\n:setup-done"))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-reserved-result)"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (let [result-str (first (.-values check-result))]
+            (-> (expect (.includes result-str "rejected")) (.toBe true))
+            (-> (expect (.includes result-str "reserved")) (.toBe true)))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv reserved namespace result"))
+            (do (js-await (sleep 20)) (recur)))))))
+
+  (js-await (eval-in-browser "(-> (epupp.fs/rm! \"mv_reserved_source.cljs\") (.catch (fn [_] nil)))")))
+
+(defn- ^:async test_mv_rejects_path_traversal_target_names []
+  (let [test-code "{:epupp/script-name \"mv-path-source\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns mv-path-test)"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !mv-path-setup (atom :pending))\n"
+                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
+                                     "  (.then (fn [r] (reset! !mv-path-setup r))))\n"
+                                     ":setup-done")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-path-setup] (if (= r :pending) :pending (:fs/success r)))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result))
+                 (not= (first (.-values check-result)) ":pending"))
+          (-> (expect (first (.-values check-result))) (.toBe "true"))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for mv path setup"))
+            (do (js-await (sleep 20)) (recur)))))))
+
+  (let [init-result (js-await (eval-in-browser "(def !mv-path-results (atom {}))"))]
+    (-> (expect (.-success init-result)) (.toBe true)))
+
+  (doseq [[label target-name]
+          [["leading slash" "/absolute/path.cljs"]
+           ["dot-slash prefix" "./relative.cljs"]
+           ["dot-dot-slash prefix" "../parent.cljs"]
+           ["dot-dot-slash in middle" "foo/../bar.cljs"]]]
+    (let [label-key (pr-str label)
+          setup-result (js-await (eval-in-browser
+                                  (str "(swap! !mv-path-results assoc " label-key " :pending)\n"
+                                       "(-> (epupp.fs/mv! \"mv_path_source.cljs\" " (pr-str target-name) ")\n"
+                                       "  (.then (fn [r] (swap! !mv-path-results assoc " label-key " {:resolved r})))\n"
+                                       "  (.catch (fn [e] (swap! !mv-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       ":setup-done")))]
+      (-> (expect (.-success setup-result)) (.toBe true))
+
+      (let [start (.now js/Date)
+            timeout-ms 3000]
+        (loop []
+          (let [check-result (js-await (eval-in-browser (str "(pr-str (get @!mv-path-results " label-key "))")))]
+            (if (and (.-success check-result)
+                     (seq (.-values check-result))
+                     (not= (first (.-values check-result)) ":pending"))
+              (let [result-str (first (.-values check-result))]
+                (-> (expect (.includes result-str "rejected"))
+                    (.toBe true (str "Expected rejection for mv to: " label)))
+                (let [expected (if (= label "leading slash")
+                                 "start with '/'"
+                                 "cannot contain './' or '../'")]
+                  (-> (expect (.includes result-str expected))
+                      (.toBe true (str "Expected clear error for mv to: " label)))))
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. (str "Timeout for mv path traversal: " label)))
+                (do (js-await (sleep 20)) (recur)))))))))
+
+  (js-await (eval-in-browser "(-> (epupp.fs/rm! \"mv_path_source.cljs\") (.catch (fn [_] nil)))")))
+
 (.describe test "REPL FS: mv operations"
            (fn []
              (.beforeAll test
@@ -373,4 +473,10 @@
                    test_mv_rejects_when_target_name_exists)
 
              (test "REPL FS: mv - rejects renaming built-in scripts"
-                   test_mv_rejects_renaming_builtin_scripts)))
+                   test_mv_rejects_renaming_builtin_scripts)
+
+             (test "REPL FS: mv - rejects rename to reserved namespace"
+                   test_mv_rejects_rename_to_reserved_namespace)
+
+             (test "REPL FS: mv - rejects path traversal target names"
+                   test_mv_rejects_path_traversal_target_names)))

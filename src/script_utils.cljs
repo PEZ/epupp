@@ -159,6 +159,18 @@
 ;; Built-in script detection
 ;; ============================================================
 
+(defn validate-script-name
+  "Validate script names for reserved namespace and path traversal.
+   Returns nil when valid, or a string error message when invalid."
+  [input-name]
+  (cond
+    (nil? input-name) nil
+    (not (string? input-name)) "Script name must be a string"
+    (.startsWith input-name "epupp/") "Cannot create scripts in reserved namespace: epupp/"
+    (.startsWith input-name "/") "Script name cannot start with '/'"
+    (or (.includes input-name "./") (.includes input-name "../")) "Script name cannot contain './' or '../'"
+    :else nil))
+
 (defn builtin-script?
   "Check if a script is a built-in script via :script/builtin? metadata."
   [script]

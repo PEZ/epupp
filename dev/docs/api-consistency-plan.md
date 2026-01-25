@@ -2,6 +2,10 @@
 
 Align manifest format, storage schema, and `epupp.fs` return shapes for consistency before 1.0 release. Breaking changes acceptable since we're pre-release in the userscripts branch.
 
+## Rules of Engagement
+
+* Avoid using `sed`. Instead ask the testrunner subagent to tell you what goes wrong when running e2e tests. And reading and searching files in the workspace can be done with your tools.
+
 ## Summary of Changes
 
 | Area | Before | After |
