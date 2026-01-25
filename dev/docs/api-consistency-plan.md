@@ -271,6 +271,7 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - [x] **script_utils.cljs**: Add `derive-script-fields` function
 - [x] **Unit tests**: Test round-trip (save minimal, load with derived fields)
 - [x] **E2E tests**: Verify minimal storage schema and manifest-derived fields
+- [x] **E2E tests**: Full e2e test suite passes (rerun on flakyness suspicion)
 - [ ] **Human verified**: Confirmed Phase 10 changes in the UI
 
 ### Phase 11: Schema Versioning and Key Naming
@@ -313,8 +314,9 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - [x] **storage.cljs**: Add migration framework (version 0 → 1)
 - [x] **Unit tests**: Test migration from unversioned to version 1
 - [x] **Unit tests**: Test `granted-origins` → `grantedOrigins` migration
+- [x] **E2E tests**: Full e2e test suite passes (rerun on flakyness suspicion)
 - [x] **Docs**: Document storage schema version
-- [x] **Human verified**: Confirmed Phase 11 changes in the UI
+- [ ] **Human verified**: Confirmed Phase 11 changes in the UI
 
 ### Phase 12: Final Verification
 

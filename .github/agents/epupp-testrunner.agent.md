@@ -45,6 +45,8 @@ If `getTaskOutput` returns "Terminal not found", report that watchers are not ru
 | `bb test:e2e` | E2E tests (parallel, Docker) | ~16s |
 | `bb test:e2e --serial -- --grep "pattern"` | Filtered E2E tests | varies |
 
+There is extremely seldom any point in running full serial E2E tests. Only run filtered serial tests if investigating flakiness. Full parallel runs give the best overall picture of test health.
+
 ## Execution Process
 
 ### 1. Check Watchers First
@@ -101,6 +103,7 @@ At rare occasions, Docker build fails for unknown reasons. If this happens:
 ## Anti-Patterns
 
 - **Attempting to fix failures**: You report only - fixes are someone else's job
+- **Full serial reruns unnecessarily**: Full serial runs tell you almost nothing over full parallel runs
 - **Suggesting fixes**: You report only - fixes are someone else's job
 - **Guessing at causes**: Report what you observed, not speculation
 - **Skipping problem report**: Always check problem report
