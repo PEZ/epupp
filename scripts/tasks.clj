@@ -585,7 +585,7 @@
     (println)
     (println "Tests sorted by duration (fastest first):")
     (println (str (apply str (repeat 60 "-"))))
-    (doseq [{:keys [name file duration-ms]} sorted]
+    (doseq [{:keys [name duration-ms]} sorted]
       (println (format "%-7s  %s"
                        (format-duration duration-ms)
                        name)))
@@ -745,20 +745,31 @@
     (println (str "  Extra Playwright args: " (str/join " " extra-args))))
   (let [log-file "/tmp/epupp-e2e-serial.log"
         ;; Use tee to both display output in real-time and capture to file
+        ;; pipefail ensures we get docker's exit code, not tee's (which always succeeds)
         docker-cmd (str "docker run --rm epupp-e2e " (str/join " " extra-args))
-        tee-cmd (str docker-cmd " 2>&1 | tee " log-file)
+        tee-cmd (str "set -o pipefail; " docker-cmd " 2>&1 | tee " log-file)
         result (p/shell {:continue true} "bash" "-c" tee-cmd)
         log-content (slurp log-file)
-        summary (parse-playwright-summary log-content)
-        files (count-test-files-in-log log-content)]
-    (when summary
-      (let [{:keys [passed failed skipped]} summary
-            total (+ passed failed (or skipped 0))]
-        (print-test-summary (assoc summary :files files :total total))))
-    (if (zero? (:exit result))
+        parsed-summary (parse-playwright-summary log-content)
+        files (count-test-files-in-log log-content)
+        exit-code (:exit result)
+        ;; Build summary with safe defaults when parsing fails
+        summary (if parsed-summary
+                  (let [{:keys [passed failed skipped]} parsed-summary]
+                    (assoc parsed-summary
+                           :files files
+                           :total (+ passed failed (or skipped 0))))
+                  {:files files :total 0 :passed 0 :failed 0 :skipped 0})
+        ;; When parsing fails but exit is non-zero, report 1 failure
+        failed-override (when (and (nil? parsed-summary) (not (zero? exit-code))) 1)]
+    ;; Always print summary (matches parallel mode behavior)
+    (print-test-summary summary :failed-override failed-override)
+    (when (nil? parsed-summary)
+      (println "  (Warning: Could not parse Playwright summary from output)"))
+    (if (zero? exit-code)
       (println "✅ All tests passed!")
       (println "❌ Some tests failed!"))
-    (System/exit (:exit result))))
+    (System/exit exit-code)))
 
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
