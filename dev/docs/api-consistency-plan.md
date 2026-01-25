@@ -151,18 +151,19 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - [x] **Unit tests**: Test validation rejects `/` prefix
 - [x] **Unit tests**: Test validation rejects `./` anywhere in the name
 - [x] **E2E tests**: Test panel/REPL rejection of `epupp/` names
-- [x] **Docs**: Document namespace reservation
-- [ ] **E2E tests**: Add failing test for panel rename repro (edit script → rename to `epupp/test.cljs` → expected error + disabled save/rename)
-- [ ] **E2E tests**: Add test for repl fs save repro (use `save!` to name a  script to start with `epupp/` → expected reject of the promise with clear message
-- [ ] **E2E tests**: Add failing test for repl fs rename repro (use `mv!` to rename an existing script to start with `epupp/` → expected reject of the promise with clear message
-- [ ] **E2E tests**: Add failing test for repl fs rename repro (use `mv!` to rename an ecisting script to start with `epupp/` → expected reject of the promise with clear message
-- [ ] **storage.cljs**: Centralize name normalization and validate reserved namespace, `./`, `../`, and leading `/` for all write operations (save and rename)
-- [ ] **repl_fs_actions.cljs**: Fix error message for reserved namespace and ensure rename is rejected with same rules
-- [ ] **panel.cljs**: Show a name error under metadata row and disable save/rename when name violates storage-level rules
-- [ ] **Unit tests**: Add validation coverage for reserved namespace, `./`, `../`, and leading `/`
-- [ ] **Property tests**: Add generative tests to fuzz name validation (`epupp/`, `./`, `../`, leading `/`) at storage level
-- [ ] **E2E tests**: Cover save and rename rejections for `epupp/`, `./`, `../`, and leading `/`
-- [ ] **Human verified**: Confirmed Phase 7 changes in the UI
+- [x] **Docs**: Document namespace reservation ([userscripts-architecture.md](userscripts-architecture.md#L97-L99), includes path traversal rules)
+- [x] **E2E tests**: Panel rename to `epupp/` shows error and disables save/rename ([panel_save_rename_test.cljs](../../e2e/panel_save_rename_test.cljs#L356-L393))
+- [x] **E2E tests**: REPL fs save rejects `epupp/` prefix with clear error ([namespace_reservation_test.cljs](../../e2e/namespace_reservation_test.cljs#L8-L38))
+- [x] **E2E tests**: REPL fs save rejects `epupp/built-in/` (deep nesting) ([namespace_reservation_test.cljs](../../e2e/namespace_reservation_test.cljs#L40-L70))
+- [x] **E2E tests**: REPL fs save rejects `epupp/` even with force flag ([namespace_reservation_test.cljs](../../e2e/namespace_reservation_test.cljs#L72-L102))
+- [x] **storage.cljs**: Name validation integrated at storage level (validates before save/rename)
+- [x] **background.cljs**: REPL save handler validates raw manifest name, returns clear error
+- [x] **background_actions/repl_fs_actions.cljs**: Extracts manifest for raw name validation
+- [x] **panel.cljs**: Panel shows name error and disables save/rename for invalid names (E2E verified)
+- [x] **Unit tests**: Complete validation coverage in [script_utils_test.cljs](../../test/script_utils_test.cljs#L45-L115) and [background_actions_test.cljs](../../test/background_actions_test.cljs#L80-L130)
+- [x] **Property tests**: Deterministic property-style tests (200 iterations each) in [script_utils_test.cljs](../../test/script_utils_test.cljs#L73-L115)
+- [x] **E2E tests**: Complete coverage - panel and REPL save/rename rejections for all patterns ([fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs#L427-L500), [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs#L396-L475), [panel_save_rename_test.cljs](../../e2e/panel_save_rename_test.cljs#L397-L462))
+- [x] **Human verified**: Confirmed Phase 7 validation works in UI
 
 ### Phase 8: Built-in Reinstall Strategy
 
