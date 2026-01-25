@@ -496,12 +496,12 @@
                                    bulk-count (.-bulkCount message)]
                                (try
                                  (let [manifest (manifest-parser/extract-manifest code)
-                                       raw-name (or (get manifest "raw-script-name")
-                                                   (get manifest "script-name"))
-                                       name-error (script-utils/validate-script-name raw-name)
-                                       auto-run-match (get manifest "auto-run-match")
-                                       injects (get manifest "inject")
-                                       run-at (script-utils/normalize-run-at (get manifest "run-at"))]
+                                      raw-name (or (when manifest (aget manifest "raw-script-name"))
+                                                   (when manifest (aget manifest "script-name")))
+                                      name-error (script-utils/validate-script-name raw-name)
+                                      auto-run-match (when manifest (aget manifest "auto-run-match"))
+                                      injects (when manifest (aget manifest "inject"))
+                                      run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
                                    (cond
                                      (nil? raw-name)
                                      (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})

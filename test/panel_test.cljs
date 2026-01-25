@@ -83,6 +83,7 @@
 (defn- test_load_script_for_editing_populates_all_fields []
   (let [result (panel-actions/handle-action initial-state uf-data
                                             [:editor/ax.load-script-for-editing
+                                             "script-123"
                                              "Test Script"
                                              "*://example.com/*"
                                              "(println \"hello\")"
@@ -100,6 +101,7 @@
 (defn- test_load_script_for_editing_handles_missing_description []
   (let [result (panel-actions/handle-action initial-state uf-data
                                             [:editor/ax.load-script-for-editing
+                                             "script-123"
                                              "Test Script"
                                              "*://example.com/*"
                                              "(println \"hello\")"])

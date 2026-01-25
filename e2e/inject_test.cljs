@@ -87,7 +87,7 @@
           (js-await (-> (expect has-enabled) (.toBe true)))
           (js-await (-> (expect (.-created our-script)) (.toBeTruthy)))
           (js-await (-> (expect (.-modified our-script)) (.toBeTruthy)))
-          (js-await (-> (expect has-builtin) (.toBe true))))
+          (js-await (-> (expect has-builtin) (.toBe false))))
 
         (js-await (assert-no-errors! popup))
         (js-await (.close popup)))

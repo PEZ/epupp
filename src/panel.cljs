@@ -21,6 +21,7 @@
          :panel/scittle-status :unknown  ; :unknown, :checking, :loading, :loaded
          :panel/script-name ""
          :panel/original-name nil  ;; Track for rename detection, non-nil means editing existing
+         :panel/script-id nil      ;; Track script ID for updates (preserves ID on save)
          :panel/script-match ""
          :panel/script-description ""
          :panel/init-version nil
@@ -199,10 +200,10 @@
     :editor/fx.save-script
     (let [[script normalized-name action-text] args]
       ;; Route through background for centralized FS validation
-      ;; Use script->js to convert namespaced keys to simple keys
+      ;; Use script->panel-js to convert namespaced keys for panel messages
       (js/chrome.runtime.sendMessage
        #js {:type "panel-save-script"
-            :script (script-utils/script->js script)}
+            :script (script-utils/script->panel-js script)}
        (fn [response]
          (let [error (or (when js/chrome.runtime.lastError
                            (.-message js/chrome.runtime.lastError))
@@ -254,6 +255,7 @@
        (when-let [script (.-editingScript result)]
          ;; Load script into editor
          (dispatch [[:editor/ax.load-script-for-editing
+                     (.-id script)
                      (.-name script)
                      (.-match script)
                      (.-code script)
@@ -271,8 +273,7 @@
                  script (some #(when (= (:script/name %) script-name) %) scripts)]
              (when script
                ;; Reload the script content into the editor
-               (dispatch [[:editor/ax.load-script-for-editing
-                           (:script/name script)
+               (dispatch [[:editor/ax.load-script-for-editing                           (:script/id script)                           (:script/name script)
                            (str/join "\n" (:script/match script))
                            (:script/code script)
                            (:script/description script)]])))))))

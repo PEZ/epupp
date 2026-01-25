@@ -12,7 +12,7 @@
     (def ls-result ls-result))
 
   ;; Show existing script
-  (p/let [show-result (epupp.fs/show "GitHub Gist Installer (Built-in)")]
+  (p/let [show-result (epupp.fs/show "epupp/built_in_gist_installer.cljs")]
     (def show-result show-result))
 
   ;; Show non-existent script returns nil
@@ -20,7 +20,7 @@
     (def show-nil show-nil))
 
   ;; Bulk show - map of name to code (nil for missing)
-  (p/let [show-bulk (epupp.fs/show ["GitHub Gist Installer (Built-in)" "does-not-exist.cljs"])]
+  (p/let [show-bulk (epupp.fs/show ["epupp/built_in_gist_installer.cljs" "does-not-exist.cljs"])]
     (def show-bulk show-bulk))
 
   ;; ===== WRITE OPERATIONS (require FS REPL Sync enabled) =====
@@ -53,12 +53,12 @@
       (p/catch (fn [e] (def epupp-prefix-save-error (.-message e)))))
 
   ;; Save does not overwrite built-in
-  (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)")]
+  (-> (p/let [save-built-in-result (epupp.fs/save! "{:epupp/script-name \"epupp/built_in_gist_installer.cljs\"}\n(ns no-built-in-saving-for-you)")]
         (def save-built-in-result save-built-in-result))
       (p/catch (fn [e] (def save-built-in-error (.-message e)))))
 
   ;; Save with force does not overwrite built-in
-  (-> (p/let [save-built-in-force-result (epupp.fs/save! "{:epupp/script-name \"GitHub Gist Installer (Built-in)\"}\n(ns no-built-in-saving-for-you)" {:fs/force? true})]
+  (-> (p/let [save-built-in-force-result (epupp.fs/save! "{:epupp/script-name \"epupp/built_in_gist_installer.cljs\"}\n(ns no-built-in-saving-for-you)" {:fs/force? true})]
         (def save-built-in-force-result save-built-in-force-result))
       (p/catch (fn [e] (def save-built-in-force-error (.-message e)))))
   ;; PEZ: Checks out!
@@ -90,7 +90,7 @@
   ;; PEZ: Checks out!
 
   ;; Rename built-in rejects
-  (-> (p/let [mv-builtin-result (epupp.fs/mv! "GitHub Gist Installer (Built-in)" "renamed-builtin.cljs")]
+  (-> (p/let [mv-builtin-result (epupp.fs/mv! "epupp/built_in_gist_installer.cljs" "renamed-builtin.cljs")]
         (def mv-builtin-result mv-builtin-result))
       (p/catch (fn [e] (def mv-builtin-error (.-message e)))))
   ;; PEZ: Checks out!
@@ -108,7 +108,7 @@
   ;; PEZ: Checks out!
 
   ;; Delete built-in rejects
-  (-> (p/let [rm-builtin-result (epupp.fs/rm! "GitHub Gist Installer (Built-in)")]
+  (-> (p/let [rm-builtin-result (epupp.fs/rm! "epupp/built_in_gist_installer.cljs")]
         (def rm-builtin-result rm-builtin-result))
       (p/catch (fn [e] (def rm-builtin-error (.-message e)))))
   ;; PEZ: Checks out!
@@ -126,7 +126,7 @@
   ;; PEZ: Checks out!
 
   ;; Bulk delete - mixed existing/non-existing (re-create the bulk files first)
-  (-> (p/let [bulk-rm-w-built-in-result (epupp.fs/rm! ["bulk_1.cljs" "GitHub Gist Installer (Built-in)" "bulk_2.cljs" "does-not-exist.cljs"])]
+  (-> (p/let [bulk-rm-w-built-in-result (epupp.fs/rm! ["bulk_1.cljs" "epupp/built_in_gist_installer.cljs" "bulk_2.cljs" "does-not-exist.cljs"])]
         (def bulk-rm-w-built-in-result bulk-rm-w-built-in-result))
       (p/catch (fn [e] (def bulk-rm-w-built-in-error (.-message e)))))
   ;; PEZ: Checks out!

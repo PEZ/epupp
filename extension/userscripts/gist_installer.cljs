@@ -1,4 +1,4 @@
-{:epupp/script-name "epupp/built-in/gist_installer.cljs"
+{:epupp/script-name "epupp/built_in_gist_installer.cljs"
  :epupp/auto-run-match ["https://gist.github.com/*"
                         "http://localhost:18080/mock-gist.html"]
  :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"

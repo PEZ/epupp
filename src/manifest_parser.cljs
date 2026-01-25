@@ -88,6 +88,21 @@
          "found-keys" found-keys
          "unknown-keys" unknown-keys}))))
 
+(defn update-manifest-script-name
+  "Update :epupp/script-name in the manifest section of code, if present.
+   Returns original code when no manifest or script-name key exists."
+  [code new-name]
+  (if (and (string? code) (string? new-name))
+    (let [manifest (try (extract-manifest code) (catch :default _ nil))
+          found-keys (get manifest "found-keys")
+          has-name-key? (some #(= % "epupp/script-name") found-keys)]
+      (if has-name-key?
+        (string/replace code
+                        (js/RegExp. ":epupp/script-name\\s+\"[^\"]*\"" "g")
+                        (str ":epupp/script-name \"" new-name "\""))
+        code))
+    code))
+
 (defn has-manifest?
   "Returns true if the code contains Epupp manifest metadata."
   [code]

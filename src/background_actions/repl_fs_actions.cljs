@@ -151,7 +151,20 @@
       ;; All checks pass - allow rename
       :else
       (let [updated-scripts (update-script-in-list scripts (:script/id source-script)
-                                                   #(assoc % :script/name normalized-to-name :script/modified now-iso))
+                       (fn [script]
+                         (let [existing-code (:script/code script)
+                           manifest (when existing-code
+                              (try (mp/extract-manifest existing-code)
+                               (catch :default _ nil)))
+                           has-script-name? (and manifest
+                                 (get manifest "script-name"))
+                           updated-code (if has-script-name?
+                              (mp/update-manifest-script-name existing-code normalized-to-name)
+                              existing-code)]
+                       (cond-> (assoc script
+                              :script/name normalized-to-name
+                              :script/modified now-iso)
+                         has-script-name? (assoc :script/code updated-code)))))
             renamed-script (find-script-by-name updated-scripts normalized-to-name)]
         (make-success-response updated-scripts "rename" normalized-to-name
                                {:event-data {:script-id (:script/id source-script)
@@ -202,7 +215,7 @@
         manifest (when code
                    (try (mp/extract-manifest code)
                         (catch :default _ nil)))
-        raw-name (or (get manifest "raw-script-name")
+        raw-name (or (when manifest (aget manifest "raw-script-name"))
                      (:script/name script))
         name-error (script-utils/validate-script-name raw-name)
         normalized-name (when raw-name (script-utils/normalize-script-name raw-name))

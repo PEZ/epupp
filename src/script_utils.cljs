@@ -117,6 +117,19 @@
 ;; URL pattern matching
 ;; ============================================================
 
+(defn script->panel-js
+  "Convert script map to JS object for panel save/rename messages."
+  [script]
+  #js {:id (:script/id script)
+       :name (:script/name script)
+       :description (:script/description script)
+       :match (clj->js (or (:script/match script) []))
+       :code (:script/code script)
+       :enabled (:script/enabled script)
+       :runAt (:script/run-at script)
+       :inject (clj->js (or (:script/inject script) []))
+       :force (:script/force? script)})
+
 (defn- escape-regex
   "Escape special regex characters except * which we handle specially"
   [s]

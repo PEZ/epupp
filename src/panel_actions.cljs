@@ -137,7 +137,7 @@
                 (not (:error result)) (update :panel/results conj {:type :output :text (:result result)}))})
 
     :editor/ax.save-script
-    (let [{:panel/keys [code script-name script-match script-description original-name manifest-hints]} state]
+    (let [{:panel/keys [code script-name script-match script-description original-name script-id manifest-hints]} state]
       (if (or (empty? code) (empty? script-name))
         {:uf/dxs [[:editor/ax.show-system-banner "error" "Name and code are required"]]}
         (let [;; Normalize the display name for consistency
@@ -150,13 +150,15 @@
               script-inject (:inject manifest-hints)
               script-run-at (:run-at manifest-hints)
               ;; Don't set :script/enabled here - let storage.cljs default it appropriately
-              ;; Don't set :script/id here - let background generate/manage IDs
+              ;; Include :script/id when updating existing script (name unchanged)
               script (cond-> {:script/name script-name
                               :script/match normalized-match
                               :script/code code}
                        (seq script-description) (assoc :script/description script-description)
                        (seq script-inject) (assoc :script/inject script-inject)
-                       script-run-at (assoc :script/run-at script-run-at))
+                       script-run-at (assoc :script/run-at script-run-at)
+                       ;; Include ID when name not changed (update, not create)
+                       (and original-name (not name-changed?) script-id) (assoc :script/id script-id))
               ;; "Created" for new scripts OR when forking (name changed)
               ;; "Saved" only when updating existing script with same name
               action-text (if (or (not original-name) name-changed?) "Created" "Saved")]
@@ -204,11 +206,23 @@
 
     :editor/ax.rename-script
     (if-let [original-name (:panel/original-name state)]
-      (let [new-name (:panel/script-name state)]
+      (let [{:panel/keys [script-name script-match script-description code script-id manifest-hints]} state
+            new-name script-name]
         (if (= new-name original-name)
           {:uf/dxs [[:editor/ax.show-system-banner "error" "Name unchanged"]]}
-          ;; State update happens in response handler
-          {:uf/fxs [[:editor/fx.rename-script original-name new-name]]}))
+          ;; Use save-script with script-id to preserve ID during rename
+          (let [normalized-name (script-utils/normalize-script-name new-name)
+                normalized-match (script-utils/normalize-match-patterns script-match)
+                script-inject (:inject manifest-hints)
+                script-run-at (:run-at manifest-hints)
+                script (cond-> {:script/name new-name
+                                :script/match normalized-match
+                                :script/code code}
+                         script-id (assoc :script/id script-id)
+                         (seq script-description) (assoc :script/description script-description)
+                         (seq script-inject) (assoc :script/inject script-inject)
+                         script-run-at (assoc :script/run-at script-run-at))]
+            {:uf/fxs [[:editor/fx.save-script script normalized-name "Renamed"]]})))
       {:uf/dxs [[:editor/ax.show-system-banner "error" "Cannot rename: no script loaded"]]})
 
     :editor/ax.handle-rename-response
@@ -222,11 +236,12 @@
         {:uf/dxs [[:editor/ax.show-system-banner "error" (or error "Rename failed")]]}))
 
     :editor/ax.load-script-for-editing
-    (let [[name match code description] args
+    (let [[script-id name match code description] args
           ;; Parse manifest from loaded code for hint display
           manifest (try (mp/extract-manifest code) (catch :default _ nil))
           hints (build-manifest-hints manifest)]
       {:uf/db (assoc state
+                     :panel/script-id script-id      ;; Track script ID for updates
                      :panel/script-name name
                      :panel/original-name name  ;; Track for rename detection
                      :panel/script-match match

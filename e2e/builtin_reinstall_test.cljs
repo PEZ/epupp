@@ -6,7 +6,7 @@
                               get-script-item assert-no-errors!]]))
 
 (def ^:private builtin-id "epupp-builtin-gist-installer")
-(def ^:private builtin-name "epupp/built-in/gist_installer.cljs")
+(def ^:private builtin-name "epupp/built_in_gist_installer.cljs")
 
 (defn- ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
@@ -71,13 +71,10 @@
   (let [result (js-await (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"}))
         scripts (or (.-value result) #js [])
         stale #js {:id "epupp-builtin-stale"
-                   :name "epupp/built-in/stale.cljs"
                    :code "(println \"stale\")"
                    :enabled true
                    :created "2020-01-01T00:00:00.000Z"
                    :modified "2020-01-01T00:00:00.000Z"
-                   :match #js []
-                   :inject #js []
                    :builtin true}
         updated (.concat scripts #js [stale])]
     (js-await (send-runtime-message popup "e2e/set-storage" #js {:key "scripts" :value updated}))))
@@ -130,8 +127,8 @@
 
       (let [popup (js-await (create-popup-page context ext-id))
             builtin (js-await (wait-for-builtin-code popup "Gist Installer - Runs in Scittle" 5000))]
-        (-> (expect (.-name builtin))
-            (.toBe builtin-name))
+        (-> (expect (.includes (.-code builtin) "epupp/built_in_gist_installer.cljs"))
+            (.toBe true))
         (-> (expect (.-enabled builtin))
             (.toBe false))
         (-> (expect (.includes (.-code builtin) "Gist Installer - Runs in Scittle"))

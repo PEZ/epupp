@@ -33,7 +33,7 @@
 (def ^:private bundled-builtins
   [{:script/id "epupp-builtin-gist-installer"
     :path "userscripts/gist_installer.cljs"
-    :name "epupp/built-in/gist_installer.cljs"}])
+    :name "epupp/built_in_gist_installer.cljs"}])
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
@@ -325,9 +325,20 @@
     (swap! !db update :storage/scripts
            (fn [scripts]
              (mapv #(if (= (:script/id %) script-id)
-                      (assoc %
-                             :script/name normalized-name
-                             :script/modified now)
+                      (let [existing-script %
+                            existing-code (:script/code existing-script)
+                            manifest (when existing-code
+                                       (try (mp/extract-manifest existing-code)
+                                            (catch :default _ nil)))
+                            has-script-name? (and manifest
+                                                  (get manifest "script-name"))
+                            updated-code (if has-script-name?
+                                           (mp/update-manifest-script-name existing-code normalized-name)
+                                           existing-code)]
+                        (cond-> (assoc existing-script
+                                       :script/name normalized-name
+                                       :script/modified now)
+                          has-script-name? (assoc :script/code updated-code)))
                       %)
                    scripts)))
     (persist!)))
@@ -417,8 +428,8 @@
   (let [manifest (try (mp/extract-manifest code)
                       (catch :default _ nil))
         manifest-name (when manifest
-                        (or (get manifest "raw-script-name")
-                            (get manifest "script-name")))
+                        (or (get manifest "script-name")
+                            (get manifest "raw-script-name")))
         raw-name (or manifest-name (:name bundled))
         run-at (when manifest
                  (script-utils/normalize-run-at (get manifest "run-at")))

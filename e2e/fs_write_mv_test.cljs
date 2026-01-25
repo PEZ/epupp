@@ -315,7 +315,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (if (.includes result-str "epupp/built-in/gist_installer.cljs")
+            (if (.includes result-str "epupp/built_in_gist_installer.cljs")
               (-> (expect true) (.toBe true))
               (if (> (- (.now js/Date) start) timeout-ms)
                 (throw (js/Error. "Timeout waiting for ls before mv"))
@@ -329,7 +329,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"epupp/built-in/gist_installer.cljs\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"epupp/built_in_gist_installer.cljs\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
