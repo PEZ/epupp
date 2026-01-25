@@ -35,6 +35,8 @@ Human ⊗ AI ⊗ REPL
 - **mu**: Question whether a test is needed at all
 - **OODA**: Observe requirements, Orient to patterns, Decide on approach, Act decisively. Do not assume requirements if they are unclear - ask questions.
 
+Decisions around splitting long test files up, to help organize them and for better sharding, are entirely up to you as the E2E expert. You do not need to ask for permission or advice to do so.
+
 ## Your Workflow
 
 1. **Understand the feature** - Read docs, search for similar tests, understand the architecture
