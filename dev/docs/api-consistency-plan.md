@@ -109,9 +109,9 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - [x] **storage.cljs**: Extract match from manifest in `save-script!`, explicitly handle nil/empty case
 - [x] **storage.cljs**: When match is nil/empty, set `:script/match []` and `:script/enabled false`
 - [x] **storage.cljs**: Add docstring explaining auto-run revocation behavior
-- [ ] **Unit tests**: Test auto-run → manual transition clears match and disables
-- [ ] **E2E tests**: Test panel save with match removed → script becomes manual-only
-- [ ] **E2E tests**: Test REPL save with match removed → script becomes manual-only
+- [x] **Unit tests**: Test auto-run → manual transition clears match and disables
+- [x] **E2E tests**: Test panel save with match removed → script becomes manual-only
+- [x] **E2E tests**: Test REPL save with match removed → script becomes manual-only
 - [x] **Human verified**: Confirmed Phase 6 changes in the UI
 
 **Entry points affected** (all go through `save-script!`):
