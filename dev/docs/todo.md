@@ -65,3 +65,8 @@
 * [ ] The new-script template should add a pattern matching the current page
 * [x] Built in scripts should be fully replaced on extension update
 * [ ] Never promote `*://` for script matching ever
+* [ ] All repl fs rejects should be system banner in the popup and panel
+* [ ] Fix `epupp/` prefix error messages to not call it namespace
+* [ ] Protect `epupp/` files from being deleted
+* [ ] `mv!`, wrong delete count, when some are rejected
+* [ ] Gist installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?

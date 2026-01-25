@@ -91,7 +91,7 @@ Scripts specify timing via a manifest map at the top of the file:
 
 The manifest is parsed on load to derive runtime fields like `:script/run-at` and `:script/inject`. See [architecture/injection-flows.md](architecture/injection-flows.md#content-script-registration) for technical details.
 
-Note: `granted-origins` storage key exists for potential future use but is currently unused.
+Note: `grantedOrigins` storage key exists for potential future use but is currently unused.
 
 **Script IDs are immutable.** Renaming a script updates `:script/name` but
 preserves `:script/id` for stable identity.
@@ -113,7 +113,7 @@ preserves `:script/id` for stable identity.
 | Path | Code | Result |
 |------|------|--------|
 | Panel save | `normalize-match-patterns` parses manifest | `["pattern1" "pattern2"]` |
-| Background install | `[site-match]` wraps single string | `["pattern"]` |
+| Background install | `[auto-run-match]` wraps single string | `["pattern"]` |
 | Built-in scripts | Hardcoded vectors | `["pattern"]` |
 
 Nested arrays cannot occur in normal operation. If future import functionality is added, validate at import time rather than adding defensive flattening throughout the codebase. (January 2026: removed `normalize-match-array` after analysis confirmed it was unreachable defensive code.)
@@ -152,7 +152,7 @@ We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScr
 
 **Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality. Epupp uses the minimal permission set required for full functionality.
 
-The `granted-origins` storage key is retained for potential future use but currently unused.
+The `grantedOrigins` storage key is retained for potential future use but currently unused.
 
 ## Userscript Installation (from Page)
 
