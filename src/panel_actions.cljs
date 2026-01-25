@@ -247,20 +247,20 @@
     {:uf/fxs [[:editor/fx.check-editing-script]]}
 
     :editor/ax.initialize-editor
-    (let [[{:keys [code original-name hostname]}] args
+    (let [[{:keys [code hostname]}] args
           ;; Use default script if no code saved
           effective-code (if (seq code) code default-script)
           ;; Parse manifest from code
           manifest (try (mp/extract-manifest effective-code) (catch :default _ nil))
           hints (build-manifest-hints manifest)
           dxs (build-manifest-dxs manifest)
-          ;; Build new state - only set original-name if we have saved code
+          manifest-name (get manifest "script-name")
+          ;; Build new state - only set original-name when restoring saved code
           new-state (cond-> (assoc state
                                    :panel/code effective-code
                                    :panel/manifest-hints hints
                                    :panel/current-hostname hostname)
-                      ;; Only set original-name if restoring existing script (has saved code)
-                      (seq code) (assoc :panel/original-name original-name))]
+                      (and (seq code) (seq manifest-name)) (assoc :panel/original-name manifest-name))]
       (cond-> {:uf/db new-state}
         (seq dxs) (assoc :uf/dxs dxs)))
 

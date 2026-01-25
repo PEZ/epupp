@@ -558,7 +558,7 @@
 ;; ============================================================
 
 (defn- test_initialize_editor_with_saved_code_parses_manifest []
-  (let [saved-code "{:epupp/script-name \"My Script\"
+  (let [saved-code "{:epupp/script-name \"my_script.cljs\"
  :epupp/auto-run-match \"https://example.com/*\"
  :epupp/description \"Test script\"}
 
@@ -567,14 +567,13 @@
         result (panel-actions/handle-action
                 initial-state uf-data
                 [:editor/ax.initialize-editor
-                 {:code saved-code
-                  :original-name "my_script.cljs"}])
+                 {:code saved-code :hostname "example.com"}])
         new-state (:uf/db result)
         dxs (:uf/dxs result)]
     ;; Code should be set
     (-> (expect (:panel/code new-state))
         (.toBe saved-code))
-    ;; Original name should be set
+    ;; Original name should come from manifest
     (-> (expect (:panel/original-name new-state))
         (.toBe "my_script.cljs"))
     ;; Manifest hints should be populated
@@ -591,7 +590,7 @@
 (defn- test_initialize_editor_with_no_saved_code_uses_default_script []
   (let [result (panel-actions/handle-action
                 initial-state uf-data
-                [:editor/ax.initialize-editor {}])
+                [:editor/ax.initialize-editor {:hostname "example.com"}])
         new-state (:uf/db result)
         dxs (:uf/dxs result)]
     ;; Code should have default script
@@ -599,9 +598,9 @@
         (.toContain "hello_world.cljs"))
     (-> (expect (:panel/code new-state))
         (.toContain "(ns hello-world)"))
-    ;; Should NOT have script-id (it's a new script template)
-    (-> (expect (:panel/script-id new-state))
-        (.toBeFalsy))
+    ;; Should NOT set original-name (it's a new script template)
+    (-> (expect (:panel/original-name new-state))
+        (.toBeUndefined))
     ;; Should have dxs to set name from manifest
     (-> (expect (some #(= (first %) :editor/ax.set-script-name) dxs))
         (.toBeTruthy))))
@@ -609,11 +608,14 @@
 (defn- test_initialize_editor_with_empty_code_uses_default_script []
   (let [result (panel-actions/handle-action
                 initial-state uf-data
-                [:editor/ax.initialize-editor {:code ""}])
+                [:editor/ax.initialize-editor {:code "" :hostname "example.com"}])
         new-state (:uf/db result)]
     ;; Empty code should trigger default script
     (-> (expect (:panel/code new-state))
-        (.toContain "hello_world.cljs"))))
+        (.toContain "hello_world.cljs"))
+    ;; Should NOT set original-name for default script
+    (-> (expect (:panel/original-name new-state))
+        (.toBeUndefined))))
 
 (describe "panel initialization action"
           (fn []

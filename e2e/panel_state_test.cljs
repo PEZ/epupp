@@ -121,6 +121,45 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_panel_restores_updated_manifest_after_edit []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")]
+        (js-await (clear-storage panel))
+        (js-await (.reload panel))
+        (js-await (wait-for-panel-ready panel))
+
+        (let [initial-code (code-with-manifest {:name "Original Script"
+                                                :match "*://original.example.com/*"
+                                                :code "(println \"original\")"})]
+          (js-await (.fill textarea initial-code)))
+        (js-await (wait-for-panel-state-saved panel "Original Script"))
+        (js-await (.close panel)))
+
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")]
+        (js-await (wait-for-panel-ready panel))
+
+        (let [updated-code (code-with-manifest {:name "Updated Script"
+                                                :match "*://updated.example.com/*"
+                                                :code "(println \"updated\")"})]
+          (js-await (.fill textarea updated-code)))
+        (js-await (wait-for-panel-state-saved panel "Updated Script"))
+        (js-await (.close panel)))
+
+      (let [panel (js-await (create-panel-page context ext-id))
+            textarea (.locator panel "#code-area")
+            save-section (.locator panel ".save-script-section")
+            name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
+        (js-await (wait-for-panel-ready panel))
+        (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "Updated Script") #js {:timeout 2000})))
+        (js-await (-> (expect name-field) (.toContainText "updated_script.cljs")))
+        (js-await (assert-no-errors! panel)))
+      (finally
+        (js-await (.close context))))))
+
 ;; =============================================================================
 ;; Panel User Journey: New Script Button
 ;; =============================================================================
@@ -130,8 +169,8 @@
         ext-id (js-await (get-extension-id context))]
     (try
       (let [panel (js-await (create-panel-page context ext-id))
-        textarea (.locator panel "#code-area")
-        new-btn (.locator panel "button.btn-new-script")]
+            textarea (.locator panel "#code-area")
+            new-btn (.locator panel "button.btn-new-script")]
         (js-await (clear-storage panel))
         (js-await (.reload panel))
         (js-await (wait-for-panel-ready panel))
@@ -263,6 +302,9 @@
 
              (test "Panel State: restores saved state and parses manifest on reload"
                    test_panel_restores_saved_state_and_parses_manifest)
+
+             (test "Panel State: restores updated manifest after code edit"
+                   test_panel_restores_updated_manifest_after_edit)
 
              (test "Panel State: New button clears editor and resets to default script"
                    test_panel_new_button_clears_editor)

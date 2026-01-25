@@ -52,13 +52,9 @@
   "Persist editor state per hostname. Receives state snapshot to ensure consistency."
   [state]
   (when-let [hostname (:panel/current-hostname state)]
-    (let [{:panel/keys [code script-name script-match script-description original-name]} state
+    (let [{:panel/keys [code]} state
           key (panel-state-key hostname)
-          state-to-save #js {:code code
-                             :scriptName script-name
-                             :scriptMatch script-match
-                             :scriptDescription script-description
-                             :originalName original-name}]
+          state-to-save #js {:code code}]
       (js/chrome.storage.local.set
        (js-obj key state-to-save)
        (fn []
@@ -75,14 +71,10 @@
         #js [key]
         (fn [result]
           (let [saved (aget result key)
-                code (when saved (.-code saved))
-                original-name (when saved (.-scriptName saved))]
-            ;; Dispatch initialize action with saved data including hostname
+                code (when saved (.-code saved))]
             (dispatch [[:editor/ax.initialize-editor
                         {:code code
-                         :original-name original-name
                          :hostname hostname}]])
-            ;; Call callback after dispatch completes
             (when callback (callback)))))))))
 
 ;; ============================================================
@@ -760,12 +752,8 @@
                                    (add-watch !state :panel/render
                                               (fn [_ _ old-state new-state]
                                                 (render!)
-                                                ;; Only persist when editor fields change
-                                                (when (or (not= (:panel/code old-state) (:panel/code new-state))
-                                                          (not= (:panel/script-name old-state) (:panel/script-name new-state))
-                                                          (not= (:panel/script-match old-state) (:panel/script-match new-state))
-                                                          (not= (:panel/script-description old-state) (:panel/script-description new-state))
-                                                          (not= (:panel/original-name old-state) (:panel/original-name new-state)))
+                                                ;; Only persist when code changes
+                                                (when (not= (:panel/code old-state) (:panel/code new-state))
                                                   (save-panel-state! new-state))))
                                    (render!)
                                    ;; Check Scittle status on init
