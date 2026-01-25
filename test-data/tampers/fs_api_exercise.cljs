@@ -47,7 +47,7 @@
 
   ;; Save does not allow names starting with epupp/
   (-> (p/let [epupp-prefix-save-result (epupp.fs/save!
-                           "{:epupp/script-name \"epupp/test-save-1\""
+                           "{:epupp/script-name \"epupp/test-save-1\"}"
                            #_{:fs/force? true})]
         (def epupp-prefix-save-result epupp-prefix-save-result))
       (p/catch (fn [e] (def epupp-prefix-save-error (.-message e)))))
