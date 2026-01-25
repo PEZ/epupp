@@ -38,6 +38,8 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 ## Progress Checklist
 
+Note: Do not edit or care about files that may be changed by someone else and are unrelated to this plan.
+
 ### Phase 1: Manifest Rename `:epupp/site-match` → `:epupp/auto-run-match`
 
 - [x] **manifest_parser.cljs**: Update key extraction
@@ -49,6 +51,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **Built-in scripts**: Update bundled script manifests
 - [x] **Unit tests**: Update all manifest-related tests
 - [x] **E2E tests**: Update manifest assertions
+- [x] **Human verified**: Confirmed Phase 1 changes in the UI
 
 ### Phase 2: Return Shape Consistency
 
@@ -60,6 +63,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **content_bridge.cljs**: Forward all response properties via `js/Object.assign`
 - [x] **bundled/epupp/fs.cljs**: Transform `:success` → `:fs/success` for all operations
 - [x] **E2E tests**: Updated to expect namespaced keys (`:fs/success`, `:fs/enabled?`, etc.)
+- [ ] **Human verified**: Confirmed Phase 2 changes in the UI
 
 ### Phase 3: Boolean Naming Convention
 
@@ -68,6 +72,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **popup.cljs**: Update any `:fs/enabled` references
 - [x] **Unit tests**: Update assertions for new key names
 - [x] **E2E tests**: Update assertions for new key names
+- [x] **Human verified**: Confirmed Phase 3 changes in the UI
 
 ### Phase 4: Auto-Run Behavior
 
@@ -77,6 +82,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **panel_actions.cljs**: Verify save behavior for scripts without match
 - [x] **Unit tests**: Test enabled default based on match presence
 - [x] **E2E tests**: Verify behavior for manual-only scripts
+- [x] **Human verified**: Confirmed Phase 4 changes in the UI
 
 ### Phase 5: Documentation
 
@@ -85,6 +91,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **docs/repl-fs-sync.md**: Update return shape examples
 - [x] **dev/docs/api-surface-catalog.md**: Update API catalog
 - [x] **dev/docs/userscripts-architecture.md**: Update manifest format
+- [ ] **Human verified**: Confirmed Phase 5 changes in the docs
 
 ### Phase 6: Auto-Run Revocation (Regression Fix)
 
@@ -99,12 +106,13 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 
 **Solution**: Centralize auto-run handling in `storage.cljs` so all entry points (panel save, REPL save, gist install, script import) behave consistently.
 
-- [ ] **storage.cljs**: Extract match from manifest in `save-script!`, explicitly handle nil/empty case
-- [ ] **storage.cljs**: When match is nil/empty, set `:script/match []` and `:script/enabled false`
-- [ ] **storage.cljs**: Add docstring explaining auto-run revocation behavior
+- [x] **storage.cljs**: Extract match from manifest in `save-script!`, explicitly handle nil/empty case
+- [x] **storage.cljs**: When match is nil/empty, set `:script/match []` and `:script/enabled false`
+- [x] **storage.cljs**: Add docstring explaining auto-run revocation behavior
 - [ ] **Unit tests**: Test auto-run → manual transition clears match and disables
 - [ ] **E2E tests**: Test panel save with match removed → script becomes manual-only
 - [ ] **E2E tests**: Test REPL save with match removed → script becomes manual-only
+- [x] **Human verified**: Confirmed Phase 6 changes in the UI
 
 **Entry points affected** (all go through `save-script!`):
 - Panel save (via `panel_actions.cljs` → `background.cljs` → `storage.cljs`)
@@ -128,6 +136,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **Unit tests**: Test validation rejects `epupp/` prefix
 - [ ] **E2E tests**: Test panel/REPL rejection of `epupp/` names
 - [ ] **Docs**: Document namespace reservation
+- [ ] **Human verified**: Confirmed Phase 7 changes in the UI
 
 ### Phase 8: Built-in Reinstall Strategy
 
@@ -155,6 +164,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **storage.cljs**: For each bundled built-in, call existing save path (not special-case)
 - [ ] **Unit tests**: Test stale built-in removal
 - [ ] **Unit tests**: Test built-in update preserves enabled state
+- [ ] **Human verified**: Confirmed Phase 8 changes in the UI
 
 **E2E tests** (cover decided behavior):
 - [ ] **E2E**: Built-in appears with correct code after extension reload
@@ -162,6 +172,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **E2E**: User enables built-in → reload extension → built-in stays enabled
 - [ ] **E2E**: Stale built-in (manually added with `builtin?: true`) removed on reload
 - [ ] **E2E**: Built-in code updates when bundle changes (verify modified timestamp changes)
+- [ ] **Human verified**: Confirmed Phase 8 E2E behavior in the UI
 
 ### Phase 9: Panel Persistence Simplification
 
@@ -184,6 +195,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **panel.cljs**: Handle restore from code-only persistence
 - [ ] **Unit tests**: Test restore parses manifest correctly
 - [ ] **E2E tests**: Test panel restore after code edit changes manifest
+- [ ] **Human verified**: Confirmed Phase 9 changes in the UI
 
 ### Phase 10: Storage Schema - Derive from Manifest
 
@@ -232,6 +244,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **script_utils.cljs**: Add `derive-script-fields` function
 - [ ] **Unit tests**: Test round-trip (save minimal, load with derived fields)
 - [ ] **E2E tests**: Test that manifest changes in code are reflected after reload
+- [ ] **Human verified**: Confirmed Phase 10 changes in the UI
 
 ### Phase 11: Schema Versioning and Key Naming
 
@@ -274,6 +287,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [ ] **Unit tests**: Test migration from unversioned to version 1
 - [ ] **Unit tests**: Test `granted-origins` → `grantedOrigins` migration
 - [ ] **Docs**: Document storage schema version
+- [ ] **Human verified**: Confirmed Phase 11 changes in the UI
 
 ### Phase 12: Scheme Reservation (`epupp://`)
 
@@ -284,11 +298,14 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 - [x] **Decided**: Scheme is reserved (documented in api-review-discussion.md)
 - [ ] **Docs**: Add note about scheme reservation
 - [ ] **Future**: Add validation when scheme is actually used
+- [ ] **Human verified**: Confirmed Phase 12 changes in the docs
 
 ### Phase 13: Final Verification
 
 - [ ] **Unit tests pass**: `bb test`
 - [ ] **E2E tests pass**: `bb test:e2e`
+- [ ] **Build dev version**: `bb build:dev` for human testing
+- [ ] **Human verified**: Human has verified the changes
 - [ ] **Manual verification**: Test full workflow in browser
   - [ ] Panel: Edit script with match → remove match → save → verify no auto-run UI
   - [ ] REPL: Update script removing match → verify no auto-run UI in popup
@@ -442,6 +459,8 @@ The `save-script!` function in storage.cljs must be updated to:
 20. **Built-in preserved enabled**: Enable built-in → reload extension → still enabled
 21. **Built-in stale removal**: Manually add fake built-in → reload → removed
 22. **Built-in code updates**: Change built-in code in bundle → reload → new code, new modified date
+24. **Build dev version**: Run `bb build:dev` for human testing
+25. **Human verified**: Human has verified the changes
 
 ## Original Plan-Producing Prompt
 

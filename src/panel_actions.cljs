@@ -20,15 +20,24 @@
 
 (defn- build-manifest-dxs
   "Build deferred dispatch actions from manifest data.
-   Returns vector of actions to update name, match, description from manifest."
+   Returns vector of actions to update name, match, description from manifest.
+
+   CRITICAL: When manifest is present, it's the source of truth. If
+   epupp/auto-run-match is absent from found-keys, we explicitly clear
+   the match field to implement auto-run revocation."
   [manifest]
   (when manifest
     (let [script-name (get manifest "script-name")
           auto-run-match (get manifest "auto-run-match")
-          description (get manifest "description")]
+          description (get manifest "description")
+          found-keys (get manifest "found-keys")
+          has-auto-run-key? (some #(= % "epupp/auto-run-match") found-keys)]
       (cond-> []
         script-name (conj [:editor/ax.set-script-name script-name])
-        auto-run-match (conj [:editor/ax.set-script-match auto-run-match])
+        ;; If manifest has auto-run-match key, use its value (including empty)
+        ;; If manifest exists but no auto-run-match key, explicitly clear it
+        has-auto-run-key? (conj [:editor/ax.set-script-match auto-run-match])
+        (and (not has-auto-run-key?) manifest) (conj [:editor/ax.set-script-match nil])
         description (conj [:editor/ax.set-script-description description])))))
 
 (defn- build-manifest-hints

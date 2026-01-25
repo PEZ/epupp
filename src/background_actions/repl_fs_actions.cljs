@@ -1,7 +1,8 @@
 (ns background-actions.repl-fs-actions
   "Action implementations for background REPL FS operations.
    No Chrome APIs, no atoms, no side effects - just state transitions."
-  (:require [script-utils :as script-utils]))
+  (:require [script-utils :as script-utils]
+            [manifest-parser :as mp]))
 
 ;; ============================================================
 ;; Helper Functions (Pure)
@@ -73,6 +74,32 @@
 ;; ============================================================
 ;; Action Implementations
 ;; ============================================================
+
+(defn- derive-match-from-manifest
+  "Extract :script/match from manifest, handling revocation.
+
+   When manifest is present, it's the source of truth:
+   - Has auto-run-match key -> use its value (even if empty)
+   - No auto-run-match key -> revoke (return empty vector)
+
+   When no manifest, returns nil to signal 'preserve existing'."
+  [code]
+  (let [manifest (try (mp/extract-manifest code) (catch :default _ nil))]
+    (if (some? manifest)
+      (let [found-keys (get manifest "found-keys")
+            has-auto-run-key? (some #(= % "epupp/auto-run-match") found-keys)]
+        (if has-auto-run-key?
+          ;; Manifest declares auto-run-match, use its value
+          (let [raw-match (get manifest "auto-run-match")]
+            (cond
+              (nil? raw-match) []
+              (string? raw-match) (if (empty? raw-match) [] [raw-match])
+              (array? raw-match) (vec raw-match)
+              :else []))
+          ;; No auto-run-match key = explicit revocation
+          []))
+      ;; No manifest = preserve existing (return nil as signal)
+      nil)))
 
 (defn script->base-info
   "Build consistent base info map from script record.
@@ -239,12 +266,23 @@
       :else
       (let [;; Remove transient flags before storing
             clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
+            ;; Extract match from manifest (handles revocation)
+            manifest-match (derive-match-from-manifest (:script/code clean-script))
+            ;; Apply manifest-derived match if present, preserving existing otherwise
+            script-with-match (if (some? manifest-match)
+                                (assoc clean-script :script/match manifest-match)
+                                clean-script)
+            ;; Determine enabled state based on match
+            has-auto-run? (seq (:script/match script-with-match))
             ;; For updates: merge with existing, preserve enabled state
             ;; For creates: default to disabled (new user scripts always start disabled)
             merged-script (if is-update?
                             (-> existing-by-id
-                                (merge (dissoc clean-script :script/enabled)))
-                            (update clean-script :script/enabled #(if (some? %) % false)))
+                                (merge (dissoc script-with-match :script/enabled))
+                                ;; When revoking auto-run (has manifest, no match), disable
+                                (cond-> (and (some? manifest-match) (not has-auto-run?))
+                                  (assoc :script/enabled false)))
+                            (update script-with-match :script/enabled #(if (some? %) % false)))
             ;; Add timestamps
             timestamped-script (if is-update?
                                  (assoc merged-script :script/modified now-iso)

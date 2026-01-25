@@ -105,32 +105,94 @@
        first))
 
 (defn save-script!
-  "Create or update a script. Merges with existing if id matches.
-   Extracts run-at timing from code manifest if present.
+  "Create or update a script. Extracts metadata from manifest in code.
+
+   Auto-run behavior (Phase 6 - manifest is source of truth):
+   - Manifest with :epupp/auto-run-match → use that match
+   - Manifest without :epupp/auto-run-match → revoke auto-run (empty match, disabled)
+   - No manifest in code → preserve existing match (allows code-only updates)
+
    New scripts default to disabled for safety (built-in scripts always enabled)."
   [script]
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
         existing (get-script script-id)
-        ;; Extract run-at from code manifest (or use default)
-        code (:script/code script)
-        manifest (when code
-                   (try (mp/extract-manifest code)
-                        (catch :default _ nil)))
-        run-at (script-utils/normalize-run-at (get manifest "run-at"))
-        ;; Merge script with extracted run-at
-        script-with-run-at (assoc script :script/run-at run-at)
-        ;; Determine default enabled state: built-in scripts enabled, all others disabled
-        ;; (Enabled state only matters for scripts with match patterns - auto-injection)
-        is-builtin? (script-utils/builtin-script? script)
+           ;; Extract manifest from code
+           code (:script/code script)
+           manifest (when code
+                (try (mp/extract-manifest code)
+                  (catch :default _ nil)))
+           is-builtin? (script-utils/builtin-script? script)
+           ;; Built-in scripts keep their explicit metadata; manifest does not override it.
+           has-manifest? (and (some? manifest) (not is-builtin?))
+           ;; Extract fields from manifest
+           run-at (if has-manifest?
+              (script-utils/normalize-run-at (get manifest "run-at"))
+              (:script/run-at script))
+           manifest-name (get manifest "script-name")
+           manifest-description (get manifest "description")
+           manifest-inject (or (get manifest "inject") [])
+        ;; CRITICAL: Auto-run match handling (Phase 6)
+        ;; When manifest is present, it's the source of truth for match
+        ;; Absence of auto-run-match in manifest = explicit revocation
+        manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
+        ;; Normalize match to vector
+        manifest-match (cond
+                         (nil? manifest-match-raw) nil  ; key not present
+                         (string? manifest-match-raw) (if (empty? manifest-match-raw) [] [manifest-match-raw])
+                         (js/Array.isArray manifest-match-raw) (vec manifest-match-raw)
+                         :else nil)
+        ;; Check if manifest explicitly declared auto-run-match
+        ;; (found-keys tracks all epupp/* keys in the manifest)
+        manifest-has-auto-run-key? (when has-manifest?
+                                     (some #(= % "epupp/auto-run-match")
+                                           (get manifest "found-keys")))
+        ;; Determine final match:
+        ;; - Manifest has auto-run-match key → use it (even if empty)
+        ;; - Manifest present but no match key → revoke (empty)
+        ;; - No manifest → use caller-provided value, or preserve existing, or empty
+        new-match (cond
+                    ;; Manifest explicitly sets match (including empty)
+                    manifest-has-auto-run-key?
+                    (or manifest-match [])
+                    ;; Manifest present but no auto-run-match key → revocation
+                    has-manifest?
+                    []
+                    ;; No manifest → use caller-provided, or existing, or empty
+                    :else
+                    (or (:script/match script)
+                        (when existing (:script/match existing))
+                        []))
+        has-auto-run? (seq new-match)
+        ;; Determine enabled state
         default-enabled (if is-builtin? true false)
+        new-enabled (cond
+                      ;; No auto-run = disabled (manual-only script)
+                      (not has-auto-run?) false
+                      ;; Existing script → preserve enabled state
+                      existing (:script/enabled existing)
+                      ;; New script → use default
+                      :else default-enabled)
+        ;; Build the script with manifest-derived fields
+        ;; Only override match when manifest is present (manifest is source of truth)
+        script-with-manifest (cond-> script
+                               (some? run-at) (assoc :script/run-at run-at)
+                               has-manifest? (assoc :script/match new-match)
+                               (and has-manifest? manifest-name) (assoc :script/name manifest-name)
+                               (and has-manifest? manifest-description) (assoc :script/description manifest-description)
+                               (and has-manifest? (seq manifest-inject)) (assoc :script/inject
+                                                                                (if (string? manifest-inject)
+                                                                                  [manifest-inject]
+                                                                                  (vec manifest-inject))))
+        ;; Final script state
         updated-script (if existing
-                         (-> (merge existing script-with-run-at)
+                         (-> (merge existing script-with-manifest)
+                             (assoc :script/enabled new-enabled)
                              (assoc :script/modified now))
-                         (-> script-with-run-at
+                         (-> script-with-manifest
                              (assoc :script/created now)
                              (assoc :script/modified now)
-                             (update :script/enabled #(if (some? %) % default-enabled))))]
+                             (assoc :script/enabled new-enabled)))]
     (swap! !db update :storage/scripts
            (fn [scripts]
              (if existing
