@@ -17,7 +17,7 @@ Align manifest format, storage schema, and `epupp.fs` return shapes for consiste
 | `save!` return | `{:fs/success :fs/name :fs/error}` | Base info + `:fs/newly-created?` |
 | Scripts without match | Created enabled | Created disabled |
 | **Removing match** | **Match persisted** | **Match cleared, disabled** |
-| Built-in naming | `"GitHub Gist Installer (Built-in)"` | `epupp/built-in/gist_installer.cljs` |
+| Built-in naming | `"GitHub Gist Installer (Built-in)"` | `epupp/gist_installer.cljs` |
 | Built-in detection | By ID (`epupp-builtin-*`) | By metadata (`:script/builtin?`) ✅ |
 | `epupp/` namespace | Unreserved | Reserved for system use |
 | Panel persistence | `{code, scriptName, scriptMatch, ...}` | `{code}` only |
@@ -130,7 +130,7 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 
 **Current state**:
 - ✅ Built-in detection uses `:script/builtin?` metadata (not ID pattern)
-- ❌ Built-in name is `"GitHub Gist Installer (Built-in)"` - should be `epupp/built-in/gist_installer.cljs`
+- ❌ Built-in name is `"GitHub Gist Installer (Built-in)"` - should be `epupp/gist_installer.cljs`
 - ❌ No validation prevents users from creating `epupp/` prefixed scripts
 
 - **Verification failed (2026-01-25)**: Panel rename allowed a script to be renamed to `epupp/test.cljs` and the save/rename UI did not show a name error. The protection is incomplete or bypassed.
@@ -143,7 +143,7 @@ Note: Do not edit or care about files that may be changed by someone else and ar
   - REPL fs error message for `epupp/` currently reports "Missing :epupp/script-name in manifest" - must be replaced with a clear reserved-namespace error
   - REPL fs currently allows renaming a script to start with `epupp/` - this must never be allowed (and won't once we stop this at the storage level)
 
-- [x] **storage.cljs**: Rename built-in to `epupp/built-in/gist_installer.cljs`
+- [x] **storage.cljs**: Rename built-in to `epupp/gist_installer.cljs`
 - [x] **storage.cljs**: Add validation in `save-script!` to reject names starting with `epupp/`
 - [x] **repl_fs_actions.cljs**: Return clear error when `epupp/` prefix attempted
 - [x] **panel_actions.cljs**: Prevent save with `epupp/` prefix (or rely on storage validation)
@@ -328,7 +328,7 @@ Note: Do not edit or care about files that may be changed by someone else and ar
   - [ ] Panel: Edit script with match → remove match → save → verify no auto-run UI
   - [ ] REPL: Update script removing match → verify no auto-run UI in popup
   - [ ] Both: Verify script works as manual-only (can run via play button)
-  - [ ] Built-in appears as `epupp/built-in/gist_installer.cljs` in UI
+  - [ ] Built-in appears as `epupp/gist_installer.cljs` in UI
   - [ ] Cannot create script named `epupp/anything.cljs` via panel
   - [ ] Cannot create script named `epupp/anything.cljs` via REPL
   - [ ] Panel restores code-only, parses manifest for metadata
@@ -465,7 +465,7 @@ The `save-script!` function in storage.cljs must be updated to:
 8. **Update auto-run script to remove match** → verify match cleared, enabled=false, no auto-run UI
 9. **Panel save with match removed** → verify becomes manual-only script
 10. **REPL save with match removed** → verify becomes manual-only script
-11. **Built-in naming**: `epupp/built-in/gist_installer.cljs` appears in popup/panel
+11. **Built-in naming**: `epupp/gist_installer.cljs` appears in popup/panel
 12. **Name validation**: Panel rejects `epupp/`, `./`, `../`, and leading `/` with clear error and disabled save/rename
 13. **Name validation**: REPL rejects `epupp/`, `./`, `../`, and leading `/` with clear error message
 14. **Panel restore**: Edit manifest in code, close/reopen panel → metadata reflects code
@@ -495,7 +495,7 @@ Create an implementation plan for the decided API changes before 1.0 release:
 9. Change `mv!` to return base info + `:fs/from-name`
 10. Change `rm!` to return deleted script's base info
 11. **Auto-run revocation**: Removing `:epupp/auto-run-match` from manifest MUST clear match and reset enabled to false (regression fix for merge-preserving-old-values bug)
-12. **Reserve `epupp/` namespace**: Built-in scripts use `epupp/built-in/` prefix, users cannot create `epupp/*` scripts
+12. **Reserve `epupp/` namespace**: Built-in scripts use `epupp/` prefix, users cannot create `epupp/*` scripts
 13. **Built-in detection**: Use `:script/builtin?` metadata (already implemented), not ID patterns
 14. **Reserve `epupp://` scheme**: For future internal use (document, no enforcement yet)
 15. **Built-in reinstall strategy**: Decide between clean-reinstall vs update-if-changed

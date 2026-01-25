@@ -6,7 +6,7 @@
                               get-script-item assert-no-errors!]]))
 
 (def ^:private builtin-id "epupp-builtin-gist-installer")
-(def ^:private builtin-name "epupp/built_in_gist_installer.cljs")
+(def ^:private builtin-name "epupp/gist_installer.cljs")
 
 (defn- ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
@@ -127,7 +127,7 @@
 
       (let [popup (js-await (create-popup-page context ext-id))
             builtin (js-await (wait-for-builtin-code popup "Gist Installer - Runs in Scittle" 5000))]
-        (-> (expect (.includes (.-code builtin) "epupp/built_in_gist_installer.cljs"))
+        (-> (expect (.includes (.-code builtin) "epupp/gist_installer.cljs"))
             (.toBe true))
         (-> (expect (.-enabled builtin))
             (.toBe false))

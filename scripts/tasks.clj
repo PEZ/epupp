@@ -128,7 +128,8 @@
     (fs/copy "extension/trigger-scittle.js" "build/trigger-scittle.js" {:replace-existing true})
     ;; Copy userscripts (raw source, evaluated by Scittle)
     (fs/create-dirs "build/userscripts")
-    (fs/copy "extension/userscripts/gist_installer.cljs" "build/userscripts/gist_installer.cljs" {:replace-existing true})
+    (fs/create-dirs "build/userscripts/epupp")
+    (fs/copy "extension/userscripts/epupp/gist_installer.cljs" "build/userscripts/epupp/gist_installer.cljs" {:replace-existing true})
     (println "✓ Squint + esbuild compilation complete")))
 
 (defn- adjust-manifest
@@ -640,20 +641,32 @@
     {:process (p/process cmd {:out writer :err writer})
      :writer writer}))
 
+(defn- strip-ansi-codes
+  "Remove ANSI escape sequences from text (colors, formatting, etc.)"
+  [text]
+  (str/replace text #"\x1b\[[0-9;]*m" ""))
+
 (defn- parse-playwright-summary
-  "Parse Playwright summary line from log output.
+  "Parse Playwright summary from log output.
    Returns {:passed N :failed N :skipped N} or nil if not found.
-   Handles formats like:
-     '28 passed (8.8s)'
-     '10 passed, 2 failed (5.2s)'
-     '5 passed, 1 failed, 2 skipped (3.1s)'"
+   Handles both formats:
+     Combined: '10 passed, 2 failed (5.2s)'
+     Separate: '1 failed' on one line, '2 passed (3.0s)' on another"
   [log-content]
-  (let [;; Match the summary line at the end
-        summary-pattern #"(?m)^\s*(\d+)\s+passed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+skipped)?\s+\([^)]+\)\s*$"]
-    (when-let [match (re-find summary-pattern log-content)]
-      {:passed (parse-long (nth match 1))
-       :failed (if-let [f (nth match 2)] (parse-long f) 0)
-       :skipped (if-let [s (nth match 3)] (parse-long s) 0)})))
+  (let [;; Strip ANSI color codes that Playwright adds
+        clean-content (strip-ansi-codes log-content)
+        ;; Separate patterns for counts on their own lines
+        passed-pattern #"(?m)^\s*(\d+)\s+passed\s*(?:\([^)]+\))?\s*$"
+        failed-pattern #"(?m)^\s*(\d+)\s+failed\s*$"
+        skipped-pattern #"(?m)^\s*(\d+)\s+skipped\s*$"
+        ;; Always check separate patterns (handles both combined and separate formats)
+        passed-match (re-find passed-pattern clean-content)
+        failed-match (re-find failed-pattern clean-content)
+        skipped-match (re-find skipped-pattern clean-content)]
+    (when passed-match
+      {:passed (parse-long (nth passed-match 1))
+       :failed (if failed-match (parse-long (nth failed-match 1)) 0)
+       :skipped (if skipped-match (parse-long (nth skipped-match 1)) 0)})))
 
 (defn- count-test-files-in-log
   "Count unique test files mentioned in Playwright output."

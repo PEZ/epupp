@@ -1,4 +1,4 @@
-{:epupp/script-name "epupp/built_in_gist_installer.cljs"
+{:epupp/script-name "epupp/gist_installer.cljs"
  :epupp/auto-run-match ["https://gist.github.com/*"
                         "http://localhost:18080/mock-gist.html"]
  :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"
@@ -11,7 +11,7 @@
 ;;
 ;; Uses Replicant for declarative UI rendering.
 
-(ns gist-installer
+(ns epupp.gist-installer
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [replicant.dom :as r]))

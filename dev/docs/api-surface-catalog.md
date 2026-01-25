@@ -529,7 +529,7 @@ Key differences:
 **Current:**
 - **GitHub Gist Installer** (`epupp-builtin-gist-installer`)
   - Match: `https://gist.github.com/*`, `http://localhost:18080/mock-gist.html`
-  - Code: [extension/userscripts/gist_installer.cljs](../../extension/userscripts/gist_installer.cljs)
+  - Code: [extension/userscripts/epupp/gist_installer.cljs](../../extension/userscripts/epupp/gist_installer.cljs)
   - Always enabled, cannot be deleted
 
 **Identification:**

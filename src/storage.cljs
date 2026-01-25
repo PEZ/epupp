@@ -32,8 +32,8 @@
 
 (def ^:private bundled-builtins
   [{:script/id "epupp-builtin-gist-installer"
-    :path "userscripts/gist_installer.cljs"
-    :name "epupp/built_in_gist_installer.cljs"}])
+    :path "userscripts/epupp/gist_installer.cljs"
+    :name "epupp/gist_installer.cljs"}])
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
