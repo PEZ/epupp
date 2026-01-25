@@ -705,6 +705,7 @@
                         (do
                           ((^:async fn []
                              (try
+                               (js-await (ensure-initialized! dispatch!))
                                (js-await (storage/sync-builtin-scripts!))
                                (send-response #js {:success true})
                                (catch :default err

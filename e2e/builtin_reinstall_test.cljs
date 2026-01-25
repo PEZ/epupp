@@ -33,6 +33,26 @@
               (js-await (sleep 20))
               (recur))))))))
 
+(defn- ^:async wait-for-builtin-code
+  "Wait until the built-in script exists and its code contains the expected substring."
+  [popup expected-substring timeout-ms]
+  (let [start (.now js/Date)
+        timeout-ms (or timeout-ms 5000)]
+    (loop []
+      (let [script (js-await (get-builtin-script popup))
+            code (when script (.-code script))]
+        (if (and script (string? code) (.includes code expected-substring))
+          script
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (let [snippet (if (and (string? code) (> (.-length code) 0))
+                            (.slice code 0 120)
+                            "<no code>")]
+              (throw (js/Error. (str "Timeout waiting for built-in code: " expected-substring
+                                     " | snippet: " snippet))))
+            (do
+              (js-await (sleep 20))
+              (recur))))))))
+
 (defn- ^:async update-builtin-script!
   "Update the built-in script entry in storage with the provided mutator."
   [popup mutator]
@@ -84,6 +104,10 @@
 
       (js-await (reload-extension! context ext-id))
 
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (send-runtime-message popup "e2e/ensure-builtin" #js {}))
+        (js-await (.close popup)))
+
       ;; Force an outdated built-in and disable it
       (let [popup (js-await (create-popup-page context ext-id))
             _ (js-await (wait-for-builtin-script popup 5000))
@@ -100,8 +124,12 @@
       ;; Reload and verify sync restores code and preserves disabled state
       (js-await (reload-extension! context ext-id))
 
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (send-runtime-message popup "e2e/ensure-builtin" #js {}))
+        (js-await (.close popup)))
+
       (let [popup (js-await (create-popup-page context ext-id))
-            builtin (js-await (wait-for-builtin-script popup 5000))]
+            builtin (js-await (wait-for-builtin-code popup "Gist Installer - Runs in Scittle" 5000))]
         (-> (expect (.-name builtin))
             (.toBe builtin-name))
         (-> (expect (.-enabled builtin))

@@ -41,14 +41,17 @@
 ;; Persistence helpers
 ;; ============================================================
 
-(defn persist!
+(defn ^:async persist!
   "Write current !db state to chrome.storage.local"
   []
   (let [{:storage/keys [scripts granted-origins user-allowed-origins]} @!db]
-    (js/chrome.storage.local.set
-     #js {:scripts (clj->js (mapv script-utils/script->js scripts))
-          :granted-origins (clj->js granted-origins)
-          :userAllowedOrigins (clj->js user-allowed-origins)})))
+    (js-await (js/Promise.
+               (fn [resolve]
+                 (js/chrome.storage.local.set
+                  #js {:scripts (clj->js (mapv script-utils/script->js scripts))
+                       :granted-origins (clj->js granted-origins)
+                       :userAllowedOrigins (clj->js user-allowed-origins)}
+                  (fn [] (resolve nil))))))))
 
 (defn ^:async load!
   "Load scripts from chrome.storage.local into !db atom.
@@ -143,7 +146,7 @@
   (some #(= % "epupp/auto-run-match")
         (get manifest "found-keys")))
 
-(defn save-script!
+(defn ^:async save-script!
   "Create or update a script. Extracts metadata from manifest in code.
 
    Auto-run behavior (Phase 6 - manifest is source of truth):
@@ -240,7 +243,7 @@
              (if existing
                (mapv #(if (= (:script/id %) script-id) updated-script %) scripts)
                (conj scripts updated-script))))
-    (persist!)
+    (js-await (persist!))
     updated-script))
 
 (defn delete-script!
@@ -414,12 +417,13 @@
   "Synchronize built-in scripts with bundled versions.
    Removes stale built-ins and updates bundled ones via save-script!."
   []
+  (js-await (load!))
   (let [bundled-ids (set (bundled-builtin-ids))
         scripts (get-scripts)
         stale-ids (stale-builtin-ids scripts bundled-ids)]
     (when (seq stale-ids)
       (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
-      (persist!)
+      (js-await (persist!))
       (log/info "Storage" nil "Removed stale built-ins" stale-ids))
     (doseq [bundled bundled-builtins]
       (try
@@ -427,8 +431,8 @@
               code (js-await (.text response))
               desired (build-bundled-script bundled code)
               existing (get-script (:script/id bundled))]
+          (js-await (save-script! desired))
           (when (builtin-update-needed? existing desired)
-            (save-script! desired)
             (log/info "Storage" nil "Synced built-in" (:script/id bundled))))
         (catch :default err
           (log/error "Storage" nil "Failed to sync built-in" (:script/id bundled) ":" err))))))
