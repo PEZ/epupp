@@ -181,7 +181,7 @@
 
 (describe "script->js"
   (fn []
-    (test "emits only non-derivable fields"
+    (test "emits fields needed for early injection loader"
       (fn []
         (let [script {:script/id "script-1"
                       :script/name "derived.cljs"
@@ -196,8 +196,9 @@
                       :script/builtin? true}
               js-script (script-utils/script->js script)
               keys (js/Object.keys js-script)]
+          ;; Core fields + runAt + match for early loader
           (-> (expect (.-length keys))
-              (.toBe 6))
+              (.toBe 8))
           (-> (expect (.includes keys "id"))
               (.toBe true))
           (-> (expect (.includes keys "code"))
@@ -210,13 +211,19 @@
               (.toBe true))
           (-> (expect (.includes keys "builtin"))
               (.toBe true))
+          ;; Early loader needs runAt and match
+          (-> (expect (.includes keys "runAt"))
+              (.toBe true))
+          (-> (expect (.includes keys "match"))
+              (.toBe true))
+          (-> (expect (aget js-script "runAt"))
+              (.toBe "document-end"))
+          (-> (expect (aget js-script "match"))
+              (.toEqual #js ["https://example.com/*"]))
+          ;; UI-only fields are still excluded
           (-> (expect (aget js-script "name"))
               (.toBeUndefined))
-          (-> (expect (aget js-script "match"))
-              (.toBeUndefined))
           (-> (expect (aget js-script "description"))
-              (.toBeUndefined))
-          (-> (expect (aget js-script "runAt"))
               (.toBeUndefined))
           (-> (expect (aget js-script "inject"))
               (.toBeUndefined))

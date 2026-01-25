@@ -104,14 +104,17 @@
                     script)))))))
 
 (defn script->js
-  "Convert script map to JS object with simple keys for storage"
+  "Convert script map to JS object with simple keys for storage.
+   Includes runAt and match for early injection loader."
   [script]
   #js {:id (:script/id script)
        :code (:script/code script)
        :enabled (:script/enabled script)
        :created (:script/created script)
        :modified (:script/modified script)
-       :builtin (:script/builtin? script)})
+       :builtin (:script/builtin? script)
+       :runAt (:script/run-at script)
+       :match (clj->js (or (:script/match script) []))})
 
 ;; ============================================================
 ;; URL pattern matching

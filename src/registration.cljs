@@ -111,7 +111,8 @@
   [registrations]
   (when (seq registrations)
     (js-await (js/chrome.scripting.registerContentScripts
-               (clj->js registrations)))))
+               (clj->js registrations)))
+    (log/info "Registration" "Chrome" "Content scripts registered successfully")))
 
 ;; ============================================================
 ;; Firefox API wrappers
