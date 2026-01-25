@@ -80,7 +80,7 @@
 
 (defn ^:async wait-for-builtin-script
   "Wait for built-in script to be present in storage.
-   Used to avoid races with ensure-gist-installer!."
+   Used to avoid races with sync-builtin-scripts!."
   [ext-page script-id timeout-ms]
   (let [start (.now js/Date)
         poll-interval 20]

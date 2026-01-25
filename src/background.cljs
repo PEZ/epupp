@@ -705,7 +705,7 @@
                         (do
                           ((^:async fn []
                              (try
-                               (js-await (storage/ensure-gist-installer!))
+                               (js-await (storage/sync-builtin-scripts!))
                                (send-response #js {:success true})
                                (catch :default err
                                  (send-response #js {:success false :error (.-message err)})))))
@@ -849,7 +849,6 @@
          (try
            (js-await (test-logger/init-test-mode!))
            (js-await (storage/init!))
-           (js-await (storage/ensure-gist-installer!))
            (js-await (registration/sync-registrations!))
            (log/info "Background" nil "Initialization complete")
            (js-await (test-logger/log-event! "EXTENSION_STARTED"

@@ -1,7 +1,8 @@
 (ns storage-test
   "Unit tests for storage module, focusing on save-script! behavior."
   (:require ["vitest" :refer [describe test expect]]
-            [manifest-parser :as mp]))
+            [manifest-parser :as mp]
+            [storage :as storage]))
 
 ;; ============================================================
 ;; Mock setup for chrome.storage.local
@@ -253,3 +254,37 @@
                                   :is-new? false
                                   :is-builtin? false}))
                         (.toBe false))))))
+
+;; ============================================================
+;; Built-in reconciliation tests
+;; ============================================================
+
+(describe "built-in reconciliation"
+          (fn []
+            (test "removes stale built-ins"
+                  (fn []
+                    (let [bundled-ids (set ["builtin-1"])
+                          scripts [{:script/id "builtin-1" :script/builtin? true}
+                                   {:script/id "builtin-2" :script/builtin? true}
+                                   {:script/id "user-1" :script/builtin? false}]
+                          updated (storage/remove-stale-builtins scripts bundled-ids)
+                          stale (storage/stale-builtin-ids scripts bundled-ids)]
+                      (-> (expect (mapv :script/id updated))
+                          (.toEqual ["builtin-1" "user-1"]))
+                      (-> (expect stale)
+                          (.toEqual ["builtin-2"])))))
+
+            (test "existing built-in preserves enabled state"
+                  (fn []
+                    (-> (expect (determine-enabled-state
+                                 {:has-auto-run? true
+                                  :existing-enabled false
+                                  :is-new? false
+                                  :is-builtin? true}))
+                        (.toBe false))
+                    (-> (expect (determine-enabled-state
+                                 {:has-auto-run? true
+                                  :existing-enabled true
+                                  :is-new? false
+                                  :is-builtin? true}))
+                        (.toBe true))))))

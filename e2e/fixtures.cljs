@@ -156,7 +156,7 @@
 
 (defn ^:async clear-fs-scripts
   "Clear stored scripts except built-ins.
-   Leaves built-ins intact to avoid races with ensure-gist-installer!."
+   Leaves built-ins intact to avoid races with sync-builtin-scripts!."
   [ext-page]
   (let [scripts-result (js-await (send-runtime-message ext-page "e2e/get-storage" #js {:key "scripts"}))
         scripts (or (.-value scripts-result) #js [])

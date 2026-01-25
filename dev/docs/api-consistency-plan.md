@@ -186,20 +186,20 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - Consistent with how all other saves work
 
 **Implementation**:
-- [ ] **storage.cljs**: On init, get list of bundled built-in IDs
-- [ ] **storage.cljs**: Remove any `:script/builtin? true` not in bundled list
-- [ ] **storage.cljs**: For each bundled built-in, call existing save path (not special-case)
-- [ ] **Unit tests**: Test stale built-in removal
-- [ ] **Unit tests**: Test built-in update preserves enabled state
-- [ ] **Human verified**: Confirmed Phase 8 changes in the UI
+- [x] **storage.cljs**: On init, get list of bundled built-in IDs
+- [x] **storage.cljs**: Remove any `:script/builtin? true` not in bundled list
+- [x] **storage.cljs**: For each bundled built-in, call existing save path (not special-case)
+- [x] **Unit tests**: Test stale built-in removal
+- [x] **Unit tests**: Test built-in update preserves enabled state
+- [x] **Human verified**: Confirmed Phase 8 changes in the UI
 
 **E2E tests** (cover decided behavior):
-- [ ] **E2E**: Built-in appears with correct code after extension reload
-- [ ] **E2E**: User disables built-in → reload extension → built-in stays disabled
-- [ ] **E2E**: User enables built-in → reload extension → built-in stays enabled
-- [ ] **E2E**: Stale built-in (manually added with `builtin?: true`) removed on reload
-- [ ] **E2E**: Built-in code updates when bundle changes (verify modified timestamp changes)
-- [ ] **Human verified**: Confirmed Phase 8 E2E behavior in the UI
+- [x] **E2E**: Built-in appears with correct code after extension reload
+- [x] **E2E**: User disables built-in → reload extension → built-in stays disabled
+- [x] **E2E**: User enables built-in → reload extension → built-in stays enabled
+- [x] **E2E**: Stale built-in (manually added with `builtin?: true`) removed on reload
+- [x] **E2E**: Built-in code updates when bundle changes (verify modified timestamp changes)
+- [x] **Human verified**: Confirmed Phase 8 E2E behavior in the UI
 
 ### Phase 9: Panel Persistence Simplification
 

@@ -14,7 +14,7 @@
 ;; ============================================================
 
 ;; Forward declaration for function defined later
-(declare ensure-gist-installer!)
+(declare sync-builtin-scripts!)
 
 (def !db
   "In-memory mirror of chrome.storage.local for fast access.
@@ -22,6 +22,20 @@
   (atom {:storage/scripts []
          :storage/granted-origins []
          :storage/user-allowed-origins []}))
+
+;; ============================================================
+;; Built-in catalog
+;; ============================================================
+
+(def ^:private bundled-builtins
+  [{:script/id "epupp-builtin-gist-installer"
+    :path "userscripts/gist_installer.cljs"
+    :name "epupp/built-in/gist_installer.cljs"}])
+
+(defn bundled-builtin-ids
+  "Return the list of bundled built-in script IDs."
+  []
+  (mapv :script/id bundled-builtins))
 
 ;; ============================================================
 ;; Persistence helpers
@@ -54,7 +68,7 @@
     (log/info "Storage" nil "Loaded" (count scripts) "scripts")
     @!db))
 
-(defn init!
+(defn ^:async init!
   "Initialize storage: load existing data and set up onChanged listener.
    Returns a promise that resolves when storage is loaded.
    Call this once from background worker on startup."
@@ -64,11 +78,20 @@
    (fn [changes area]
      (when (= area "local")
        (when-let [scripts-change (.-scripts changes)]
-         (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change))]
+         (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change))
+               bundled-ids (bundled-builtin-ids)
+               bundled-ids-set (set bundled-ids)
+               missing-builtin? (some (fn [builtin-id]
+                                        (not (some #(= (:script/id %) builtin-id) new-scripts)))
+                                      bundled-ids)
+               stale-builtin? (some (fn [script]
+                                      (and (script-utils/builtin-script? script)
+                                           (not (contains? bundled-ids-set (:script/id script)))))
+                                    new-scripts)]
            (swap! !db assoc :storage/scripts new-scripts)
-           ;; Re-ensure built-in scripts if they were removed (e.g., by storage.clear())
-           (when-not (some #(= (:script/id %) "epupp-builtin-gist-installer") new-scripts)
-             (ensure-gist-installer!))))
+           ;; Re-sync built-ins if missing or stale (e.g., by storage.clear())
+           (when (or missing-builtin? stale-builtin?)
+             (sync-builtin-scripts!))))
        (when-let [origins-change (.-granted-origins changes)]
          (let [new-origins (if (.-newValue origins-change)
                              (vec (.-newValue origins-change))
@@ -80,8 +103,9 @@
                                   [])]
            (swap! !db assoc :storage/user-allowed-origins new-user-origins)))
        (log/info "Storage" nil "Updated from external change"))))
-  ;; Return promise from load! so caller can await initialization
-  (load!))
+  (js-await (load!))
+  (js-await (sync-builtin-scripts!))
+  @!db)
 
 ;; ============================================================
 ;; Script CRUD
@@ -104,6 +128,21 @@
        (filter #(= (:script/id %) script-id))
        first))
 
+(defn- normalize-auto-run-match
+  "Normalize auto-run match value to vector or nil when absent."
+  [match-raw]
+  (cond
+    (nil? match-raw) nil
+    (string? match-raw) (if (empty? match-raw) [] [match-raw])
+    (js/Array.isArray match-raw) (vec match-raw)
+    :else nil))
+
+(defn- manifest-has-auto-run-key?
+  "Check if manifest explicitly includes :epupp/auto-run-match."
+  [manifest]
+  (some #(= % "epupp/auto-run-match")
+        (get manifest "found-keys")))
+
 (defn save-script!
   "Create or update a script. Extracts metadata from manifest in code.
 
@@ -123,8 +162,8 @@
                    (try (mp/extract-manifest code)
                         (catch :default _ nil)))
         is-builtin? (script-utils/builtin-script? script)
-        ;; Built-in scripts keep their explicit metadata; manifest does not override it.
-        has-manifest? (and (some? manifest) (not is-builtin?))
+        ;; Manifest-derived fields apply to all scripts; built-ins bypass name validation.
+        has-manifest? (some? manifest)
         ;; Extract fields from manifest
         run-at (if has-manifest?
                  (script-utils/normalize-run-at (get manifest "run-at"))
@@ -144,18 +183,10 @@
         ;; CRITICAL: Auto-run match handling (Phase 6)
         ;; When manifest is present, it's the source of truth for match
         ;; Absence of auto-run-match in manifest = explicit revocation
-        manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
-        ;; Normalize match to vector
-        manifest-match (cond
-                         (nil? manifest-match-raw) nil  ; key not present
-                         (string? manifest-match-raw) (if (empty? manifest-match-raw) [] [manifest-match-raw])
-                         (js/Array.isArray manifest-match-raw) (vec manifest-match-raw)
-                         :else nil)
-        ;; Check if manifest explicitly declared auto-run-match
-        ;; (found-keys tracks all epupp/* keys in the manifest)
-        manifest-has-auto-run-key? (when has-manifest?
-                                     (some #(= % "epupp/auto-run-match")
-                                           (get manifest "found-keys")))
+          manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
+          manifest-match (normalize-auto-run-match manifest-match-raw)
+          manifest-has-auto-run-key? (when has-manifest?
+                   (manifest-has-auto-run-key? manifest))
         ;; Determine final match:
         ;; - Manifest has auto-run-match key → use it (even if empty)
         ;; - Manifest present but no match key → revoke (empty)
@@ -321,35 +352,86 @@
 ;; Built-in userscripts
 ;; ============================================================
 
-(defn ^:async ensure-gist-installer!
-  "Ensure the gist installer built-in userscript exists in storage.
-   Loads it from userscripts/gist_installer.cljs and updates if code changed.
-   Parses manifest to extract :epupp/inject for library dependencies."
+(defn stale-builtin-ids
+  "Return built-in script IDs that are not bundled with this extension version."
+  [scripts bundled-ids]
+  (->> scripts
+       (filterv (fn [script]
+                  (and (script-utils/builtin-script? script)
+                       (not (contains? bundled-ids (:script/id script))))))
+       (mapv :script/id)))
+
+(defn remove-stale-builtins
+  "Remove built-in scripts not bundled with this extension version."
+  [scripts bundled-ids]
+  (filterv (fn [script]
+             (not (and (script-utils/builtin-script? script)
+                       (not (contains? bundled-ids (:script/id script))))))
+           scripts))
+
+(defn- build-bundled-script
+  "Build a built-in script map from bundled code and manifest metadata."
+  [bundled code]
+  (let [manifest (try (mp/extract-manifest code)
+                      (catch :default _ nil))
+        manifest-name (when manifest
+                        (or (get manifest "raw-script-name")
+                            (get manifest "script-name")))
+        raw-name (or manifest-name (:name bundled))
+        run-at (when manifest
+                 (script-utils/normalize-run-at (get manifest "run-at")))
+        manifest-description (when manifest (get manifest "description"))
+        manifest-inject (when manifest (get manifest "inject"))
+        inject (cond
+                 (nil? manifest-inject) []
+                 (string? manifest-inject) [manifest-inject]
+                 (js/Array.isArray manifest-inject) (vec manifest-inject)
+                 :else [])
+        manifest-match (when manifest (normalize-auto-run-match (get manifest "auto-run-match")))
+        has-auto-run-key? (when manifest (manifest-has-auto-run-key? manifest))
+        match (when manifest (if has-auto-run-key? (or manifest-match []) []))]
+    (cond-> {:script/id (:script/id bundled)
+             :script/code code
+             :script/builtin? true}
+      raw-name (assoc :script/name raw-name)
+      (some? match) (assoc :script/match match)
+      (some? run-at) (assoc :script/run-at run-at)
+      manifest-description (assoc :script/description manifest-description)
+      (seq inject) (assoc :script/inject inject))))
+
+(defn- builtin-update-needed?
+  "Check whether a built-in script needs to be updated from bundled code."
+  [existing desired]
+  (or (nil? existing)
+      (not= (:script/code existing) (:script/code desired))
+      (not= (:script/name existing) (:script/name desired))
+      (not= (:script/match existing) (:script/match desired))
+      (not= (:script/description existing) (:script/description desired))
+      (not= (:script/run-at existing) (:script/run-at desired))
+      (not= (:script/inject existing) (:script/inject desired))))
+
+(defn ^:async sync-builtin-scripts!
+  "Synchronize built-in scripts with bundled versions.
+   Removes stale built-ins and updates bundled ones via save-script!."
   []
-  (let [installer-id "epupp-builtin-gist-installer"]
-    (try
-      (let [response (js-await (js/fetch (js/chrome.runtime.getURL "userscripts/gist_installer.cljs")))
-            code (js-await (.text response))
-            manifest (mp/extract-manifest code)
-            ;; manifest-parser returns string keys like "inject", not :epupp/inject
-            injects (or (get manifest "inject") [])
-            installer-name "epupp/built-in/gist_installer.cljs"
-            existing (get-script installer-id)]
-        ;; Install if missing, or update if code/name changed
-        (when (or (not existing)
-                  (not= (:script/code existing) code)
-                  (not= (:script/name existing) installer-name))
-          (save-script! {:script/id installer-id
-                         :script/name installer-name
-                         :script/match ["https://gist.github.com/*"
-                                        "http://localhost:18080/mock-gist.html"]
-                         :script/code code
-                         :script/enabled true
-                         :script/inject injects
-                         :script/builtin? true})
-          (log/info "Storage" nil "Installed/updated built-in gist installer")))
-      (catch :default err
-        (log/error "Storage" nil "Failed to load gist installer:" err)))))
+  (let [bundled-ids (set (bundled-builtin-ids))
+        scripts (get-scripts)
+        stale-ids (stale-builtin-ids scripts bundled-ids)]
+    (when (seq stale-ids)
+      (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
+      (persist!)
+      (log/info "Storage" nil "Removed stale built-ins" stale-ids))
+    (doseq [bundled bundled-builtins]
+      (try
+        (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))
+              code (js-await (.text response))
+              desired (build-bundled-script bundled code)
+              existing (get-script (:script/id bundled))]
+          (when (builtin-update-needed? existing desired)
+            (save-script! desired)
+            (log/info "Storage" nil "Synced built-in" (:script/id bundled))))
+        (catch :default err
+          (log/error "Storage" nil "Failed to sync built-in" (:script/id bundled) ":" err))))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing
