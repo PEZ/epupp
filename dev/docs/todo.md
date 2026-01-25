@@ -51,17 +51,17 @@
 * [ ] Is there a way to make println print in the repl output?
 * [ ] Add scittle repls to the popup and panel in dev builds.
 * [ ] The panel should be able to connect a repl (this will give all inspectors repl access, I think)
-* [ ] Make allow a confirmation thing, make it clear that it is about allowing it to auto-run on url match
-* [ ] We need to be able to Disconnect the REPL.
+* [x] We need to be able to Disconnect the REPL.
 * [x] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics (renamed to `:epupp/inject`)
 * [ ] Consider making `https://example.com/*` also match `https://example.com/` and `https://example.com`
-* [ ] Enforce no user provided userscripts use epupp namespaces/directories
+* [x] Enforce no user provided userscripts use epupp namespaces/directories
 * [ ] Get logging under control
 * [x] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
 * [x] BUG: Scripts not run from the popup play button.
-* [ ] Chase down Uniflow violations in panel and popup
-    * [ ] There are some non-Uniflow attrocities in panel.cljs
-* [ ] Centralize UI announcements to the banner
-* [ ] Use e2e-prefixed classes for e2e needed checks
+* [x] Chase down Uniflow violations in panel and popup
+    * [x] There are some non-Uniflow attrocities in panel.cljs
+* [x] Centralize UI announcements to the banner
+* [x] (Started) Use e2e-prefixed classes for e2e needed checks
 * [ ] The new-script template should add a pattern matching the current page
-* [ ] Built in scripts should be fully replaced on extension update
+* [x] Built in scripts should be fully replaced on extension update
+* [ ] Never promote `*://` for script matching ever
