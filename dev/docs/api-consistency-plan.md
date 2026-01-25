@@ -129,13 +129,35 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - ❌ Built-in name is `"GitHub Gist Installer (Built-in)"` - should be `epupp/built-in/gist_installer.cljs`
 - ❌ No validation prevents users from creating `epupp/` prefixed scripts
 
+- **Verification failed (2026-01-25)**: Panel rename allowed a script to be renamed to `epupp/test.cljs` and the save/rename UI did not show a name error. The protection is incomplete or bypassed.
+
+- **Path validation requirements (storage-level)**:
+  - Reject names starting with `epupp/` (reserved namespace)
+  - Reject names containing `./` or `../` anywhere (path traversal)
+  - Reject names starting with `/` (absolute paths)
+  - Normalize names at the storage level before any write operation (save and rename)
+  - REPL fs error message for `epupp/` currently reports "Missing :epupp/script-name in manifest" - must be replaced with a clear reserved-namespace error
+  - REPL fs currently allows renaming a script to start with `epupp/` - this must never be allowed (and won't once we stop this at the storage level)
+
 - [x] **storage.cljs**: Rename built-in to `epupp/built-in/gist_installer.cljs`
 - [x] **storage.cljs**: Add validation in `save-script!` to reject names starting with `epupp/`
 - [x] **repl_fs_actions.cljs**: Return clear error when `epupp/` prefix attempted
 - [x] **panel_actions.cljs**: Prevent save with `epupp/` prefix (or rely on storage validation)
 - [x] **Unit tests**: Test validation rejects `epupp/` prefix
+- [x] **Unit tests**: Test validation rejects `/` prefix
+- [x] **Unit tests**: Test validation rejects `./` anywhere in the name
 - [x] **E2E tests**: Test panel/REPL rejection of `epupp/` names
 - [x] **Docs**: Document namespace reservation
+- [ ] **E2E tests**: Add failing test for panel rename repro (edit script → rename to `epupp/test.cljs` → expected error + disabled save/rename)
+- [ ] **E2E tests**: Add test for repl fs save repro (use `save!` to name a  script to start with `epupp/` → expected reject of the promise with clear message
+- [ ] **E2E tests**: Add failing test for repl fs rename repro (use `mv!` to rename an existing script to start with `epupp/` → expected reject of the promise with clear message
+- [ ] **E2E tests**: Add failing test for repl fs rename repro (use `mv!` to rename an ecisting script to start with `epupp/` → expected reject of the promise with clear message
+- [ ] **storage.cljs**: Centralize name normalization and validate reserved namespace, `./`, `../`, and leading `/` for all write operations (save and rename)
+- [ ] **repl_fs_actions.cljs**: Fix error message for reserved namespace and ensure rename is rejected with same rules
+- [ ] **panel.cljs**: Show a name error under metadata row and disable save/rename when name violates storage-level rules
+- [ ] **Unit tests**: Add validation coverage for reserved namespace, `./`, `../`, and leading `/`
+- [ ] **Property tests**: Add generative tests to fuzz name validation (`epupp/`, `./`, `../`, leading `/`) at storage level
+- [ ] **E2E tests**: Cover save and rename rejections for `epupp/`, `./`, `../`, and leading `/`
 - [ ] **Human verified**: Confirmed Phase 7 changes in the UI
 
 ### Phase 8: Built-in Reinstall Strategy
@@ -448,8 +470,8 @@ The `save-script!` function in storage.cljs must be updated to:
 9. **Panel save with match removed** → verify becomes manual-only script
 10. **REPL save with match removed** → verify becomes manual-only script
 11. **Built-in naming**: `epupp/built-in/gist_installer.cljs` appears in popup/panel
-12. **Namespace rejection**: Panel rejects `epupp/test.cljs` with clear error
-13. **Namespace rejection**: REPL `(epupp.fs/save! "{:epupp/script-name \"epupp/test.cljs\"}")` rejects
+12. **Name validation**: Panel rejects `epupp/`, `./`, `../`, and leading `/` with clear error and disabled save/rename
+13. **Name validation**: REPL rejects `epupp/`, `./`, `../`, and leading `/` with clear error message
 14. **Panel restore**: Edit manifest in code, close/reopen panel → metadata reflects code
 15. **Storage minimal**: Inspect storage, verify only `id`, `code`, `enabled`, `created`, `modified`, `builtin?`
 16. **Schema version**: Storage has `schemaVersion: 1`
