@@ -20,7 +20,7 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 16 |
 | Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 16 |
 | FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 3 | 3 |
-| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 2 | 3 |
+| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 0 |
 | FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 3 |
 | FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 1 | 8 |
 | Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 8 |
@@ -116,7 +116,7 @@ Architectural or timing issues that could explain one or more symptoms. Each hyp
 
 #### RCH-8: Error message assertion fragility via pr-str string matching
 
-**Status:** Confirmed - fix applied and verified (E10)
+**Status:** Insufficient - fix applied but symptoms persist
 
 **Mechanism:** Tests use overly permissive OR assertions that accept multiple error messages, combined with fragile string matching in pr-str output:
 
@@ -159,7 +159,7 @@ Each investigation attempt with quantitative results. One experiment per entry.
 
 | ID | Hypothesis | Change | Before | After | Conclusion |
 |----|------------|--------|--------|-------|------------|
-| E01 | RCH-1 | Write queue in log-event! | Unknown | 3/3 parallel, 2/2 serial | Mechanism confirmed; may not be only cause |
+| E01 | RCH-1 | Write queue in log-event! | Unknown | 3/3 parallel, 2/2 serial | Monitoring - may not be only cause |
 | E02 | RCH-2 | activate-tab helper | Unknown | 5/5 serial, 2/3 parallel | Insufficient - still flakes |
 | E03 | RCH-2 | update-icon force call | 2/3 parallel | 3/3 parallel, 5/5 serial | Appeared fixed, but symptoms recurred |
 | E04 | RCH-5 | Await ensure-initialized! | Unknown | 2/3 parallel | Partial improvement |
@@ -168,16 +168,17 @@ Each investigation attempt with quantitative results. One experiment per entry.
 | E07 | rm existed flag | Chain save->rm, use normalized name | Unknown | 3/3 parallel, 3/3 serial | Appeared fixed; monitoring |
 | E08 | RCH-2 | Force icon update before wait | Unknown | 3/3 serial, 3/3 parallel | Monitoring |
 | E09 | RCH-6 | Re-seed mv path source per attempt | Unknown | 3/3 serial, 3/3 parallel | Monitoring |
-| E10 | RCH-8 | Replace OR assertions with canonical error messages | 5 tests flaking in baseline | 3/3 serial, 3/3 parallel | Confirmed - root cause fixed |
+| E10 | RCH-8 | Replace OR assertions with canonical error messages | 5 tests flaking in baseline | 3/3 serial, 3/3 parallel | Insufficient - symptoms persist |
 
 **Before/After format:** X/Y = passed runs / total runs
 
 **Conclusion values:**
-- **Confirmed** - Hypothesis validated, root cause found
-- **Disproved** - Hypothesis ruled out
+- **Disproved** - Hypothesis ruled out by evidence
 - **Insufficient** - Some improvement but symptoms persist
 - **Workaround** - Masks issue without fixing root cause
-- **Monitoring** - Passed verification but needs more data
+- **Monitoring** - Passed verification but needs sustained evidence
+
+**Note:** We never mark experiments as "Confirmed" - you can't prove the absence of black swans by counting white ones. Only the Resolved Causes section (with strict 10+ runs + 1+ week criteria) represents sustained confidence.
 
 ---
 

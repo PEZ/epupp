@@ -210,11 +210,12 @@ Always record failure rates as X/Y (failures/runs or passes/runs):
 
 | Conclusion | Meaning |
 |------------|---------|
-| **Confirmed** | Hypothesis validated, root cause found |
 | **Disproved** | Hypothesis ruled out by evidence |
 | **Insufficient** | Some improvement but symptoms persist |
 | **Workaround** | Masks issue without fixing root cause |
-| **Monitoring** | Passed verification but needs more data |
+| **Monitoring** | Passed verification but needs sustained evidence |
+
+**Epistemological principle:** Never mark experiments as "Confirmed" - you cannot prove the absence of black swans by counting white ones. We can only observe evidence of absence through monitoring. Only the Resolved Causes section (with 10+ runs + 1+ week criteria) represents sustained confidence.
 
 ### Resolution Criteria
 
@@ -232,7 +233,7 @@ A root cause moves to Resolved Causes only when:
 | Testing without documenting | Repeats failed work | Always update tracking doc first |
 | Multiple hypotheses at once | Can't isolate cause | One experiment per change |
 | Increasing timeouts blindly | Hides real issue | Find why timing is wrong |
-| Declaring success too early | Creates false confidence | Use strict resolution criteria |
+| Marking experiments "Confirmed" | Black swan fallacy - can't prove absence | Use "Monitoring" and let resolution criteria decide |
 
 ## Session Start Checklist
 
