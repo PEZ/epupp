@@ -15,13 +15,13 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 8 |
 | Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 1 | 8 |
 | Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 3 |
-| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 1 | 8 |
+| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 3 | 0 |
 | Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 8 |
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 8 |
 | Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 8 |
 | FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 2 | 0 |
 | FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 1 | 0 |
-| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 1 | 0 |
+| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 2 | 0 |
 | FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 1 | 0 |
 | Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 0 |
 | Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 8 |
