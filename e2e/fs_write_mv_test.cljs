@@ -422,6 +422,24 @@
            ["dot-slash prefix" "./relative.cljs"]
            ["dot-dot-slash prefix" "../parent.cljs"]
            ["dot-dot-slash in middle" "foo/../bar.cljs"]]]
+    ;; Ensure source script exists before each invalid mv attempt
+    (let [ensure-result (js-await (eval-in-browser
+                                   (str "(def !ensure-source (atom :pending))\n"
+                                        "(-> (epupp.fs/save! \"{:epupp/script-name \\\"mv-path-source\\\"\\n                   :epupp/auto-run-match \\\"https://example.com/*\\\"}\\n                  (ns mv-path-test)\" {:fs/force? true})\n"
+                                        "  (.then (fn [r] (reset! !ensure-source r))))\n"
+                                        ":ensuring")))]
+      (-> (expect (.-success ensure-result)) (.toBe true))
+      (let [start (.now js/Date)
+            timeout-ms 3000]
+        (loop []
+          (let [check-result (js-await (eval-in-browser "(let [r @!ensure-source] (if (= r :pending) :pending (:fs/success r)))"))]
+            (when-not (and (.-success check-result)
+                           (seq (.-values check-result))
+                           (not= (first (.-values check-result)) ":pending"))
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout ensuring source script exists"))
+                (do (js-await (sleep 20)) (recur))))))))
+
     (let [label-key (pr-str label)
           setup-result (js-await (eval-in-browser
                                   (str "(swap! !mv-path-results assoc " label-key " :pending)\n"

@@ -70,6 +70,8 @@
         (let [popup (js-await (create-popup-page context ext-id))
               _ (js-await (wait-for-popup-ready popup))
               tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+              _ (js-await (activate-tab popup tab-id))
+              _ (js-await (update-icon popup tab-id))
               icon-event (js-await (wait-for-icon-state popup tab-id #js ["disconnected"] 5000))
               state (aget (.-data icon-event) "state")]
           (js/console.log "Initial icon state:" state)
@@ -96,6 +98,8 @@
         (let [popup (js-await (create-popup-page context ext-id))
               _ (js-await (fixtures/wait-for-event popup "SCITTLE_LOADED" 10000))
               tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+              _ (js-await (activate-tab popup tab-id))
+              _ (js-await (update-icon popup tab-id))
               icon-event (js-await (wait-for-icon-state popup tab-id #js ["injected" "connected"] 5000))
               state (aget (.-data icon-event) "state")]
           (js/console.log "Final icon state:" state)

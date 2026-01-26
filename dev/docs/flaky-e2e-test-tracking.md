@@ -10,19 +10,23 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 
 | Test | File | Failure Pattern | Flakes | Clean Runs |
 |------|------|-----------------|--------|------------|
-| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 0 |
-| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 1 | 0 |
-| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 0 |
-| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 1 | 0 |
-| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 1 | 0 |
-| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 1 | 0 |
-| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 0 |
-| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 0 |
-| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 0 |
-| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 0 |
-| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 0 |
-| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 0 |
-| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 0 |
+| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 8 |
+| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 2 | 3 |
+| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 8 |
+| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 1 | 8 |
+| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 3 |
+| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 1 | 8 |
+| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 8 |
+| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 8 |
+| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 8 |
+| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 2 | 0 |
+| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 1 | 0 |
+| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 1 | 0 |
+| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 1 | 0 |
+| Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 0 |
+| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 8 |
+| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 8 |
+| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 8 |
 
 **Column definitions:**
 - **Flakes**: Total times this test has flaked (increment on each occurrence)
@@ -101,6 +105,14 @@ Architectural or timing issues that could explain one or more symptoms. Each hyp
 
 **Applied fix:** Await ensure-initialized! in save-script handler
 
+#### RCH-6: FS mv path traversal test may run without source script
+
+**Status:** Proposed
+
+**Mechanism:** In e2e/fs_write_mv_test.cljs, the path traversal test reuses a single source script. If the source script is missing due to prior test state or parallel contention, mv! rejects with "Script not found", causing expectation mismatch.
+
+**Could explain:** "FS Sync mv operations" flakes (expectation mismatch)
+
 ### Archived Hypotheses
 
 _(Move here when conclusively ruled out with evidence)_
@@ -120,6 +132,8 @@ Each investigation attempt with quantitative results. One experiment per entry.
 | E05 | RCH-5 | e2e/ensure-builtin helper | 2/3 parallel | 3/3 parallel, 3/3 serial | Appeared fixed; monitoring |
 | E06 | Popup delete timing | Replace banner wait with toHaveCount timeout | Unknown | 3/3 parallel, 3/3 serial | Workaround, not root cause fix |
 | E07 | rm existed flag | Chain save->rm, use normalized name | Unknown | 3/3 parallel, 3/3 serial | Appeared fixed; monitoring |
+| E08 | RCH-2 | Force icon update before wait | Unknown | 3/3 serial, 3/3 parallel | Monitoring |
+| E09 | RCH-6 | Re-seed mv path source per attempt | Unknown | 3/3 serial, 3/3 parallel | Monitoring |
 
 **Before/After format:** X/Y = passed runs / total runs
 
