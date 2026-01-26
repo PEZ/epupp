@@ -33,6 +33,8 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | Panel Eval: Eval button shows play icon and 'Eval script' label | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 8 |
 | FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 26 |
 | REPL FS: rm - deletes a script | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Unknown | 1 | 8 |
+| Inject: minimal storage schema - manifest fields derived from code | [inject_test.cljs](../../e2e/inject_test.cljs) | Unknown | 1 | 0 |
+| Panel State: restores saved state and parses manifest on reload | [panel_state_test.cljs](../../e2e/panel_state_test.cljs) | Unknown | 1 | 0 |
 
 **Column definitions:**
 - **Flakes**: Total times this test has flaked (increment on each occurrence)
