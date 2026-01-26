@@ -196,6 +196,9 @@
           (js-await (-> (expect script-item) (.toBeVisible)))
           (when-not (js-await (.isChecked checkbox))
             (js-await (.click checkbox))))
+
+        ;; Clear test events before navigation
+        (js-await (clear-test-events! popup))
         (js-await (.close popup)))
 
       ;; Navigate to trigger injection
@@ -204,44 +207,43 @@
         (js-await (-> (expect (.locator page "#test-marker"))
                       (.toContainText "ready")))
 
-        ;; Wait for Reagent script tag to appear (poll instead of fixed 2s sleep)
-        (let [wait-for-script (fn wait-for []
-                                (js/Promise.
-                                 (fn [resolve reject]
-                                   (let [check (fn check [attempts]
-                                                 (-> (.evaluate page
-                                                                (fn []
-                                                                  (let [scripts (js/document.querySelectorAll "script[src*='reagent']")]
-                                                                    (pos? (.-length scripts)))))
-                                                     (.then (fn [found]
-                                                              (if found
-                                                                (resolve true)
-                                                                (if (>= attempts 50) ;; 5 second max
-                                                                  (reject (js/Error. "Timeout waiting for reagent script"))
-                                                                  (js/setTimeout #(check (inc attempts)) 100)))))))]
-                                     (check 0)))))]
-          (js-await (wait-for-script)))
-
-        ;; Check for Reagent script tags in DOM
-        (let [script-tags (js-await (.evaluate page
-                                               (fn []
-                                                 (let [scripts (js/document.querySelectorAll "script[src]")
-                                                       urls (js/Array.from scripts (fn [s] (.-src s)))]
-                                                   urls))))]
-          (js/console.log "Script tags in DOM:" (js/JSON.stringify script-tags nil 2))
-
-          ;; Should have React scripts
-          (let [has-react (.some script-tags (fn [url] (.includes url "react.production")))]
-            (js/console.log "Has React:" has-react)
-            (js-await (-> (expect has-react) (.toBe true))))
-
-          ;; Should have Reagent script
-          (let [has-reagent (.some script-tags (fn [url] (.includes url "scittle.reagent")))]
-            (js/console.log "Has Reagent:" has-reagent)
-            (js-await (-> (expect has-reagent) (.toBe true)))))
-
-        ;; Check for errors before closing
+        ;; Open popup and wait for LIBS_INJECTED event
         (let [popup (js-await (create-popup-page context ext-id))]
+          (js-await (wait-for-event popup "LIBS_INJECTED" 10000))
+
+          ;; Fetch events and verify INJECTING_LIBS event
+          (let [events (js-await (get-test-events popup))
+                inject-events (.filter events (fn [e] (= (.-event e) "INJECTING_LIBS")))]
+            (js/console.log "All events:" (js/JSON.stringify events nil 2))
+            (js/console.log "INJECTING_LIBS events:" (js/JSON.stringify inject-events nil 2))
+
+            ;; Should have at least one INJECTING_LIBS event
+            (js-await (-> (expect (.-length inject-events)) (.toBeGreaterThanOrEqual 1)))
+
+            ;; Verify the event includes scittle.reagent
+            (let [first-event (aget inject-events 0)
+                  files (.-files (.-data first-event))]
+              (js/console.log "Injected files:" (js/JSON.stringify files))
+              (js-await (-> (expect (.some files (fn [f] (.includes f "scittle.reagent")))) (.toBe true)))))
+
+          ;; Assert DOM script tags include react.production and scittle.reagent
+          (let [script-tags (js-await (.evaluate page
+                                                 (fn []
+                                                   (let [scripts (js/document.querySelectorAll "script[src]")
+                                                         urls (js/Array.from scripts (fn [s] (.-src s)))]
+                                                     urls))))]
+            (js/console.log "Script tags in DOM:" (js/JSON.stringify script-tags nil 2))
+
+            ;; Should have React scripts
+            (let [has-react (.some script-tags (fn [url] (.includes url "react.production")))]
+              (js/console.log "Has React:" has-react)
+              (js-await (-> (expect has-react) (.toBe true))))
+
+            ;; Should have Reagent script
+            (let [has-reagent (.some script-tags (fn [url] (.includes url "scittle.reagent")))]
+              (js/console.log "Has Reagent:" has-reagent)
+              (js-await (-> (expect has-reagent) (.toBe true)))))
+
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
 

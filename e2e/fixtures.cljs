@@ -205,6 +205,15 @@
       true
       (throw (js/Error. (str "Failed to update icon: " (or (.-error result) "unknown error")))))))
 
+(defn ^:async get-icon-display-state
+  "Get the current display icon state for a tab.
+   Returns state string (\"disconnected\", \"injected\", \"connected\") or throws."
+  [ext-page tab-id]
+  (let [result (js-await (send-runtime-message ext-page "e2e/get-icon-display-state" #js {:tabId tab-id}))]
+    (if (and result (.-success result))
+      (.-state result)
+      (throw (js/Error. (str "Failed to get icon state: " (or (.-error result) "unknown error")))))))
+
 (defn ^:async get-connections
   "Get active REPL connections from background worker.
    ext-page must be an extension page (popup/panel).

@@ -700,6 +700,16 @@
                           (send-response #js {:success false :error "Not available"})
                           false))
 
+                      "e2e/get-icon-display-state"
+                      (if (.-dev config)
+                        (let [tab-id (.-tabId message)
+                              state (bg-icon/get-display-icon-state !state tab-id)]
+                          (send-response #js {:success true :state state})
+                          false)
+                        (do
+                          (send-response #js {:success false :error "Not available"})
+                          false))
+
                       "e2e/ensure-builtin"
                       (if (.-dev config)
                         (do

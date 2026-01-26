@@ -22,6 +22,11 @@
   [!state active-tab-id]
   (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
 
+(defn get-display-icon-state
+  "Get the computed display icon state for a tab."
+  [!state tab-id]
+  (compute-display-icon-state !state tab-id))
+
 (defn ^:async update-icon-now!
   "Update the toolbar icon based on global (connected) and tab-local (injected) state.
    Takes the relevant tab-id to use for tab-local state checking."

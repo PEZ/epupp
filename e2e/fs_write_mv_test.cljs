@@ -380,13 +380,13 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(pr-str @!mv-reserved-result)"))]
+      (let [check-result (js-await (eval-in-browser "(let [r @!mv-reserved-result] (cond (= r :pending) :pending (:rejected r) (:rejected r) :else r))"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
-          (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "rejected")) (.toBe true))
-            (-> (expect (.includes result-str "reserved")) (.toBe true)))
+          (let [error-msg (unquote-result (first (.-values check-result)))]
+            (-> (expect error-msg)
+                (.toBe "Cannot create scripts in reserved namespace: epupp/")))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for mv reserved namespace result"))
             (do (js-await (sleep 20)) (recur)))))))
@@ -417,11 +417,11 @@
   (let [init-result (js-await (eval-in-browser "(def !mv-path-results (atom {}))"))]
     (-> (expect (.-success init-result)) (.toBe true)))
 
-  (doseq [[label target-name]
-          [["leading slash" "/absolute/path.cljs"]
-           ["dot-slash prefix" "./relative.cljs"]
-           ["dot-dot-slash prefix" "../parent.cljs"]
-           ["dot-dot-slash in middle" "foo/../bar.cljs"]]]
+  (doseq [[label target-name expected-error]
+          [["leading slash" "/absolute/path.cljs" "Script name cannot start with '/'"]
+           ["dot-slash prefix" "./relative.cljs" "Script name cannot contain './' or '../'"]
+           ["dot-dot-slash prefix" "../parent.cljs" "Script name cannot contain './' or '../'"]
+           ["dot-dot-slash in middle" "foo/../bar.cljs" "Script name cannot contain './' or '../'"]]]
     ;; Ensure source script exists before each invalid mv attempt
     (let [ensure-result (js-await (eval-in-browser
                                    (str "(def !ensure-source (atom :pending))\n"
@@ -452,18 +452,13 @@
       (let [start (.now js/Date)
             timeout-ms 3000]
         (loop []
-          (let [check-result (js-await (eval-in-browser (str "(pr-str (get @!mv-path-results " label-key "))")))]
+          (let [check-result (js-await (eval-in-browser (str "(let [r (get @!mv-path-results " label-key ")] (cond (= r :pending) :pending (:rejected r) (:rejected r) :else r))")))]
             (if (and (.-success check-result)
                      (seq (.-values check-result))
                      (not= (first (.-values check-result)) ":pending"))
-              (let [result-str (first (.-values check-result))]
-                (-> (expect (.includes result-str "rejected"))
-                    (.toBe true (str "Expected rejection for mv to: " label)))
-                (let [expected (if (= label "leading slash")
-                                 "start with '/'"
-                                 "cannot contain './' or '../'")]
-                  (-> (expect (.includes result-str expected))
-                      (.toBe true (str "Expected clear error for mv to: " label)))))
+              (let [error-msg (unquote-result (first (.-values check-result)))]
+                (-> (expect error-msg)
+                    (.toBe expected-error (str "Expected exact error for mv to: " label))))
               (if (> (- (.now js/Date) start) timeout-ms)
                 (throw (js/Error. (str "Timeout for mv path traversal: " label)))
                 (do (js-await (sleep 20)) (recur)))))))))

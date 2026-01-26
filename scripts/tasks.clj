@@ -729,11 +729,10 @@
                        :err (:err result)})))
     result))
 
-(defn- run-e2e-serial!
-  "Run E2E tests sequentially in a single Docker container.
-   Suppresses build output, shows test output, then prints summary."
-  [extra-args]
-  ;; Build phase with spinner (output suppressed unless failure)
+(defn- build-e2e!
+  "Build E2E tests and Docker image.
+   Suppresses build output unless failure. Exits on failure."
+  []
   (try
     (with-spinner "Building tests and Docker image..."
       (fn []
@@ -750,7 +749,15 @@
         (when (seq err)
           (println "\nStderr:")
           (println err)))
-      (System/exit 1)))
+      (System/exit 1))))
+
+(defn- run-e2e-serial!
+  "Run E2E tests sequentially in a single Docker container.
+   Suppresses build output, shows test output, then prints summary."
+  [extra-args {:keys [build?] :or {build? true}}]
+  ;; Build phase (if requested)
+  (when build?
+    (build-e2e!))
 
   ;; Run tests - stream output in real-time, also capture for summary
   (println "Running tests...")
@@ -780,31 +787,19 @@
     (when (nil? parsed-summary)
       (println "  (Warning: Could not parse Playwright summary from output)"))
     (if (zero? exit-code)
-      (println "✅ All tests passed!")
-      (println "❌ Some tests failed!"))
-    (System/exit exit-code)))
+      (do
+        (println "✅ All tests passed!")
+        0)
+      (do
+        (println "❌ Some tests failed!")
+        exit-code))))
 
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
-  [n-shards extra-args]
-  ;; Build phase with spinner (output suppressed unless failure)
-  (try
-    (with-spinner "Building tests and Docker image..."
-      (fn []
-        (run-build-step! "bb build:test")
-        (run-build-step! "bb test:e2e:compile")
-        (run-build-step! "docker build --platform linux/arm64 -f Dockerfile.e2e -t epupp-e2e .")))
-    (catch clojure.lang.ExceptionInfo e
-      (println "\n\n❌ Build failed!")
-      (let [{:keys [cmd out err]} (ex-data e)]
-        (println (str "Command: " cmd))
-        (when (seq out)
-          (println "\nStdout:")
-          (println out))
-        (when (seq err)
-          (println "\nStderr:")
-          (println err)))
-      (System/exit 1)))
+  [n-shards extra-args {:keys [build?] :or {build? true}}]
+  ;; Build phase (if requested)
+  (when build?
+    (build-e2e!))
 
   ;; Run shards in parallel using Playwright's native sharding
   (println (str "Running " n-shards " parallel shards..."))
@@ -869,8 +864,10 @@
         (doseq [{:keys [idx log-file]} failed]
           (println (str "\n=== Shard " (inc idx) " ==="))
           (println (slurp log-file)))
-        (System/exit 1))
-      (println "✅ All shards passed!"))))
+        1)
+      (do
+        (println "✅ All shards passed!")
+        0))))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
 (def ^:private default-n-shards 13)
@@ -879,19 +876,43 @@
   "Run E2E tests in Docker. Parallel by default, --serial for detailed output.
 
    Options:
-     --shards N  Number of parallel shards (default: 6)
+     --shards N  Number of parallel shards (default: 13)
      --serial    Run sequentially for detailed output
+     --repeat N  Run tests N times without rebuilding between runs
 
    Use -- to separate bb options from Playwright options:
      bb test:e2e --serial -- --grep \"popup\""
   [args]
-  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int}
-                                                  :alias {:s :serial}})
+  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int}
+                                                  :alias {:s :serial :r :repeat}})
         serial? (:serial opts)
-        n-shards (or (:shards opts) default-n-shards)]
-    (if serial?
-      (run-e2e-serial! args)
-      (run-e2e-parallel! n-shards args))))
+        n-shards (or (:shards opts) default-n-shards)
+        repeat-count (max 1 (or (:repeat opts) 1))]
+    (if (= repeat-count 1)
+      ;; Single run - build and run with exit
+      (if serial?
+        (let [exit-code (run-e2e-serial! args {:build? true})]
+          (System/exit exit-code))
+        (let [exit-code (run-e2e-parallel! n-shards args {:build? true})]
+          (System/exit exit-code)))
+      ;; Multiple runs - build once, then loop without rebuilding
+      (do
+        (build-e2e!)
+        (loop [run 1
+               failures 0]
+          (println (str "Run " run "/" repeat-count))
+          (let [exit-code (if serial?
+                            (run-e2e-serial! args {:build? false})
+                            (run-e2e-parallel! n-shards args {:build? false}))]
+            (if (zero? exit-code)
+              (if (< run repeat-count)
+                (recur (inc run) failures)
+                (do
+                  (println (str "REPEAT RUNS DONE: " repeat-count "/" repeat-count " - 0 failures"))
+                  (System/exit 0)))
+              (let [new-failures (inc failures)]
+                (println (str "REPEAT RUNS DONE: " run "/" repeat-count " - " new-failures " failures"))
+                (System/exit exit-code)))))))))
 
 (defn- extract-json-from-output
   "Extract JSON object from mixed output that may have log prefixes.

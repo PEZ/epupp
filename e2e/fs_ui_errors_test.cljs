@@ -1,7 +1,8 @@
 (ns e2e.fs-ui-errors-test
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [assert-no-errors!]]
-            [fs-ui-reactivity-helpers :as helpers]))
+            [fs-ui-reactivity-helpers :as helpers]
+            [fs-write-helpers :refer [sleep eval-in-browser unquote-result]]))
 
 (defn- ^:async failed_fs_operation_rejects_promise []
   ;; Try to delete a non-existent script - should reject
@@ -13,10 +14,27 @@
         res (js-await (helpers/eval-in-browser delete-code))]
     (-> (expect (.-success res)) (.toBe true))
 
-    (let [out (js-await (helpers/wait-for-eval-promise "!rm-nonexistent-result" 3000))]
-      (-> (expect (.includes out ":rejected")) (.toBe true))
-      (-> (expect (.includes out "Not deleting non-existent file: nonexistent_script_12345.cljs"))
-          (.toBe true (str "Expected canonical error, got: " out))))))
+    ;; Poll @!rm-nonexistent-result until not :pending
+    (let [poll-code "(let [r @!rm-nonexistent-result] (cond (= r :pending) :pending (:rejected r) (:rejected r) :else r))"
+          timeout 3000
+          interval 20
+          start (.now js/Date)]
+      (loop []
+        (when (> (- (.now js/Date) start) timeout)
+          (throw (js/Error. "Timeout waiting for !rm-nonexistent-result")))
+        (let [check-result (js-await (eval-in-browser poll-code))]
+          (if (and (.-success check-result) (seq (.-values check-result)))
+            (let [result-str (unquote-result (first (.-values check-result)))]
+              (if (= ":pending" result-str)
+                (do
+                  (js-await (sleep interval))
+                  (recur))
+                (let [error-msg result-str]
+                  (-> (expect error-msg)
+                      (.toBe "Not deleting non-existent file: nonexistent_script_12345.cljs")))))
+            (do
+              (js-await (sleep interval))
+              (recur))))))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage (helpers/get-context)))]
