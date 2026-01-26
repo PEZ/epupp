@@ -10,26 +10,27 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 
 | Test | File | Failure Pattern | Flakes | Clean Runs |
 |------|------|-----------------|--------|------------|
-| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 63 |
-| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 2 | 58 |
-| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 63 |
-| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 3 | 13 |
-| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 58 |
-| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 5 | 39 |
-| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 63 |
-| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 63 |
-| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 63 |
-| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 4 | 42 |
-| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 47 |
-| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 4 | 42 |
-| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 47 |
-| FS mv: rejects path traversal target names | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 23 |
-| Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 2 | 0 |
-| Inject: INJECTING_LIBS event emitted when script has inject | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 0 |
-| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 63 |
-| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 63 |
-| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 63 |
-| FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 3 |
+| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 78 |
+| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 2 | 73 |
+| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 78 |
+| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 3 | 28 |
+| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 73 |
+| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 5 | 54 |
+| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 78 |
+| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 78 |
+| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 78 |
+| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 4 | 57 |
+| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 62 |
+| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 4 | 57 |
+| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 62 |
+| FS mv: rejects path traversal target names | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 38 |
+| Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 2 | 15 |
+| Inject: INJECTING_LIBS event emitted when script has inject | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 15 |
+| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 78 |
+| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 78 |
+| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 78 |
+| Panel Eval: Eval button shows play icon and 'Eval script' label | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 0 |
+| FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 18 |
 
 **Column definitions:**
 - **Flakes**: Total times this test has flaked (increment on each occurrence)
