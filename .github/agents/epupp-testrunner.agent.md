@@ -57,8 +57,9 @@ If `getTaskOutput` returns "Terminal not found", report that watchers are not ru
 | Command | Purpose | Expected Time |
 |---------|---------|---------------|
 | `bb test` | Unit tests | ~1s |
-| `bb test:e2e` | E2E tests (parallel, Docker) | ~16s |
-| `bb test:e2e --serial -- --grep "pattern"` | Filtered E2E tests | varies |
+| `bb test:e2e` | E2E tests (parallel, Docker) | ~20s |
+| `bb test:e2e --serial -- --grep "pattern"` | Filtered E2E tests | ~10s |
+| `bb test:e2e --repeat 5` | When asked to run N parallel E2E tests | ~2m |
 
 There is extremely seldom any point in running full serial E2E tests. Only run filtered serial tests if investigating flakiness. Full parallel runs give the best overall picture of test health.
 
