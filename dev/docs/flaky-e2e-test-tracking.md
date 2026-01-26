@@ -10,28 +10,29 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 
 | Test | File | Failure Pattern | Flakes | Clean Runs |
 |------|------|-----------------|--------|------------|
-| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 78 |
-| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 2 | 73 |
-| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 78 |
-| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 3 | 28 |
-| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 73 |
-| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 5 | 54 |
-| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 78 |
-| Panel Save: create new script when name changed, save when unchanged | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | Unknown | 1 | 0 |
-| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 78 |
-| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 78 |
-| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 4 | 57 |
-| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 62 |
-| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 4 | 57 |
-| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 62 |
-| FS mv: rejects path traversal target names | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 38 |
-| Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 2 | 15 |
-| Inject: INJECTING_LIBS event emitted when script has inject | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 15 |
-| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 78 |
-| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 78 |
-| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 78 |
-| Panel Eval: Eval button shows play icon and 'Eval script' label | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 0 |
-| FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 18 |
+| FS Sync save operations | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 1 | 86 |
+| FS Sync mv operations | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Timeout | 2 | 81 |
+| FS Sync rm: existed flag | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Timeout | 1 | 86 |
+| Popup Icon: tab-local state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 3 | 36 |
+| Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 81 |
+| FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 5 | 62 |
+| Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 86 |
+| Panel Save: create new script when name changed, save when unchanged | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | Unknown | 1 | 8 |
+| REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 86 |
+| Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 86 |
+| FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 4 | 65 |
+| FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 70 |
+| FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 4 | 65 |
+| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 70 |
+| FS mv: rejects path traversal target names | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 46 |
+| Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 2 | 23 |
+| Inject: INJECTING_LIBS event emitted when script has inject | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 23 |
+| Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 86 |
+| Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 86 |
+| Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 86 |
+| Panel Eval: Eval button shows play icon and 'Eval script' label | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 8 |
+| FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 26 |
+| REPL FS: rm - deletes a script | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Unknown | 1 | 8 |
 
 **Column definitions:**
 - **Flakes**: Total times this test has flaked (increment on each occurrence)
@@ -146,6 +147,16 @@ Architectural or timing issues that could explain one or more symptoms. Each hyp
 
 **Root issue:** Test quality problem, not product bug. Error construction is synchronous - no timing issues.
 
+#### RCH-9: Fixed sleep during cleanup causes race
+
+**Status:** Monitoring
+
+**Mechanism:** The FS UI errors test used a fixed 50ms sleep after triggering cleanup. When the cleanup promise took longer, the subsequent rejection test started before cleanup finished, leading to intermittent assertion failures.
+
+**Could explain:** FS UI errors: failed operation rejects
+
+**Applied fix:** Replace sleep with atom-based polling for cleanup completion in e2e/fs_ui_errors_test.cljs
+
 
 ### Archived Hypotheses
 
@@ -180,6 +191,7 @@ Each investigation attempt with quantitative results. One experiment per entry.
 | E15 | RCH-2 | Increase Popup Icon test timeout to 10s to account for multi-step workflow in parallel | Unknown | 3/3 serial (Popup Icon), 10/10 parallel (Popup Icon) | Monitoring |
 | E16 | RCH-8 | Replace pr-str map string matching in fs_ui_errors_test.cljs with direct rejected polling | Unknown | 3/3 serial (FS UI errors), 3/3 parallel (FS UI errors) | Monitoring - inject flake occurred in parallel run |
 | E17 | RCH-3 | Wait for LIBS_INJECTED event with reagent file before asserting DOM script tags in inject_test.cljs | Unknown | 3/3 serial (Inject), 3/3 parallel (Inject) | Monitoring |
+| E18 | RCH-9 | Replace cleanup sleep with atom-based polling in fs_ui_errors_test.cljs | Unknown | 3/3 serial (FS UI errors), 3/3 parallel | Monitoring |
 
 **Before/After format:** X/Y = passed runs / total runs
 

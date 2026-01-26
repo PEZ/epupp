@@ -6,10 +6,15 @@
 
 (defn- ^:async failed_fs_operation_rejects_promise []
   ;; Try to delete a non-existent script - should reject
-  ;; Ensure the script does not exist (defensive cleanup for parallel runs)
-  (let [cleanup-code "(-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")\n                          (.catch (fn [_] nil)))"]
+  ;; Cleanup: ensure the script doesn't exist (defensive for parallel runs)
+  ;; Use atom-based polling instead of fixed sleep
+  (let [cleanup-code "(def !cleanup-result (atom :pending))
+                      (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")
+                          (.then (fn [_] (reset! !cleanup-result :done)))
+                          (.catch (fn [_] (reset! !cleanup-result :done))))
+                      :cleanup-started"]
     (js-await (helpers/eval-in-browser cleanup-code))
-    (js-await (helpers/sleep 50)))
+    (js-await (helpers/wait-for-eval-promise "!cleanup-result" 500)))
   (let [delete-code "(def !rm-nonexistent-result (atom :pending))\n                                        (-> (epupp.fs/rm! \"nonexistent_script_12345.cljs\")\n                                            (.then (fn [r] (reset! !rm-nonexistent-result {:resolved r})))\n                                            (.catch (fn [e] (reset! !rm-nonexistent-result {:rejected (.-message e)}))))\n                                        :setup-done"
         res (js-await (helpers/eval-in-browser delete-code))]
     (-> (expect (.-success res)) (.toBe true))
