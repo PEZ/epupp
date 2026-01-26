@@ -74,12 +74,14 @@
           (js-await (-> (expect our-script) (.toBeTruthy)))
           (js/console.log "Our script:" (js/JSON.stringify our-script nil 2))
 
-          ;; CRITICAL: Verify manifest fields are NOT stored (derived from code)
+          ;; These fields are parsed from the manifest map in the code at runtime
           (js-await (-> (expect (.-inject our-script)) (.toBeFalsy)))
           (js-await (-> (expect (.-name our-script)) (.toBeFalsy)))
-          (js-await (-> (expect (.-match our-script)) (.toBeFalsy)))
           (js-await (-> (expect (.-description our-script)) (.toBeFalsy)))
-          (js-await (-> (expect (.-runAt our-script)) (.toBeFalsy)))
+
+          ;; runAt and match ARE stored (needed by early injection loader which can't parse manifest)
+          (js-await (-> (expect (.-runAt our-script)) (.toBeTruthy)))
+          (js-await (-> (expect (.-match our-script)) (.toBeTruthy)))
 
           ;; Verify required storage fields ARE present
           (js-await (-> (expect (.-id our-script)) (.toBeTruthy)))

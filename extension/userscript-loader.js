@@ -8,12 +8,12 @@
  * Flow:
  * 1. Read all scripts from chrome.storage.local
  * 2. Filter to enabled scripts with early timing matching current URL
- * 3. Inject Scittle (synchronous script, blocks until loaded)
+ * 3. Inject Scittle and wait for it to load (async)
  * 4. Inject each script as <script type="application/x-scittle">
  * 5. Inject trigger-scittle.js to evaluate all scripts
  *
  * Note: This runs in ISOLATED world, so we can't directly check window.scittle.
- * We rely on synchronous script loading order (Scittle loads before trigger runs).
+ * Scittle loads asynchronously, so userscripts execute after Scittle is ready.
  */
 
 (function() {
@@ -126,32 +126,36 @@
 
       console.log('[Epupp Loader] Found', matchingScripts.length, 'matching scripts');
 
-      // Inject Scittle first (synchronous script tag)
-      // Script tags without async/defer execute in order, so Scittle will be
-      // fully loaded before the trigger script runs
+      // Inject Scittle first, then trigger after Scittle loads
+      // Dynamically inserted scripts with src are async by default, so we must
+      // wait for Scittle's onload before injecting the trigger
       const scittleUrl = chrome.runtime.getURL('vendor/scittle.js');
       const scittleStartTime = performance.now();
       const scittleScript = injectScript(scittleUrl);
 
-      // Listen for Scittle load completion to measure timing
+      // Listen for Scittle load completion
       scittleScript.onload = () => {
         const loadTime = (performance.now() - scittleStartTime).toFixed(1);
-        console.log('[Epupp Loader] Scittle loaded in', loadTime, 'ms (document:', document.readyState + ')');
+        console.log('[Epupp Loader] Scittle loaded in', loadTime, 'ms');
+
+        // Inject each userscript as <script type="application/x-scittle">
+        // These don't execute immediately - they wait for Scittle's eval_script_tags()
+        for (const script of matchingScripts) {
+          const scriptId = 'userscript-' + script.id;
+          injectUserscript(scriptId, script.code);
+        }
+
+        // NOW inject trigger (after Scittle is loaded and userscripts are in DOM)
+        const triggerUrl = chrome.runtime.getURL('trigger-scittle.js');
+        const triggerScript = injectScript(triggerUrl);
+        triggerScript.onerror = (e) => {
+          console.error('[Epupp Loader] Failed to load trigger-scittle.js!', e);
+        };
       };
 
-      // Inject each userscript as <script type="application/x-scittle">
-      // These don't execute immediately - they wait for Scittle's eval_script_tags()
-      for (const script of matchingScripts) {
-        const scriptId = 'userscript-' + script.id;
-        injectUserscript(scriptId, script.code);
-      }
-
-      // Trigger Scittle to evaluate the injected scripts
-      // This runs after Scittle is loaded (synchronous execution order)
-      const triggerUrl = chrome.runtime.getURL('trigger-scittle.js');
-      injectScript(triggerUrl);
-
-      console.log('[Epupp Loader] All scripts injected');
+      scittleScript.onerror = (e) => {
+        console.error('[Epupp Loader] Failed to load Scittle!', e);
+      };
     } catch (err) {
       console.error('[Epupp Loader] Error:', err);
     }

@@ -91,7 +91,7 @@
             code (code-with-manifest {:name "Timing Test"
                                       :match "http://localhost:18080/*"
                                       :run-at "document-start"
-                                      :code "(set! js/window.__EPUPP_SCRIPT_PERF (js/performance.now))"})]
+                                      :code "(set! (.-__EPUPP_SCRIPT_PERF js/window) (js/performance.now))"})]
         (js-await (.fill (.locator panel "#code-area") code))
         (js-await (.click (.locator panel "button.btn-save")))
         (js-await (wait-for-save-status panel "Created"))
@@ -112,17 +112,25 @@
         (js-await (-> (expect (.locator page "#timing-marker"))
                       (.toBeVisible)))
 
-        ;; Get both timing values - use a function that returns the object
-        (let [timings (js-await (.evaluate page (fn []
-                                                  #js {:epuppPerf js/window.__EPUPP_SCRIPT_PERF
-                                                       :pagePerf js/window.__PAGE_SCRIPT_PERF})))]
-          (js/console.log "Timing comparison - Epupp:" (aget timings "epuppPerf") "Page:" (aget timings "pagePerf"))
+        ;; Wait for userscript to execute (Scittle loading is async)
+        ;; Poll until the perf value is defined (a number, not undefined)
+        (let [start (.now js/Date)]
+          (loop []
+            (let [is-number (js-await (.evaluate page (fn [] (= (js/typeof js/window.__EPUPP_SCRIPT_PERF) "number"))))]
+              (when-not is-number
+                (when (> (- (.now js/Date) start) 2000)
+                  (throw (js/Error. "Timeout waiting for __EPUPP_SCRIPT_PERF to be defined")))
+                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 50))))
+                (recur)))))
 
-          ;; Epupp script should have a perf value (might be undefined if Scittle didn't load fast enough)
-          ;; The key assertion: if both exist, Epupp should run first
-          (when (and (aget timings "epuppPerf") (aget timings "pagePerf"))
-            (js-await (-> (expect (aget timings "epuppPerf"))
-                          (.toBeLessThan (aget timings "pagePerf"))))))
+        ;; Verify userscript executed via Scittle
+        (let [epupp-perf (js-await (.evaluate page (fn [] js/window.__EPUPP_SCRIPT_PERF)))]
+          ;; Assert script actually ran
+          ;; Note: We can't guarantee running BEFORE inline page scripts because
+          ;; Scittle needs to load first. But we verify the script does execute.
+          (js-await (-> (expect epupp-perf)
+                        (.toBeDefined)))
+          (js/console.log "Document-start script perf:" epupp-perf))
 
         ;; Check for errors before closing
         (let [popup (js-await (create-popup-page context ext-id))]
