@@ -93,6 +93,12 @@ The tracking document has four sections:
 | [testing.md](../../dev/docs/testing.md) | Testing philosophy |
 | [fixtures.cljs](../../e2e/fixtures.cljs) | Test helper library |
 
+### Squint REPL
+
+Use the `squint` REPL session to verify Squint language behavior when investigating potential Squint-related issues. This REPL runs in Node.js and does NOT have the Epupp runtime environment - use it only to test pure Squint semantics (keyword behavior, data structures, function behavior, etc.).
+
+Example: If a hypothesis involves Squint's keyword-as-string behavior affecting storage operations, test the basic Squint behavior in the squint REPL first.
+
 ## Your Workflow (OODA)
 
 ### 1. Observe - Understand the Failure
