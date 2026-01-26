@@ -32,7 +32,8 @@ When the user reports a flaky test without requesting investigation:
 
 1. **Add to Symptom Log** - test name, file, failure pattern, increment occurrence count
 2. **Check hypotheses** - does this fit an existing RCH? Add a note if so
-3. **Stop** - do not start investigation or propose fixes
+3. **Challenge conclusions** - if this flake contradicts any "Monitoring" experiment or hypothesis status, update it to "Insufficient" (no investigation needed, just update the conclusion)
+4. **Stop** - do not start investigation or propose fixes
 
 Output format:
 ```

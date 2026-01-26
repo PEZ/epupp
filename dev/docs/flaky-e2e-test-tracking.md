@@ -22,7 +22,7 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 3 | 3 |
 | FS save: rejects reserved namespace | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 0 |
 | FS save: rejects path traversal names | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Assertion fail | 3 | 3 |
-| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 1 | 8 |
+| FS mv: rejects rename to reserved namespace | [fs_write_mv_test.cljs](../../e2e/fs_write_mv_test.cljs) | Assertion fail | 2 | 0 |
 | Inject: Reagent library files injected | [inject_test.cljs](../../e2e/inject_test.cljs) | Timeout | 1 | 8 |
 | Popup Core: blank slate hints | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Assertion fail | 1 | 16 |
 | Auto-Run Revocation: panel save | [script_autorun_revocation_test.cljs](../../e2e/script_autorun_revocation_test.cljs) | Unknown | 1 | 16 |
