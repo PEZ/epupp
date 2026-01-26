@@ -235,7 +235,10 @@
             (-> (expect (.includes result-str ":fs/name"))
                 (.toBe true))
             (-> (expect (.includes result-str ":fs/existed? true"))
-                (.toBe true)))
+                (.toBe true))
+            (-> (expect (.includes result-str ":requestId")) (.toBe false))
+            (-> (expect (.includes result-str ":source")) (.toBe false))
+            (-> (expect (.includes result-str ":type")) (.toBe false)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for rm! result"))
             (do

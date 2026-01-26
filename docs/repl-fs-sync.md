@@ -59,6 +59,9 @@ You control when to push and pull. There's no automatic sync - you decide.
 ;; Delete a script
 (epupp.fs/rm! "script.cljs")
 ```
+
+Return maps include only the documented `:fs/*` keys.
+
 **Overwriting existing scripts:**
 
 Operations that would overwrite existing content fail, by default, but you can override.

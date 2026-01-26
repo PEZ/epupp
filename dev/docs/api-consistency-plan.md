@@ -77,10 +77,10 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 
 **Expected behavior**: REPL-facing return maps only include the whitelisted API keys (no transport metadata).
 
-- [ ] **extension/bundled/epupp/fs.cljs**: Replace response conversion with a whitelist (e.g., `select-keys`) to drop `:requestId`, `:source`, and `:type`
-- [ ] **Unit tests**: Add coverage to ensure return maps only includes explicit API facing keys
-- [ ] **E2E tests**: Verify REPL fs results contain only API keys
-- [ ] **Docs**: Note that transport envelope keys are not part of the REPL API contract
+- [x] **extension/bundled/epupp/fs.cljs**: Replace response conversion with a whitelist (e.g., `select-keys`) to drop `:requestId`, `:source`, and `:type`
+- [x] **Unit tests**: Add coverage to ensure return maps only includes explicit API facing keys
+- [x] **E2E tests**: Verify REPL fs results contain only API keys
+- [x] **Docs**: Note that transport envelope keys are not part of the REPL API contract
 - [ ] **Human verified**: Confirmed Phase 2b behavior in the REPL
 
 ### Phase 3: Boolean Naming Convention

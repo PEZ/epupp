@@ -1,7 +1,8 @@
 (ns background-actions-test
   "Tests for background FS action handlers - pure decision logic"
   (:require ["vitest" :refer [describe test expect]]
-            [background-actions :as bg-actions]))
+            [background-actions :as bg-actions]
+            [background-actions.repl-fs-actions :as repl-fs-actions]))
 
 ;; ============================================================
 ;; Test Fixtures
@@ -327,6 +328,28 @@
           ;; New user scripts should default to disabled
           (-> (expect (:script/enabled saved-script))
               (.toBe false)))))))
+
+;; ============================================================
+;; Base Info Return Shape Tests
+;; ============================================================
+
+(describe "script->base-info"
+  (fn []
+    (test "excludes transport envelope keys"
+      (fn []
+        (let [result (repl-fs-actions/script->base-info base-script)]
+          (-> (expect (contains? result :requestId))
+              (.toBe false))
+          (-> (expect (contains? result :source))
+              (.toBe false))
+          (-> (expect (contains? result :type))
+              (.toBe false))
+          (-> (expect (contains? result :fs/name))
+              (.toBe true))
+          (-> (expect (contains? result :fs/created))
+              (.toBe true))
+          (-> (expect (contains? result :fs/modified))
+              (.toBe true)))))))
 
 ;; ============================================================
 ;; Save Script - Built-in Name Protection Tests

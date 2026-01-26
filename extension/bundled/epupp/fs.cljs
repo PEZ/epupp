@@ -40,6 +40,32 @@
     msg
     (throw (js/Error. (or (.-error msg) "Unknown error")))))
 
+(def ^:private fs-base-keys
+  [:fs/name
+   :fs/modified
+   :fs/created
+   :fs/auto-run-match
+   :fs/enabled?
+   :fs/description
+   :fs/run-at
+   :fs/inject])
+
+(def ^:private fs-save-keys
+  (conj fs-base-keys :fs/newly-created? :fs/unchanged?))
+
+(def ^:private fs-mv-keys
+  (conj fs-base-keys :fs/from-name :fs/to-name))
+
+(def ^:private fs-rm-keys
+  (conj fs-base-keys :fs/existed?))
+
+(defn- msg->fs-response
+  "Filter response message to the public fs API keys."
+  [msg allowed-keys]
+  (let [m (js->clj msg :keywordize-keys true)]
+    (-> (select-keys m allowed-keys)
+        (assoc :fs/success (:success m)))))
+
 (defn show
   "Get script code by name(s). Returns promise.
    Single name: returns code string or nil
@@ -52,12 +78,12 @@
     ;; Bulk mode: fetch all and return map
     (let [names name-or-names]
       (-> (js/Promise.all
-            (to-array
-              (map (fn [n]
-                     (-> (send-and-receive "get-script" {:name n} "get-script-response")
-                         (.then (fn [msg]
-                                  [n (when (.-success msg) (.-code msg))]))))
-                   names)))
+           (to-array
+            (map (fn [n]
+                   (-> (send-and-receive "get-script" {:name n} "get-script-response")
+                       (.then (fn [msg]
+                                [n (when (.-success msg) (.-code msg))]))))
+                 names)))
           (.then (fn [results]
                    (into {} results)))))
     ;; Single mode: return code or nil
@@ -119,10 +145,7 @@
                                                       "save-script-response")
                                     (.then ensure-success!)
                                     (.then (fn [msg]
-                                             (let [m (js->clj msg :keywordize-keys true)]
-                                               [idx (-> m
-                                                        (dissoc :success)
-                                                        (assoc :fs/success (:success m)))])))))
+                                             [idx (msg->fs-response msg fs-save-keys)]))))
                               code-or-codes)))
              (.then (fn [results]
                       (into {} results)))))
@@ -130,10 +153,7 @@
        (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force force?} "save-script-response")
            (.then ensure-success!)
            (.then (fn [msg]
-                    (let [m (js->clj msg :keywordize-keys true)]
-                      (-> m
-                          (dissoc :success)
-                          (assoc :fs/success (:success m)))))))))))
+                    (msg->fs-response msg fs-save-keys))))))))
 
 (defn mv!
   "Rename a script. Requires FS REPL Sync to be enabled in settings.
@@ -153,10 +173,7 @@
      (-> (send-and-receive "rename-script" {:from from-name :to to-name :force force?} "rename-script-response")
          (.then ensure-success!)
          (.then (fn [msg]
-                  (let [m (js->clj msg :keywordize-keys true)]
-                    (-> m
-                        (dissoc :success)
-                        (assoc :fs/success (:success m))))))))))
+                  (msg->fs-response msg fs-mv-keys)))))))
 
 (defn rm!
   "Delete script(s) by name. Requires FS REPL Sync to be enabled in settings.
@@ -191,16 +208,12 @@
                           (.then (fn [msg]
                                    (cond
                                      (.-success msg)
-                                     (let [m (js->clj msg :keywordize-keys true)]
-                                       [n (-> m
-                                              (dissoc :success)
-                                              (assoc :fs/success true :fs/existed? true))])
+                                     (let [m (msg->fs-response msg fs-rm-keys)]
+                                       [n (assoc m :fs/existed? true)])
 
                                      (not-found-error? msg)
-                                     (let [m (js->clj msg :keywordize-keys true)]
-                                       [n (-> m
-                                              (dissoc :success)
-                                              (assoc :fs/success false :fs/existed? false))])
+                                     (let [m (msg->fs-response msg fs-rm-keys)]
+                                       [n (assoc m :fs/existed? false)])
 
                                      :else
                                      (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
@@ -219,15 +232,11 @@
           (.then (fn [msg]
                    (cond
                      (.-success msg)
-                     (let [m (js->clj msg :keywordize-keys true)]
-                       (-> m
-                           (dissoc :success)
-                           (assoc :fs/success true :fs/existed? true)))
+                     (let [m (msg->fs-response msg fs-rm-keys)]
+                       (assoc m :fs/existed? true))
 
                      (not-found-error? msg)
                      (throw (js/Error. (or (.-error msg) "Script not found")))
 
                      :else
                      (throw (js/Error. (or (.-error msg) "Unknown error"))))))))))
-
-

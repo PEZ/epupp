@@ -147,6 +147,13 @@
               (js-await (sleep 20))
               (recur)))))))
 
+  (let [raw-result (js-await (eval-in-browser "(pr-str @!confirm-mv-result)"))]
+    (-> (expect (.-success raw-result)) (.toBe true))
+    (let [result-str (first (.-values raw-result))]
+      (-> (expect (.includes result-str ":requestId")) (.toBe false))
+      (-> (expect (.includes result-str ":source")) (.toBe false))
+      (-> (expect (.includes result-str ":type")) (.toBe false))))
+
   (let [cleanup-result (js-await (eval-in-browser
                                   "(def !mv-force-cleanup (atom :pending))\n                                 (-> (epupp.fs/rm! \"mv_force_renamed.cljs\")\n                                   (.then (fn [_] (reset! !mv-force-cleanup :done)))\n                                   (.catch (fn [_] (reset! !mv-force-cleanup :done))))\n                                 :cleanup-started"))]
     (-> (expect (.-success cleanup-result)) (.toBe true)))

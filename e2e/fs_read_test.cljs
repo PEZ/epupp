@@ -268,7 +268,10 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "epupp/gist_installer.cljs")) (.toBe true)))
+            (-> (expect (.includes result-str "epupp/gist_installer.cljs")) (.toBe true))
+            (-> (expect (.includes result-str ":requestId")) (.toBe false))
+            (-> (expect (.includes result-str ":source")) (.toBe false))
+            (-> (expect (.includes result-str ":type")) (.toBe false)))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls hidden result"))
             (do

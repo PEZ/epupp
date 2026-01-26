@@ -99,6 +99,13 @@
               (js-await (sleep 20))
               (recur)))))))
 
+  (let [raw-result (js-await (eval-in-browser "(pr-str @!save-result)"))]
+    (-> (expect (.-success raw-result)) (.toBe true))
+    (let [result-str (first (.-values raw-result))]
+      (-> (expect (.includes result-str ":requestId")) (.toBe false))
+      (-> (expect (.includes result-str ":source")) (.toBe false))
+      (-> (expect (.includes result-str ":type")) (.toBe false))))
+
   (let [setup-result (js-await (eval-in-browser
                                 "(def !ls-after-save (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-after-save scripts))))\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
