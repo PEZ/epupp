@@ -231,12 +231,12 @@ Note: Do not edit or care about files that may be changed by someone else and ar
 - Simpler migration (one field)
 - Follows "parse, don't validate" principle
 
-- [ ] **panel_actions.cljs**: Update persistence to save only `{code}`
-- [ ] **panel_actions.cljs**: On restore, parse manifest to get name/match/description
-- [ ] **panel.cljs**: Handle restore from code-only persistence
-- [ ] **Unit tests**: Test restore parses manifest correctly
-- [ ] **E2E tests**: Test panel restore after code edit changes manifest
-- [ ] **Human verified**: Confirmed Phase 9 changes in the UI
+- [x] **panel_actions.cljs**: Update persistence to save only `{code}`
+- [x] **panel_actions.cljs**: On restore, parse manifest to get name/match/description
+- [x] **panel.cljs**: Handle restore from code-only persistence
+- [x] **Unit tests**: Test restore parses manifest correctly
+- [x] **E2E tests**: Test panel restore after code edit changes manifest
+- [x] **Human verified**: Confirmed Phase 9 changes in the UI
 
 ### Phase 10: Storage Schema - Derive from Manifest
 
