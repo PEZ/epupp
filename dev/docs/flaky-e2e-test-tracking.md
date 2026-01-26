@@ -113,6 +113,16 @@ Architectural or timing issues that could explain one or more symptoms. Each hyp
 
 **Could explain:** "FS Sync mv operations" flakes (expectation mismatch)
 
+#### RCH-7: Shared nREPL server contention across parallel shards
+
+**Status:** Proposed
+
+**Mechanism:** E2E tests share the same nREPL relay ports during parallel runs. Concurrent eval requests can interleave responses, causing `eval-in-browser` to receive mismatched or partial results, leading to assertion failures in REPL FS save tests.
+
+**Evidence:** 5 parallel runs filtered to "REPL FS: save" passed cleanly, while full parallel suites still showed intermittent failures.
+
+**Could explain:** FS save rejection tests (fs_write_save_test.cljs) flaking only in full parallel runs.
+
 ### Archived Hypotheses
 
 _(Move here when conclusively ruled out with evidence)_
