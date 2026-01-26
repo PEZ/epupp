@@ -17,6 +17,7 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | Popup Icon: toolbar icon REPL state | [popup_icon_test.cljs](../../e2e/popup_icon_test.cljs) | Assertion fail | 2 | 73 |
 | FS Sync save: rejects builtin | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | CI flake | 5 | 54 |
 | Panel Save: create new script | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | UI locator timeout | 1 | 78 |
+| Panel Save: create new script when name changed, save when unchanged | [panel_save_create_test.cljs](../../e2e/panel_save_create_test.cljs) | Unknown | 1 | 0 |
 | REPL manifest loads Replicant | [repl_ui_spec.cljs](../../e2e/repl_ui_spec.cljs) | Assertion fail | 1 | 78 |
 | Popup Core: script management | [popup_core_test.cljs](../../e2e/popup_core_test.cljs) | Count mismatch | 1 | 78 |
 | FS save: rejects when exists | [fs_write_save_test.cljs](../../e2e/fs_write_save_test.cljs) | Timeout | 4 | 57 |
