@@ -100,6 +100,42 @@ At rare occasions, Docker build fails for unknown reasons. If this happens:
 - Rerun the full E2E tests if you suspect a Docker issue
 - Do NOT assume code is broken
 
+## Flaky Detection and Reporting
+
+### What Counts as a Flake
+
+A test is **flaky** when it fails in some runs but passes in others within a batch of consecutive runs.
+
+**Protocol**: Run 5 full parallel suites (`bb test:e2e` x5). If any single run passes completely, all failures across the batch are flakes.
+
+### Reporting to Flaky Expert
+
+When you detect flakes, you MUST report to the flaky expert agent. Use this exact EDN structure:
+
+```edn
+{:reporter "Testrunner Agent"
+ :runs 5
+ :flakes ["Test name 1" "Test name 2"]
+ :detection-method "5-run batch, at least one clean run"}
+```
+
+**Rules:**
+- Report flakes, do not investigate them
+- The flaky expert will update tallies based on your report
+- Include exact test names as they appear in Playwright output
+- Report number of full parallel runs in the batch
+
+### Example Flaky Report
+
+After running 5 full parallel suites where runs 1, 3, 5 passed and runs 2, 4 had failures:
+
+```edn
+{:reporter "Testrunner Agent"
+ :runs 5
+ :flakes ["Popup Icon: tab-local state" "FS Sync rm: existed flag"]
+ :detection-method "5-run batch, at least one clean run"}
+```
+
 ## Anti-Patterns
 
 - **Attempting to fix failures**: You report only - fixes are someone else's job
