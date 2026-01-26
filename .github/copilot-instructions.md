@@ -250,6 +250,10 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
    * When bb tasks do not suffice, use Babashka utilities for file operations, HTTP server, etc.
 9. **Agent/prompt/instruction files are NOT fenced** - The `read_file` tool displays files with syntax highlighting fences (e.g., ``` chatagent), but this is just display formatting. These files are frontmatter-enriched markdown and should start with `---`, not backticks.
 
+## Use `cat` over `sed`
+
+When reading files, prefer `cat` to `sed`. The latter will be get stuck in approval. `cat` will be auto-approved.
+
 ## Use Subagents to protect your contect window and ensure quality
 
 The following subagents are available to you:
