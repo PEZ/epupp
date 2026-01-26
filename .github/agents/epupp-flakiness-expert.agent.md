@@ -104,16 +104,15 @@ Example: If a hypothesis involves Squint's keyword-as-string behavior affecting 
 
 ## Your Workflow (OODA)
 
-### 1. Observe - Understand the Failure
+### 1. Observe - Understand the Situation
 
-1. **Read the tracking document** - Check Symptom Log and Experiments Log
-2. **Delegate to `epupp-testrunner`** for test runs:
+1. **Delegate to `epupp-testrunner`** for test runs:
    - Ask testrunner to run 5 full parallel suites
    - Testrunner will report flakes and you update tallies
-   - For targeted investigation: ask testrunner for filtered serial runs
+   - This is a starting seeding point for your investigation
+2. **Read the tracking document** - Check Symptom Log and Experiments Log
 3. **Collect evidence** from testrunner report:
    - Which tests flaked and how often
-   - Playwright report: `npx playwright show-report`
    - Stack traces and timeout locations
 
 ### 2. Orient - Form or Select Hypothesis

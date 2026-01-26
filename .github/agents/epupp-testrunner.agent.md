@@ -34,11 +34,11 @@ Your work has two modes depending on who called you:
 5. Report clean results to caller
 6. **Always report to flaky expert** with runs count and any flakes found
 
-### Investigation Mode (called by flaky expert)
+### Investigation Mode called by flaky expert
 
 **Goal:** Run tests as requested and return results.
 
-1. Run tests as specified by flaky expert
+1. Default is to run `bb test:e2e --repeat 5`
 2. Return results directly - no separate flaky expert notification needed
 
 ## Watcher Task IDs
