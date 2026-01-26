@@ -14,12 +14,9 @@
     (-> (expect (.-success res)) (.toBe true))
 
     (let [out (js-await (helpers/wait-for-eval-promise "!rm-nonexistent-result" 3000))]
-      (-> (expect (.includes out "rejected")) (.toBe true))
-      (-> (expect (or (.includes out "Script not found")
-                      (.includes out "not found")
-                      (.includes out "does not exist")
-                      (.includes out "non-existent")))
-          (.toBe true)))))
+      (-> (expect (.includes out ":rejected")) (.toBe true))
+      (-> (expect (.includes out "Not deleting non-existent file: nonexistent_script_12345.cljs"))
+          (.toBe true (str "Expected canonical error, got: " out))))))
 
 (defn- ^:async no_uncaught_errors_during_ui_reactivity_tests []
   (let [popup (js-await (.newPage (helpers/get-context)))]

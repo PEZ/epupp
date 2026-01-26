@@ -257,11 +257,10 @@
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
             ;; Should be rejected because script already exists
-            (-> (expect (.includes result-str "rejected"))
+            (-> (expect (.includes result-str ":rejected"))
                 (.toBe true))
-            (-> (expect (or (.includes result-str "already exists")
-                            (.includes result-str "Script already exists")))
-                (.toBe true)))
+            (-> (expect (.includes result-str "Script already exists: save_collision_test.cljs"))
+                (.toBe true (str "Expected collision error, got: " result-str))))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save collision result"))
             (do
@@ -307,14 +306,11 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            ;; Should be rejected - either by reserved namespace or built-in check
-            (-> (expect (.includes result-str "rejected"))
+            ;; Should be rejected by reserved namespace check (epupp/ prefix)
+            (-> (expect (.includes result-str ":rejected"))
                 (.toBe true))
-            (-> (expect (or (.includes result-str "built-in")
-                            (.includes result-str "reserved namespace")
-                            (.includes result-str "Cannot save built-in scripts")
-                            (.includes result-str "Cannot overwrite built-in scripts")))
-                (.toBe true)))
+            (-> (expect (.includes result-str "Cannot create scripts in reserved namespace: epupp/"))
+                (.toBe true (str "Expected reserved namespace error, got: " result-str))))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save built-in result"))
             (do
@@ -341,14 +337,11 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            ;; Should still be rejected even with force
-            (-> (expect (.includes result-str "rejected"))
+            ;; Should still be rejected by reserved namespace check even with force
+            (-> (expect (.includes result-str ":rejected"))
                 (.toBe true))
-            (-> (expect (or (.includes result-str "built-in")
-                            (.includes result-str "reserved namespace")
-                            (.includes result-str "Cannot save built-in scripts")
-                            (.includes result-str "Cannot overwrite built-in scripts")))
-                (.toBe true)))
+            (-> (expect (.includes result-str "Cannot create scripts in reserved namespace: epupp/"))
+                (.toBe true (str "Expected reserved namespace error, got: " result-str))))
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for save built-in with force result"))
             (do
@@ -456,10 +449,10 @@
                 (-> (expect (.includes result-str "rejected"))
                     (.toBe true (str "Expected rejection for: " label)))
                 (let [expected (if (= label "leading slash")
-                                 "start with '/'"
-                                 "cannot contain './' or '../'")]
+                                 "Script name cannot start with '/'"
+                                 "Script name cannot contain './' or '../'")]
                   (-> (expect (.includes result-str expected))
-                      (.toBe true (str "Expected clear error for: " label)))))
+                      (.toBe true (str "Expected '" expected "', got: " result-str)))))
               (if (> (- (.now js/Date) start) timeout-ms)
                 (throw (js/Error. (str "Timeout waiting for save path traversal result: " label)))
                 (do (js-await (sleep 20)) (recur))))))))))
