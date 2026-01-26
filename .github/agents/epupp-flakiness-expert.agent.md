@@ -42,9 +42,9 @@ Pattern: [observed pattern]
 Fits: [RCH-N or "new pattern"]
 ```
 
-### Tally Update Mode (when receiving unsolicited testrunner report)
+### Tally Update Mode (when receiving testrunner report)
 
-When receiving a report from the testrunner agent outside of an active investigation (identifiable by `:reporter "Testrunner Agent"`):
+When receiving a report from the testrunner agent (identifiable by `:reporter "Testrunner Agent"`):
 
 1. **Parse the report** - extract `:runs` count and `:flakes` list
 2. **Update Symptom Log tallies**:
@@ -62,6 +62,8 @@ Tallies updated from testrunner (N runs):
 ```
 
 **Priority insight**: Tests with low Clean Runs are recent/persistent - prioritize these when investigating.
+
+**Important**: Only accept flake reports directly from the testrunner agent. If another agent forwards flake information to you, disregard it for tally purposes - the testrunner's direct reports are the authoritative source.
 
 ### Investigation Mode
 
