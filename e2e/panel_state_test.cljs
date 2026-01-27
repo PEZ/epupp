@@ -71,7 +71,7 @@
           (js-await (.fill textarea test-code)))
 
         (let [debug-info (.locator panel "#debug-info")]
-          (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 300})))
+          (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 3000})))
           (let [debug-text (js-await (.textContent debug-info))]
             (println "=== PHASE 1: After fill ===" debug-text)))
 
@@ -92,7 +92,7 @@
         (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "Persisted Script") #js {:timeout 2000})))
 
         (let [debug-info (.locator panel "#debug-info")]
-          (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 300})))
+          (js-await (-> (expect debug-info) (.toBeVisible #js {:timeout 3000})))
           (let [debug-text (js-await (.textContent debug-info))]
             (println "=== DEBUG INFO ===" debug-text)))
 

@@ -107,7 +107,7 @@
     (js-await (.goto panel-page panel-url #js {:timeout 1000}))
     ;; Wait for panel to be fully initialized - code-area indicates JS has loaded
     (js-await (-> (expect (.locator panel-page "#code-area"))
-                  (.toBeVisible #js {:timeout 500})))
+                  (.toBeVisible #js {:timeout 3000})))
     panel-page))
 
 ;; =============================================================================
@@ -123,7 +123,7 @@
     (js-await (.goto popup-page popup-url #js {:timeout 1000}))
     ;; Wait for popup to be fully initialized - nrepl-port input indicates JS has loaded
     (js-await (-> (expect (.locator popup-page "#nrepl-port"))
-                  (.toBeVisible #js {:timeout 500})))
+                  (.toBeVisible #js {:timeout 3000})))
     popup-page))
 
 ;; =============================================================================
@@ -282,7 +282,7 @@
    Use after save/delete operations instead of sleep."
   [page n]
   (js-await (-> (expect (.locator page ".script-item"))
-                (.toHaveCount n #js {:timeout 500}))))
+                (.toHaveCount n #js {:timeout 3000}))))
 
 (defn ^:async wait-for-save-status
   "Wait for system banner to appear with expected text (e.g., 'Created', 'Saved', 'Renamed').
@@ -293,29 +293,29 @@
   ;; Use :has-text filter then .first to handle multiple banners with same text
   (let [banner (.first (.locator page (str ".system-banner:has-text(\"" text "\")")))]
     (js-await (-> (expect banner)
-                  (.toBeVisible #js {:timeout 500})))))
+                  (.toBeVisible #js {:timeout 3000})))))
 
 (defn ^:async wait-for-checkbox-state
   "Wait for checkbox to reach expected checked state.
    Use after toggling checkboxes instead of sleep."
   [checkbox checked?]
   (if checked?
-    (js-await (-> (expect checkbox) (.toBeChecked #js {:timeout 500})))
-    (js-await (-> (expect checkbox) (.not.toBeChecked #js {:timeout 500})))))
+    (js-await (-> (expect checkbox) (.toBeChecked #js {:timeout 3000})))
+    (js-await (-> (expect checkbox) (.not.toBeChecked #js {:timeout 3000})))))
 
 (defn ^:async wait-for-panel-ready
   "Wait for panel to be ready after reload/navigation.
    Useful after .reload() calls instead of sleep."
   [panel]
   (js-await (-> (expect (.locator panel "#code-area"))
-                (.toBeVisible #js {:timeout 500}))))
+                (.toBeVisible #js {:timeout 3000}))))
 
 (defn ^:async wait-for-popup-ready
   "Wait for popup to be ready after reload/navigation.
    Useful after .reload() calls instead of sleep."
   [popup]
   (js-await (-> (expect (.locator popup "#nrepl-port"))
-                (.toBeVisible #js {:timeout 500}))))
+                (.toBeVisible #js {:timeout 3000}))))
 
 (defn ^:async wait-for-edit-hint
   "Wait for the edit hint message to appear in popup as a system banner.
@@ -323,7 +323,7 @@
    With multi-banner, we just need at least one banner to be visible."
   [popup]
   (js-await (-> (expect (.first (.locator popup ".system-banner")))
-                (.toBeVisible #js {:timeout 300}))))
+                (.toBeVisible #js {:timeout 3000}))))
 
 (defn ^:async wait-for-scripts-loaded
   "Wait for panel to load scripts-list from storage.
@@ -341,7 +341,7 @@
   [panel property-name expected-value]
   (let [row (.locator panel (str "[data-e2e-property=\"" property-name "\"] .property-value"))]
     (js-await (-> (expect row)
-                  (.toContainText expected-value #js {:timeout 500})))))
+                  (.toContainText expected-value #js {:timeout 3000})))))
 
 (defn ^:async wait-for-editing-state
   "Wait for panel to be in editing or new-script state.
@@ -349,7 +349,7 @@
   [panel editing?]
   (let [save-section (.locator panel ".save-script-section")]
     (js-await (-> (expect save-section)
-                  (.toHaveAttribute "data-e2e-editing" (str editing?) #js {:timeout 500})))))
+                  (.toHaveAttribute "data-e2e-editing" (str editing?) #js {:timeout 3000})))))
 
 (defn ^:async wait-for-conflict-state
   "Wait for panel to be in name conflict state or not.
@@ -357,7 +357,7 @@
   [panel has-conflict?]
   (let [save-section (.locator panel ".save-script-section")]
     (js-await (-> (expect save-section)
-                  (.toHaveAttribute "data-e2e-conflict" (str has-conflict?) #js {:timeout 500})))))
+                  (.toHaveAttribute "data-e2e-conflict" (str has-conflict?) #js {:timeout 3000})))))
 
 (defn ^:async wait-for-banner-type
   "Wait for a system banner of a specific type to appear.
@@ -365,7 +365,7 @@
   [page banner-type]
   (let [banner (.locator page (str "[data-e2e-banner-type=\"" banner-type "\"]"))]
     (js-await (-> (expect (.first banner))
-                  (.toBeVisible #js {:timeout 500})))))
+                  (.toBeVisible #js {:timeout 3000})))))
 
 (defn ^:async wait-for-scittle-status
   "Wait for Scittle to reach a specific status.

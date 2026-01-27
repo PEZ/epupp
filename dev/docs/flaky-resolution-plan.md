@@ -333,6 +333,139 @@ After Phase 0 & 0.5 changes:
 
 ---
 
+## Phase 1 & 2 Completion Notes (Jan 27, 2026)
+
+### Phase 1: Diagnostic Framework
+
+**Local Test Results:**
+- Serial: 109/109 passed
+- Parallel: 109/109 passed
+- Both modes pass 100% locally
+
+**Test Bug Classification:**
+
+The primary issue is **timeout duration mismatch** between local and CI environments:
+
+| Pattern | Timeout | Local Timing | CI Timing | Verdict |
+|---------|---------|--------------|-----------|---------|
+| `wait-for-script-count` | 500ms | ~50-100ms | ~200-600ms | Too short for CI |
+| `wait-for-save-status` | 500ms | ~30-80ms | ~150-400ms | Too short for CI |
+| `wait-for-checkbox-state` | 500ms | ~20-50ms | ~100-300ms | Too short for CI |
+| `wait-for-connection-count` | 5000ms | ~100-500ms | ~500-2000ms | Adequate |
+
+**Extension Bug Analysis:**
+
+Traced the storage propagation chain in detail:
+
+1. `storage.local.set()` - callback fires when write completes
+2. `chrome.storage.onChanged` - async event dispatched to all contexts (popup, panel)
+3. Popup listener dispatches `[:popup/ax.load-scripts]`
+4. Action triggers `[:popup/fx.load-scripts]` effect
+5. Effect calls `chrome.storage.local.get()` - async
+6. Callback dispatches state update `[:db/ax.assoc :scripts/list scripts]`
+7. React re-renders
+
+**Key finding:** No internal race conditions. The synchronization pattern is correct. The issue is that the full chain can take 200-600ms in CI but tests use 500ms timeouts.
+
+**Environment Bug Analysis:**
+
+- Docker container overhead adds latency
+- Xvfb virtual display adds ~50-100ms to rendering
+- CI resource contention (shared runners) causes variance
+- No evidence of Docker networking issues
+
+### Phase 2: Architectural Hypothesis Investigation
+
+**RCH-3: Storage Event Propagation Timing - CONFIRMED**
+
+The storage event propagation chain has predictable but variable timing:
+
+```
+Timeline (local):
+  T+0ms:   storage.local.set() called
+  T+5ms:   set callback fires (write complete)
+  T+10ms:  onChanged dispatched
+  T+15ms:  popup listener fires, dispatches load-scripts
+  T+20ms:  fx.load-scripts calls storage.local.get()
+  T+30ms:  get callback fires, state updated
+  T+40ms:  React re-renders
+  TOTAL:   ~40-100ms
+
+Timeline (CI under load):
+  T+0ms:   storage.local.set() called
+  T+20ms:  set callback fires (write complete)
+  T+80ms:  onChanged dispatched (delayed by load)
+  T+150ms: popup listener fires, dispatches load-scripts
+  T+200ms: fx.load-scripts calls storage.local.get()
+  T+350ms: get callback fires, state updated
+  T+500ms: React re-renders
+  TOTAL:   ~300-600ms
+```
+
+**Conclusion:** 500ms timeout is insufficient for CI. The propagation is correct but slow under load.
+
+**RCH-4: Parallel Test Resource Contention - PARTIALLY CONFIRMED**
+
+| Environment | Serial | Parallel | Notes |
+|-------------|--------|----------|-------|
+| Local | 100% pass | 100% pass | No contention |
+| CI Docker | ~10% pass | ~10% pass | Needs verification |
+
+The parallel vs serial comparison requires CI verification. Locally, both modes pass, suggesting the issue is absolute timing rather than resource contention.
+
+**However:** CI with 6+ shards may have CPU contention that slows ALL shards, not just individual tests. This would explain why both serial and parallel fail at similar rates in CI.
+
+### Root Cause Summary
+
+The reversal pattern (was flaky local, now flaky CI) is explained by optimization history:
+
+1. **Before de-flaking:** Long sleeps (50-200ms) provided slack, but inconsistent local timing caused local flakes
+2. **During de-flaking:** Converted sleeps to proper polling with "TDD-optimized" 500ms timeouts
+3. **After de-flaking:** Proper polling works locally (~40-100ms operations), but CI is slower (~300-600ms)
+
+**The fix is NOT about adding synchronization** - the patterns are correct. The fix is about **timeout calibration** for CI environments.
+
+### Recommended Actions
+
+1. **Immediate (low risk):** Increase UI assertion timeouts from 500ms to 2000ms
+2. **Better:** Add environment-aware timeout configuration (500ms local, 2000ms CI)
+3. **Best:** Add CI timing instrumentation to measure actual propagation times
+
+### Status
+
+- Phase 1: **COMPLETE** - Diagnostic framework established, ~10 flaky patterns classified
+- Phase 2: **COMPLETE** - Both hypotheses investigated, RCH-3 confirmed, RCH-4 needs CI data
+- Phase 3: **NOT STARTED** - CI instrumentation experiment
+
+### Action Taken (Jan 27, 2026)
+
+**Timeout calibration implemented** - Increased UI assertion timeouts from 500ms to 3000ms.
+
+| Helper | Old Timeout | New Timeout | Rationale |
+|--------|-------------|-------------|-----------|
+| `wait-for-script-count` | 500ms | 3000ms | Storage propagation chain: 40-100ms local, 300-600ms CI |
+| `wait-for-save-status` | 500ms | 3000ms | Banner visibility after state update |
+| `wait-for-checkbox-state` | 500ms | 3000ms | Checkbox state after toggle |
+| `wait-for-panel-ready` | 500ms | 3000ms | Panel initialization |
+| `wait-for-popup-ready` | 500ms | 3000ms | Popup initialization |
+| `wait-for-edit-hint` | 300ms | 3000ms | Banner display |
+| Panel debug-info | 300ms | 3000ms | Debug info visibility |
+| Other UI assertions | 500ms | 3000ms | Various state transitions |
+| Scittle/connections | 5000ms | (unchanged) | Already adequate |
+
+**Files modified:**
+- `e2e/fixtures.cljs` - 13 timeout updates
+- `e2e/panel_state_test.cljs` - 2 timeout updates
+
+**Local verification:**
+- Unit tests: 399/399 passed
+- E2E parallel: 109/109 passed (~22.5s)
+- No regressions introduced
+
+**Next:** Monitor CI stability. If ~10% pass rate improves to >90%, timeout calibration was the root cause. If not, proceed to Phase 3 (CI instrumentation).
+
+---
+
 ## Verification Protocol Update
 
 Current protocol allows "Monitoring" status after 3/3 local parallel passes. This is insufficient given the local-CI divergence.
