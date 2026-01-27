@@ -495,6 +495,41 @@ The `save-script!` function in storage.cljs must be updated to:
 24. **Build dev version**: Run `bb build:dev` for human testing
 25. **Human verified**: Human has verified the changes
 
+## REPL API Verification (2025-01-27)
+
+Manual verification of `epupp.fs` API via epupp-gitlab REPL connection.
+
+### Return Shape Compliance
+
+- [x] `ls` - returns only `fs/*` keys, no envelope keys (`:requestId`, `:source`, `:type`)
+- [x] `save!` - returns only `fs/*` keys, no envelope keys
+- [x] `mv!` - returns only `fs/*` keys, includes `:fs/from-name` and `:fs/to-name`
+- [x] `rm!` - returns only `fs/*` keys, includes `:fs/existed?`
+- [x] `show` - returns code string
+
+### Conditional Field Presence
+
+- [x] Script WITH `:epupp/auto-run-match` - has `:fs/enabled?` and `:fs/auto-run-match`
+- [x] Script WITHOUT `:epupp/auto-run-match` - NO `:fs/enabled?` and NO `:fs/auto-run-match`
+- [x] `ls` with `:fs/ls-hidden? true` - includes built-in scripts
+
+### Built-in Naming
+
+- [x] Built-in named `epupp/gist_installer.cljs` (correct per plan)
+
+### Namespace Reservation
+
+- [x] `save!` rejects `epupp/` prefix with clear error: "Script name cannot start with 'epupp/'"
+- [x] `mv!` rejects `epupp/` prefix with clear error
+
+### Path Traversal Rejection
+
+- [x] `save!` rejects `../` with clear error: "Script name cannot contain './' or '../'"
+
+### Issues Found
+
+- [x] **BUG FIXED**: `save!` return was missing `:fs/description` even when manifest includes it (but `ls` and `mv!` include it correctly). Fixed by deriving all manifest fields before building response.
+
 ## Original Plan-Producing Prompt
 
 Create an implementation plan for the decided API changes before 1.0 release:

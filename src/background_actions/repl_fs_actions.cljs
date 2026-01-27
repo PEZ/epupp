@@ -328,11 +328,16 @@
                               (let [filtered (if (and force? existing-by-name)
                                                (remove-script-from-list scripts (:script/id existing-by-name))
                                                scripts)]
-                                (conj filtered timestamped-script)))]
+                                (conj filtered timestamped-script)))
+            ;; For response: derive ALL manifest fields (description, run-at, inject, etc.)
+            ;; Storage only persists non-derived fields, but response needs full info
+            manifest (try (mp/extract-manifest (:script/code timestamped-script))
+                          (catch :default _ nil))
+            response-script (script-utils/derive-script-fields timestamped-script manifest)]
         (make-success-response updated-scripts "save" script-name
                                {:event-data (cond-> {:script-id script-id}
                                               (some? bulk-id) (assoc :bulk-id bulk-id)
                                               (some? bulk-index) (assoc :bulk-index bulk-index)
                                               (some? bulk-count) (assoc :bulk-count bulk-count))
-                                :response-data (merge (script->base-info timestamped-script)
+                                :response-data (merge (script->base-info response-script)
                                                       {:fs/newly-created? (not is-update?)})})))))

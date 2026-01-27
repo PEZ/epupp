@@ -625,3 +625,30 @@
                        [:init/ax.clear-promise])]
           (-> (expect (get-in result [:uf/db :init/promise]))
               (.toBe nil)))))))
+
+;; ============================================================
+;; Save Script - Manifest-Derived Fields in Response Tests
+;; ============================================================
+
+(describe ":fs/ax.save-script - manifest-derived fields in response"
+  (fn []
+    (test "save response includes :fs/description from manifest"
+      (fn []
+        (let [state {:storage/scripts []}
+              code-with-description "{:epupp/script-name \"with_description.cljs\"
+ :epupp/description \"A helpful script\"}
+
+(ns my-script)
+(println \"hello\")"
+              new-script {:script/id "script-with-desc"
+                          :script/name "with_description.cljs"
+                          :script/code code-with-description}
+              result (bg-actions/handle-action state uf-data
+                                               [:fs/ax.save-script new-script])
+              response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+          ;; Should have success response
+          (-> (expect (:success response))
+              (.toBe true))
+          ;; Save response should include the description from the manifest
+          (-> (expect (:fs/description response))
+              (.toBe "A helpful script")))))))
