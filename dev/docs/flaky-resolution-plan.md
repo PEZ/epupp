@@ -261,6 +261,65 @@ For each duplicated helper:
 
 ---
 
+## Phase 0 & 0.5 Completion Notes (Jan 27, 2025)
+
+### What Was Done
+
+**Phase 0 - Sleep Audit:**
+- Created `poll-until` generic polling helper in [fixtures.cljs](../../e2e/fixtures.cljs#L248)
+- Removed 3 forbidden standalone sleeps from `fs_write_save_test.cljs`:
+  - Line ~308: `(sleep 50)` after `wait-for-builtin-script!`
+  - Line ~347: `(sleep 50)` after `wait-for-builtin-script!`
+  - Line ~407: `(sleep 100)` for "storage sync"
+- All remaining sleeps in e2e tests are either:
+  - Poll intervals inside wait loops (acceptable)
+  - Absence tests (acceptable with documentation)
+
+**Phase 0.5 - Consolidation (Partial):**
+- Added `poll-until` to fixtures.cljs as the canonical polling primitive
+- Attempted to consolidate REPL-eval-based helpers but discovered they cannot use poll-until
+
+### Key Learning: REPL-Eval Helpers Cannot Use poll-until
+
+Helpers that poll via REPL evaluation (like `wait-for-builtin-script!`, `wait-for-script-present!`) cannot be simplified with `poll-until` due to the async timing gap:
+
+1. **Kick off**: REPL eval runs `epupp.fs/ls` which returns a Promise
+2. **Gap**: The `.then` callback executes AFTER the eval returns
+3. **Check**: Reading the atom in the same eval sees stale data
+
+The working pattern requires **separate evals with a sleep between**:
+```clojure
+;; Eval 1: Kick off async operation, store result in atom via .then
+(js-await (eval-in-browser "(-> (epupp.fs/ls) (.then (fn [r] (reset! !atom r))))"))
+;; Sleep: Allow Promise callback to execute
+(js-await (sleep 20))
+;; Eval 2: Check atom value
+(js-await (eval-in-browser "(pr-str @!atom)"))
+```
+
+This is **not** a forbidden sleep - it's a fundamental requirement of the REPL-based async testing pattern.
+
+### Remaining Consolidation Work
+
+The following helpers remain duplicated across files but weren't consolidated due to the REPL-eval limitation:
+- `wait-for-builtin-script` (4 copies)
+- `wait-for-script-tag` (4 copies)
+- `eval-in-browser` (multiple copies)
+- `sleep` (multiple copies)
+
+Future work could:
+1. Move canonical versions to fs-write-helpers.cljs and update imports
+2. Document which helpers are REPL-based and cannot use poll-until
+
+### Test Results
+
+After Phase 0 & 0.5 changes:
+- Unit tests: 399 passed
+- E2E tests: 109 passed (parallel, 13 shards)
+- No regressions introduced
+
+---
+
 ## Verification Protocol Update
 
 Current protocol allows "Monitoring" status after 3/3 local parallel passes. This is insufficient given the local-CI divergence.

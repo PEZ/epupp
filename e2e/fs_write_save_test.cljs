@@ -25,6 +25,8 @@
                                          ":setup-done")))]
         (when-not (.-success setup-result)
           (throw (js/Error. (str "Failed to start builtin check: " (.-error setup-result)))))
+        ;; Wait for async operation to complete
+        (js-await (sleep 20))
         (let [check-result (js-await (eval-in-browser "(pr-str @!wait-builtin-present)"))]
           (if (and (.-success check-result)
                    (seq (.-values check-result)))
@@ -33,14 +35,10 @@
                 true
                 (if (> (- (.now js/Date) start) timeout-ms)
                   (throw (js/Error. (str "Timeout waiting for built-in script: " script-name)))
-                  (do
-                    (js-await (sleep 20))
-                    (recur)))))
+                  (recur))))
             (if (> (- (.now js/Date) start) timeout-ms)
               (throw (js/Error. (str "Timeout waiting for built-in script: " script-name)))
-              (do
-                (js-await (sleep 20))
-                (recur)))))))))
+              (recur))))))))
 
 (defn- ^:async wait-for-script-present!
   "Wait until a script name is visible via epupp.fs/ls."
@@ -57,6 +55,8 @@
                                          " :setup-done")))]
         (when-not (.-success setup-result)
           (throw (js/Error. (str "Failed to start script presence check: " (.-error setup-result)))))
+        ;; Wait for async operation to complete
+        (js-await (sleep 20))
         (let [check-result (js-await (eval-in-browser "(pr-str @!script-present)"))]
           (if (and (.-success check-result)
                    (seq (.-values check-result)))
@@ -65,14 +65,10 @@
                 true
                 (if (> (- (.now js/Date) start) timeout-ms)
                   (throw (js/Error. (str "Timeout waiting for script: " script-name)))
-                  (do
-                    (js-await (sleep 20))
-                    (recur)))))
+                  (recur))))
             (if (> (- (.now js/Date) start) timeout-ms)
               (throw (js/Error. (str "Timeout waiting for script: " script-name)))
-              (do
-                (js-await (sleep 20))
-                (recur)))))))))
+              (recur))))))))
 
 (defn- ^:async test_save_creates_new_script_from_code_with_manifest []
   (let [fn-check (js-await (eval-in-browser "(fn? epupp.fs/save!)"))]
@@ -304,8 +300,6 @@
 (defn- ^:async test_save_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
   (js-await (wait-for-builtin-script! "epupp/gist_installer.cljs" 5000))
-  ;; Small delay to let any pending storage operations settle
-  (js-await (sleep 50))
 
   ;; Try to save a script with a built-in name - should reject
   ;; Note: epupp/ prefix is rejected by reserved namespace check (correct behavior)
@@ -343,8 +337,6 @@
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
   (js-await (wait-for-builtin-script! "epupp/gist_installer.cljs" 5000))
-  ;; Small delay to let any pending storage operations settle
-  (js-await (sleep 50))
 
   ;; Try to save with force - still should reject (reserved namespace)
   (let [test-code "{:epupp/script-name \"epupp/gist_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
@@ -403,8 +395,6 @@
                                          "  (.then (fn [_] :v2-done)))\n")))]
         (-> (expect (.-success save2-result)) (.toBe true)))
 
-      ;; Wait a moment for storage to sync
-      (js-await (sleep 100))
 
       ;; Get script ID again
       (let [id2-result (js-await (eval-in-browser

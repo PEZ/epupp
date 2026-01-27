@@ -245,6 +245,28 @@
 ;; Wait Helpers - Use these instead of sleep for reliable tests
 ;; =============================================================================
 
+(defn ^:async poll-until
+  "Generic polling helper. Calls pred-fn repeatedly until it returns truthy or timeout.
+   Returns the truthy value on success, throws on timeout.
+
+   pred-fn: Zero-arg function that returns falsy to continue polling, truthy to stop.
+            Can be async (return a Promise).
+   timeout-ms: Maximum time to wait before throwing.
+   poll-interval: (optional) Milliseconds between polls, defaults to 20."
+  ([pred-fn timeout-ms]
+   (poll-until pred-fn timeout-ms 20))
+  ([pred-fn timeout-ms poll-interval]
+   (let [start (.now js/Date)]
+     (loop []
+       (let [result (js-await (pred-fn))]
+         (if result
+           result
+           (if (> (- (.now js/Date) start) timeout-ms)
+             (throw (js/Error. "Timeout in poll-until"))
+             (do
+               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve poll-interval))))
+               (recur)))))))))
+
 (defn ^:async get-test-events-via-message
   "Read test events from storage via background worker message.
    Works from any extension page (popup, panel, or background page).
