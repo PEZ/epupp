@@ -132,47 +132,53 @@ Use `data-e2e-*` prefixed attributes to create explicit contracts between UI cod
 
 **Convention**: When updating UI that has `data-e2e-*` attributes, consider whether E2E tests need updating. The prefix makes this relationship visible.
 
-### Performance: No Fixed Sleeps
+### Fixed Sleeps Are Forbidden
 
-**Critical**: Never use fixed-delay sleeps. They waste time and make tests flaky.
+**Critical Policy**: Fixed sleeps are forbidden in E2E tests. This is not just a performance concern - sleeps are a correctness bug that causes flaky tests.
 
-| Pattern | Problem | Solution |
-|---------|---------|----------|
-| `(sleep 500)` after action | Wastes 500ms even if ready in 10ms | Poll with 30ms interval |
-| `(sleep 100)` post-networkidle | networkidle already ensures stability | Remove entirely |
-| `(sleep 200)` for "state to settle" | Sync operations are immediate | Remove or use assertion timeout |
+**Why sleeps cause flakiness:**
+- A 20ms sleep works locally where operations complete in 5ms
+- The same sleep fails in CI where operations sometimes take 50ms
+- Increasing the sleep "fixes" it locally but just shifts the race window
+- This pattern has contributed to ~90% CI failure rate
 
-**Use Playwright's built-in polling assertions:**
+**The only acceptable sleeps:**
 
+1. **Poll interval inside a wait loop** - small delay between condition checks:
+   ```clojure
+   (loop []
+     (if (condition-met?)
+       result
+       (do
+         (js-await (sleep 20))  ; Poll interval - ACCEPTABLE
+         (recur))))
+   ```
+
+2. **Absence assertion** - proving nothing happens requires waiting:
+   ```clojure
+   (let [initial-count (get-event-count)]
+     (js-await (sleep 200))  ; Required for absence test - ACCEPTABLE
+     (assert-no-new-events initial-count))
+   ```
+
+**Forbidden pattern - standalone sleep before assertion:**
 ```clojure
-;; ❌ Bad - wastes time
-(js-await (.type (.-keyboard panel) "X"))
-(js-await (sleep 100))
-(let [value (js-await (.inputValue textarea))]
-  (js-await (-> (expect value) (.not.toEqual initial))))
-
-;; ✅ Good - returns immediately when ready
-(js-await (.type (.-keyboard panel) "X"))
-(js-await (-> (expect textarea)
-              (.toHaveValue (js/RegExp. "X$") #js {:timeout 500})))
+(trigger-operation)
+(js-await (sleep 20))  ; FORBIDDEN - hoping 20ms is "enough"
+(assert-result)
 ```
 
-**For custom conditions, use fast polling (30ms):**
-
+**Required pattern - poll for the actual condition:**
 ```clojure
-(defn ^:async wait-for-condition [timeout-ms]
-  (let [start (.now js/Date)]
-    (loop []
-      (if (check-condition)
-        true
-        (if (> (- (.now js/Date) start) timeout-ms)
-          (throw (js/Error. "Timeout"))
-          (do
-            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 30))))
-            (recur)))))))
+(trigger-operation)
+(js-await (poll-until operation-completed? timeout-ms))
+(assert-result)
 ```
 
-**The only legitimate sleeps are for negative assertions** - proving nothing happens requires waiting the full duration. Use `assert-no-new-event-within` for these.
+**Before adding any sleep, answer:** "What specific condition am I waiting for?"
+- If "for async operation to complete" → poll for completion instead
+- If "to verify nothing happens" → document as absence test with comment
+- If no clear answer → you don't understand the system well enough to write the test
 
 ### Testing "Nothing Happens"
 

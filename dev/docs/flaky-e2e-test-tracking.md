@@ -2,6 +2,10 @@
 
 Systematic tracking of flaky test symptoms, root cause hypotheses, and experiments. Designed for scientific backtracking and controlled forward progress.
 
+## Current Status
+
+**As of Jan 27, 2025:** CI stability is seriously degraded. Only approximately 1 in 10 CI runs are passing due to accumulated flakes across multiple tests. See Symptom Log for details.
+
 ---
 
 ## Symptom Log
@@ -32,7 +36,7 @@ Observable flaky test occurrences. Facts only - no conclusions about causes.
 | Panel Eval: Ctrl+Enter selection | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 86 |
 | Panel Eval: Eval button shows play icon and 'Eval script' label | [panel_eval_test.cljs](../../e2e/panel_eval_test.cljs) | Unknown | 1 | 8 |
 | FS UI errors: failed operation rejects | [fs_ui_errors_test.cljs](../../e2e/fs_ui_errors_test.cljs) | Assertion fail | 3 | 26 |
-| REPL FS: rm - deletes a script | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Unknown | 1 | 8 |
+| REPL FS: rm - deletes a script | [fs_write_rm_test.cljs](../../e2e/fs_write_rm_test.cljs) | Unknown | 2 | 0 |
 | Inject: minimal storage schema - manifest fields derived from code | [inject_test.cljs](../../e2e/inject_test.cljs) | Unknown | 1 | 0 |
 | Panel State: restores saved state and parses manifest on reload | [panel_state_test.cljs](../../e2e/panel_state_test.cljs) | Unknown | 1 | 0 |
 
@@ -245,6 +249,10 @@ A root cause is resolved when:
 
 ## References
 
-- [testing-e2e.md](testing-e2e.md) - E2E testing principles
+**Required reading before any flakiness work:**
+- [testing-e2e.md](testing-e2e.md) - E2E testing principles, especially **"Fixed Sleeps Are Forbidden"**
+- [flaky-resolution-plan.md](flaky-resolution-plan.md) - Strategic approach to flakiness
+
+**Additional references:**
 - [testing.md](testing.md) - Testing philosophy
 - [fixtures.cljs](../../e2e/fixtures.cljs) - Test helper library
