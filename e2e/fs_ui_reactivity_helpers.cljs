@@ -3,7 +3,8 @@
             ["net" :as net]
             ["path" :as path]
             [fixtures :refer [http-port nrepl-port-1 ws-port-1
-                              clear-fs-scripts]]))
+                              clear-fs-scripts]]
+            [fs-write-helpers :refer [wait-for-script-tag]]))
 
 (def ^:private !context (atom nil))
 (def ^:private !ext-id (atom nil))
@@ -73,27 +74,6 @@
               (resolve #js {:success false :error (.-message err)})))
        (let [msg (str "d2:op4:eval4:code" (.-length code) ":" code "e")]
          (.write client msg))))))
-
-(defn ^:async wait-for-script-tag
-  "Poll the page via nREPL until a script tag matching the pattern appears."
-  [pattern timeout-ms]
-  (let [start (.now js/Date)
-  poll-interval 20
-        check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
-        check-fn (fn check []
-                   (js/Promise.
-                    (fn [resolve reject]
-                      (-> (eval-in-browser check-code)
-                          (.then (fn [result]
-                                   (if (and (.-success result)
-                                            (= (first (.-values result)) "true"))
-                                     (resolve true)
-                                     (if (> (- (.now js/Date) start) timeout-ms)
-                                       (reject (js/Error. (str "Timeout waiting for script: " pattern)))
-                                       (-> (sleep poll-interval)
-                                           (.then #(resolve (check))))))))
-                          (.catch reject)))))]
-    (js-await (check-fn))))
 
 (defn ^:async wait-for-eval-promise
   "Wait for a REPL evaluation result stored in an atom."

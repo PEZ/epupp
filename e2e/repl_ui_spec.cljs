@@ -7,40 +7,13 @@
             ["net" :as net]
             ["path" :as path]
             [fixtures :refer [http-port nrepl-port-1 ws-port-1 nrepl-port-2 ws-port-2
-                              assert-no-errors!]]))
+                              assert-no-errors! wait-for-connection-count]]
+            [fs-write-helpers :refer [wait-for-script-tag]]))
 
 (def !context (atom nil))
 
 (defn ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
-
-(defn ^:async wait-for-connection-count
-  "Poll get-connections until we have expected-count connections, or timeout.
-   Much faster than fixed sleep when connections establish quickly."
-  [popup expected-count timeout-ms]
-  (let [start (.now js/Date)
-        poll-interval 20]
-    (loop []
-      (let [result (js-await
-                    (.evaluate popup
-                               (fn []
-                                 (js/Promise.
-                                  (fn [res]
-                                    (js/chrome.runtime.sendMessage
-                                     #js {:type "get-connections"}
-                                     res))))))
-            count (if (and result (.-success result))
-                    (.-length (.-connections result))
-                    0)]
-        (if (>= count expected-count)
-          count
-          (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. (str "Timeout waiting for " expected-count " connections. Got: " count)))
-            (do
-              (js-await (sleep poll-interval))
-              (recur))))))))
-
-
 
 (defn ^:async eval-in-browser
   "Evaluate code via nREPL on server 1. Returns {:success bool :values [...] :error str}"
@@ -82,29 +55,6 @@
               (resolve #js {:success false :error (.-message err)})))
        (let [msg (str "d2:op4:eval4:code" (.-length code) ":" code "e")]
          (.write client msg))))))
-
-(defn ^:async wait-for-script-tag
-  "Poll the page via nREPL until a script tag matching the pattern appears.
-   Much faster than fixed sleeps - returns as soon as injection completes.
-   Returns true when found, throws on timeout."
-  [pattern timeout-ms]
-  (let [start (.now js/Date)
-  poll-interval 20
-        check-code (str "(pos? (.-length (js/document.querySelectorAll \"script[src*='" pattern "']\")))")
-        check-fn (fn check []
-                   (js/Promise.
-                    (fn [resolve reject]
-                      (-> (eval-in-browser check-code)
-                          (.then (fn [result]
-                                   (if (and (.-success result)
-                                            (= (first (.-values result)) "true"))
-                                     (resolve true)
-                                     (if (> (- (.now js/Date) start) timeout-ms)
-                                       (reject (js/Error. (str "Timeout waiting for script: " pattern)))
-                                       (-> (sleep poll-interval)
-                                           (.then #(resolve (check))))))))
-                          (.catch reject)))))]
-    (js-await (check-fn))))
 
 (defn ^:async get-extension-id [context]
   (let [workers (.serviceWorkers context)]
@@ -207,7 +157,7 @@
                                         (str "chrome-extension://" ext-id "/popup.html")
                                         #js {:waitUntil "networkidle"}))
                        ;; Poll until connection exists (faster than fixed 500ms sleep)
-                       (js-await (wait-for-connection-count popup 1 5000))
+                       (js-await (wait-for-connection-count popup 1))
                        (let [result (js-await (send-runtime-message popup "get-connections" #js {}))]
                          (js/console.log "get-connections result:" (js/JSON.stringify result))
                          (-> (expect (.-success result)) (.toBe true))

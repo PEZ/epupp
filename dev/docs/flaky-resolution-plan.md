@@ -116,18 +116,26 @@ Output timing data to test events for post-run analysis.
 
 **Principle:** Fixed sleeps are forbidden except inside polling loops (poll interval) or when testing that something does NOT happen (absence assertion).
 
-### Current Sleep Inventory
+### Current Sleep Inventory (Corrected Jan 27, 2025)
 
-| File | Count | Pattern |
-|------|-------|---------|
-| fs_write_rm_test.cljs | 9 | Standalone `(sleep 20)` before assertions |
-| fs_write_save_test.cljs | 20+ | Standalone `(sleep 20)` and `(sleep 50)` before assertions |
-| fs_ui_popup_flash_test.cljs | 2 | `(sleep 100)` - possibly absence tests |
-| userscript_test.cljs | 2 | Inline polling loop - migrate to `poll-until` |
-| script_document_start_test.cljs | 2 | Inline polling loop - migrate to `poll-until` |
-| popup_icon_test.cljs | 1 | Inline polling loop - migrate to `poll-until` |
-| fs_ui_reactivity_helpers.cljs | 1 | Poll interval (acceptable) |
-| fixtures.cljs | 3 | Poll intervals (acceptable) |
+**Original inventory was inaccurate.** After audit, most sleeps were misclassified as "standalone" when they were actually poll intervals inside `(loop [] ... (do (sleep 20) (recur)))` patterns.
+
+| File | Count | Pattern | Status |
+|------|-------|---------|--------|
+| fs_write_rm_test.cljs | 9 | Poll intervals in REPL-eval loops | ✓ Acceptable |
+| fs_write_save_test.cljs | 20+ | Poll intervals in REPL-eval loops | ✓ Acceptable |
+| fs_write_save_test.cljs | 3 | Standalone after wait helpers | ✓ **Removed** |
+| fs_write_mv_test.cljs | 21 | Poll intervals in REPL-eval loops | ✓ Acceptable |
+| fs_read_test.cljs | 6 | Poll intervals in REPL-eval loops | ✓ Acceptable |
+| builtin_reinstall_test.cljs | 2 | Poll intervals in loops | ✓ Acceptable |
+| fs_ui_reactivity_helpers.cljs | 1 | Poll interval (acceptable) | ✓ Acceptable |
+| fs_ui_errors_test.cljs | 2 | Poll intervals in loops | ✓ Acceptable |
+| repl_ui_spec.cljs | 2 | Poll intervals in loops | ✓ Acceptable |
+| script_autorun_revocation_test.cljs | 2 | Poll intervals in loops | ✓ Acceptable |
+| fixtures.cljs | 3 | Poll intervals (acceptable) | ✓ Acceptable |
+| fs_write_helpers.cljs | 1 | Poll interval in wait helper | ✓ Acceptable |
+
+**Note:** Files mentioned in original inventory (userscript_test.cljs, script_document_start_test.cljs, popup_icon_test.cljs) do not exist.
 
 ### Acceptable Sleep Patterns
 
@@ -195,12 +203,17 @@ Before any sleep can remain, it must answer: "What specific condition am I waiti
 
 ### Current Duplication Inventory
 
-| Helper | Duplicated In | Notes |
-|--------|---------------|-------|
-| `wait-for-builtin-script` | fs_write_helpers.cljs, fs_write_save_test.cljs, builtin_reinstall_test.cljs, fs_read_test.cljs | 4 copies, slight variations |
-| `wait-for-script-tag` | fs_write_helpers.cljs, fs_ui_reactivity_helpers.cljs, fs_read_test.cljs, repl_ui_spec.cljs | 4 copies |
-| `wait-for-connection-count` | fixtures.cljs, repl_ui_spec.cljs | 2 copies |
-| Inline polling loops | userscript_test.cljs, script_document_start_test.cljs, builtin_reinstall_test.cljs | Raw setTimeout in loop/recur |
+| Helper | Files | Status | Notes |
+|--------|-------|--------|-------|
+| `poll-until` | 1 | ✅ Canonical | Generic polling primitive (fixtures.cljs) |
+| `wait-for-script-tag` | 1 | ✅ Consolidated | Was 4 copies, now canonical in fs_write_helpers.cljs |
+| `wait-for-connection-count` | 1 | ✅ Consolidated | Was 2 copies, now canonical in fixtures.cljs (Playwright-based) |
+| `wait-for-builtin-script` | 4 | ✅ Specialized | NOT duplicates - different return semantics (boolean vs object) |
+
+**Consolidation Summary (Phase 0.5):**
+- `wait-for-script-tag`: Deleted 3 duplicates from fs_ui_reactivity_helpers, repl_ui_spec, fs_read_test; kept canonical in fs_write_helpers
+- `wait-for-connection-count`: Deleted manual polling version from repl_ui_spec; kept Playwright-based version in fixtures
+- `wait-for-builtin-script`: No consolidation - different versions have different return types (boolean vs script object) serving different test needs
 
 ### Core Polling Helpers (Canonical)
 
