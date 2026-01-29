@@ -513,13 +513,8 @@
                            normalized-name
                            (not= normalized-name original-name))
         ;; Check if the new name conflicts with an existing script (not the one we're editing)
-        ;; Compare normalized names since scripts-list stores display names
-        existing-script (when normalized-name
-                          (some #(when (= (script-utils/normalize-script-name (:script/name %)) normalized-name) %)
-                                scripts-list))
-        ;; Conflict: name exists AND it's not the same script we're editing
-        has-name-conflict? (and existing-script
-                                (not= normalized-name original-name))
+        conflicting-script (script-utils/detect-name-conflict scripts-list raw-name original-name)
+        has-name-conflict? (boolean conflicting-script)
         ;; Show rename when editing user script and name differs from original (and no conflict)
         show-rename? (and original-name
                           (not editing-builtin?)
@@ -631,12 +626,12 @@
            [view-elements/action-button
             {:button/variant :warning
              :button/class "btn-overwrite"
-             :button/disabled? (or name-error (script-utils/builtin-script? existing-script))
+             :button/disabled? (or name-error (script-utils/builtin-script? conflicting-script))
              :button/on-click #(dispatch! [[:editor/ax.save-script-overwrite]])
              :button/title (cond
                              name-error
                              name-error
-                             (script-utils/builtin-script? existing-script)
+                             (script-utils/builtin-script? conflicting-script)
                              "Cannot overwrite built-in scripts"
                              :else (str "Replace existing \"" normalized-name "\" with this code"))}
             "Overwrite"])

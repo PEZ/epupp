@@ -332,3 +332,273 @@
     (test "migrates unversioned storage and renames granted-origins" test-migrates-unversioned-storage)
     (test "keeps versioned storage unchanged when already v1" test-keeps-versioned-storage-unchanged)))
 
+;; Built-in update detection tests
+
+(defn- test-builtin-identical-no-update []
+  (let [script {:script/id "builtin-1"
+                :script/code "(ns test)"
+                :script/name "test.cljs"
+                :script/match ["https://example.com/*"]
+                :script/description "Test"
+                :script/run-at "document-idle"
+                :script/inject ["scittle://reagent.js"]}]
+    (-> (expect (storage/builtin-update-needed? script script))
+        (.toBe false))))
+
+(defn- test-builtin-code-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/name "test.cljs"}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test-updated)"
+                 :script/name "test.cljs"}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-name-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/name "test.cljs"}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test)"
+                 :script/name "updated.cljs"}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-match-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/match ["https://example.com/*"]}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test)"
+                 :script/match ["https://other.com/*"]}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-description-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/description "Old"}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test)"
+                 :script/description "New"}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-run-at-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/run-at "document-start"}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test)"
+                 :script/run-at "document-idle"}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-inject-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/inject ["scittle://reagent.js"]}
+        desired {:script/id "builtin-1"
+                 :script/code "(ns test)"
+                 :script/inject ["scittle://re-frame.js"]}]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-nil-existing-needs-update []
+  (let [desired {:script/id "builtin-1"
+                 :script/code "(ns test)"}]
+    (-> (expect (storage/builtin-update-needed? nil desired))
+        (.toBe true))))
+
+(describe "Built-in script update detection"
+  (fn []
+    (test "Identical scripts → no update needed" test-builtin-identical-no-update)
+    (test "Code differs → update needed" test-builtin-code-differs-needs-update)
+    (test "Name differs → update needed" test-builtin-name-differs-needs-update)
+    (test "Match patterns differ → update needed" test-builtin-match-differs-needs-update)
+    (test "Description differs → update needed" test-builtin-description-differs-needs-update)
+    (test "Run-at differs → update needed" test-builtin-run-at-differs-needs-update)
+    (test "Inject differs → update needed" test-builtin-inject-differs-needs-update)
+    (test "Nil existing (new built-in) → update needed" test-builtin-nil-existing-needs-update)))
+
+
+
+;; ============================================================
+;; Built-in Script Building from Manifest Tests
+;; ============================================================
+
+(defn- test-build-bundled-complete-manifest-all-fields []
+  (let [bundled {:script/id "builtin-1"
+                 :path "userscripts/test.cljs"
+                 :name "test.cljs"}
+        code "{:epupp/script-name \"complete.cljs\"
+ :epupp/description \"A complete script\"
+ :epupp/auto-run-match [\"https://example.com/*\" \"https://test.com/*\"]
+ :epupp/run-at \"document-start\"
+ :epupp/inject [\"scittle://reagent.js\" \"scittle://re-frame.js\"]}
+
+(ns test-script)
+(println \"hello\")"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/id result))
+        (.toBe "builtin-1"))
+    (-> (expect (:script/code result))
+        (.toBe code))
+    (-> (expect (:script/builtin? result))
+        (.toBe true))
+    (-> (expect (:script/name result))
+        (.toBe "complete.cljs"))
+    (-> (expect (:script/description result))
+        (.toBe "A complete script"))
+    (-> (expect (:script/match result))
+        (.toEqual ["https://example.com/*" "https://test.com/*"]))
+    (-> (expect (:script/run-at result))
+        (.toBe "document-start"))
+    (-> (expect (:script/inject result))
+        (.toEqual ["scittle://reagent.js" "scittle://re-frame.js"]))))
+
+(defn- test-build-bundled-minimal-manifest-only-script-name []
+  (let [bundled {:script/id "builtin-2"
+                 :path "userscripts/minimal.cljs"
+                 :name "minimal.cljs"}
+        code "{:epupp/script-name \"minimal.cljs\"}
+
+(ns minimal)
+(println \"minimal\")"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/id result))
+        (.toBe "builtin-2"))
+    (-> (expect (:script/code result))
+        (.toBe code))
+    (-> (expect (:script/builtin? result))
+        (.toBe true))
+    (-> (expect (:script/name result))
+        (.toBe "minimal.cljs"))
+    ;; Optional fields should not be present when not in manifest
+    (-> (expect (contains? result :script/description))
+        (.toBe false))
+    ;; Manifest present but no auto-run-match key -> match is empty array
+    (-> (expect (:script/match result))
+        (.toEqual []))
+    ;; Manifest present but no inject key -> inject not set
+    (-> (expect (contains? result :script/inject))
+        (.toBe false))))
+
+(defn- test-build-bundled-manifest-with-string-inject []
+  (let [bundled {:script/id "builtin-3"
+                 :path "userscripts/string-inject.cljs"
+                 :name "string-inject.cljs"}
+        code "{:epupp/script-name \"string-inject.cljs\"
+ :epupp/inject \"scittle://reagent.js\"}
+
+(ns string-inject)"
+        result (storage/build-bundled-script bundled code)]
+    ;; String inject should be normalized to vector
+    (-> (expect (:script/inject result))
+        (.toEqual ["scittle://reagent.js"]))))
+
+(defn- test-build-bundled-manifest-with-array-inject []
+  (let [bundled {:script/id "builtin-4"
+                 :path "userscripts/array-inject.cljs"
+                 :name "array-inject.cljs"}
+        code "{:epupp/script-name \"array-inject.cljs\"
+ :epupp/inject [\"scittle://reagent.js\" \"scittle://pprint.js\"]}
+
+(ns array-inject)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/inject result))
+        (.toEqual ["scittle://reagent.js" "scittle://pprint.js"]))))
+
+(defn- test-build-bundled-manifest-with-match-patterns []
+  (let [bundled {:script/id "builtin-5"
+                 :path "userscripts/with-match.cljs"
+                 :name "with-match.cljs"}
+        code "{:epupp/script-name \"with-match.cljs\"
+ :epupp/auto-run-match \"https://github.com/*\"}
+
+(ns with-match)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/match result))
+        (.toEqual ["https://github.com/*"]))))
+
+(defn- test-build-bundled-manifest-without-match-manual-only []
+  (let [bundled {:script/id "builtin-6"
+                 :path "userscripts/manual-only.cljs"
+                 :name "manual-only.cljs"}
+        code "{:epupp/script-name \"manual-only.cljs\"
+ :epupp/description \"Manual execution only\"}
+
+(ns manual-only)"
+        result (storage/build-bundled-script bundled code)]
+    ;; When manifest present but no auto-run-match key, match should be empty
+    (-> (expect (:script/match result))
+        (.toEqual []))))
+
+(defn- test-build-bundled-invalid-run-at-defaults-to-document-idle []
+  (let [bundled {:script/id "builtin-7"
+                 :path "userscripts/invalid-run-at.cljs"
+                 :name "invalid-run-at.cljs"}
+        code "{:epupp/script-name \"invalid-run-at.cljs\"
+ :epupp/run-at \"invalid-timing\"}
+
+(ns invalid-run-at)"
+        result (storage/build-bundled-script bundled code)]
+    ;; Invalid run-at should default to document-idle
+    (-> (expect (:script/run-at result))
+        (.toBe "document-idle"))))
+
+(defn- test-build-bundled-uses-fallback-name-when-no-manifest []
+  (let [bundled {:script/id "builtin-8"
+                 :path "userscripts/no-manifest.cljs"
+                 :name "fallback-name.cljs"}
+        code "(ns no-manifest)
+(println \"no manifest at all\")"
+        result (storage/build-bundled-script bundled code)]
+    ;; Should use bundled :name as fallback
+    (-> (expect (:script/name result))
+        (.toBe "fallback-name.cljs"))
+    (-> (expect (:script/builtin? result))
+        (.toBe true))
+    ;; No manifest -> inject is not set (undefined)
+    (-> (expect (contains? result :script/inject))
+        (.toBe false))))
+
+(defn- test-build-bundled-manifest-with-string-match []
+  (let [bundled {:script/id "builtin-9"
+                 :path "userscripts/string-match.cljs"
+                 :name "string-match.cljs"}
+        code "{:epupp/script-name \"string-match.cljs\"
+ :epupp/auto-run-match \"https://example.com/*\"}
+
+(ns string-match)"
+        result (storage/build-bundled-script bundled code)]
+    ;; String match should be normalized to vector
+    (-> (expect (:script/match result))
+        (.toEqual ["https://example.com/*"]))))
+
+(defn- test-build-bundled-manifest-with-empty-match-array []
+  (let [bundled {:script/id "builtin-10"
+                 :path "userscripts/empty-match.cljs"
+                 :name "empty-match.cljs"}
+        code "{:epupp/script-name \"empty-match.cljs\"
+ :epupp/auto-run-match []}
+
+(ns empty-match)"
+        result (storage/build-bundled-script bundled code)]
+    ;; Explicit empty match should be preserved
+    (-> (expect (:script/match result))
+        (.toEqual []))))
+
+(describe "Built-in script building from manifest"
+          (fn []
+            (test "complete manifest with all fields" test-build-bundled-complete-manifest-all-fields)
+            (test "minimal manifest (only script-name)" test-build-bundled-minimal-manifest-only-script-name)
+            (test "manifest with string inject" test-build-bundled-manifest-with-string-inject)
+            (test "manifest with array inject" test-build-bundled-manifest-with-array-inject)
+            (test "manifest with match patterns" test-build-bundled-manifest-with-match-patterns)
+            (test "manifest without match (manual-only)" test-build-bundled-manifest-without-match-manual-only)
+            (test "invalid run-at defaults to document-idle" test-build-bundled-invalid-run-at-defaults-to-document-idle)
+            (test "uses fallback name when no manifest" test-build-bundled-uses-fallback-name-when-no-manifest)
+            (test "manifest with string match" test-build-bundled-manifest-with-string-match)
+            (test "manifest with empty match array" test-build-bundled-manifest-with-empty-match-array)))

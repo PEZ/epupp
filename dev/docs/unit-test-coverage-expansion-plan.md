@@ -5,6 +5,7 @@ Expand unit test coverage for pure business logic that was identified during the
 ## Baseline
 
 **Current coverage:** 399 unit tests in 15 files
+**Final coverage:** 454 unit tests (+55 tests, +14% coverage)
 
 **Expected outcome:** ~20-30 new unit tests covering pure functions identified in E2E tests
 
@@ -53,8 +54,8 @@ Location: [src/storage.cljs](../../src/storage.cljs#L330) - `builtin-update-need
 
 Test pure comparison logic for determining when a built-in script needs updating from bundled version.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Identical scripts → no update needed
@@ -73,8 +74,8 @@ Location: [src/script_utils.cljs](../../src/script_utils.cljs#L235) - `diff-scri
 
 Test diffing logic for detecting added, removed, and modified scripts (used for flash animations).
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Added scripts detected
@@ -91,8 +92,8 @@ Location: [src/script_utils.cljs](../../src/script_utils.cljs#L159) - `filter-vi
 
 Test filtering logic for hiding built-in scripts in ls output.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - include-hidden? true → returns all scripts
@@ -108,8 +109,8 @@ Location: [src/panel_actions.cljs](../../src/panel_actions.cljs) - save button s
 
 Extract and test the logic that determines when a script name conflict would occur during save.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - New script with unique name → no conflict
@@ -130,8 +131,8 @@ Location: [src/storage.cljs](../../src/storage.cljs#L312) - `build-bundled-scrip
 
 Test building script maps from bundled metadata and code.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Complete manifest with all fields
@@ -149,8 +150,8 @@ Location: [src/repl_fs_actions.cljs](../../src/repl_fs_actions.cljs) - `script->
 
 Test FS API response structure for script metadata.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Required fields present
@@ -166,8 +167,8 @@ Location: [src/panel_actions.cljs](../../src/panel_actions.cljs) or panel view l
 
 Extract pure function that determines button label and enabled state.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - New script → "Create" button, enabled when name valid
@@ -184,8 +185,8 @@ Location: [src/popup_actions.cljs](../../src/popup_actions.cljs#L96) - `:popup/a
 
 Test tracking of recently modified scripts with deferred cleanup.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Single script marked modified
@@ -200,8 +201,8 @@ Location: [src/popup_actions.cljs](../../src/popup_actions.cljs#L106) - shadow s
 
 Test shadow list animation state management (entering/leaving flags).
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Added items get entering flag
@@ -222,8 +223,8 @@ Location: [src/popup_utils.cljs](../../src/popup_utils.cljs) or similar - `valid
 
 Test validation for trailing slash, scheme requirements.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 **Test cases:**
 - Valid http:// with trailing slash
@@ -235,7 +236,7 @@ Test validation for trailing slash, scheme requirements.
 
 **File:** test/popup_utils_test.cljs (may need creating)
 
-#### 3.2 Auto-connect decision logic
+#### 3.2 Auto-connect decision logic (DEFERRED)
 Location: [src/popup.cljs](../../src/popup.cljs) or background - connection decision logic
 
 **Note:** May require refactoring to extract pure function first.
@@ -251,7 +252,7 @@ Location: [src/popup.cljs](../../src/popup.cljs) or background - connection deci
 
 **File:** test/popup_utils_test.cljs or test/connection_utils_test.cljs (after refactoring)
 
-#### 3.3 Auto-reconnect decision logic
+#### 3.3 Auto-reconnect decision logic (DEFERRED)
 Location: [src/ws_bridge.cljs](../../src/ws_bridge.cljs) or background
 
 **Note:** May require refactoring to extract pure function first.
@@ -267,7 +268,7 @@ Location: [src/ws_bridge.cljs](../../src/ws_bridge.cljs) or background
 
 **File:** test/connection_utils_test.cljs (after refactoring)
 
-#### 3.4 Gist installer URL detection
+#### 3.4 Gist installer URL detection (DEFERRED)
 Location: [src/userscripts/epupp/gist_installer.cljs](../../src/userscripts/epupp/gist_installer.cljs) - URL parsing
 
 Extract and test Gist URL parsing/detection logic.
@@ -284,7 +285,7 @@ Extract and test Gist URL parsing/detection logic.
 
 **File:** test/gist_installer_test.cljs (may need creating)
 
-#### 3.5 Confirmation dialog decision logic
+#### 3.5 Confirmation dialog decision logic (DEFERRED)
 Location: Various - delete confirmations, clear confirmations
 
 **Note:** May be too UI-coupled to extract cleanly. Assess during implementation.
@@ -337,6 +338,38 @@ Location: Various - delete confirmations, clear confirmations
    - Implement tests
    - Run testrunner verification
 3. Document any items deferred due to architecture constraints
+
+---
+
+## Results
+
+**Execution date:** 2026-01-29
+
+**Final metrics:**
+- Starting tests: 399
+- Tests added: 55
+- Final tests: 454
+- Coverage increase: +14%
+
+**Phase 1 (Quick Wins):** 4/4 completed - 27 tests added
+**Phase 2 (Medium Effort):** 5/5 completed - 28 tests added
+**Phase 3 (Architecture-Constrained):** 1/5 completed, 4 deferred
+
+**Deferred items:**
+- 3.2 Auto-connect: Logic deeply embedded in callback-based chrome.storage API
+- 3.3 Auto-reconnect: Distributed across message protocol components
+- 3.4 Gist installer: Feature not yet implemented
+- 3.5 Confirmations: Trivial inline logic not worth extracting
+
+**Key refactorings:**
+- `builtin-update-needed?` made public for testability
+- `build-bundled-script` made public for testability
+- `detect-name-conflict` extracted from panel.cljs to script_utils.cljs
+
+**Learnings:**
+- Uniflow pattern makes pure state transformations trivially testable
+- Callback-based Chrome APIs resist unit testing - keep E2E coverage for those
+- Pure function extraction from UI code is high-value refactoring
 
 ---
 

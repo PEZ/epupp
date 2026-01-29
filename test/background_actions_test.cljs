@@ -672,3 +672,153 @@
 (describe ":fs/ax.save-script - manifest-derived fields in response"
           (fn []
             (test "save response includes :fs/description from manifest" test-save-manifest-derived-fields-save-response-includes-description-from-manifest)))
+
+;; ============================================================
+;; Base Info Return Shape Expanded Tests
+;; ============================================================
+
+(defn- test-base-info-required-fields-present []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (:fs/name result))
+        (.toBe "test.cljs"))
+    (-> (expect (:fs/created result))
+        (.toBe "2026-01-15T10:00:00.000Z"))
+    (-> (expect (:fs/modified result))
+        (.toBe "2026-01-15T12:00:00.000Z"))))
+
+(defn- test-base-info-optional-fields-omitted-when-nil []
+  (let [script {:script/id "script-1"
+                :script/name "minimal.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/description nil
+                :script/run-at nil
+                :script/inject nil
+                :script/match nil}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (contains? result :fs/description))
+        (.toBe false))
+    (-> (expect (contains? result :fs/run-at))
+        (.toBe false))
+    (-> (expect (contains? result :fs/inject))
+        (.toBe false))
+    (-> (expect (contains? result :fs/auto-run-match))
+        (.toBe false))
+    (-> (expect (contains? result :fs/enabled?))
+        (.toBe false))))
+
+(defn- test-base-info-match-patterns-as-vector []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/match ["https://github.com/*" "https://gitlab.com/*"]
+                :script/enabled true}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (:fs/auto-run-match result))
+        (.toEqual ["https://github.com/*" "https://gitlab.com/*"]))))
+
+(defn- test-base-info-auto-run-and-enabled-when-script-has-patterns []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/match ["https://example.com/*"]
+                :script/enabled true}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (contains? result :fs/auto-run-match))
+        (.toBe true))
+    (-> (expect (contains? result :fs/enabled?))
+        (.toBe true))
+    (-> (expect (:fs/enabled? result))
+        (.toBe true))))
+
+(defn- test-base-info-auto-run-and-enabled-omitted-when-no-patterns []
+  (let [script {:script/id "script-1"
+                :script/name "manual.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/match []
+                :script/enabled false}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (contains? result :fs/auto-run-match))
+        (.toBe false))
+    (-> (expect (contains? result :fs/enabled?))
+        (.toBe false))))
+
+(defn- test-base-info-description-when-present []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/description "A helpful script"}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (:fs/description result))
+        (.toBe "A helpful script"))))
+
+(defn- test-base-info-run-at-when-present []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/run-at "document-start"}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (:fs/run-at result))
+        (.toBe "document-start"))))
+
+(defn- test-base-info-inject-when-present []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/inject ["scittle://reagent.js" "scittle://re-frame.js"]}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (:fs/inject result))
+        (.toEqual ["scittle://reagent.js" "scittle://re-frame.js"]))))
+
+(defn- test-base-info-empty-description-omitted []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/description ""}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (contains? result :fs/description))
+        (.toBe false))))
+
+(defn- test-base-info-empty-inject-omitted []
+  (let [script {:script/id "script-1"
+                :script/name "test.cljs"
+                :script/created "2026-01-15T10:00:00.000Z"
+                :script/modified "2026-01-15T12:00:00.000Z"
+                :script/code "(println \"test\")"
+                :script/inject []}
+        result (repl-fs-actions/script->base-info script)]
+    (-> (expect (contains? result :fs/inject))
+        (.toBe false))))
+
+(describe "script->base-info - response shape validation"
+          (fn []
+            (test "required fields present" test-base-info-required-fields-present)
+            (test "optional fields omitted when nil" test-base-info-optional-fields-omitted-when-nil)
+            (test "match patterns as vector" test-base-info-match-patterns-as-vector)
+            (test "auto-run and enabled when script has patterns" test-base-info-auto-run-and-enabled-when-script-has-patterns)
+            (test "auto-run and enabled omitted when no patterns" test-base-info-auto-run-and-enabled-omitted-when-no-patterns)
+            (test "description when present" test-base-info-description-when-present)
+            (test "run-at when present" test-base-info-run-at-when-present)
+            (test "inject when present" test-base-info-inject-when-present)
+            (test "empty description omitted" test-base-info-empty-description-omitted)
+            (test "empty inject omitted" test-base-info-empty-inject-omitted)))

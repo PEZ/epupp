@@ -252,6 +252,35 @@
 ;; Script ID generation
 ;; ============================================================
 
+(defn detect-name-conflict
+  "Detect if saving with new-name would conflict with existing scripts.
+   Returns the conflicting script if conflict exists, nil otherwise.
+
+   A conflict exists when:
+   - A script with the normalized new-name exists in scripts-list
+   - AND the normalized new-name differs from the original-name
+
+   This allows editing a script without changing its name (no conflict),
+   but prevents creating a new script or renaming to an existing name.
+
+   Args:
+   - scripts-list: vector of script maps with :script/name
+   - new-name: the desired name (can be unnormalized, e.g., 'My Script')
+   - original-name: current script's normalized name (nil for new scripts)"
+  [scripts-list new-name original-name]
+  (if (nil? new-name)
+    nil
+    (let [normalized-name (normalize-script-name new-name)
+          ;; Find existing script with matching normalized name
+          existing-script (some #(when (= (normalize-script-name (:script/name %)) normalized-name) %)
+                                scripts-list)]
+      ;; Conflict if existing script found AND we're not just keeping the same name
+      (if (and existing-script
+               (not= normalized-name original-name))
+        existing-script
+        nil))))
+
+
 (defn filter-visible-scripts
   "Filter scripts for ls. When include-hidden? is true, includes built-ins."
   [scripts include-hidden?]

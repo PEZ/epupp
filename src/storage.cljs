@@ -422,7 +422,7 @@
                        (not (contains? bundled-ids (:script/id script))))))
            scripts))
 
-(defn- build-bundled-script
+(defn build-bundled-script
   "Build a built-in script map from bundled code and manifest metadata."
   [bundled code]
   (let [manifest (try (mp/extract-manifest code)
@@ -452,7 +452,7 @@
       manifest-description (assoc :script/description manifest-description)
       (seq inject) (assoc :script/inject inject))))
 
-(defn- builtin-update-needed?
+(defn builtin-update-needed?
   "Check whether a built-in script needs to be updated from bundled code."
   [existing desired]
   (or (nil? existing)

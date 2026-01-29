@@ -271,13 +271,13 @@
                         (test "toggles collapsed state from false to true" test-toggle-section-toggles-false-to-true)
                         (test "toggles collapsed state from true to false" test-toggle-section-toggles-true-to-false)
                         (test "handles nil state by defaulting to true" test-toggle-section-handles-nil-state)))
-            
+
             (describe "Shadow list sync"
                       (fn []
                         (test "updates content without entering flag for unchanged membership" test-sync-scripts-shadow-updates-content-without-entering-flag)
                         (test "adds new items with entering flag" test-sync-scripts-shadow-adds-new-items-with-entering-flag)
                         (test "marks removed items as leaving" test-sync-scripts-shadow-marks-removed-items-as-leaving)))
-            
+
             (describe "System banners"
                       (fn []
                         (test "appends banner to empty list" test-show-system-banner-appends-to-empty-list)
@@ -291,3 +291,145 @@
                         (test "with category replaces existing banner in same category" test-show-system-banner-with-category-replaces-existing)
                         (test "with category does not replace banner in different category" test-show-system-banner-with-category-does-not-replace-different)
                         (test "without category appends normally" test-show-system-banner-without-category-appends-normally)))))
+
+;; ============================================================
+;; Modified Scripts Tracking Tests (2.4)
+;; ============================================================
+
+(defn- test-mark-scripts-modified-single-script []
+  (let [state {:ui/recently-modified-scripts #{}}
+        result (popup-actions/handle-action state uf-data
+                                            [:popup/ax.mark-scripts-modified ["test.cljs"]])
+        new-state (:uf/db result)]
+    ;; Script should be added to modified set
+    (-> (expect (:ui/recently-modified-scripts new-state))
+        (.toContain "test.cljs"))
+    ;; Should schedule clear action
+    (-> (expect (some #(= :uf/fx.defer-dispatch (first %)) (:uf/fxs result)))
+        (.toBeTruthy))))
+
+(defn- test-mark-scripts-modified-multiple-scripts []
+  (let [state {:ui/recently-modified-scripts #{}}
+        result (popup-actions/handle-action state uf-data
+                                            [:popup/ax.mark-scripts-modified ["one.cljs" "two.cljs"]])
+        new-state (:uf/db result)]
+    ;; Both scripts should be added
+    (-> (expect (:ui/recently-modified-scripts new-state))
+        (.toContain "one.cljs"))
+    (-> (expect (:ui/recently-modified-scripts new-state))
+        (.toContain "two.cljs"))))
+
+(defn- test-mark-scripts-modified-appends-to-existing []
+  (let [state {:ui/recently-modified-scripts #{"existing.cljs"}}
+        result (popup-actions/handle-action state uf-data
+                                            [:popup/ax.mark-scripts-modified ["new.cljs"]])
+        new-state (:uf/db result)]
+    ;; Should have both existing and new
+    (-> (expect (:ui/recently-modified-scripts new-state))
+        (.toContain "existing.cljs"))
+    (-> (expect (:ui/recently-modified-scripts new-state))
+        (.toContain "new.cljs"))))
+
+(defn- test-clear-modified-scripts-removes-all []
+  (let [state {:ui/recently-modified-scripts #{"one.cljs" "two.cljs"}}
+        result (popup-actions/handle-action state uf-data
+                                            [:popup/ax.clear-modified-scripts])
+        new-state (:uf/db result)]
+    ;; Should clear all modified scripts
+    (-> (expect (count (:ui/recently-modified-scripts new-state)))
+        (.toBe 0))))
+
+;; ============================================================
+;; Shadow List Deferred Cleanup Tests (2.5)
+;; ============================================================
+
+(defn- test-sync-scripts-shadow-schedules-clear-entering []
+  (let [new-script {:script/id "new-1" :script/code "new code"}
+        state {:scripts/list [new-script]
+               :ui/scripts-shadow []}
+        result (popup-actions/handle-action state uf-data
+                                            [:ui/ax.sync-scripts-shadow {:added-items [new-script]
+                                                                         :removed-ids #{}}])
+        defer-fxs (filter #(= :uf/fx.defer-dispatch (first %)) (:uf/fxs result))
+        clear-entering-fx (some #(when (= :ui/ax.clear-entering-scripts
+                                            (first (first (second %))))
+                                   %)
+                                defer-fxs)]
+    ;; Should schedule clear-entering action
+    (-> (expect clear-entering-fx)
+        (.toBeTruthy))
+    ;; Clear should be scheduled with 50ms delay
+    (let [[_fx-name _actions delay] clear-entering-fx]
+      (-> (expect delay)
+          (.toBe 50)))))
+
+(defn- test-sync-scripts-shadow-schedules-remove-leaving []
+  (let [state {:scripts/list []
+               :ui/scripts-shadow [{:item {:script/id "to-remove"}
+                                    :ui/entering? false
+                                    :ui/leaving? false}]}
+        result (popup-actions/handle-action state uf-data
+                                            [:ui/ax.sync-scripts-shadow {:added-items []
+                                                                         :removed-ids #{"to-remove"}}])
+        defer-fxs (filter #(= :uf/fx.defer-dispatch (first %)) (:uf/fxs result))
+        remove-leaving-fx (some #(when (= :ui/ax.remove-leaving-scripts
+                                           (first (first (second %))))
+                                    %)
+                                defer-fxs)]
+    ;; Should schedule remove-leaving action
+    (-> (expect remove-leaving-fx)
+        (.toBeTruthy))
+    ;; Remove should be scheduled with 250ms delay
+    (let [[_fx-name _actions delay] remove-leaving-fx]
+      (-> (expect delay)
+          (.toBe 250)))))
+
+(defn- test-clear-entering-scripts-removes-flag []
+  (let [state {:ui/scripts-shadow [{:item {:script/id "new-1"}
+                                    :ui/entering? true
+                                    :ui/leaving? false}
+                                   {:item {:script/id "old-1"}
+                                    :ui/entering? false
+                                    :ui/leaving? false}]}
+        result (popup-actions/handle-action state uf-data
+                                            [:ui/ax.clear-entering-scripts #{"new-1"}])
+        shadow (:ui/scripts-shadow (:uf/db result))
+        new-item (first shadow)
+        old-item (second shadow)]
+    ;; New item should have entering flag cleared
+    (-> (expect (:ui/entering? new-item))
+        (.toBe false))
+    ;; Old item should remain unchanged
+    (-> (expect (:ui/entering? old-item))
+        (.toBe false))))
+
+(defn- test-remove-leaving-scripts-removes-items []
+  (let [state {:ui/scripts-shadow [{:item {:script/id "leaving-1"}
+                                    :ui/entering? false
+                                    :ui/leaving? true}
+                                   {:item {:script/id "staying-1"}
+                                    :ui/entering? false
+                                    :ui/leaving? false}]}
+        result (popup-actions/handle-action state uf-data
+                                            [:ui/ax.remove-leaving-scripts #{"leaving-1"}])
+        shadow (:ui/scripts-shadow (:uf/db result))]
+    ;; Should have only one item left
+    (-> (expect (count shadow))
+        (.toBe 1))
+    ;; Staying item should remain
+    (-> (expect (get-in shadow [0 :item :script/id]))
+        (.toBe "staying-1"))))
+
+(describe "Popup Modified Scripts Tracking"
+          (fn []
+            (test "single script marked modified" test-mark-scripts-modified-single-script)
+            (test "multiple scripts marked in batch" test-mark-scripts-modified-multiple-scripts)
+            (test "appends to existing modified set" test-mark-scripts-modified-appends-to-existing)
+            (test "clear action removes all" test-clear-modified-scripts-removes-all)))
+
+(describe "Popup Shadow List Deferred Cleanup"
+          (fn []
+            (test "schedules clear-entering after delay" test-sync-scripts-shadow-schedules-clear-entering)
+            (test "schedules remove-leaving after delay" test-sync-scripts-shadow-schedules-remove-leaving)
+            (test "clear-entering removes entering flag" test-clear-entering-scripts-removes-flag)
+            (test "remove-leaving removes items from shadow" test-remove-leaving-scripts-removes-items)))
