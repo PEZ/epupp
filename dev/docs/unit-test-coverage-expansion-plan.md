@@ -373,6 +373,94 @@ Location: Various - delete confirmations, clear confirmations
 
 ---
 
+## Follow-up Work: Uniflow "Gather-then-Decide" Pattern
+
+The deferred items 3.2 (auto-connect) and 3.3 (auto-reconnect) can be made unit testable by refactoring to the "gather-then-decide" Uniflow pattern. This moves decision logic from effects up into actions.
+
+### Pattern
+
+**Current (decision in effect/inline code):**
+```clojure
+;; In handle-navigation! - decisions mixed with async gathering
+(let [enabled? (js-await (get-auto-connect-settings))
+      auto-reconnect? (js-await (get-auto-reconnect-setting))
+      ...]
+  (cond
+    enabled? (js-await (connect-tab! ...))
+    (and auto-reconnect? in-history?) (js-await (connect-tab! ...))))
+```
+
+**Target (decision in pure action):**
+```clojure
+;; EFFECT: Dumb data gatherer - no decisions
+:nav/fx.gather-connection-context
+(let [[tab-id] args
+      settings (js-await (get-auto-connect-settings))
+      ...]
+  ;; Just dispatch to decision action with gathered data
+  (dispatch [[:nav/ax.decide-connection
+              {:tab-id tab-id
+               :auto-connect-all? (:enabled? settings)
+               :auto-reconnect? auto-reconnect?
+               :in-history? (bg-utils/tab-in-history? history tab-id)
+               :history-port (bg-utils/get-history-port history tab-id)
+               :ws-port ws-port}]]))
+
+;; ACTION: Pure decision logic - 100% unit testable
+:nav/ax.decide-connection
+(let [[context] args
+      {:keys [tab-id auto-connect-all? auto-reconnect? in-history? history-port ws-port]} context]
+  (cond
+    auto-connect-all?
+    {:uf/fxs [[:ws/fx.connect tab-id ws-port]]}
+
+    (and auto-reconnect? in-history? history-port)
+    {:uf/fxs [[:ws/fx.connect tab-id history-port]]}
+
+    :else nil))
+
+;; EFFECT: Dumb executor - just connects
+:ws/fx.connect
+(let [[tab-id port] args]
+  (js-await (connect-tab! dispatch! tab-id port)))
+```
+
+### Benefits
+
+1. **`:nav/ax.decide-connection` is pure** - takes data map, returns effects or nil
+2. **Unit tests cover all decision branches** without Chrome API mocking
+3. **Effects become trivially simple** - just fetch data or execute commands
+4. **Follows Uniflow philosophy** - "actions decide, effects execute"
+
+### Items Enabled
+
+| Deferred Item | Refactoring Needed |
+|---------------|-------------------|
+| 3.2 Auto-connect | Extract to `:nav/ax.decide-connection` |
+| 3.3 Auto-reconnect | Same action handles both cases |
+
+### Test Cases (Post-Refactoring)
+
+```clojure
+(testing "auto-connect-all supersedes everything"
+  (let [result (handle-action {} {} [:nav/ax.decide-connection
+                                      {:auto-connect-all? true :ws-port "1340" :tab-id 1}])]
+    (expect (.-fxs result) :toEqual [[:ws/fx.connect 1 "1340"]])))
+
+(testing "auto-reconnect only when in history with port"
+  (let [result (handle-action {} {} [:nav/ax.decide-connection
+                                      {:auto-reconnect? true :in-history? true
+                                       :history-port "1341" :tab-id 1}])]
+    (expect (.-fxs result) :toEqual [[:ws/fx.connect 1 "1341"]])))
+
+(testing "no connection when disabled"
+  (let [result (handle-action {} {} [:nav/ax.decide-connection
+                                      {:auto-connect-all? false :auto-reconnect? false :tab-id 1}])]
+    (expect result :toBeNull)))
+```
+
+---
+
 ## Success Criteria
 
 - All Phase 1 items have tests
