@@ -377,9 +377,10 @@ Location: Various - delete confirmations, clear confirmations
 
 The deferred items 3.2 (auto-connect) and 3.3 (auto-reconnect) can be made unit testable by refactoring to the "gather-then-decide" Uniflow pattern. This moves decision logic from effects up into actions.
 
-### Pattern
+### Current Implementation
 
-**Current (decision in effect/inline code):**
+Decision logic is interleaved with async Chrome API calls, making unit testing impossible without mocking:
+
 ```clojure
 ;; In handle-navigation! - decisions mixed with async gathering
 (let [enabled? (js-await (get-auto-connect-settings))
@@ -390,21 +391,29 @@ The deferred items 3.2 (auto-connect) and 3.3 (auto-reconnect) can be made unit 
     (and auto-reconnect? in-history?) (js-await (connect-tab! ...))))
 ```
 
-**Target (decision in pure action):**
+### Target: Gather-then-Decide with `:uf/prev-result`
+
+Uniflow now supports `:uf/prev-result` in `:uf/dxs`, enabling a clean separation:
+
 ```clojure
-;; EFFECT: Dumb data gatherer - no decisions
-:nav/fx.gather-connection-context
+;; TRIGGERING ACTION: Declares the recipe - gather then decide
+:nav/ax.check-connection
+(let [[tab-id] args]
+  {:uf/fxs [[:uf/await :nav/fx.gather-context tab-id]]
+   :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
+
+;; EFFECT: Dumb data gatherer - just returns context map
+:nav/fx.gather-context
 (let [[tab-id] args
       settings (js-await (get-auto-connect-settings))
-      ...]
-  ;; Just dispatch to decision action with gathered data
-  (dispatch [[:nav/ax.decide-connection
-              {:tab-id tab-id
-               :auto-connect-all? (:enabled? settings)
-               :auto-reconnect? auto-reconnect?
-               :in-history? (bg-utils/tab-in-history? history tab-id)
-               :history-port (bg-utils/get-history-port history tab-id)
-               :ws-port ws-port}]]))
+      auto-reconnect? (js-await (get-auto-reconnect-setting))
+      history @!history]
+  {:tab-id tab-id
+   :auto-connect-all? (:enabled? settings)
+   :auto-reconnect? auto-reconnect?
+   :in-history? (bg-utils/tab-in-history? history tab-id)
+   :history-port (bg-utils/get-history-port history tab-id)
+   :ws-port (:ws-port settings)})
 
 ;; ACTION: Pure decision logic - 100% unit testable
 :nav/ax.decide-connection
@@ -422,15 +431,24 @@ The deferred items 3.2 (auto-connect) and 3.3 (auto-reconnect) can be made unit 
 ;; EFFECT: Dumb executor - just connects
 :ws/fx.connect
 (let [[tab-id port] args]
-  (js-await (connect-tab! dispatch! tab-id port)))
+  (js-await (connect-tab! tab-id port)))
 ```
 
-### Benefits
+The framework executes effects first, then threads the result into deferred actions via `:uf/prev-result`.
 
-1. **`:nav/ax.decide-connection` is pure** - takes data map, returns effects or nil
-2. **Unit tests cover all decision branches** without Chrome API mocking
-3. **Effects become trivially simple** - just fetch data or execute commands
-4. **Follows Uniflow philosophy** - "actions decide, effects execute"
+### Benefits Over Current Implementation
+
+| Current | Target |
+|---------|--------|
+| Decision logic interleaved with async calls | Decision logic in pure action |
+| Requires Chrome API mocking to test | Unit testable without mocking |
+| Single monolithic function | Clear separation: gather → decide → execute |
+| Hard to reason about all branches | Each decision maps to a test case |
+
+Additional benefits:
+- **Recipe-style readability** - Triggering action declares "gather context, then decide"
+- **No dispatch in effects** - Framework handles threading via `:uf/prev-result`
+- **Follows Uniflow philosophy** - "actions decide, effects execute"
 
 ### Items Enabled
 
