@@ -158,11 +158,12 @@
 
 (defn ^:async execute-effects!
   "Execute effects in order. Effects marked with :uf/await are awaited.
-   Supports :uf/prev-result substitution for result threading."
+   Supports :uf/prev-result substitution for result threading.
+   Returns the final prev-result for use in dxs."
   [dispatch ex-handler fxs]
   (loop [remaining fxs
          prev-result nil]
-    (when (seq remaining)
+    (if (seq remaining)
       (let [raw-fx (first remaining)
             is-await? (await-fx? raw-fx)
             fx (-> raw-fx unwrap-fx (replace-prev-result prev-result))]
@@ -176,7 +177,15 @@
                 (js/console.error (ex-info "Effect failed"
                                            {:error e :effect fx}
                                            :event-handler/execute-effects))))
-            (recur (rest remaining) prev-result)))))))
+            (recur (rest remaining) prev-result))))
+      prev-result)))
+
+(defn replace-prev-result-in-actions
+  "Substitute :uf/prev-result placeholders in a vector of actions."
+  [actions prev-result]
+  (mapv (fn [action]
+          (replace-prev-result action prev-result))
+        actions))
 
 (defn dispatch!
   "Dispatch actions through the Uniflow system.
@@ -184,13 +193,14 @@
 
    Actions can return:
    - :uf/fxs      - effects to execute (use [:uf/await ...] sentinel for async)
-   - :uf/dxs      - follow-up actions dispatched after effects
+   - :uf/dxs      - follow-up actions dispatched after effects complete
 
    Effects marked with :uf/await are awaited before continuing.
    Use :uf/prev-result in effect args to receive the previous await result.
+   Use :uf/prev-result in dxs action args to receive the final effect result.
 
    List watchers (`:uf/list-watchers`) are evaluated after state change.
-   Watcher actions are dispatched before dxs and effects."
+   Watcher actions are dispatched before effects."
   ([!state ax-handler ex-handler actions]
    (dispatch! !state ax-handler ex-handler actions nil))
   ([!state ax-handler ex-handler actions additional-uf-data]
@@ -210,10 +220,16 @@
            watcher-actions (get-list-watcher-actions old-state new-state)]
        (when (seq watcher-actions)
          (dispatch! !state ax-handler ex-handler watcher-actions additional-uf-data)))
-     (when dxs
-       (dispatch! !state ax-handler ex-handler dxs additional-uf-data))
-     ;; Execute all effects in order (unified model)
-     (when (seq fxs)
-       (let [dispatch-fn (fn [actions]
-                           (dispatch! !state ax-handler ex-handler actions additional-uf-data))]
-         (execute-effects! dispatch-fn ex-handler fxs))))))
+     ;; Execute effects first (unified model), then dispatch dxs with prev-result
+     (let [dispatch-fn (fn [actions]
+                         (dispatch! !state ax-handler ex-handler actions additional-uf-data))]
+       (if (seq fxs)
+         ;; Effects exist: execute them, then dispatch dxs with final result
+         (-> (execute-effects! dispatch-fn ex-handler fxs)
+             (.then (fn [prev-result]
+                      (when dxs
+                        (let [substituted-dxs (replace-prev-result-in-actions dxs prev-result)]
+                          (dispatch-fn substituted-dxs))))))
+         ;; No effects: dispatch dxs immediately (prev-result is nil)
+         (when dxs
+           (dispatch-fn dxs)))))))

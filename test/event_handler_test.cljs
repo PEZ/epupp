@@ -198,6 +198,39 @@
         (.toBe "replaced"))))
 
 ;; ============================================================
+;; replace-prev-result-in-actions tests (dxs substitution)
+;; ============================================================
+
+(defn- test-replace-prev-result-in-actions-substitutes-in-all-actions []
+  (let [actions [[:ax.first :uf/prev-result]
+                 [:ax.second :uf/prev-result :other-arg]]
+        result (event-handler/replace-prev-result-in-actions actions {:data "context"})]
+    (-> (expect (second (first result)))
+        (.toEqual {:data "context"}))
+    (-> (expect (second (second result)))
+        (.toEqual {:data "context"}))))
+
+(defn- test-replace-prev-result-in-actions-leaves-actions-without-placeholder-unchanged []
+  (let [actions [[:ax.no-placeholder :arg1 :arg2]
+                 [:ax.another "string"]]
+        result (event-handler/replace-prev-result-in-actions actions {:ignored "data"})]
+    (-> (expect (first result))
+        (.toEqual [:ax.no-placeholder :arg1 :arg2]))
+    (-> (expect (second result))
+        (.toEqual [:ax.another "string"]))))
+
+(defn- test-replace-prev-result-in-actions-handles-empty-actions []
+  (let [result (event-handler/replace-prev-result-in-actions [] "any-value")]
+    (-> (expect result)
+        (.toEqual []))))
+
+(defn- test-replace-prev-result-in-actions-handles-nil-prev-result []
+  (let [actions [[:ax.uses-result :uf/prev-result]]
+        result (event-handler/replace-prev-result-in-actions actions nil)]
+    (-> (expect (second (first result)))
+        (.toBeNull))))
+
+;; ============================================================
 ;; get-list-watcher-actions tests (list change detection)
 ;; ============================================================
 
@@ -541,6 +574,13 @@
             (test "substitutes :uf/prev-result with provided value" test-replace-prev-result-substitutes-uf-prev-result-with-provided-value)
             (test "leaves effects without :uf/prev-result unchanged" test-replace-prev-result-leaves-effects-without-uf-prev-result-unchanged)
             (test "handles multiple :uf/prev-result occurrences" test-replace-prev-result-handles-multiple-uf-prev-result-occurrences)))
+
+(describe "replace-prev-result-in-actions"
+          (fn []
+            (test "substitutes :uf/prev-result in all actions" test-replace-prev-result-in-actions-substitutes-in-all-actions)
+            (test "leaves actions without placeholder unchanged" test-replace-prev-result-in-actions-leaves-actions-without-placeholder-unchanged)
+            (test "handles empty actions" test-replace-prev-result-in-actions-handles-empty-actions)
+            (test "handles nil prev-result" test-replace-prev-result-in-actions-handles-nil-prev-result)))
 
 (describe "get-list-watcher-actions"
           (fn []

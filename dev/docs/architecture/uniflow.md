@@ -123,6 +123,58 @@ This reads as: "Log the operation, then fetch the data, then transform it, then 
 
 **Error handling:** The effect sequence is wrapped in try/catch. If any awaited effect throws, execution stops and the error propagates.
 
+### Result Threading to Deferred Actions (`:uf/dxs`)
+
+The `:uf/prev-result` placeholder also works in `:uf/dxs` (deferred actions). This enables the "gather-then-decide" pattern - effects gather async data, then dispatch to pure decision actions:
+
+```clojure
+:nav/ax.check-connection
+(let [[tab-id] args]
+  {:uf/fxs [[:uf/await :nav/fx.gather-context tab-id]]
+   :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
+```
+
+**How it works:**
+1. All `:uf/fxs` execute first (in order)
+2. The final `prev-result` from awaited effects is captured
+3. `:uf/prev-result` placeholders in `:uf/dxs` are substituted with that value
+4. The deferred actions dispatch with the resolved data
+
+**Gather-then-decide pattern:**
+
+This separates concerns cleanly:
+- **Gathering effects** - Handle async Chrome APIs, fetch data, call services
+- **Decision actions** - Pure functions that receive gathered data and decide what to do
+
+```clojure
+;; Gathering effect (impure - calls Chrome API)
+:nav/fx.gather-context
+(let [[tab-id] args
+      tab (js-await (chrome.tabs.get tab-id))]
+  {:url (.-url tab)
+   :injected? (get-in @!state [:injections tab-id])})
+
+;; Decision action (pure - testable without Chrome)
+:nav/ax.decide-connection
+(let [[context] args
+      {:keys [url injected?]} context]
+  (cond
+    (not injected?)
+    {:uf/fxs [[:nav/fx.inject-first]]}
+
+    (allowed-origin? url)
+    {:uf/fxs [[:nav/fx.connect]]}
+
+    :else
+    {:uf/db (assoc state :nav/error "Cannot connect to this page")}))
+```
+
+**Benefits:**
+- Decision logic is pure and testable without mocking Chrome APIs
+- Clear separation: effects gather, actions decide
+- Single action returns the complete "recipe" - effects + follow-up decision
+- Reduces deep callback nesting and intermediate action chains
+
 ### Dispatching
 
 ```clojure
@@ -244,6 +296,7 @@ Return `:uf/unhandled-ax` or `:uf/unhandled-fx` to delegate to generic handlers 
 | Fire-and-forget effects | `[:fx.name ...]` in `:uf/fxs` |
 | Await effect completion | `[:uf/await :fx.name ...]` in `:uf/fxs` |
 | Chain effect results | `:uf/prev-result` placeholder in subsequent effect |
+| Pass effect result to decision action | `:uf/prev-result` in `:uf/dxs` (gather-then-decide) |
 | Sync follow-up actions | Action returning `:uf/dxs` |
 | Conditional no-op | Action returning `nil` |
 | Async callback needs dispatch | Effect with `dispatch` parameter |
