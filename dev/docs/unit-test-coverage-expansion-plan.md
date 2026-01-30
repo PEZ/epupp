@@ -237,36 +237,39 @@ Test validation for trailing slash, scheme requirements.
 **File:** test/popup_utils_test.cljs (may need creating)
 
 #### 3.2 Auto-connect decision logic (DEFERRED)
-Location: [src/popup.cljs](../../src/popup.cljs) or background - connection decision logic
+Location: [src/background_utils.cljs](../../src/background_utils.cljs) - `decide-auto-connection`
 
-**Note:** May require refactoring to extract pure function first.
+**Refactored:** Extracted pure decision function using gather-then-decide pattern via `:uf/prev-result`.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
-**Test cases (after extraction):**
-- Setting enabled + disconnected → should connect
-- Setting disabled → should not connect
-- Already connected → should not reconnect
-- Invalid port → should not connect
+**Test cases:**
+- Setting enabled + disconnected → connect-all decision
+- Setting disabled → none decision
+- Auto-reconnect + in history + has port → reconnect decision
+- Not in history → none decision
+- No history port → none decision
 
-**File:** test/popup_utils_test.cljs or test/connection_utils_test.cljs (after refactoring)
+**File:** test/background_utils_test.cljs
 
-#### 3.3 Auto-reconnect decision logic (DEFERRED)
-Location: [src/ws_bridge.cljs](../../src/ws_bridge.cljs) or background
+#### 3.3 Auto-reconnect decision logic (COMPLETE)
+Location: [src/background_utils.cljs](../../src/background_utils.cljs) - `decide-auto-connection`
 
-**Note:** May require refactoring to extract pure function first.
+**Note:** Auto-reconnect shares the same decision function as auto-connect (3.2). The feature triggers via navigation events, not WebSocket close events.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
-**Test cases (after extraction):**
-- Setting enabled + connection lost → should reconnect
-- Setting disabled → should not reconnect
-- Clean disconnect → should not reconnect
-- Network error → should reconnect (if enabled)
+**Clarification:** Auto-reconnect means "reconnect previously connected tabs on page navigation/reload" - it does NOT mean "retry on WebSocket close/network error." This is a deliberate design choice since server-down or network issues require manual intervention anyway.
 
-**File:** test/connection_utils_test.cljs (after refactoring)
+**Test cases (covered by decide-auto-connection tests):**
+- Auto-reconnect enabled + in history + has port → reconnect decision
+- Auto-reconnect disabled → none decision
+- Not in history → none decision (never connected)
+- No history port → none decision
+
+**File:** test/background_utils_test.cljs, test/background_actions_test.cljs
 
 #### 3.4 Gist installer URL detection (DEFERRED)
 Location: [src/userscripts/epupp/gist_installer.cljs](../../src/userscripts/epupp/gist_installer.cljs) - URL parsing
@@ -347,17 +350,15 @@ Location: Various - delete confirmations, clear confirmations
 
 **Final metrics:**
 - Starting tests: 399
-- Tests added: 55
-- Final tests: 454
-- Coverage increase: +14%
+- Tests added: 70 (55 original + 15 from gather-then-decide refactoring)
+- Final tests: 469
+- Coverage increase: +18%
 
 **Phase 1 (Quick Wins):** 4/4 completed - 27 tests added
 **Phase 2 (Medium Effort):** 5/5 completed - 28 tests added
-**Phase 3 (Architecture-Constrained):** 1/5 completed, 4 deferred
+**Phase 3 (Architecture-Constrained):** 3/5 completed, 2 deferred
 
 **Deferred items:**
-- 3.2 Auto-connect: Logic deeply embedded in callback-based chrome.storage API
-- 3.3 Auto-reconnect: Distributed across message protocol components
 - 3.4 Gist installer: Feature not yet implemented
 - 3.5 Confirmations: Trivial inline logic not worth extracting
 
@@ -365,21 +366,23 @@ Location: Various - delete confirmations, clear confirmations
 - `builtin-update-needed?` made public for testability
 - `build-bundled-script` made public for testability
 - `detect-name-conflict` extracted from panel.cljs to script_utils.cljs
+- `decide-auto-connection` extracted using gather-then-decide pattern (3.2, 3.3)
 
 **Learnings:**
 - Uniflow pattern makes pure state transformations trivially testable
-- Callback-based Chrome APIs resist unit testing - keep E2E coverage for those
+- Uniflow `:uf/prev-result` in dxs enables clean separation of async gathering from pure decisions
+- Callback-based Chrome APIs become testable when decisions are extracted to pure functions
 - Pure function extraction from UI code is high-value refactoring
 
 ---
 
-## Follow-up Work: Uniflow "Gather-then-Decide" Pattern
+## Completed: Uniflow "Gather-then-Decide" Pattern
 
-The deferred items 3.2 (auto-connect) and 3.3 (auto-reconnect) can be made unit testable by refactoring to the "gather-then-decide" Uniflow pattern. This moves decision logic from effects up into actions.
+Items 3.2 (auto-connect) and 3.3 (auto-reconnect) were successfully refactored to the "gather-then-decide" Uniflow pattern. This moved decision logic from effects up into pure, testable actions.
 
-### Current Implementation
+### Previous Implementation
 
-Decision logic is interleaved with async Chrome API calls, making unit testing impossible without mocking:
+Decision logic was interleaved with async Chrome API calls, making unit testing impossible without mocking:
 
 ```clojure
 ;; In handle-navigation! - decisions mixed with async gathering
@@ -391,7 +394,7 @@ Decision logic is interleaved with async Chrome API calls, making unit testing i
     (and auto-reconnect? in-history?) (js-await (connect-tab! ...))))
 ```
 
-### Target: Gather-then-Decide with `:uf/prev-result`
+### Implemented: Gather-then-Decide with `:uf/prev-result`
 
 Uniflow now supports `:uf/prev-result` in `:uf/dxs`, enabling a clean separation:
 
@@ -450,14 +453,14 @@ Additional benefits:
 - **No dispatch in effects** - Framework handles threading via `:uf/prev-result`
 - **Follows Uniflow philosophy** - "actions decide, effects execute"
 
-### Items Enabled
+### Items Completed
 
-| Deferred Item | Refactoring Needed |
-|---------------|-------------------|
-| 3.2 Auto-connect | Extract to `:nav/ax.decide-connection` |
-| 3.3 Auto-reconnect | Same action handles both cases |
+| Item | Implementation |
+|------|----------------|
+| 3.2 Auto-connect | Pure `decide-auto-connection` function + `:nav/ax.decide-connection` action |
+| 3.3 Auto-reconnect | Unified into same decision function (navigation-triggered) |
 
-### Test Cases (Post-Refactoring)
+### Test Cases (Implemented)
 
 ```clojure
 (testing "auto-connect-all supersedes everything"

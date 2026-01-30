@@ -80,3 +80,34 @@
    Pure function - takes history map and tab-id."
   [connected-tabs-history tab-id]
   (get-in connected-tabs-history [tab-id :port]))
+
+(defn decide-auto-connection
+  "Decide whether to auto-connect based on gathered context.
+   Pure function for the 'decide' phase of gather-then-decide pattern.
+
+   Context shape:
+   {:nav/auto-connect-enabled? bool   ; auto-connect to ALL pages
+    :nav/auto-reconnect-enabled? bool ; reconnect previously connected tabs
+    :nav/in-history? bool             ; tab was previously connected
+    :nav/history-port string-or-nil   ; port from history
+    :nav/saved-port string}           ; port from storage (for auto-connect-all)
+
+   Returns decision map:
+   {:decision :connect-all|:reconnect|:none
+    :port string-or-nil}"
+  [{:nav/keys [auto-connect-enabled? auto-reconnect-enabled?
+               in-history? history-port saved-port]}]
+  (cond
+    ;; Auto-connect-all supersedes everything
+    auto-connect-enabled?
+    {:decision "connect-all"
+     :port saved-port}
+
+    ;; Auto-reconnect for previously connected tabs only
+    (and auto-reconnect-enabled? in-history? history-port)
+    {:decision "reconnect"
+     :port history-port}
+
+    ;; No automatic connection
+    :else
+    {:decision "none"}))

@@ -3,6 +3,7 @@
             [background-actions.icon-actions :as icon-actions]
             [background-actions.history-actions :as history-actions]
             [background-actions.ws-actions :as ws-actions]
+            [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
             [script-utils :as script-utils]))
 
@@ -211,5 +212,21 @@
                         :description (:description manifest)}]
       {:uf/fxs [[:uf/await :userscript/fx.install install-opts]
                 [:msg/fx.send-response send-response :uf/prev-result]]})
+
+    :nav/ax.decide-connection
+    (let [[context] args
+          {:nav/keys [tab-id url]} context
+          {:keys [decision port]} (bg-utils/decide-auto-connection context)
+          connect-fxs (when (not= decision "none")
+                        [[:uf/await :nav/fx.connect tab-id port]])]
+      {:uf/fxs (vec (concat connect-fxs
+                            [[:nav/fx.process-navigation tab-id url]]))})
+
+    :nav/ax.handle-navigation
+    ;; Trigger action: gathers context via effect, then defers to decision action
+    (let [[tab-id url] args]
+      {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
+                [:uf/await :nav/fx.gather-auto-connect-context tab-id url]]
+       :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
 
     :uf/unhandled-ax))

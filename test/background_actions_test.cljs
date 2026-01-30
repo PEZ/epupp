@@ -822,3 +822,87 @@
             (test "inject when present" test-base-info-inject-when-present)
             (test "empty description omitted" test-base-info-empty-description-omitted)
             (test "empty inject omitted" test-base-info-empty-inject-omitted)))
+
+;; ============================================================
+;; Navigation Decision Action Tests
+;; ============================================================
+
+;; The :nav/ax.decide-connection action receives gathered context from
+;; :nav/fx.gather-auto-connect-context and returns appropriate effects based on
+;; the pure decide-auto-connection function.
+
+(defn- test-nav-decide-connection-returns-connect-effect-for-connect-all []
+  (let [context {:nav/tab-id 123
+                 :nav/url "https://example.com"
+                 :nav/auto-connect-enabled? true
+                 :nav/auto-reconnect-enabled? false
+                 :nav/in-history? false
+                 :nav/history-port nil
+                 :nav/saved-port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:nav/ax.decide-connection context])
+        fxs (:uf/fxs result)]
+    ;; Should return connect effect with saved-port
+    (-> (expect (some #(and (= :uf/await (first %))
+                            (= :nav/fx.connect (second %))
+                            (= 123 (nth % 2))
+                            (= "1340" (nth % 3))) fxs))
+        (.toBeTruthy))))
+
+(defn- test-nav-decide-connection-returns-connect-effect-for-reconnect []
+  (let [context {:nav/tab-id 456
+                 :nav/url "https://github.com"
+                 :nav/auto-connect-enabled? false
+                 :nav/auto-reconnect-enabled? true
+                 :nav/in-history? true
+                 :nav/history-port "1341"
+                 :nav/saved-port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:nav/ax.decide-connection context])
+        fxs (:uf/fxs result)]
+    ;; Should return connect effect with history-port
+    (-> (expect (some #(and (= :uf/await (first %))
+                            (= :nav/fx.connect (second %))
+                            (= 456 (nth % 2))
+                            (= "1341" (nth % 3))) fxs))
+        (.toBeTruthy))))
+
+(defn- test-nav-decide-connection-returns-no-connect-effect-when-none []
+  (let [context {:nav/tab-id 789
+                 :nav/url "https://example.com"
+                 :nav/auto-connect-enabled? false
+                 :nav/auto-reconnect-enabled? false
+                 :nav/in-history? false
+                 :nav/history-port nil
+                 :nav/saved-port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:nav/ax.decide-connection context])
+        fxs (:uf/fxs result)]
+    ;; Should not return any connect effect
+    (-> (expect (some #(= :nav/fx.connect (if (= :uf/await (first %)) (second %) (first %))) fxs))
+        (.toBeFalsy))))
+
+(defn- test-nav-decide-connection-always-returns-process-navigation-effect []
+  ;; Navigation processing (userscripts) should always happen regardless of connection decision
+  (let [context {:nav/tab-id 123
+                 :nav/url "https://example.com"
+                 :nav/auto-connect-enabled? false
+                 :nav/auto-reconnect-enabled? false
+                 :nav/in-history? false
+                 :nav/history-port nil
+                 :nav/saved-port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:nav/ax.decide-connection context])
+        fxs (:uf/fxs result)]
+    ;; Should return process-navigation effect
+    (-> (expect (some #(and (= :nav/fx.process-navigation (if (= :uf/await (first %)) (second %) (first %)))
+                            (= 123 (nth % (if (= :uf/await (first %)) 2 1)))
+                            (= "https://example.com" (nth % (if (= :uf/await (first %)) 3 2)))) fxs))
+        (.toBeTruthy))))
+
+(describe ":nav/ax.decide-connection"
+          (fn []
+            (test "returns connect effect with saved-port for connect-all decision" test-nav-decide-connection-returns-connect-effect-for-connect-all)
+            (test "returns connect effect with history-port for reconnect decision" test-nav-decide-connection-returns-connect-effect-for-reconnect)
+            (test "returns no connect effect when decision is none" test-nav-decide-connection-returns-no-connect-effect-when-none)
+            (test "always returns process-navigation effect" test-nav-decide-connection-always-returns-process-navigation-effect)))

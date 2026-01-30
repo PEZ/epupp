@@ -323,3 +323,108 @@
             (test "returns port for another existing tab" test-get-history-port-returns-port-for-another-existing-tab)
             (test "returns nil for non-existent tab" test-get-history-port-returns-nil-for-non-existent-tab)
             (test "returns nil for empty history" test-get-history-port-returns-nil-for-empty-history)))
+
+;; ============================================================
+;; decide-auto-connection Tests
+;; ============================================================
+
+;; Context shape:
+;; {:nav/auto-connect-enabled? bool
+;;  :nav/auto-reconnect-enabled? bool
+;;  :nav/in-history? bool
+;;  :nav/history-port string-or-nil
+;;  :nav/saved-port string}
+
+;; Decision shape:
+;; {:decision :connect-all|:reconnect|:none
+;;  :port string-or-nil}
+
+(defn- test-decide-auto-connection-returns-connect-all-when-enabled []
+  (let [ctx {:nav/auto-connect-enabled? true
+             :nav/auto-reconnect-enabled? false
+             :nav/in-history? false
+             :nav/history-port nil
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "connect-all"))
+    (-> (expect (:port result))
+        (.toBe "1340"))))
+
+(defn- test-decide-auto-connection-connect-all-supersedes-reconnect []
+  ;; Even when reconnect conditions are met, connect-all wins
+  (let [ctx {:nav/auto-connect-enabled? true
+             :nav/auto-reconnect-enabled? true
+             :nav/in-history? true
+             :nav/history-port "1341"
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "connect-all"))
+    ;; Uses saved-port, not history-port
+    (-> (expect (:port result))
+        (.toBe "1340"))))
+
+(defn- test-decide-auto-connection-returns-reconnect-when-conditions-met []
+  (let [ctx {:nav/auto-connect-enabled? false
+             :nav/auto-reconnect-enabled? true
+             :nav/in-history? true
+             :nav/history-port "1341"
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "reconnect"))
+    ;; Uses history-port
+    (-> (expect (:port result))
+        (.toBe "1341"))))
+
+(defn- test-decide-auto-connection-returns-none-when-reconnect-disabled []
+  (let [ctx {:nav/auto-connect-enabled? false
+             :nav/auto-reconnect-enabled? false
+             :nav/in-history? true
+             :nav/history-port "1341"
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "none"))))
+
+(defn- test-decide-auto-connection-returns-none-when-not-in-history []
+  (let [ctx {:nav/auto-connect-enabled? false
+             :nav/auto-reconnect-enabled? true
+             :nav/in-history? false
+             :nav/history-port nil
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "none"))))
+
+(defn- test-decide-auto-connection-returns-none-when-no-history-port []
+  ;; Edge case: in history but port is nil
+  (let [ctx {:nav/auto-connect-enabled? false
+             :nav/auto-reconnect-enabled? true
+             :nav/in-history? true
+             :nav/history-port nil
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "none"))))
+
+(defn- test-decide-auto-connection-returns-none-when-all-disabled []
+  (let [ctx {:nav/auto-connect-enabled? false
+             :nav/auto-reconnect-enabled? false
+             :nav/in-history? false
+             :nav/history-port nil
+             :nav/saved-port "1340"}
+        result (bg/decide-auto-connection ctx)]
+    (-> (expect (:decision result))
+        (.toBe "none"))))
+
+(describe "decide-auto-connection"
+          (fn []
+            (test "returns connect-all when auto-connect enabled" test-decide-auto-connection-returns-connect-all-when-enabled)
+            (test "connect-all supersedes reconnect even when both conditions met" test-decide-auto-connection-connect-all-supersedes-reconnect)
+            (test "returns reconnect when conditions met (enabled, in-history, has port)" test-decide-auto-connection-returns-reconnect-when-conditions-met)
+            (test "returns none when auto-reconnect disabled" test-decide-auto-connection-returns-none-when-reconnect-disabled)
+            (test "returns none when not in history" test-decide-auto-connection-returns-none-when-not-in-history)
+            (test "returns none when no history port" test-decide-auto-connection-returns-none-when-no-history-port)
+            (test "returns none when all settings disabled" test-decide-auto-connection-returns-none-when-all-disabled)))

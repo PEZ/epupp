@@ -382,61 +382,6 @@
           (log/error "Background" "Inject" "Failed:" (.-message err))
           (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
-(defn ^:async handle-navigation!
-  "Handle page navigation by waiting for init then processing.
-   Never drops navigation events - always waits for readiness.
-
-   Connection priority:
-   1. Auto-connect-all (supersedes everything) - connects to ALL pages
-   2. Auto-reconnect (for previously connected tabs only) - uses saved port
-   3. Otherwise, no automatic REPL connection
-
-   Then processes userscripts as usual."
-  [dispatch! tab-id url]
-  (try
-    ;; Log test event for E2E debugging
-    (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
-    (js-await (ensure-initialized! dispatch!))
-
-    ;; Reset icon state on navigation (Scittle is not injected on new page)
-    (js-await (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))
-
-    ;; Check auto-connect settings - order matters!
-    (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))
-          auto-reconnect? (js-await (get-auto-reconnect-setting))
-          history (:connected-tabs/history @!state)
-          in-history? (bg-utils/tab-in-history? history tab-id)
-          history-port (when in-history? (bg-utils/get-history-port history tab-id))]
-      (cond
-        ;; Auto-connect-all supersedes everything
-        enabled?
-        (do
-          (log/info "Background" "AutoConnect" "REPL auto-connect-all enabled, connecting to tab:" tab-id)
-          (let [ws-port (js-await (get-saved-ws-port tab-id))]
-            (try
-              (js-await (connect-tab! dispatch! tab-id ws-port))
-              (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
-              (catch :default err
-                (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err))))))
-
-        ;; Auto-reconnect for previously connected tabs only
-        (and auto-reconnect? in-history? history-port)
-        (do
-          (log/info "Background" "AutoReconnect" "Reconnecting tab" tab-id "using saved port:" history-port)
-          (try
-            (js-await (connect-tab! dispatch! tab-id history-port))
-            (log/info "Background" "AutoReconnect" "Successfully reconnected REPL to tab:" tab-id)
-            (catch :default err
-              (log/warn "Background" "AutoReconnect" "Failed to reconnect REPL:" (.-message err)))))
-
-        ;; No automatic connection
-        :else nil))
-
-    ;; Continue with normal userscript processing
-    (js-await (process-navigation! dispatch! tab-id url))
-    (catch :default err
-      (log/error "Background" "Inject" "Navigation handler error:" err))))
-
 (defn- ^:async activate!
   [dispatch!]
 
@@ -807,7 +752,8 @@
                     (when (and (zero? (.-frameId details))
                                (or (.startsWith url "http://")
                                    (.startsWith url "https://")))
-                      (handle-navigation! dispatch! (.-tabId details) url)))))
+                      ;; Dispatch navigation action (gather-then-decide pattern)
+                      (dispatch! [[:nav/ax.handle-navigation (.-tabId details) url]])))))
 
   ;; ============================================================
   ;; Lifecycle Events
@@ -994,6 +940,53 @@
         (catch :default err
           (log/error "Background" "Install" "Install failed:" err)
           {:success false :error (.-message err)})))
+
+    ;; Navigation effects for gather-then-decide pattern
+
+    :icon/fx.update-icon-disconnected
+    (let [[tab-id] args]
+      (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))
+
+    :nav/fx.gather-auto-connect-context
+    ;; Gather all context needed for auto-connect decision
+    ;; Returns context map for :nav/ax.decide-connection
+    (let [[tab-id url] args]
+      ;; Ensure initialization before accessing state/storage
+      (js-await (ensure-initialized! dispatch!))
+      (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
+      (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))
+            auto-reconnect? (js-await (get-auto-reconnect-setting))
+            saved-port (js-await (get-saved-ws-port tab-id))
+            history (:connected-tabs/history @!state)
+            in-history? (bg-utils/tab-in-history? history tab-id)
+            history-port (when in-history? (bg-utils/get-history-port history tab-id))]
+        ;; Return context map for decision action
+        {:nav/tab-id tab-id
+         :nav/url url
+         :nav/auto-connect-enabled? (boolean enabled?)
+         :nav/auto-reconnect-enabled? (boolean auto-reconnect?)
+         :nav/in-history? in-history?
+         :nav/history-port history-port
+         :nav/saved-port saved-port}))
+
+    :nav/fx.connect
+    ;; Connect REPL to a tab
+    (let [[tab-id port] args]
+      (try
+        (js-await (test-logger/log-event! "NAV_AUTO_CONNECT"
+                                          {:tab-id tab-id
+                                           :port port}))
+        (js-await (connect-tab! dispatch! tab-id port))
+        (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
+        {:success true}
+        (catch :default err
+          (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err))
+          {:success false :error (.-message err)})))
+
+    :nav/fx.process-navigation
+    ;; Process userscripts for a navigation event
+    (let [[tab-id url] args]
+      (js-await (process-navigation! dispatch! tab-id url)))
 
     :uf/unhandled-fx))
 
