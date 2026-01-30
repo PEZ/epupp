@@ -322,6 +322,97 @@
       (finally
         (js-await (.close context))))))
 
+
+(defn- ^:async test_gist_installer_manual_only_script []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and wait for built-in gist installer to be re-installed
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Wait for gist installer to exist in storage with non-empty code
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  gist-installer (when scripts
+                                   (.find scripts (fn [s]
+                                                    (= (.-id s) "epupp-builtin-gist-installer"))))
+                  has-code (and gist-installer
+                                (.-code gist-installer)
+                                (pos? (.-length (.-code gist-installer))))]
+              (if has-code
+                (js/console.log "Gist installer re-installed with code")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for gist installer with code"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                    (recur)))))))
+        (js-await (.close popup)))
+
+      ;; Navigate to mock gist page
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Mock gist page loaded")
+
+        ;; Wait for the gist installer to add Install button to manual-only gist
+        (let [install-btn (.locator page "#manual-only-gist button:has-text(\"Install\")")]
+          (js/console.log "Waiting for Install button on manual-only gist...")
+          (js-await (-> (expect install-btn)
+                        (.toBeVisible #js {:timeout 10000})))
+          (js/console.log "Install button found, clicking...")
+
+          ;; Click the install button - should show confirmation modal
+          (js-await (.click install-btn))
+
+          ;; Wait for confirmation modal
+          (let [confirm-btn (.locator page "#epupp-confirm")]
+            (js-await (-> (expect confirm-btn)
+                          (.toBeVisible #js {:timeout 5000})))
+            (js/console.log "Confirmation modal appeared, confirming...")
+
+            ;; Confirm the installation
+            (js-await (.click confirm-btn))
+
+            ;; Wait for button to change to "Installed"
+            (let [installed-indicator (.locator page "#manual-only-gist button:has-text(\"Installed\")")]
+              (js-await (-> (expect installed-indicator)
+                            (.toBeVisible #js {:timeout 5000})))
+              (js/console.log "Script installed successfully"))))
+
+        (js-await (.close page)))
+
+      ;; Verify script appears in popup with "No auto-run (manual only)"
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Look for the installed script
+        (let [script-item (.locator popup ".script-item:has-text(\"manual_only_script.cljs\")")]
+          (js-await (-> (expect script-item)
+                        (.toBeVisible #js {:timeout 5000})))
+          (js/console.log "Installed script visible in popup")
+
+          ;; Verify it shows "No auto-run (manual only)"
+          (let [match-span (.locator script-item ".script-match")]
+            (js-await (-> (expect match-span)
+                          (.toHaveText "No auto-run (manual only)" #js {:timeout 500})))))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Userscript"
            (fn []
              (test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
@@ -337,4 +428,6 @@
                    test_injection_produces_no_uncaught_errors)
 
              (test "Userscript: gist installer shows Install button and installs script"
-                   test_gist_installer_shows_button_and_installs)))
+                   test_gist_installer_shows_button_and_installs)
+             (test "Userscript: gist installer installs manual-only script"
+                   test_gist_installer_manual_only_script)))
