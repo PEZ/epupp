@@ -205,6 +205,38 @@ For HIGH and MEDIUM candidates, follow TDD:
 
 ---
 
+## Appendix: E2E Test Retirement Candidates
+
+With expanded unit test coverage, some E2E tests may now have redundant coverage. These are candidates for **simplification** (removing redundant edge cases) rather than full retirement - E2E tests still verify integration.
+
+### Likely Candidates
+
+| E2E Test File | Related Unit Tests | Potential Simplification |
+|---------------|-------------------|-------------------------|
+| `builtin_reinstall_test.cljs` | `builtin-update-needed?` in storage_test.cljs (8 tests) | Edge cases for code/name/match/description/run-at/inject differences now unit-tested |
+| `popup_autoconnect_test.cljs` | `decide-auto-connection` in background_utils_test.cljs (7 tests) | Decision branches now unit-tested; E2E can focus on happy path |
+| `popup_autoreconnect_test.cljs` | Same as above (unified decision function) | Reconnect decision branches now unit-tested |
+| `panel_save_create_test.cljs` | `detect-name-conflict` in script_utils_test.cljs (8 tests) | Conflict detection edge cases now unit-tested |
+| `panel_save_test.cljs` | Same as above | Name conflict scenarios now unit-tested |
+
+### Assessment Criteria
+
+Before simplifying any E2E test:
+
+1. **Verify unit coverage** - Confirm the decision logic has unit tests covering the same branches
+2. **Keep integration value** - E2E tests should still verify the full flow works
+3. **Remove only redundant edge cases** - Don't remove tests that verify integration-specific behavior
+4. **Consider flakiness** - Redundant E2E tests that are also flaky are higher priority for removal
+
+### Notes
+
+This is lower priority than the gather-then-decide expansion work. The current E2E suite runs in ~24s parallel and isn't a bottleneck. Revisit if:
+- E2E suite time grows significantly
+- Specific tests become maintenance burdens
+- Flaky tests turn out to be testing logic now covered by unit tests
+
+---
+
 ## Original Plan-producing Prompt
 
 Create a follow-up plan for applying the gather-then-decide Uniflow pattern to additional callback-heavy Chrome API code.

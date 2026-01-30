@@ -39,6 +39,11 @@
 
 ;; ============================================================
 ;; Manifest parsing
+;;
+;; SYNC WARNING: This parser must stay in sync with src/manifest_parser.cljs
+;; Key behaviors that must match:
+;; - auto-run-match is OPTIONAL (nil means manual-only script)
+;; - auto-run-match preserves vector/string as-is
 ;; ============================================================
 
 (defn- get-first-form
@@ -68,10 +73,7 @@
             run-at (if (contains? valid-run-at-values raw-run-at)
                      raw-run-at
                      default-run-at)
-            raw-auto-run-match (get m :epupp/auto-run-match)
-            auto-run-match (if (vector? raw-auto-run-match)
-                             (first raw-auto-run-match)
-                             raw-auto-run-match)]
+            auto-run-match (get m :epupp/auto-run-match)]
         {:script-name normalized-name
          :raw-script-name raw-name
          :name-normalized? (not= raw-name normalized-name)

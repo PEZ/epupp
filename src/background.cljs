@@ -320,10 +320,11 @@
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
    Name is normalized for uniqueness and valid filename format.
    Cannot overwrite built-in scripts.
-   Extracts run-at timing from code manifest if present."
+   Extracts run-at timing from code manifest if present.
+   auto-run-match is optional - nil means manual-only script."
   [dispatch! {:keys [script-name auto-run-match script-url description]}]
-  (when (or (nil? script-name) (nil? auto-run-match))
-    (throw (js/Error. "Missing scriptName or siteMatch")))
+  (when (nil? script-name)
+    (throw (js/Error. "Missing scriptName")))
   (when (nil? script-url)
     (throw (js/Error. "Missing script URL")))
   (when-not (url-origin-allowed? script-url)

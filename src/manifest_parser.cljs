@@ -1,6 +1,12 @@
 (ns manifest-parser
   "Parses Epupp manifest metadata from script code.
-   Returns rich structure with raw values, coerced values, and warnings."
+   Returns rich structure with raw values, coerced values, and warnings.
+
+   SYNC WARNING: A parallel parser exists in extension/userscripts/epupp/gist_installer.cljs
+   for the SCI/Scittle environment. When modifying manifest parsing behavior, ensure both
+   parsers stay in sync. Key behaviors:
+   - auto-run-match is OPTIONAL (nil means manual-only script)
+   - auto-run-match preserves vector/string as-is"
   (:require ["edn-data" :as edn-data]
             [clojure.string :as string]
             [script-utils :as script-utils]))
