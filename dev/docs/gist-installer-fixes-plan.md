@@ -81,6 +81,12 @@ Re-installing via gist did NOT create a third copy because:
 
 ### Issue 1: Test Coverage for Manual-Only Gist Install
 
+**Why E2E is required:** Manual-only gist install involves TWO manifest parsers that can drift:
+- `manifest_parser.cljs` (Squint) - used by background/FS actions
+- `gist_installer.cljs:extract-manifest` (SCI/Scittle) - runs in page context
+
+Unit tests cover each parser separately, but E2E is needed to verify the full flow through both parsers works correctly for manual-only scripts.
+
 #### 1.1 Add unit test for manual-only script save
 Location: `test/repl_fs_actions_test.cljs`
 
@@ -91,18 +97,17 @@ Unit test `handle-fs-save` with script that has no `:epupp/auto-run-match`:
 - [x] addressed in code
 - [x] verified by tests
 
-#### 1.2 Assess if E2E test is needed for manual-only install
+#### 1.2 Add E2E test for manual-only gist install
+Location: `e2e/userscript_test.cljs`
 
-Consider:
-- Does unit test cover the save logic adequately?
-- Is the gist installer UI flow (button appearance, modal) already covered by existing E2E?
-- Decision: E2E test needed? [ ] Yes / [x] No (unit tests + existing E2E sufficient)
+E2E test needed because two parsers can drift. Test that:
+- Add mock gist with manual-only script to `test-data/pages/mock-gist.html`
+- Gist installer shows Install button for manual-only script
+- Install succeeds
+- Script appears in popup with empty match / "No auto-run"
 
-**Assessment:** Unit test `test-save-allows-manual-only-script` covers the action handler behavior. Existing E2E test `test_gist_installer_shows_button_and_installs` proves the full gist install flow works. After Batch A refactoring, gist install uses the unified FS save path, so no separate integration to test.
-
-- [x] assessment complete
-- [x] addressed in code (via unit tests)
-- [x] verified by tests
+- [ ] addressed in code
+- [ ] verified by tests
 
 ---
 
