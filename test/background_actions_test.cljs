@@ -321,6 +321,31 @@
     (-> (expect (:script/enabled saved-script))
         (.toBe false))))
 
+(defn- test-save-allows-manual-only-script []
+  (let [manual-script {:script/name "manual.cljs"
+                       :script/code "(println \"manual script\")"
+                       :script/match []}
+        result (bg-actions/handle-action initial-state uf-data
+                                         [:fs/ax.save-script manual-script])
+        saved-script (->> result :uf/db :storage/scripts
+                          (filter #(= (:script/name %) "manual.cljs"))
+                          first)]
+    ;; Should have state update
+    (-> (expect (:uf/db result))
+        (.toBeTruthy))
+    ;; Script should be saved with empty match
+    (-> (expect (:script/match saved-script))
+        (.toEqual []))
+    ;; Script should be disabled (no auto-run patterns)
+    (-> (expect (:script/enabled saved-script))
+        (.toBe false))
+    ;; Should have persist and success
+    (-> (expect (some #(= :storage/fx.persist! (first %)) (:uf/fxs result)))
+        (.toBeTruthy))
+    (-> (expect (some #(and (= :bg/fx.send-response (first %))
+                            (-> % second :success)) (:uf/fxs result)))
+        (.toBeTruthy))))
+
 (describe ":fs/ax.save-script"
           (fn []
             (test "rejects when updating a builtin script" test-save-rejects-when-updating-a-builtin-script)
@@ -330,7 +355,8 @@
             (test "allows update when script exists by ID (non-builtin)" test-save-allows-update-when-script-exists-by-id)
             (test "allows overwrite when force flag set" test-save-allows-overwrite-when-force-flag-set)
             (test "preserves enabled state when updating existing script" test-save-preserves-enabled-state-when-updating-existing-script)
-            (test "defaults new scripts to disabled" test-save-defaults-new-scripts-to-disabled)))
+            (test "defaults new scripts to disabled" test-save-defaults-new-scripts-to-disabled)
+            (test "allows manual-only script" test-save-allows-manual-only-script)))
 
 ;; ============================================================
 ;; Base Info Return Shape Tests

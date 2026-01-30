@@ -318,9 +318,7 @@
 
 (defn ^:async install-userscript!
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
-   Name is normalized for uniqueness and valid filename format.
-   Cannot overwrite built-in scripts.
-   Extracts run-at timing from code manifest if present.
+   Delegates to unified FS save action for consistent duplicate handling.
    auto-run-match is optional - nil means manual-only script."
   [dispatch! {:keys [script-name auto-run-match script-url description]}]
   (when (nil? script-name)
@@ -332,27 +330,29 @@
   (js-await (ensure-initialized! dispatch!))
   (let [code (js-await (fetch-text! script-url))
         name-error (script-utils/validate-script-name script-name)
-        normalized-name (script-utils/normalize-script-name script-name)
         ;; Extract run-at from code manifest (more reliable than passed manifest)
         code-manifest (try
                         (manifest-parser/extract-manifest code)
                         (catch :default _e nil))
         run-at (or (get code-manifest "run-at")
-                   script-utils/default-run-at)
-        ;; Check if a script with this ID already exists and is built-in
-        existing-script (storage/get-script normalized-name)]
+                   script-utils/default-run-at)]
     (when name-error
       (throw (js/Error. name-error)))
-    (when (and existing-script (script-utils/builtin-script? existing-script))
-      (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
-    (let [script (cond-> {:script/id normalized-name
-                          :script/name normalized-name
+    (let [script (cond-> {:script/name script-name
                           :script/match (script-utils/normalize-match-patterns auto-run-match)
                           :script/code code
                           :script/run-at run-at
-                          :script/enabled true}
-                   (seq description) (assoc :script/description description))]
-      (storage/save-script! script))))
+                          :script/enabled true
+                          :script/force? true}
+                   (seq description) (assoc :script/description description))
+          result (js-await (js/Promise. (fn [resolve reject]
+                                          (fs-dispatch/dispatch-fs-action!
+                                           (fn [response]
+                                             (if (.-success response)
+                                               (resolve (js->clj response :keywordize-keys true))
+                                               (reject (js/Error. (.-error response)))))
+                                           [:fs/ax.save-script script]))))]
+      result)))
 
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
