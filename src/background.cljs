@@ -318,7 +318,7 @@
 
 (defn ^:async install-userscript!
   "Install a userscript from a URL. Validates that the URL is from an allowed origin.
-   Name is normalized for uniqueness. Overwrites any existing script with same name.
+   Name is normalized for uniqueness. Updates existing script with same name.
    auto-run-match is optional - nil means manual-only script."
   [dispatch! {:keys [script-name auto-run-match script-url description]}]
   (when (nil? script-name)
@@ -337,18 +337,19 @@
                         (catch :default _e nil))
         run-at (or (get code-manifest "run-at")
                    script-utils/default-run-at)
-        ;; Check if script with this name already exists (by any ID)
-        existing-by-name (storage/get-script-by-name normalized-name)]
+        ;; Check if script with this name already exists
+        existing-by-name (storage/get-script-by-name normalized-name)
+        ;; Use existing ID if updating, otherwise generate new one
+        script-id (if existing-by-name
+                    (:script/id existing-by-name)
+                    (script-utils/generate-script-id))]
     (when name-error
       (throw (js/Error. name-error)))
     ;; Check for built-in protection
     (when (and existing-by-name (script-utils/builtin-script? existing-by-name))
       (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
-    ;; Delete existing script with same name to prevent duplicates
-    (when existing-by-name
-      (storage/delete-script! (:script/id existing-by-name)))
-    ;; Create new script with fresh ID
-    (let [script (cond-> {:script/id (script-utils/generate-script-id)
+    ;; Create or update script - save-script! handles update vs create based on ID
+    (let [script (cond-> {:script/id script-id
                           :script/name normalized-name
                           :script/match (script-utils/normalize-match-patterns auto-run-match)
                           :script/code code
