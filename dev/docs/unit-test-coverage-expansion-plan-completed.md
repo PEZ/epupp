@@ -271,38 +271,13 @@ Location: [src/background_utils.cljs](../../src/background_utils.cljs) - `decide
 
 **File:** test/background_utils_test.cljs, test/background_actions_test.cljs
 
-#### 3.4 Gist installer URL detection (DEFERRED)
-Location: [src/userscripts/epupp/gist_installer.cljs](../../src/userscripts/epupp/gist_installer.cljs) - URL parsing
+#### 3.4 Gist installer URL detection (SKIPPED)
 
-Extract and test Gist URL parsing/detection logic.
+Feature not yet implemented. Revisit when gist installer is built.
 
-- [ ] addressed in code
-- [ ] verified by tests
+#### 3.5 Confirmation dialog decision logic (SKIPPED)
 
-**Test cases:**
-- Valid gist.github.com URL
-- Valid github.com gist URL
-- Invalid: not a gist URL
-- Extract gist ID from URL
-- Handle URL variations (trailing slash, query params)
-
-**File:** test/gist_installer_test.cljs (may need creating)
-
-#### 3.5 Confirmation dialog decision logic (DEFERRED)
-Location: Various - delete confirmations, clear confirmations
-
-**Note:** May be too UI-coupled to extract cleanly. Assess during implementation.
-
-- [ ] addressed in code
-- [ ] verified by tests
-
-**Test cases (if extractable):**
-- Delete script with match → requires confirmation
-- Delete manual-only script → no confirmation needed
-- Clear all → always requires confirmation
-- Bulk delete → requires confirmation
-
-**File:** TBD based on where logic lives
+Trivial inline logic (single boolean checks). Not worth extracting to pure functions.
 
 ---
 
@@ -356,9 +331,9 @@ Location: Various - delete confirmations, clear confirmations
 
 **Phase 1 (Quick Wins):** 4/4 completed - 27 tests added
 **Phase 2 (Medium Effort):** 5/5 completed - 28 tests added
-**Phase 3 (Architecture-Constrained):** 3/5 completed, 2 deferred
+**Phase 3 (Architecture-Constrained):** 3/5 completed, 2 skipped
 
-**Deferred items:**
+**Skipped items:**
 - 3.4 Gist installer: Feature not yet implemented
 - 3.5 Confirmations: Trivial inline logic not worth extracting
 
