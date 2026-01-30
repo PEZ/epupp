@@ -70,3 +70,5 @@
 * [ ] Protect `epupp/` files from being deleted
 * [ ] `mv!`, wrong delete count, when some are rejected
 * [ ] Gist installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?
+* [ ] BUG: Gist installer fails to install when manifest does not declare `:epupp/auto-run-match`
+* [ ] Add setting for default repl ports
