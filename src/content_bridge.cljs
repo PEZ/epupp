@@ -256,6 +256,30 @@
                   (stop-keepalive!)
                   (set-connected! false)))))
 
+          "save-script"
+          (do
+            (log/info "Bridge" nil "Forwarding save-script request from userscript to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "save-script"
+                    :code (.-code msg)
+                    :enabled (.-enabled msg)
+                    :force (.-force msg)
+                    :scriptSource (.-scriptSource msg)}
+               (fn [response]
+                 (.postMessage js/window
+                               (js/Object.assign
+                                #js {:source "epupp-bridge"
+                                     :type "save-script-response"
+                                     :requestId (.-requestId msg)}
+                                response)
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/info "Bridge" nil "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
           nil)))))
 
 ;; Script injection helpers

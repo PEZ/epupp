@@ -354,19 +354,23 @@
 (defn- handle-save-script [message dispatch! send-response]
   ((^:async fn []
      (js-await (ensure-initialized! dispatch!))
-     (if-not (js-await (fs-repl-sync-enabled?))
-       (do
-         (bg-icon/broadcast-system-banner! {:event-type "error"
-                                           :operation "save"
-                                           :error "FS REPL Sync is disabled in settings"})
-         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-       (let [code (.-code message)
-             enabled (if (some? (.-enabled message)) (.-enabled message) true)
-             force? (.-force message)
-             script-source (.-scriptSource message)
-             bulk-id (.-bulkId message)
-             bulk-index (.-bulkIndex message)
-             bulk-count (.-bulkCount message)]
+     (let [script-source (.-scriptSource message)
+           web-install? (and (string? script-source)
+                             (or (.startsWith script-source "http://")
+                                 (.startsWith script-source "https://")))]
+       (if (and (not web-install?)
+                (not (js-await (fs-repl-sync-enabled?))))
+         (do
+           (bg-icon/broadcast-system-banner! {:event-type "error"
+                                              :operation "save"
+                                              :error "FS REPL Sync is disabled in settings"})
+           (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+         (let [code (.-code message)
+               enabled (if (some? (.-enabled message)) (.-enabled message) true)
+               force? (.-force message)
+               bulk-id (.-bulkId message)
+               bulk-index (.-bulkIndex message)
+               bulk-count (.-bulkCount message)]
          (try
            (let [manifest (manifest-parser/extract-manifest code)
                  raw-name (or (when manifest (aget manifest "raw-script-name"))
@@ -401,7 +405,7 @@
                               (some? bulk-count) (assoc :script/bulk-count bulk-count))]
                  (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
            (catch :default err
-             (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
+             (send-response #js {:success false :error (str "Parse error: " (.-message err))}))))))))
   true)
 
 (defn- handle-panel-save-script [message send-response]
@@ -564,7 +568,7 @@
                                          (vector? raw) raw
                                          (string? raw) [raw]
                                          :else [])))
-                 user-patterns (vec (.-userPatterns message  []))
+                 user-patterns (vec (or (.-userPatterns message) []))
                  merged-patterns (vec (distinct (concat manifest-patterns user-patterns)))
                  updated-installer (assoc installer :script/match merged-patterns)]
              (js-await (storage/save-script! updated-installer))
