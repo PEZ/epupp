@@ -334,339 +334,330 @@
           (log/error "Background" "Inject" "Failed:" (.-message err))
           (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
+(defn- handle-ws-connect [message tab-id dispatch!]
+  (bg-ws/handle-ws-connect (:ws/connections @!state) dispatch! tab-id (.-port message))
+  false)
+
+(defn- handle-ws-send [message tab-id]
+  (bg-ws/handle-ws-send (:ws/connections @!state) tab-id (.-data message))
+  false)
+
+(defn- handle-ws-close [tab-id dispatch!]
+  (bg-ws/handle-ws-close (:ws/connections @!state) dispatch! tab-id)
+  false)
+
+(defn- handle-list-scripts [message dispatch! send-response]
+  (let [include-hidden? (.-lsHidden message)]
+    (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
+    false))
+
+(defn- handle-save-script [message dispatch! send-response]
+  ((^:async fn []
+     (js-await (ensure-initialized! dispatch!))
+     (if-not (js-await (fs-repl-sync-enabled?))
+       (do
+         (bg-icon/broadcast-system-banner! {:event-type "error"
+                                           :operation "save"
+                                           :error "FS REPL Sync is disabled in settings"})
+         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+       (let [code (.-code message)
+             enabled (if (some? (.-enabled message)) (.-enabled message) true)
+             force? (.-force message)
+             script-source (.-scriptSource message)
+             bulk-id (.-bulkId message)
+             bulk-index (.-bulkIndex message)
+             bulk-count (.-bulkCount message)]
+         (try
+           (let [manifest (manifest-parser/extract-manifest code)
+                 raw-name (or (when manifest (aget manifest "raw-script-name"))
+                              (when manifest (aget manifest "script-name")))
+                 name-error (script-utils/validate-script-name raw-name)
+                 auto-run-match (when manifest (aget manifest "auto-run-match"))
+                 injects (when manifest (aget manifest "inject"))
+                 run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
+             (cond
+               (nil? raw-name)
+               (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+
+               name-error
+               (send-response #js {:success false :error name-error})
+
+               :else
+               (let [crypto (.-crypto js/globalThis)
+                     script-id (if (and crypto (.-randomUUID crypto))
+                                 (str "script-" (.randomUUID crypto))
+                                 (str "script-" (.now js/Date) "-" (.random js/Math)))
+                     script (cond-> {:script/id script-id
+                                     :script/name raw-name
+                                     :script/code code
+                                     :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
+                                     :script/inject (or injects [])
+                                     :script/enabled enabled
+                                     :script/run-at run-at
+                                     :script/force? force?}
+                              (some? script-source) (assoc :script/source script-source)
+                              (some? bulk-id) (assoc :script/bulk-id bulk-id)
+                              (some? bulk-index) (assoc :script/bulk-index bulk-index)
+                              (some? bulk-count) (assoc :script/bulk-count bulk-count))]
+                 (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
+           (catch :default err
+             (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
+  true)
+
+(defn- handle-panel-save-script [message send-response]
+  (let [js-script (.-script message)
+        script (cond-> {:script/name (.-name js-script)
+                        :script/description (.-description js-script)
+                        :script/match (vec (.-match js-script))
+                        :script/code (.-code js-script)
+                        :script/enabled (.-enabled js-script)
+                        :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
+                        :script/inject (if (.-inject js-script)
+                                         (vec (.-inject js-script))
+                                         [])}
+                 (.-id js-script) (assoc :script/id (.-id js-script))
+                 (.-force js-script) (assoc :script/force? true))]
+    (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
+  false)
+
+(defn- handle-panel-rename-script [message send-response]
+  (let [from-name (.-from message)
+        to-name (.-to message)]
+    (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))
+  false)
+
+(defn- handle-rename-script [message send-response]
+  ((^:async fn []
+     (if-not (js-await (fs-repl-sync-enabled?))
+       (do
+         (bg-icon/broadcast-system-banner! {:event-type "error"
+                                           :operation "rename"
+                                           :error "FS REPL Sync is disabled in settings"})
+         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+       (let [from-name (.-from message)
+             to-name (.-to message)
+             name-error (script-utils/validate-script-name to-name)]
+         (if name-error
+           (send-response #js {:success false :error name-error})
+           (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))))
+  true)
+
+(defn- handle-delete-script [message send-response]
+  ((^:async fn []
+     (if-not (js-await (fs-repl-sync-enabled?))
+       (do
+         (bg-icon/broadcast-system-banner! {:event-type "error"
+                                           :operation "delete"
+                                           :error "FS REPL Sync is disabled in settings"})
+         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+       (let [script-name (.-name message)
+             bulk-id (.-bulkId message)
+             bulk-index (.-bulkIndex message)
+             bulk-count (.-bulkCount message)]
+         (fs-dispatch/dispatch-fs-action! send-response
+                                          [:fs/ax.delete-script
+                                           {:script-name script-name
+                                            :bulk-id bulk-id
+                                            :bulk-index bulk-index
+                                            :bulk-count bulk-count}])))))
+  true)
+
+(defn- handle-get-script [message dispatch! send-response]
+  (let [script-name (.-name message)]
+    (dispatch! [[:msg/ax.get-script send-response script-name]])
+    false))
+
+(defn- handle-load-manifest [message tab-id dispatch! send-response]
+  (let [manifest (.-manifest message)]
+    (dispatch! [[:msg/ax.load-manifest send-response tab-id manifest]])
+    true))
+
+(defn- handle-get-connections [dispatch! send-response]
+  (dispatch! [[:msg/ax.get-connections send-response]])
+  false)
+
+(defn- handle-connect-tab [message dispatch! send-response]
+  (let [target-tab-id (.-tabId message)
+        ws-port (.-wsPort message)]
+    (dispatch! [[:msg/ax.connect-tab send-response target-tab-id ws-port]])
+    true))
+
+(defn- handle-check-status [message dispatch! send-response]
+  (let [target-tab-id (.-tabId message)]
+    (dispatch! [[:msg/ax.check-status send-response target-tab-id]])
+    true))
+
+(defn- handle-disconnect-tab [message dispatch!]
+  (let [target-tab-id (.-tabId message)]
+    (bg-ws/close-ws! (:ws/connections @!state) dispatch! target-tab-id))
+  false)
+
+(defn- handle-e2e-find-tab-id [message dispatch! send-response]
+  (let [url-pattern (.-urlPattern message)]
+    (dispatch! [[:msg/ax.e2e-find-tab-id send-response url-pattern]])
+    true))
+
+(defn- handle-e2e-get-test-events [dispatch! send-response]
+  (dispatch! [[:msg/ax.e2e-get-test-events send-response]])
+  true)
+
+(defn- handle-e2e-get-storage [message dispatch! send-response]
+  (let [key (.-key message)]
+    (dispatch! [[:msg/ax.e2e-get-storage send-response key]])
+    true))
+
+(defn- handle-e2e-set-storage [message dispatch! send-response]
+  (let [key (.-key message)
+        value (.-value message)]
+    (dispatch! [[:msg/ax.e2e-set-storage send-response key value]])
+    true))
+
+(defn- handle-e2e-activate-tab [message send-response]
+  (let [tab-id (.-tabId message)]
+    (js/chrome.tabs.update tab-id #js {:active true}
+                           (fn [tab]
+                             (if js/chrome.runtime.lastError
+                               (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
+                               (js/chrome.windows.update (.-windowId tab) #js {:focused true}
+                                                         (fn [_win]
+                                                           (if js/chrome.runtime.lastError
+                                                             (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
+                                                             (send-response #js {:success true :tabId tab-id})))))))
+    true))
+
+(defn- handle-e2e-update-icon [message send-response]
+  (let [tab-id (.-tabId message)]
+    ((^:async fn []
+       (try
+         (js-await (bg-icon/update-icon-now! !state tab-id))
+         (send-response #js {:success true :tabId tab-id})
+         (catch :default err
+           (send-response #js {:success false :error (.-message err)})))))
+    true))
+
+(defn- handle-e2e-get-icon-display-state [message send-response]
+  (let [tab-id (.-tabId message)
+        state (bg-icon/get-display-icon-state !state tab-id)]
+    (send-response #js {:success true :state state})
+    false))
+
+(defn- handle-e2e-ensure-builtin [dispatch! send-response]
+  ((^:async fn []
+     (try
+       (js-await (ensure-initialized! dispatch!))
+       (js-await (storage/sync-builtin-scripts!))
+       (send-response #js {:success true})
+       (catch :default err
+         (send-response #js {:success false :error (.-message err)})))))
+  true)
+
+(defn- handle-update-installer-patterns [message send-response]
+  ((^:async fn []
+     (try
+       (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
+         (if installer
+           (let [code (:script/code installer)
+                 manifest (manifest-parser/extract-manifest code)
+                 manifest-patterns (when manifest
+                                     (let [raw (aget manifest "auto-run-match")]
+                                       (cond
+                                         (vector? raw) raw
+                                         (string? raw) [raw]
+                                         :else [])))
+                 user-patterns (vec (.-userPatterns message  []))
+                 merged-patterns (vec (distinct (concat manifest-patterns user-patterns)))
+                 updated-installer (assoc installer :script/match merged-patterns)]
+             (js-await (storage/save-script! updated-installer))
+             (send-response #js {:success true}))
+           (send-response #js {:success false :error "Installer script not found"})))
+       (catch :default err
+         (log/error "Background" nil "Failed to update installer patterns:" err)
+         (send-response #js {:success false :error (.-message err)})))))
+  true)
+
+(defn- handle-ensure-scittle [message dispatch! send-response]
+  (let [target-tab-id (.-tabId message)]
+    (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
+    true))
+
+(defn- handle-inject-libs [message dispatch! send-response]
+  (let [target-tab-id (.-tabId message)
+        libs (when (.-libs message)
+               (vec (.-libs message)))]
+    (dispatch! [[:msg/ax.inject-libs send-response target-tab-id libs]])
+    true))
+
+(defn- handle-evaluate-script [message dispatch! send-response]
+  (let [target-tab-id (.-tabId message)
+        code (.-code message)
+        libs (when (.-inject message)
+               (vec (.-inject message)))]
+    (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code libs (.-scriptId message)]])
+    true))
+
+(defn- handle-unknown-message [msg-type]
+  (log/info "Background" nil "Unknown message type:" msg-type)
+  false)
+
 (defn- add-on-message-handler [dispatch!]
   (.addListener js/chrome.runtime.onMessage
                 (fn [message sender send-response]
                   (let [tab-id (when (.-tab sender) (.. sender -tab -id))
                         msg-type (.-type message)]
                     (case msg-type
-                      ;; Content script messages (from content-bridge.cljs)
-                      "ws-connect" (do (bg-ws/handle-ws-connect
-                                        (:ws/connections @!state) dispatch! tab-id (.-port message))
-                                       false)
-                      "ws-send" (do (bg-ws/handle-ws-send (:ws/connections @!state) tab-id (.-data message))
-                                    false)
-                      ;; Note: "ws-close" is currently unused - page-side close() only cleans up
-                      ;; locally, and reconnection is handled by ws-connect calling close-ws! first.
-                      ;; Kept for potential future use if explicit close-from-page is needed.
-                      "ws-close" (do (bg-ws/handle-ws-close (:ws/connections @!state) dispatch! tab-id)
-                                     false)
+                      "ws-connect" (handle-ws-connect message tab-id dispatch!)
+                      "ws-send" (handle-ws-send message tab-id)
+                      "ws-close" (handle-ws-close tab-id dispatch!)
                       "ping" false
-
-                      ;; Page context requests script list via epupp.fs/ls
-                      "list-scripts"
-                      (let [include-hidden? (.-lsHidden message)]
-                        (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
-                        false)
-
-                      ;; Page context saves script code via epupp/save!
-                      "save-script"
-                      (do
-                        ((^:async fn []
-                           (js-await (ensure-initialized! dispatch!))
-                           (if-not (js-await (fs-repl-sync-enabled?))
-                             (do
-                               (bg-icon/broadcast-system-banner! {:event-type "error"
-                                                             :operation "save"
-                                                             :error "FS REPL Sync is disabled in settings"})
-                               (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-                             (let [code (.-code message)
-                                   enabled (if (some? (.-enabled message)) (.-enabled message) true)
-                                   force? (.-force message)
-                                   script-source (.-scriptSource message)
-                                   bulk-id (.-bulkId message)
-                                   bulk-index (.-bulkIndex message)
-                                   bulk-count (.-bulkCount message)]
-                               (try
-                                 (let [manifest (manifest-parser/extract-manifest code)
-                                      raw-name (or (when manifest (aget manifest "raw-script-name"))
-                                                   (when manifest (aget manifest "script-name")))
-                                      name-error (script-utils/validate-script-name raw-name)
-                                      auto-run-match (when manifest (aget manifest "auto-run-match"))
-                                      injects (when manifest (aget manifest "inject"))
-                                      run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
-                                   (cond
-                                     (nil? raw-name)
-                                     (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
-
-                                     name-error
-                                     (send-response #js {:success false :error name-error})
-
-                                     :else
-                                     ;; Always use fresh ID for REPL saves - the action handler
-                                     ;; will decide if this is a create (reject if exists, no force)
-                                     ;; or overwrite (allow if force flag is set)
-                                     (let [crypto (.-crypto js/globalThis)
-                                           script-id (if (and crypto (.-randomUUID crypto))
-                                                       (str "script-" (.randomUUID crypto))
-                                                       (str "script-" (.now js/Date) "-" (.random js/Math)))
-                                           script (cond-> {:script/id script-id
-                                                           :script/name raw-name
-                                                           :script/code code
-                                                           :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
-                                                           :script/inject (or injects [])
-                                                           :script/enabled enabled
-                                                           :script/run-at run-at
-                                                           :script/force? force?}
-                                                    (some? script-source) (assoc :script/source script-source)
-                                                    (some? bulk-id) (assoc :script/bulk-id bulk-id)
-                                                    (some? bulk-index) (assoc :script/bulk-index bulk-index)
-                                                    (some? bulk-count) (assoc :script/bulk-count bulk-count))]
-                                       (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
-                                 (catch :default err
-                                   (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
-                        true) ; Return true - response will be sent asynchronously
-
-                      ;; Panel saves script with pre-built script object
-                      "panel-save-script"
-                      (let [js-script (.-script message)]
-                        ;; Convert JS script object back to Clojure map with namespaced keys
-                        (let [script (cond-> {:script/name (.-name js-script)
-                                              :script/description (.-description js-script)
-                                              :script/match (vec (.-match js-script))
-                                              :script/code (.-code js-script)
-                                              :script/enabled (.-enabled js-script)
-                                              :script/run-at (script-utils/normalize-run-at (.-runAt js-script))
-                                              :script/inject (if (.-inject js-script)
-                                                               (vec (.-inject js-script))
-                                                               [])}
-                                       (.-id js-script) (assoc :script/id (.-id js-script))
-                                       (.-force js-script) (assoc :script/force? true))]
-                          (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))
-                        false)
-
-                      ;; Panel renames script - trusted, no setting check
-                      "panel-rename-script"
-                      (let [from-name (.-from message)
-                            to-name (.-to message)]
-                        (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name])
-                        false)
-
-                      ;; Page context renames script via epupp/mv!
-                      "rename-script"
-                      (do
-                        ((^:async fn []
-                           (if-not (js-await (fs-repl-sync-enabled?))
-                             (do
-                               (bg-icon/broadcast-system-banner! {:event-type "error"
-                                                             :operation "rename"
-                                                             :error "FS REPL Sync is disabled in settings"})
-                               (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-                             (let [from-name (.-from message)
-                                   to-name (.-to message)
-                                   name-error (script-utils/validate-script-name to-name)]
-                               (if name-error
-                                 (send-response #js {:success false :error name-error})
-                                 (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))))
-                        true)
-
-                      ;; Page context deletes script via epupp/rm!
-                      "delete-script"
-                      (do
-                        ((^:async fn []
-                           (if-not (js-await (fs-repl-sync-enabled?))
-                             (do
-                               (bg-icon/broadcast-system-banner! {:event-type "error"
-                                                             :operation "delete"
-                                                             :error "FS REPL Sync is disabled in settings"})
-                               (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-                             (let [script-name (.-name message)
-                                   bulk-id (.-bulkId message)
-                                   bulk-index (.-bulkIndex message)
-                                   bulk-count (.-bulkCount message)]
-                               (fs-dispatch/dispatch-fs-action! send-response
-                                                                [:fs/ax.delete-script
-                                                                 {:script-name script-name
-                                                                  :bulk-id bulk-id
-                                                                  :bulk-index bulk-index
-                                                                  :bulk-count bulk-count}])))))
-                        true)
-
-                      ;; Page context requests script code by name via epupp/cat
-                      "get-script"
-                      (let [script-name (.-name message)]
-                        (dispatch! [[:msg/ax.get-script send-response script-name]])
-                        false)
-
-                      ;; Page context requests library injection via epupp/manifest!
-                      "load-manifest"
-                      (let [manifest (.-manifest message)]
-                        (dispatch! [[:msg/ax.load-manifest send-response tab-id manifest]])
-                        true)
-
-                      ;; Popup requests active connection info
-                      "get-connections"
-                      (do
-                        (dispatch! [[:msg/ax.get-connections send-response]])
-                        false)
-
-                      "connect-tab"
-                      (let [target-tab-id (.-tabId message)
-                            ws-port (.-wsPort message)]
-                        (dispatch! [[:msg/ax.connect-tab send-response target-tab-id ws-port]])
-                        true)
-
-                      "check-status"
-                      (let [target-tab-id (.-tabId message)]
-                        (dispatch! [[:msg/ax.check-status send-response target-tab-id]])
-                        true)
-
-                      "disconnect-tab"
-                      (let [target-tab-id (.-tabId message)]
-                        (bg-ws/close-ws! (:ws/connections @!state) dispatch! target-tab-id)
-                        false)
-
-                      "e2e/find-tab-id"
-                      (if (.-dev config)
-                        (let [url-pattern (.-urlPattern message)]
-                          (dispatch! [[:msg/ax.e2e-find-tab-id send-response url-pattern]])
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/get-test-events"
-                      (if (.-dev config)
-                        (do
-                          (dispatch! [[:msg/ax.e2e-get-test-events send-response]])
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/get-storage"
-                      (if (.-dev config)
-                        (let [key (.-key message)]
-                          (dispatch! [[:msg/ax.e2e-get-storage send-response key]])
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/set-storage"
-                      (if (.-dev config)
-                        (let [key (.-key message)
-                              value (.-value message)]
-                          (dispatch! [[:msg/ax.e2e-set-storage send-response key value]])
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/activate-tab"
-                      (if (.-dev config)
-                        (let [tab-id (.-tabId message)]
-                          (js/chrome.tabs.update tab-id #js {:active true}
-                                                 (fn [tab]
-                                                   (if js/chrome.runtime.lastError
-                                                     (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
-                                                     (js/chrome.windows.update (.-windowId tab) #js {:focused true}
-                                                                               (fn [_win]
-                                                                                 (if js/chrome.runtime.lastError
-                                                                                   (send-response #js {:success false :error (.-message js/chrome.runtime.lastError)})
-                                                                                   (send-response #js {:success true :tabId tab-id})))))))
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/update-icon"
-                      (if (.-dev config)
-                        (let [tab-id (.-tabId message)]
-                          ((^:async fn []
-                             (try
-                               (js-await (bg-icon/update-icon-now! !state tab-id))
-                               (send-response #js {:success true :tabId tab-id})
-                               (catch :default err
-                                 (send-response #js {:success false :error (.-message err)})))))
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/get-icon-display-state"
-                      (if (.-dev config)
-                        (let [tab-id (.-tabId message)
-                              state (bg-icon/get-display-icon-state !state tab-id)]
-                          (send-response #js {:success true :state state})
-                          false)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      "e2e/ensure-builtin"
-                      (if (.-dev config)
-                        (do
-                          ((^:async fn []
-                             (try
-                               (js-await (ensure-initialized! dispatch!))
-                               (js-await (storage/sync-builtin-scripts!))
-                               (send-response #js {:success true})
-                               (catch :default err
-                                 (send-response #js {:success false :error (.-message err)})))))
-                          true)
-                        (do
-                          (send-response #js {:success false :error "Not available"})
-                          false))
-
-                      ;; Popup - update installer patterns when user changes allowed sites
-                      "update-installer-patterns"
-                      (do
-                        ((^:async fn []
-                           (try
-                             ;; Get the installer script
-                             (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
-                               (if installer
-                                 (let [;; Extract manifest patterns from installer code
-                                       code (:script/code installer)
-                                       manifest (manifest-parser/extract-manifest code)
-                                       manifest-patterns (when manifest
-                                                          (let [raw (aget manifest "auto-run-match")]
-                                                            (cond
-                                                              (vector? raw) raw
-                                                              (string? raw) [raw]
-                                                              :else [])))
-                                       ;; Get user patterns from message
-                                       user-patterns (vec (.-userPatterns message  []))
-                                       ;; Merge: manifest patterns ∪ user patterns
-                                       merged-patterns (vec (distinct (concat manifest-patterns user-patterns)))
-                                       ;; Update installer with merged patterns
-                                       updated-installer (assoc installer :script/match merged-patterns)]
-                                   ;; Save the updated installer (will trigger sync-registrations via storage.onChanged)
-                                   (js-await (storage/save-script! updated-installer))
-                                   (send-response #js {:success true}))
-                                 (send-response #js {:success false :error "Installer script not found"})))
-                             (catch :default err
-                               (log/error "Background" nil "Failed to update installer patterns:" err)
-                               (send-response #js {:success false :error (.-message err)})))))
-                        true) ; Async response
-
-                      ;; Panel messages - ensure Scittle is loaded
-                      "ensure-scittle"
-                      (let [target-tab-id (.-tabId message)]
-                        (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
-                        true)  ; Return true to indicate async response
-
-                      ;; Panel - inject libraries before evaluation
-                      "inject-libs"
-                      (let [target-tab-id (.-tabId message)
-                            libs (when (.-libs message)
-                                   (vec (.-libs message)))]
-                        (dispatch! [[:msg/ax.inject-libs send-response target-tab-id libs]])
-                        true)
-
-                      ;; Popup/Panel - evaluate a userscript in current tab
-                      "evaluate-script"
-                      (let [target-tab-id (.-tabId message)
-                            code (.-code message)
-                            libs (when (.-inject message)
-                                   (vec (.-inject message)))]
-                        (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code libs (.-scriptId message)]])
-                        true)  ; Return true to indicate async response
-
-                      ;; Unknown
-                      (do (log/info "Background" nil "Unknown message type:" msg-type)
-                          false))))))
+                      "list-scripts" (handle-list-scripts message dispatch! send-response)
+                      "save-script" (handle-save-script message dispatch! send-response)
+                      "panel-save-script" (handle-panel-save-script message send-response)
+                      "panel-rename-script" (handle-panel-rename-script message send-response)
+                      "rename-script" (handle-rename-script message send-response)
+                      "delete-script" (handle-delete-script message send-response)
+                      "get-script" (handle-get-script message dispatch! send-response)
+                      "load-manifest" (handle-load-manifest message tab-id dispatch! send-response)
+                      "get-connections" (handle-get-connections dispatch! send-response)
+                      "connect-tab" (handle-connect-tab message dispatch! send-response)
+                      "check-status" (handle-check-status message dispatch! send-response)
+                      "disconnect-tab" (handle-disconnect-tab message dispatch!)
+                      "e2e/find-tab-id" (if (.-dev config)
+                                          (handle-e2e-find-tab-id message dispatch! send-response)
+                                          (do (send-response #js {:success false :error "Not available"})
+                                              false))
+                      "e2e/get-test-events" (if (.-dev config)
+                                              (handle-e2e-get-test-events dispatch! send-response)
+                                              (do (send-response #js {:success false :error "Not available"})
+                                                  false))
+                      "e2e/get-storage" (if (.-dev config)
+                                          (handle-e2e-get-storage message dispatch! send-response)
+                                          (do (send-response #js {:success false :error "Not available"})
+                                              false))
+                      "e2e/set-storage" (if (.-dev config)
+                                          (handle-e2e-set-storage message dispatch! send-response)
+                                          (do (send-response #js {:success false :error "Not available"})
+                                              false))
+                      "e2e/activate-tab" (if (.-dev config)
+                                           (handle-e2e-activate-tab message send-response)
+                                           (do (send-response #js {:success false :error "Not available"})
+                                               false))
+                      "e2e/update-icon" (if (.-dev config)
+                                          (handle-e2e-update-icon message send-response)
+                                          (do (send-response #js {:success false :error "Not available"})
+                                              false))
+                      "e2e/get-icon-display-state" (if (.-dev config)
+                                                     (handle-e2e-get-icon-display-state message send-response)
+                                                     (do (send-response #js {:success false :error "Not available"})
+                                                         false))
+                      "e2e/ensure-builtin" (if (.-dev config)
+                                             (handle-e2e-ensure-builtin dispatch! send-response)
+                                             (do (send-response #js {:success false :error "Not available"})
+                                                 false))
+                      "update-installer-patterns" (handle-update-installer-patterns message send-response)
+                      "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
+                      "inject-libs" (handle-inject-libs message dispatch! send-response)
+                      "evaluate-script" (handle-evaluate-script message dispatch! send-response)
+                      (handle-unknown-message msg-type))))))
 
 (defn- ^:async activate!
   [dispatch!]
