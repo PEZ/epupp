@@ -334,22 +334,7 @@
           (log/error "Background" "Inject" "Failed:" (.-message err))
           (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
-(defn- ^:async activate!
-  [dispatch!]
-
-  (log/info "Background" nil "Service worker started")
-
-  ;; Install global error handlers early so we catch all errors in test mode
-  (test-logger/install-global-error-handlers! "background" js/self)
-
-  ;; Prune stale icon states from previous session on service worker wake
-  ;; This happens after dispatch! is defined so it can use the action system
-  (js-await (bg-icon/prune-icon-states-direct! !state))
-
-  ;; ============================================================
-  ;; Message Handlers
-  ;; ============================================================
-
+(defn- add-on-message-handler [dispatch!]
   (.addListener js/chrome.runtime.onMessage
                 (fn [message sender send-response]
                   (let [tab-id (when (.-tab sender) (.. sender -tab -id))
@@ -681,7 +666,25 @@
 
                       ;; Unknown
                       (do (log/info "Background" nil "Unknown message type:" msg-type)
-                          false)))))
+                          false))))))
+
+(defn- ^:async activate!
+  [dispatch!]
+
+  (log/info "Background" nil "Service worker started")
+
+  ;; Install global error handlers early so we catch all errors in test mode
+  (test-logger/install-global-error-handlers! "background" js/self)
+
+  ;; Prune stale icon states from previous session on service worker wake
+  ;; This happens after dispatch! is defined so it can use the action system
+  (js-await (bg-icon/prune-icon-states-direct! !state))
+
+  ;; ============================================================
+  ;; Message Handlers
+  ;; ============================================================
+
+  (add-on-message-handler dispatch!)
 
   ;; Clean up when tab is closed
   (.addListener js/chrome.tabs.onRemoved
