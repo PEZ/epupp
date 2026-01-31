@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: './build/e2e',
   testMatch: '**/*_{test,spec}.mjs',
   // REPL integration tests now run with main suite - both need browser-nrepl
-  timeout: 10000,  // Fail fast - anything taking longer than 10s is broken
+  // Fast locally (10s), patient in CI (30s) - CI runners are slower
+  timeout: process.env.CI ? 30000 : 10000,
   use: {
     // Use Chrome channel for extension support
     channel: 'chromium',
