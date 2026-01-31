@@ -153,7 +153,7 @@ Use `clojure_list_sessions` to verify REPL availability:
 |---------|---------|
 | bb test | Unit tests (~1s) |
 | bb test:e2e | E2E tests, parallel (~16s) |
-| bb test:e2e --serial --grep "pattern" | Targeted E2E with detailed output |
+| bb test:e2e --grep "pattern" | Targeted E2E with detailed output |
 | bb squint-compile | Check compilation without running tests |
 | bb build:dev | Build for manual testing |
 

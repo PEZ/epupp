@@ -120,7 +120,7 @@ Success criteria:
 **Goal**: Verify the failing test now passes.
 
 ```bash
-bb test:e2e --serial -- --grep "manifest"
+bb test:e2e -- --grep "manifest"
 ```
 
 Expected: `epupp.repl/manifest! loads Replicant for REPL evaluation` passes.

@@ -58,7 +58,7 @@ If `getTaskOutput` returns "Terminal not found", report that watchers are not ru
 |---------|---------|---------------|
 | `bb test` | Unit tests | ~1s |
 | `bb test:e2e` | E2E tests (parallel, Docker) | ~20s |
-| `bb test:e2e --serial -- --grep "pattern"` | Filtered E2E tests | ~10s |
+| `bb test:e2e -- --grep "pattern"` | Filtered E2E tests | ~10s |
 | `bb test:e2e --repeat 5` | When asked to run N parallel E2E tests | ~2m |
 
 There is extremely seldom any point in running full serial E2E tests. Only run filtered serial tests if investigating flakiness. Full parallel runs give the best overall picture of test health.
@@ -115,7 +115,7 @@ At rare occasions, Docker build fails for unknown reasons. If this happens:
 ### Detecting Flakes in Daily Work
 
 When a test fails in your first run:
-1. Rerun the failing test(s) with `bb test:e2e --serial -- --grep "pattern"`
+1. Rerun the failing test(s) with `bb test:e2e -- --grep "pattern"`
 2. If it passes on rerun, it's a flake - note it but report clean results to caller
 3. If it fails consistently, it's a real failure - report to caller
 

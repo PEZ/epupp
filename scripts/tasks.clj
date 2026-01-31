@@ -877,11 +877,11 @@
 
    Options:
      --shards N  Number of parallel shards (default: 13)
-     --serial    Run sequentially for detailed output
+     --serial    Run sequentially (very seldom needed)
      --repeat N  Run tests N times without rebuilding between runs
 
    Use -- to separate bb options from Playwright options:
-     bb test:e2e --serial -- --grep \"popup\""
+     bb test:e2e -- --grep \"popup\""
   [args]
   (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int}
                                                   :alias {:s :serial :r :repeat}})

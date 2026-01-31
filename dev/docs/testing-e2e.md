@@ -10,13 +10,11 @@ bb test:e2e          # All E2E tests, 6 parallel shards (~16s)
 bb test:e2e --shards 4  # Customize shard count
 ```
 
-**Serial mode (detailed output for debugging):**
+Use `--` to separate task options from Playwright options.
 ```bash
-bb test:e2e --serial                    # All tests, detailed output
-bb test:e2e --serial -- --grep "popup"  # Filter with Playwright args
+bb test:e2e -- --grep "popup"  # Filter with Playwright args
 ```
 
-Use `--` to separate task options from Playwright options.
 
 **Only for Human Developers (visible browser):**
 ```bash

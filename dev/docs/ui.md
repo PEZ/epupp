@@ -243,7 +243,6 @@ E2E tests verify full user journeys:
 **Run E2E tests:**
 ```bash
 bb test:e2e                    # Parallel in Docker (~16s)
-bb test:e2e --serial           # Sequential with detailed output
 bb test:e2e -- --grep "popup"  # Filter by pattern
 ```
 

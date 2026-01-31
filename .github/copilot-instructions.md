@@ -189,15 +189,13 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 |---------|--------|
 | `bb test` | Unit tests (fast, always run after changes) |
 | `bb test:e2e` | E2E tests in Docker, 6 parallel shards (~16s) |
-| `bb test:e2e --serial` | E2E tests sequential, detailed output for debugging |
 | `bb squint-compile` | Check compilation without running tests |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 
 **E2E test options:**
 ```bash
-bb test:e2e                              # Parallel, 6 shards (default, fast)
-bb test:e2e --serial                     # Sequential, full output
-bb test:e2e --serial -- --grep "popup"   # Filter with Playwright args
+bb test:e2e                      # Parallel
+bb test:e2e  -- --grep "popup"   # Filter with Playwright args
 ```
 
 Use `--` to separate task options from Playwright options.

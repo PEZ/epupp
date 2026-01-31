@@ -349,7 +349,7 @@ Nice-to-have for complete semantics: when `force` is true on a direct operation,
 
 After Phase 1 and 2, run:
 ```bash
-bb test:e2e --serial -- --grep "fs"
+bb test:e2e -- --grep "fs"
 ```
 
 All fs-related tests should pass since they use `:fs/force? true`.

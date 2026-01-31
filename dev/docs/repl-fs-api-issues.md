@@ -22,7 +22,7 @@ Read these first:
 2. **Find the closest existing E2E test file and extend it**
 	- Start by searching under `e2e/` for keywords: `fs`, `save!`, `pending-confirmation`, `popup`.
 	- Prefer adding to an existing journey test over creating a brand new file - it keeps coverage cohesive.
-	- Run a tight loop while developing: use `bb test:e2e --serial -- --grep "fs"` (or similar) to focus.
+	- Run a tight loop while developing: use `bb test:e2e -- --grep "fs"` (or similar) to focus.
 
 3. **Make the bug fail deterministically (no sleeps)**
 	- Use Playwright’s built-in waiting assertions or the fixture wait helpers.

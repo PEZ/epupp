@@ -46,7 +46,7 @@ Decisions around splitting long test files up, to help organize them and for bet
    - Target file path and line numbers
    - Complete test code to add
    - Clear instructions for placement (e.g., "Add before final describe block")
-5. **Verify** - Check watcher output, run `bb test:e2e --serial -- --grep "your test"`
+5. **Verify** - Check watcher output, run `bb test:e2e -- --grep "your test"`
 
 **When delegating to Clojure-editor**:
 - Provide complete, runnable test code
@@ -218,12 +218,6 @@ Create new files as needed for logical grouping, and when files risk growing lar
 ```bash
 bb test:e2e          # All tests, 6 shards (~16s)
 bb test:e2e --shards 4  # Customize shard count
-```
-
-**Serial mode (debugging):**
-```bash
-bb test:e2e --serial                    # All tests, detailed output
-bb test:e2e --serial -- --grep "popup"  # Filter tests
 ```
 
 **Human-visible (after build):**
