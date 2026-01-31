@@ -29,7 +29,7 @@
 
         ;; Default origins list shows config origins
         (js-await (-> (expect (.locator popup ".origin-item-default"))
-                      (.toHaveCount 7))) ;; dev config has 7 origins
+                      (.toHaveCount 5))) ;; dev config has 5 origins
 
         ;; No user origins initially
         (js-await (-> (expect (.locator popup ".no-origins"))
@@ -48,11 +48,11 @@
         (let [input (.locator popup ".add-origin-form input")
               add-btn (.locator popup "button.add-btn")
               user-origins (.locator popup ".origins-section:has(.origins-label:text(\"Your custom origins\")) .origin-item")]
-          (js-await (.fill input "https://git.example.com/"))
+          (js-await (.fill input "https://git.example.com/*"))
           (js-await (.click add-btn))
           ;; Wait for origin to appear in user list
           (js-await (-> (expect user-origins) (.toHaveCount 1)))
-          (js-await (-> (expect (.first user-origins)) (.toContainText "https://git.example.com/"))))
+          (js-await (-> (expect (.first user-origins)) (.toContainText "https://git.example.com/*"))))
 
         ;; Input cleared
         (js-await (-> (expect (.locator popup ".add-origin-form input"))

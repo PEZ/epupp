@@ -120,6 +120,7 @@
               :code (.-code msg)
               :enabled (.-enabled msg)
               :force (.-force msg)
+                  :scriptSource (.-scriptSource msg)
                   :bulkId (aget msg "bulk-id")
               :bulkIndex (aget msg "bulk-index")
               :bulkCount (aget msg "bulk-count")}

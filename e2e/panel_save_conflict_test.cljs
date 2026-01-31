@@ -212,7 +212,7 @@
         (js-await (wait-for-scripts-loaded panel 2))
         ;; Use reserved epupp/ prefix - cannot create scripts with this prefix
         (let [builtin-name-code (panel-save-helpers/code-with-manifest
-                                 {:name "epupp/gist_installer.cljs"
+                                 {:name "epupp/web_userscript_installer.cljs"
                                   :match "*://example.com/*"
                                   :code "(println \"Trying to use reserved namespace\")"})]
           (js-await (.fill textarea builtin-name-code)))

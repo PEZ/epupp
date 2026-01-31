@@ -29,19 +29,19 @@
              #js {:type msg-type :data (or data #js {})}))
 
 (defn- ^:async wait-for-builtin-script
-  "Wait until the built-in gist installer exists in storage and has code."
+  "Wait until the built-in web userscript installer exists in storage and has code."
   [page timeout-ms]
   (let [start (.now js/Date)
         timeout-ms (or timeout-ms 5000)]
     (loop []
       (let [result (js-await (send-runtime-message page "e2e/get-storage" #js {:key "scripts"}))
             scripts (or (.-value result) #js [])
-            builtin (.find scripts (fn [script] (= (.-id script) "epupp-builtin-gist-installer")))
+            builtin (.find scripts (fn [script] (= (.-id script) "epupp-builtin-web-userscript-installer")))
             code (when builtin (.-code builtin))]
         (if (and builtin (string? code) (pos? (.-length code)))
           builtin
           (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for built-in gist installer"))
+            (throw (js/Error. "Timeout waiting for built-in web userscript installer"))
             (do
               (js-await (sleep 20))
               (recur))))))))
@@ -129,7 +129,7 @@
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !show-result (atom nil))
-                                 (-> (epupp.fs/show \"epupp/gist_installer.cljs\")
+                                 (-> (epupp.fs/show \"epupp/web_userscript_installer.cljs\")
                                      (.then (fn [code] (reset! !show-result code))))
                                  :pending"))]
     (js/console.log "=== setup result ===" (js/JSON.stringify setup-result))
@@ -177,7 +177,7 @@
 (defn- ^:async test_show_with_vector_returns_map []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !bulk-show-result (atom :pending))
-                                 (-> (epupp.fs/show [\"epupp/gist_installer.cljs\" \"does-not-exist.cljs\"])
+                                 (-> (epupp.fs/show [\"epupp/web_userscript_installer.cljs\" \"does-not-exist.cljs\"])
                                      (.then (fn [result] (reset! !bulk-show-result result))))
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -190,7 +190,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "epupp/gist_installer.cljs"))
+            (-> (expect (.includes result-str "epupp/web_userscript_installer.cljs"))
                 (.toBe true))
             (-> (expect (.includes result-str "epupp/script-name"))
                 (.toBe true))
@@ -224,7 +224,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "epupp/gist_installer.cljs")) (.toBe false))
+            (-> (expect (.includes result-str "epupp/web_userscript_installer.cljs")) (.toBe false))
             )
           (if (> (- (.now js/Date) start) timeout-ms)
             (throw (js/Error. "Timeout waiting for epupp.fs/ls result"))
@@ -248,7 +248,7 @@
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (-> (expect (.includes result-str "epupp/gist_installer.cljs")) (.toBe true))
+            (-> (expect (.includes result-str "epupp/web_userscript_installer.cljs")) (.toBe true))
             (-> (expect (.includes result-str ":requestId")) (.toBe false))
             (-> (expect (.includes result-str ":source")) (.toBe false))
             (-> (expect (.includes result-str ":type")) (.toBe false)))

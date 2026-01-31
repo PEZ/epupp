@@ -97,7 +97,7 @@
               (recur))))))))
 
 (defn ^:async ensure-builtin-script!
-  "Ensure the built-in gist installer exists in storage via background message."
+  "Ensure the built-in web userscript installer exists in storage via background message."
   [context]
   (let [ext-id (js-await (get-extension-id context))
         popup (js-await (.newPage context))]
@@ -131,7 +131,7 @@
                          #js {:waitUntil "networkidle"}))
         (js-await (clear-fs-scripts bg-page))
         (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
-        (js-await (wait-for-builtin-script bg-page "epupp-builtin-gist-installer" 5000))
+        (js-await (wait-for-builtin-script bg-page "epupp-builtin-web-userscript-installer" 5000))
         (let [tab-id (js-await (find-tab-id bg-page "http://localhost:*/*"))]
           (js-await (connect-tab bg-page tab-id ws-port-1))
           (js-await (.close bg-page))

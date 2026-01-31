@@ -309,20 +309,32 @@
               (recur))))))))
 
 (defn- ^:async test_mv_rejects_renaming_builtin_scripts []
-  ;; Try to rename a built-in script - should reject
-  (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-builtin-ls (atom :pending))\n                                (-> (epupp.fs/ls {:fs/ls-hidden? true})\n                                  (.then (fn [scripts] (reset! !mv-builtin-ls scripts))))\n                                :setup-done"))]
-    (-> (expect (.-success setup-result)) (.toBe true)))
-
   (let [start (.now js/Date)
         timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser "(-> (epupp.fs/ls) (.then pr-str))"))]
+        (if (.-success check-result)
+          (let [result (first (.-values check-result))]
+            (js/console.log "ls attempt:" result)
+            (when (and result (not= result "nil"))
+              (js/console.log "ls resolved. Continuing to mv test.")))
+          (do
+            (js/console.log "ls returned error. Continuing anyway.")))
+        (js-await (sleep 100)))))
+
+  (js/console.log "Verifying web userscript installer exists before mv test...")
+  (let [ls-setup (js-await (eval-in-browser "(def !mv-builtin-ls (atom :pending))\n                                            (-> (epupp.fs/ls {:fs/ls-hidden? true})\n                                              (.then (fn [r] (reset! !mv-builtin-ls (pr-str r))))\n                                              (.catch (fn [e] (reset! !mv-builtin-ls (str \"error: \" (pr-str e))))))\n                                            :setup-done"))]
+    (-> (expect (.-success ls-setup)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 5000]
     (loop []
       (let [check-result (js-await (eval-in-browser "(pr-str @!mv-builtin-ls)"))]
         (if (and (.-success check-result)
                  (seq (.-values check-result))
                  (not= (first (.-values check-result)) ":pending"))
           (let [result-str (first (.-values check-result))]
-            (if (.includes result-str "epupp/gist_installer.cljs")
+            (if (.includes result-str "epupp/web_userscript_installer.cljs")
               (-> (expect true) (.toBe true))
               (if (> (- (.now js/Date) start) timeout-ms)
                 (throw (js/Error. "Timeout waiting for ls before mv"))
@@ -336,7 +348,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"epupp/gist_installer.cljs\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"epupp/web_userscript_installer.cljs\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -344,17 +356,21 @@
     (loop []
       (let [check-result (js-await (eval-in-browser "(let [r @!mv-builtin-result] (cond (= r :pending) :pending (:rejected r) (str \"rejected||\" (:rejected r)) (:resolved r) (str \"resolved||\" (:resolved r)) :else r))"))]
         (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
+                 (seq (.-values check-result)))
           (let [result-str (unquote-result (first (.-values check-result)))]
-            ;; Should be rejected because it's a built-in script
-            (-> (expect (.startsWith result-str "rejected||"))
-                (.toBe true))
-            (-> (expect (or (.includes result-str "built-in")
-                            (.includes result-str "Cannot rename built-in scripts")))
-                (.toBe true)))
+            (if (= result-str ":pending")
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for mv built-in result"))
+                (do
+                  (js-await (sleep 20))
+                  (recur)))
+              (if (.startsWith result-str "rejected||")
+                (let [error-msg (.substring result-str 10)]
+                  (-> (expect error-msg)
+                      (.toBe "Cannot rename built-in scripts")))
+                (throw (js/Error. (str "mv should have been rejected but got: " result-str))))))
           (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for mv! built-in result"))
+            (throw (js/Error. "Timeout waiting for mv built-in result"))
             (do
               (js-await (sleep 20))
               (recur))))))))

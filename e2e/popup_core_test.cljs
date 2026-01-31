@@ -54,13 +54,13 @@
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; === PHASE 1: Initial state (built-in Gist Installer exists) ===
+      ;; === PHASE 1: Initial state (built-in Web Userscript Installer exists) ===
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (clear-storage popup))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
-        ;; Built-in gist installer script is auto-created, so we have 1 script
-        (js-await (-> (expect (.locator popup ".script-item:has-text(\"gist_installer.cljs\")"))
+        ;; Built-in web userscript installer script is auto-created, so we have 1 script
+        (js-await (-> (expect (.locator popup ".script-item:has-text(\"web_userscript_installer.cljs\")"))
                       (.toBeVisible)))
         (js-await (.close popup)))
 
@@ -86,7 +86,7 @@
       ;; === PHASE 3: Verify scripts, test enable/disable ===
       ;; Names are normalized: "Script One" -> "script_one.cljs"
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; 3 scripts: built-in Gist Installer + 2 user scripts
+        ;; 3 scripts: built-in Web Userscript Installer + 2 user scripts
         (js-await (wait-for-script-count popup 3))
 
         ;; Verify script action buttons exist (inspect, run, delete)
@@ -110,7 +110,7 @@
         (let [item (.locator popup ".script-item:has-text(\"script_two.cljs\")")
               delete-btn (.locator item "button.script-delete")]
           (js-await (.click delete-btn))
-          ;; 2 remaining: built-in Gist Installer + script_one.cljs
+          ;; 2 remaining: built-in Web Userscript Installer + script_one.cljs
           (js-await (-> (expect (.locator popup ".script-item"))
                         (.toHaveCount 2 #js {:timeout 2000}))))
 

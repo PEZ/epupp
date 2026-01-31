@@ -5,7 +5,7 @@
    - Userscript injection on matching URLs
    - Script timing (document-start vs page scripts)
    - Performance reporting
-   - Gist installer (built-in userscript)"
+   - Web Userscript Installer (built-in userscript)"
   (:require ["@playwright/test" :refer [test expect]]
             [clojure.string :as str]
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
@@ -232,10 +232,10 @@
         (js-await (.close context))))))
 
 ;; =============================================================================
-;; Gist Installer (Built-in Userscript)
+;; Web Userscript Installer (Built-in Userscript)
 ;; =============================================================================
 
-(defn- ^:async test_gist_installer_shows_button_and_installs []
+(defn- ^:async test_web_userscript_installer_shows_button_and_installs []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -265,7 +265,7 @@
               (if has-code
                 (js/console.log "Web Userscript Installer re-installed with code")
                 (if (> (- (.now js/Date) start) timeout-ms)
-                  (throw (js/Error. "Timeout waiting for gist installer with code"))
+                  (throw (js/Error. "Timeout waiting for web userscript installer with code"))
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
@@ -278,7 +278,7 @@
                       (.toContainText "ready")))
         (js/console.log "Mock gist page loaded")
 
-        ;; Wait for the gist installer userscript to run and add Install button
+        ;; Wait for the web userscript installer userscript to run and add Install button
         ;; The button should appear on the installable gist file
         (let [install-btn (.locator page "#installable-gist button:has-text(\"Install\")")]
           (js/console.log "Waiting for Install button to appear...")
@@ -323,17 +323,17 @@
         (js-await (.close context))))))
 
 
-(defn- ^:async test_gist_installer_manual_only_script []
+(defn- ^:async test_web_userscript_installer_manual_only_script []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
-      ;; Clear storage and wait for built-in gist installer to be re-installed
+      ;; Clear storage and wait for built-in web userscript installer to be re-installed
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Wait for gist installer to exist in storage with non-empty code
+        ;; Wait for web userscript installer to exist in storage with non-empty code
         (let [start (.now js/Date)
               timeout-ms 5000]
           (loop []
@@ -365,7 +365,7 @@
                       (.toContainText "ready")))
         (js/console.log "Mock gist page loaded")
 
-        ;; Wait for the gist installer to add Install button to manual-only gist
+        ;; Wait for the web userscript installer to add Install button to manual-only gist
         (let [install-btn (.locator page "#manual-only-gist button:has-text(\"Install\")")]
           (js/console.log "Waiting for Install button on manual-only gist...")
           (js-await (-> (expect install-btn)
@@ -545,9 +545,9 @@
              (test "Userscript: injection produces no uncaught errors"
                    test_injection_produces_no_uncaught_errors)
 
-             (test "Userscript: gist installer shows Install button and installs script"
-                   test_gist_installer_shows_button_and_installs)
-             (test "Userscript: gist installer installs manual-only script"
-                   test_gist_installer_manual_only_script)
+             (test "Userscript: web userscript installer shows Install button and installs script"
+                   test_web_userscript_installer_shows_button_and_installs)
+             (test "Userscript: web userscript installer installs manual-only script"
+                   test_web_userscript_installer_manual_only_script)
              (test "Userscript: web installer extends to custom user patterns"
                    test_web_installer_user_pattern_extension)))

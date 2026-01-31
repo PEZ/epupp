@@ -5,8 +5,8 @@
                               wait-for-checkbox-state send-runtime-message
                               get-script-item assert-no-errors!]]))
 
-(def ^:private builtin-id "epupp-builtin-gist-installer")
-(def ^:private builtin-name "epupp/gist_installer.cljs")
+(def ^:private builtin-id "epupp-builtin-web-userscript-installer")
+(def ^:private builtin-name "epupp/web_userscript_installer.cljs")
 
 (defn- ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
@@ -126,12 +126,12 @@
         (js-await (.close popup)))
 
       (let [popup (js-await (create-popup-page context ext-id))
-            builtin (js-await (wait-for-builtin-code popup "Gist Installer - Runs in Scittle" 5000))]
-        (-> (expect (.includes (.-code builtin) "epupp/gist_installer.cljs"))
+            builtin (js-await (wait-for-builtin-code popup "Web Userscript Installer" 5000))]
+        (-> (expect (.includes (.-code builtin) "epupp/web_userscript_installer.cljs"))
             (.toBe true))
         (-> (expect (.-enabled builtin))
             (.toBe false))
-        (-> (expect (.includes (.-code builtin) "Gist Installer - Runs in Scittle"))
+        (-> (expect (.includes (.-code builtin) "Web Userscript Installer"))
             (.toBe true))
         (-> (expect (.-modified builtin))
             (.not.toBe "2000-01-01T00:00:00.000Z"))

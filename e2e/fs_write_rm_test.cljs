@@ -89,7 +89,7 @@
 
 (defn- ^:async test_rm_rejects_deleting_builtin_scripts []
   (let [setup-result (js-await (eval-in-browser
-                                "(def !rm-builtin-result (atom :pending))\n                                (-> (epupp.fs/rm! \"epupp/gist_installer.cljs\")\n                                  (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !rm-builtin-result (atom :pending))\n                                (-> (epupp.fs/rm! \"epupp/web_userscript_installer.cljs\")\n                                  (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -98,25 +98,22 @@
       (let [check-result (js-await (eval-in-browser
                                     "(let [r @!rm-builtin-result]
                                        (cond
-                                         (= r :pending) :pending
-                                         (:rejected r) (str \"rejected||\" (:rejected r))
-                                         (:resolved r) (str \"resolved||\" (:resolved r))
-                                         :else r))"))]
+                                         (= r :pending) :not-settled
+                                         (:rejected r) (:rejected r)
+                                         :else :resolved))"))]
         (if (and (.-success check-result)
-                 (seq (.-values check-result))
-                 (not= (first (.-values check-result)) ":pending"))
+                 (seq (.-values check-result)))
           (let [result-str (unquote-result (first (.-values check-result)))]
-            (-> (expect (or (.startsWith result-str "rejected||")
-                            (.startsWith result-str "resolved||")))
-                (.toBe true))
-            (-> (expect (or (.includes result-str "built-in")
-                            (.includes result-str "Cannot delete built-in scripts")))
-                (.toBe true))
-            (-> (expect (or (.startsWith result-str "rejected||")
-                            (.includes result-str ":success false")))
-                (.toBe true)))
+            (if (= result-str ":not-settled")
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for rm built-in result"))
+                (do
+                  (js-await (sleep 20))
+                  (recur)))
+              (-> (expect result-str)
+                  (.toBe "Cannot delete built-in scripts"))))
           (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for epupp.fs/rm! built-in result"))
+            (throw (js/Error. "Timeout waiting for rm built-in result"))
             (do
               (js-await (sleep 20))
               (recur))))))))

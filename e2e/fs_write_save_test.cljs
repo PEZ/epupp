@@ -299,11 +299,11 @@
 
 (defn- ^:async test_save_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
-  (js-await (wait-for-builtin-script! "epupp/gist_installer.cljs" 5000))
+  (js-await (wait-for-builtin-script! "epupp/web_userscript_installer.cljs" 5000))
 
   ;; Try to save a script with a built-in name - should reject
   ;; Note: epupp/ prefix is rejected by reserved namespace check (correct behavior)
-  (let [test-code "{:epupp/script-name \"epupp/gist_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
+  (let [test-code "{:epupp/script-name \"epupp/web_userscript_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) ")\n                                       (.then (fn [r] (reset! !save-builtin-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -336,10 +336,10 @@
 
 (defn- ^:async test_save_with_force_rejects_builtin_script_names []
   (js-await (ensure-builtin-script! @!context))
-  (js-await (wait-for-builtin-script! "epupp/gist_installer.cljs" 5000))
+  (js-await (wait-for-builtin-script! "epupp/web_userscript_installer.cljs" 5000))
 
   ;; Try to save with force - still should reject (reserved namespace)
-  (let [test-code "{:epupp/script-name \"epupp/gist_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
+  (let [test-code "{:epupp/script-name \"epupp/web_userscript_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-builtin-force-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-builtin-force-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-force-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -358,14 +358,14 @@
           (let [result-str (unquote-result (first (.-values check-result)))]
             (if (= result-str ":not-settled")
               (if (> (- (.now js/Date) start) timeout-ms)
-                (throw (js/Error. "Timeout waiting for save built-in with force result"))
+                (throw (js/Error. "Timeout waiting for save built-in force result"))
                 (do
                   (js-await (sleep 20))
                   (recur)))
               (-> (expect result-str)
                   (.toBe "Cannot create scripts in reserved namespace: epupp/"))))
           (if (> (- (.now js/Date) start) timeout-ms)
-            (throw (js/Error. "Timeout waiting for save built-in with force result"))
+            (throw (js/Error. "Timeout waiting for save built-in force result"))
             (do
               (js-await (sleep 20))
               (recur))))))))
