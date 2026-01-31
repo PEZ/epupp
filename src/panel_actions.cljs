@@ -153,7 +153,8 @@
               ;; Include :script/id when updating existing script (name unchanged)
               script (cond-> {:script/name script-name
                               :script/match normalized-match
-                              :script/code code}
+                              :script/code code
+                              :script/source :source/panel}
                        (seq script-description) (assoc :script/description script-description)
                        (seq script-inject) (assoc :script/inject script-inject)
                        script-run-at (assoc :script/run-at script-run-at)
@@ -177,6 +178,7 @@
               script (cond-> {:script/name script-name
                               :script/match normalized-match
                               :script/code code
+                              :script/source :source/panel
                               :script/force? true}  ;; Force overwrite
                        (seq script-description) (assoc :script/description script-description)
                        (seq script-inject) (assoc :script/inject script-inject)

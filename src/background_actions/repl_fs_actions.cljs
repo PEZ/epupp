@@ -75,31 +75,7 @@
 ;; Action Implementations
 ;; ============================================================
 
-(defn- derive-match-from-manifest
-  "Extract :script/match from manifest, handling revocation.
 
-   When manifest is present, it's the source of truth:
-   - Has auto-run-match key -> use its value (even if empty)
-   - No auto-run-match key -> revoke (return empty vector)
-
-   When no manifest, returns nil to signal 'preserve existing'."
-  [code]
-  (let [manifest (try (mp/extract-manifest code) (catch :default _ nil))]
-    (if (some? manifest)
-      (let [found-keys (get manifest "found-keys")
-            has-auto-run-key? (some #(= % "epupp/auto-run-match") found-keys)]
-        (if has-auto-run-key?
-          ;; Manifest declares auto-run-match, use its value
-          (let [raw-match (get manifest "auto-run-match")]
-            (cond
-              (nil? raw-match) []
-              (string? raw-match) (if (empty? raw-match) [] [raw-match])
-              (array? raw-match) (vec raw-match)
-              :else []))
-          ;; No auto-run-match key = explicit revocation
-          []))
-      ;; No manifest = preserve existing (return nil as signal)
-      nil)))
 
 (defn script->base-info
   "Build consistent base info map from script record.
@@ -256,7 +232,11 @@
                     ;; New script
                     :else
                     (script-utils/generate-script-id))
-        script (assoc script :script/id script-id)
+        ;; Use incoming :script/source if provided, otherwise default to :source/repl
+        source (or (:script/source script) :source/repl)
+        script (assoc script
+                      :script/id script-id
+                      :script/source source)
         ;; For update checks below, use the matched script
         existing-by-id (or existing-by-id
                            (when (and force? existing-by-name) existing-by-name)
@@ -298,23 +278,19 @@
       :else
       (let [;; Remove transient flags before storing
             clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
-            ;; Extract match from manifest (handles revocation)
-            manifest-match (derive-match-from-manifest (:script/code clean-script))
-            ;; Apply manifest-derived match if present, preserving existing otherwise
-            script-with-match (if (some? manifest-match)
-                                (assoc clean-script :script/match manifest-match)
-                                clean-script)
+            ;; Apply all manifest-derived fields (match, description, run-at, inject)
+            script-with-derived-fields (script-utils/derive-script-fields clean-script manifest)
             ;; Determine enabled state based on match
-            has-auto-run? (seq (:script/match script-with-match))
+            has-auto-run? (seq (:script/match script-with-derived-fields))
             ;; For updates: merge with existing, preserve enabled state
             ;; For creates: default to disabled (new user scripts always start disabled)
             merged-script (if is-update?
                             (-> existing-by-id
-                                (merge (dissoc script-with-match :script/enabled))
+                                (merge (dissoc script-with-derived-fields :script/enabled))
                                 ;; When revoking auto-run (has manifest, no match), disable
-                                (cond-> (and (some? manifest-match) (not has-auto-run?))
+                                (cond-> (and (some? manifest) (not has-auto-run?))
                                   (assoc :script/enabled false)))
-                            (update script-with-match :script/enabled #(if (some? %) % false)))
+                            (update script-with-derived-fields :script/enabled #(if (some? %) % false)))
             ;; Add timestamps
             timestamped-script (if is-update?
                                  (assoc merged-script :script/modified now-iso)
@@ -328,16 +304,11 @@
                               (let [filtered (if (and force? existing-by-name)
                                                (remove-script-from-list scripts (:script/id existing-by-name))
                                                scripts)]
-                                (conj filtered timestamped-script)))
-            ;; For response: derive ALL manifest fields (description, run-at, inject, etc.)
-            ;; Storage only persists non-derived fields, but response needs full info
-            manifest (try (mp/extract-manifest (:script/code timestamped-script))
-                          (catch :default _ nil))
-            response-script (script-utils/derive-script-fields timestamped-script manifest)]
+                                (conj filtered timestamped-script)))]
         (make-success-response updated-scripts "save" script-name
-                               {:event-data (cond-> {:script-id script-id}
+                               {:event-data (cond-> {:script-id script-id
+                                                     :created (not is-update?)}
                                               (some? bulk-id) (assoc :bulk-id bulk-id)
                                               (some? bulk-index) (assoc :bulk-index bulk-index)
                                               (some? bulk-count) (assoc :bulk-count bulk-count))
-                                :response-data (merge (script->base-info response-script)
-                                                      {:fs/newly-created? (not is-update?)})})))))
+                                :response-data (script->base-info timestamped-script)})))))

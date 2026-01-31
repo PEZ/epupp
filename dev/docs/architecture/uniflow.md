@@ -201,7 +201,7 @@ Actions receive `uf-data` with framework-provided context. Generate it with proj
 ```clojure
 (defn- make-uf-data []
   {:config/deps-string (.-depsString config)
-   :config/allowed-origins (or (.-allowedScriptOrigins config) [])})
+   :config/installer-site-patterns (or (.-installerSitePatterns config) [])})
 
 (defn dispatch! [actions]
   (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))

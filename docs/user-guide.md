@@ -30,7 +30,7 @@ The alert appears. That's ClojureScript running in the page context.
 
 ### Install Example Scripts
 
-The built-in **Gist Installer** lets you install scripts from GitHub Gists. A few examples to try:
+The built-in **Web Userscript Installer** lets you install scripts from code-hosting sites like GitHub Gists. A few examples to try:
 
 Very silly examples...
 
@@ -283,7 +283,7 @@ Within each section: user scripts alphabetically, then built-in scripts (grey bo
 
 ### Built-in Scripts
 
-Epupp includes the **Gist Installer** for installing scripts from GitHub Gists. Built-in scripts:
+Epupp includes the **Web Userscript Installer** for installing scripts from code-hosting sites. Built-in scripts:
 - Have a grey left border and cube icon
 - Cannot be deleted
 - Can be inspected (eye icon) but not modified
@@ -387,13 +387,14 @@ Use `epupp/manifest!`:
 
 Access settings from the gear icon in the popup.
 
-### Custom Origins
+### Web Installer Sites
 
-The Gist Installer only works on allowed origins. By default:
-- `https://gist.github.com`
-- `https://gist.githubusercontent.com`
+The Web Userscript Installer runs on configured site patterns. By default:
+- `https://gist.github.com/*`
+- `https://gitlab.com/*`
+- `https://codeberg.org/*`
 
-Add custom origins if you host gists elsewhere.
+Add custom glob patterns to extend the installer to other code-hosting sites. For example, `https://git.example.com/*` would enable the installer on your company's GitLab instance.
 
 ### Auto-Connect REPL
 

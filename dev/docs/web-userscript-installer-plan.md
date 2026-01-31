@@ -260,8 +260,8 @@ Change:
 - Description text to explain the new purpose
 - Format hint to show glob pattern format
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 3.2 Change validation to glob patterns
 Location: `src/popup_utils.cljs`
@@ -271,8 +271,8 @@ Update `valid-origin?` to validate glob patterns instead of URL prefixes:
 - Must contain `*` (it's a glob pattern)
 - Or be a complete URL (for exact match)
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 3.3 Update installer registration on pattern change
 Location: `src/popup.cljs` or `src/background.cljs`
@@ -284,8 +284,8 @@ When user adds/removes a pattern:
 
 This reuses existing registration infrastructure - no special injection mechanism needed.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 3.4 Update config defaults
 Location: `config/*.edn`
@@ -304,8 +304,8 @@ Also update all references to `allowedScriptOrigins` in:
 - `src/storage.cljs`
 - Any tests
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 ---
 
@@ -316,8 +316,8 @@ Location: `test-data/pages/mock-gist.html`
 
 Ensure mock page works with new DOM-based extraction.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 4.2 Update existing E2E tests
 Location: `e2e/userscript_test.cljs`
@@ -327,7 +327,7 @@ Update tests to:
 - Test DOM-based installation
 - Remove URL-fetch-related assertions
 
-- [ ] addressed in code
+- [x] addressed in code
 - [ ] verified by tests
 
 #### 4.3 Add E2E test for user pattern extension
@@ -335,7 +335,7 @@ Location: `e2e/settings_test.cljs` or `e2e/userscript_test.cljs`
 
 Test that adding a custom pattern makes installer run on a new page.
 
-- [ ] addressed in code
+- [x] addressed in code
 - [ ] verified by tests
 
 ---
@@ -350,16 +350,16 @@ Update:
 - Gist Installer references → Web Userscript Installer
 - Any URL-fetching references removed
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 5.2 Update architecture docs
 Location: `dev/docs/` as appropriate
 
 Document the new `:script/source` field and its semantics.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 ---
 

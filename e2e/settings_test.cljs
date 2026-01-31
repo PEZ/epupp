@@ -24,7 +24,7 @@
           (js-await (-> (expect settings-content) (.toBeVisible))))
 
         ;; Settings content renders with section titles (2 sections now)
-        (js-await (-> (expect (.locator popup ".settings-section-title:text(\"Allowed Userscript-install Base URLs\")"))
+        (js-await (-> (expect (.locator popup ".settings-section-title:text(\"Web Installer Sites\")"))
                       (.toBeVisible)))
 
         ;; Default origins list shows config origins

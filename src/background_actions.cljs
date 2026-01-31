@@ -204,15 +204,6 @@
     (let [[send-response] args]
       {:uf/fxs [[:msg/fx.e2e-get-test-events send-response]]})
 
-    :msg/ax.install-userscript
-    (let [[send-response manifest script-url] args
-          install-opts {:script-name (:script-name manifest)
-                        :auto-run-match (:auto-run-match manifest)
-                        :script-url script-url
-                        :description (:description manifest)}]
-      {:uf/fxs [[:uf/await :userscript/fx.install install-opts]
-                [:msg/fx.send-response send-response :uf/prev-result]]})
-
     :nav/ax.decide-connection
     (let [[context] args
           {:nav/keys [tab-id url]} context

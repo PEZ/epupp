@@ -100,25 +100,34 @@
         (.toBe 2))))
 
 ;; valid-origin? tests
+;; Note: valid-origin? validates Web Installer Site patterns (glob patterns or complete URLs)
 
-(defn- test-accepts-https-with-trailing-slash []
+(defn- test-accepts-glob-pattern-with-wildcard []
+  (-> (expect (popup-utils/valid-origin? "https://example.com/*"))
+      (.toBe true)))
+
+(defn- test-accepts-http-glob-pattern []
+  (-> (expect (popup-utils/valid-origin? "http://localhost/*"))
+      (.toBe true)))
+
+(defn- test-accepts-complex-glob-pattern []
+  (-> (expect (popup-utils/valid-origin? "https://gist.github.com/*/gist/*"))
+      (.toBe true)))
+
+(defn- test-accepts-complete-url-with-path []
+  (-> (expect (popup-utils/valid-origin? "https://example.com/some/page"))
+      (.toBe true)))
+
+(defn- test-rejects-url-without-wildcard-or-path []
   (-> (expect (popup-utils/valid-origin? "https://example.com/"))
-      (.toBe true)))
+      (.toBeFalsy)))
 
-(defn- test-accepts-http-with-trailing-slash []
-  (-> (expect (popup-utils/valid-origin? "http://localhost/"))
-      (.toBe true)))
-
-(defn- test-accepts-https-with-trailing-colon []
-  (-> (expect (popup-utils/valid-origin? "http://localhost:"))
-      (.toBe true)))
-
-(defn- test-rejects-url-without-trailing-slash-or-colon []
+(defn- test-rejects-url-without-trailing-slash []
   (-> (expect (popup-utils/valid-origin? "https://example.com"))
       (.toBeFalsy)))
 
 (defn- test-rejects-ftp-protocol []
-  (-> (expect (popup-utils/valid-origin? "ftp://example.com/"))
+  (-> (expect (popup-utils/valid-origin? "ftp://example.com/*"))
       (.toBeFalsy)))
 
 (defn- test-rejects-empty-string []
@@ -134,7 +143,7 @@
       (.toBeFalsy)))
 
 (defn- test-trims-whitespace-before-validation []
-  (-> (expect (popup-utils/valid-origin? "  https://example.com/  "))
+  (-> (expect (popup-utils/valid-origin? "  https://example.com/*  "))
       (.toBe true)))
 
 ;; origin-already-exists? tests
@@ -275,10 +284,12 @@
 
 (describe "valid-origin?"
           (fn []
-            (test "accepts https:// with trailing slash" test-accepts-https-with-trailing-slash)
-            (test "accepts http:// with trailing slash" test-accepts-http-with-trailing-slash)
-            (test "accepts https:// with trailing colon (port prefix)" test-accepts-https-with-trailing-colon)
-            (test "rejects URL without trailing slash or colon" test-rejects-url-without-trailing-slash-or-colon)
+            (test "accepts glob pattern with wildcard" test-accepts-glob-pattern-with-wildcard)
+            (test "accepts http:// glob pattern" test-accepts-http-glob-pattern)
+            (test "accepts complex glob pattern" test-accepts-complex-glob-pattern)
+            (test "accepts complete URL with path" test-accepts-complete-url-with-path)
+            (test "rejects URL without wildcard or path" test-rejects-url-without-wildcard-or-path)
+            (test "rejects URL without trailing slash" test-rejects-url-without-trailing-slash)
             (test "rejects ftp:// protocol" test-rejects-ftp-protocol)
             (test "rejects empty string" test-rejects-empty-string)
             (test "rejects nil" test-rejects-nil)

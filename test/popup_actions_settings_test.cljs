@@ -47,14 +47,14 @@
 
 (defn- ^:async test-add-origin-adds-valid-origin-and-triggers-effect []
   (let [state (-> initial-state
-                  (assoc :settings/new-origin "https://example.com/")
+                  (assoc :settings/new-origin "https://example.com/*")
                   (assoc :settings/user-origins [])
                   (assoc :settings/default-origins []))
         result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
         [fx-name origin] (first (:uf/fxs result))]
     ;; Should immediately add to list
     (-> (expect (first (:settings/user-origins (:uf/db result))))
-        (.toBe "https://example.com/"))
+        (.toBe "https://example.com/*"))
     ;; Should clear input
     (-> (expect (:settings/new-origin (:uf/db result)))
         (.toBe ""))
@@ -62,7 +62,7 @@
     (-> (expect fx-name)
         (.toBe :popup/fx.add-user-origin))
     (-> (expect origin)
-        (.toBe "https://example.com/"))))
+        (.toBe "https://example.com/*"))))
 
 (defn- ^:async test-add-origin-rejects-invalid-no-trailing-slash []
   (let [state (-> initial-state
@@ -77,7 +77,7 @@
     (-> (expect event-type)
         (.toBe "error"))
     (-> (expect message)
-        (.toBe "Must start with http:// or https:// and end with / or :"))))
+        (.toBe "Must start with http:// or https:// and contain * (glob pattern) or be a complete URL"))))
 
 (defn- ^:async test-add-origin-rejects-invalid-wrong-protocol []
   (let [state (-> initial-state
@@ -94,8 +94,8 @@
 
 (defn- ^:async test-add-origin-rejects-duplicate-in-user-list []
   (let [state (-> initial-state
-                  (assoc :settings/new-origin "https://existing.com/")
-                  (assoc :settings/user-origins ["https://existing.com/"])
+                  (assoc :settings/new-origin "https://example.com/*")
+                  (assoc :settings/user-origins ["https://example.com/*"])
                   (assoc :settings/default-origins []))
         result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
         [action event-type message _] (first (:uf/dxs result))]
@@ -109,9 +109,9 @@
 
 (defn- ^:async test-add-origin-rejects-duplicate-in-default-list []
   (let [state (-> initial-state
-                  (assoc :settings/new-origin "https://github.com/")
+                  (assoc :settings/new-origin "https://github.com/*")
                   (assoc :settings/user-origins [])
-                  (assoc :settings/default-origins ["https://github.com/"]))
+                  (assoc :settings/default-origins ["https://github.com/*"]))
         result (popup-actions/handle-action state uf-data [:popup/ax.add-origin])
         ;; Should dispatch error banner via :uf/dxs
         [action event-type message _] (first (:uf/dxs result))]
@@ -185,7 +185,7 @@
     (test "add-origin rejects duplicate in user list" test-add-origin-rejects-duplicate-in-user-list)
     (test "add-origin rejects duplicate in default list" test-add-origin-rejects-duplicate-in-default-list)
     (test "remove-origin removes and triggers effect" test-remove-origin-removes-and-triggers-effect)
-    
+
     ;; Auto-reconnect
     (test "load-auto-reconnect-setting triggers effect" test-load-auto-reconnect-setting-triggers-effect)
     (test "toggle-auto-reconnect-repl toggles true to false" test-toggle-auto-reconnect-repl-toggles-true-to-false)

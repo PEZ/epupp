@@ -54,7 +54,8 @@ See [architecture/state-management.md](architecture/state-management.md) for com
  :script/enabled true                      ; auto-run enabled flag
  :script/created "2026-01-02T..."          ; ISO timestamp
  :script/modified "2026-01-02T..."         ; ISO timestamp
- :script/builtin? false}                   ; built-in flag
+ :script/builtin? false                    ; built-in flag
+ :script/source :source/panel}             ; provenance (optional)
 ```
 
 **Derived on load (from manifest in `:script/code`):**
@@ -73,6 +74,23 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 - Vector of `scittle://` URLs for bundled Scittle ecosystem libraries
 - Dependencies are resolved automatically (e.g., `scittle://reagent.js` loads React)
 - See README for available libraries
+
+**`:script/source` provenance tracking:**
+
+Optional field tracking where a script originated. Storage preserves this value exactly as provided by the caller:
+
+| Source | Value | Set By |
+|--------|-------|--------|
+| DevTools panel | `:source/panel` | Panel save action |
+| REPL FS API | `:source/repl` | `epupp.fs/save!` calls |
+| Built-in scripts | `:source/built-in` | Built-in sync |
+| Web installer | URL string (e.g., `"https://gist.github.com/PEZ/abc123"`) | Web Userscript Installer |
+
+**Design rationale:**
+- Keywords for internal sources - simple, no extra data needed
+- URL string for web installs - retains provenance, useful for potential future update features
+- Optional field - scripts without `:script/source` work fine
+- Callers set source explicitly - storage never infers or modifies it
 
 Scripts specify timing via a manifest map at the top of the file:
 
@@ -156,16 +174,17 @@ The `grantedOrigins` storage key is retained for potential future use but curren
 
 ## Userscript Installation (from Page)
 
-Epupp supports installing userscripts from the page via a built-in installer
-script. The installer sends an `install-userscript` request through the content
-bridge. The background validates that the script URL starts with an allowed
-origin prefix and then fetches, parses, and saves the script.
+Epupp supports installing userscripts from the page via a built-in Web
+Userscript Installer script. The installer extracts code directly from DOM
+elements and sends a `save-script` request through the content bridge. The
+background validates the manifest and saves the script with source provenance.
 
-Allowed origins come from two sources:
-- Extension config (`allowedScriptOrigins`)
-- User-added origins in popup settings
+The installer's auto-run patterns come from two sources:
+- Manifest patterns in the installer script
+- User-added patterns in popup settings ("Web Installer Sites")
 
-This prevents arbitrary pages from installing scripts from untrusted origins.
+Users can extend the installer to work on any code-hosting site by adding glob
+patterns like `https://git.example.com/*`.
 
 ## Injection Timing
 

@@ -31,9 +31,9 @@
 ;; ============================================================
 
 (def ^:private bundled-builtins
-  [{:script/id "epupp-builtin-gist-installer"
-    :path "userscripts/epupp/gist_installer.cljs"
-    :name "epupp/gist_installer.cljs"}])
+  [{:script/id "epupp-builtin-web-userscript-installer"
+    :path "userscripts/epupp/web_userscript_installer.cljs"
+    :name "epupp/web_userscript_installer.cljs"}])
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
@@ -193,7 +193,11 @@
    - Manifest without :epupp/auto-run-match → revoke auto-run (empty match, disabled)
    - No manifest in code → preserve existing match (allows code-only updates)
 
-   New scripts default to disabled for safety (built-in scripts always enabled)."
+   New scripts default to disabled for safety (built-in scripts always enabled).
+
+   Source tracking:
+   - Optional :script/source field preserved if provided
+   - Caller responsibility: panel passes :source/panel, REPL passes :source/repl, etc."
   [script]
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
@@ -266,12 +270,16 @@
                                                                                 (if (string? manifest-inject)
                                                                                   [manifest-inject]
                                                                                   (vec manifest-inject))))
+        ;; Preserve :script/source if provided (Batch A)
+        script-with-source (if-let [source (:script/source script)]
+                             (assoc script-with-manifest :script/source source)
+                             script-with-manifest)
         ;; Final script state
         updated-script (if existing
-                         (-> (merge existing script-with-manifest)
+                         (-> (merge existing script-with-source)
                              (assoc :script/enabled new-enabled)
                              (assoc :script/modified now))
-                         (-> script-with-manifest
+                         (-> script-with-source
                              (assoc :script/created now)
                              (assoc :script/modified now)
                              (assoc :script/enabled new-enabled)))]
@@ -445,7 +453,8 @@
         match (when manifest (if has-auto-run-key? (or manifest-match []) []))]
     (cond-> {:script/id (:script/id bundled)
              :script/code code
-             :script/builtin? true}
+             :script/builtin? true
+             :script/source :source/built-in}
       raw-name (assoc :script/name raw-name)
       (some? match) (assoc :script/match match)
       (some? run-at) (assoc :script/run-at run-at)

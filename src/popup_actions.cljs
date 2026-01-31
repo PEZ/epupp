@@ -89,22 +89,26 @@
           user-origins (:settings/user-origins state)]
       (cond
         (not (popup-utils/valid-origin? origin))
-        {:uf/dxs [[:popup/ax.show-system-banner "error" "Must start with http:// or https:// and end with / or :" {}]]}
+        {:uf/dxs [[:popup/ax.show-system-banner "error" "Must start with http:// or https:// and contain * (glob pattern) or be a complete URL" {}]]}
 
         (popup-utils/origin-already-exists? origin default-origins user-origins)
         {:uf/dxs [[:popup/ax.show-system-banner "error" "Origin already exists" {}]]}
 
         :else
-        {:uf/db (-> state
-                    (update :settings/user-origins conj origin)
-                    (assoc :settings/new-origin ""))
-         :uf/fxs [[:popup/fx.add-user-origin origin]]}))
+        (let [updated-user-origins (conj user-origins origin)]
+          {:uf/db (-> state
+                      (assoc :settings/user-origins updated-user-origins)
+                      (assoc :settings/new-origin ""))
+           :uf/fxs [[:popup/fx.add-user-origin origin]
+                    [:popup/fx.update-installer-patterns updated-user-origins]]})))
 
     :popup/ax.remove-origin
     ;; Simple remove - shadow watcher handles animation
-    (let [[origin] args]
-      {:uf/db (update state :settings/user-origins (fn [origins] (filterv (fn [o] (not= o origin)) origins)))
-       :uf/fxs [[:popup/fx.remove-user-origin origin]]})
+    (let [[origin] args
+          updated-user-origins (filterv (fn [o] (not= o origin)) (:settings/user-origins state))]
+      {:uf/db (assoc state :settings/user-origins updated-user-origins)
+       :uf/fxs [[:popup/fx.remove-user-origin origin]
+                [:popup/fx.update-installer-patterns updated-user-origins]]})
 
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}

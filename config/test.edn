@@ -6,12 +6,10 @@
 {:dev true
  :test true  ; <-- Enables structured test logging to chrome.storage.local
  :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"
- ;; Allowed URL prefixes for userscript installation
- ;; Each entry is a prefix that script URLs must start with
- :allowedScriptOrigins ["https://github.com/"
-                        "https://gist.github.com/"
-                        "https://raw.githubusercontent.com/"
-                        "https://gitlab.com/"
-                        "https://codeberg.org/"
-                        "http://localhost:"
-                        "http://127.0.0.1:"]}
+ ;; URL patterns where the Web Userscript Installer will auto-run
+ ;; Use glob patterns (e.g., https://example.com/*) or exact URLs
+ :installerSitePatterns ["https://gist.github.com/*"
+                         "https://gitlab.com/*"
+                         "https://codeberg.org/*"
+                         "http://localhost:*"
+                         "http://127.0.0.1:*"]}

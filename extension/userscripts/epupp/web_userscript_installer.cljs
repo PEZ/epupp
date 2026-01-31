@@ -1,17 +1,15 @@
-{:epupp/script-name "epupp/gist_installer.cljs"
+{:epupp/script-name "epupp/web_userscript_installer.cljs"
  :epupp/auto-run-match ["https://gist.github.com/*"
                         "http://localhost:18080/mock-gist.html"]
- :epupp/description "Adds Install buttons to Epupp userscripts on GitHub Gists"
+ :epupp/description "Web Userscript Installer. Finds userscripts on web pages, and adds a button to install the script into Epupp"
  :epupp/inject ["scittle://replicant.js"]}
 
-;; Epupp Gist Installer - Runs in Scittle on GitHub gist pages
+;; Epupp Web Userscript Installer
 ;;
-;; This userscript scans gist code blocks for install manifests,
-;; adds Install buttons, and sends parsed data to the extension.
-;;
-;; Uses Replicant for declarative UI rendering.
+;; This userscript scans code blocks for Epupp userscript manifests,
+;; adds Install buttons, which installs the script into the extension.
 
-(ns epupp.gist-installer
+(ns epupp.web-userscript-installer
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [replicant.dom :as r]))
@@ -53,7 +51,7 @@
     (let [form (edn/read-string code-text)]
       (when (map? form) form))
     (catch :default e
-      (js/console.error "[Gist Installer] Parse error:" e)
+      (js/console.error "[Web Userscript Installer] Parse error:" e)
       nil)))
 
 (defn has-manifest?
@@ -95,12 +93,7 @@
         line-array (js/Array.from lines)]
     (str/join "\n" (map #(.-textContent %) line-array))))
 
-(defn get-gist-raw-url
-  "Extract the raw gist URL from the Raw button link"
-  [file-container]
-  (when-let [file-actions (.querySelector file-container ".file-actions")]
-    (when-let [raw-link (.querySelector file-actions "a[href*='/raw/']")]
-      (.-href raw-link))))
+
 
 ;; ============================================================
 ;; State management
@@ -127,22 +120,28 @@
 ;; Extension communication
 ;; ============================================================
 
-(defn send-install-request!
-  "Send install request to extension via postMessage"
-  [manifest script-url callback]
-  (let [listener (fn listener [event]
+(defn send-save-request!
+  "Send save-script request to extension via postMessage.
+   Sends the code directly (no URL fetch) with the page URL as source."
+  [code callback]
+  (let [page-url js/window.location.href
+        request-id (str "save-" (.now js/Date) "-" (.random js/Math))
+        listener (fn listener [event]
                    (let [data (.-data event)]
                      (when (and (= (.-source data) "epupp-bridge")
-                                (= (.-type data) "install-response"))
+                                (= (.-type data) "save-script-response")
+                                (= (.-requestId data) request-id))
                        (.removeEventListener js/window "message" listener)
                        (callback #js {:success (.-success data)
                                       :error (.-error data)}))))]
     (.addEventListener js/window "message" listener)
     (.postMessage js/window
                   #js {:source "epupp-userscript"
-                       :type "install-userscript"
-                       :manifest (clj->js manifest)
-                       :scriptUrl script-url}
+                       :type "save-script"
+                       :requestId request-id
+                       :code code
+                       :scriptSource page-url
+                       :force true}
                   "*")))
 
 ;; ============================================================
@@ -178,9 +177,10 @@
      :error "Install Failed"
      "Install")])
 
-(defn render-modal [{:keys [id manifest raw-url]}]
+(defn render-modal [{:keys [id manifest code]}]
   (let [{:keys [script-name raw-script-name name-normalized?
-                auto-run-match description run-at run-at-invalid? raw-run-at]} manifest]
+                auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
+        page-url js/window.location.href]
     [:div.epupp-modal-overlay
      {:on {:click [:gist/overlay-click]}
       :style {:position "fixed" :top 0 :left 0 :right 0 :bottom 0
@@ -221,16 +221,16 @@
               "Invalid value \"" raw-run-at "\" - using default"]])]]]]
       [:p {:style {:margin "0 0 8px"}} [:strong "Source:"]]
       [:p {:style {:margin "0 0 16px"}}
-       [:code {:style {:word-break "break-all"}} raw-url]]
+       [:code {:style {:word-break "break-all"}} page-url]]
       [:p {:style {:color "#666" :font-size "14px" :margin-bottom "16px"}}
-       "This will download and install the script from the gist above."]
+       "This will install the script from this page."]
       [:div {:style {:display "flex" :gap "8px" :justify-content "flex-end"}}
        [:button#epupp-cancel {:on {:click [:gist/cancel-install]}
                               :style {:padding "6px 16px" :background "#f6f8fa"
                                       :border "1px solid #d0d7de" :border-radius "6px"
                                       :cursor "pointer"}}
         "Cancel"]
-       [:button#epupp-confirm {:on {:click [:gist/confirm-install id manifest raw-url]}
+       [:button#epupp-confirm {:on {:click [:gist/confirm-install id code]}
                                :style {:padding "6px 16px" :background "#2ea44f"
                                        :color "white" :border "1px solid rgba(27,31,36,0.15)"
                                        :border-radius "6px" :cursor "pointer"}}
@@ -265,12 +265,11 @@
       (swap! !state assoc :modal {:visible? false :gist-id nil})
 
       :gist/confirm-install
-      (let [[gist-id manifest raw-url] args]
+      (let [[gist-id code] args]
         (swap! !state assoc :modal {:visible? false :gist-id nil})
         (swap! !state update-gist-status gist-id :installing)
-        (send-install-request!
-         manifest
-         raw-url
+        (send-save-request!
+         code
          (fn [response]
            (swap! !state update-gist-status gist-id
                   (if (.-success response) :installed :error)))))
@@ -336,10 +335,10 @@
         (when-not (.-id container)
           (set! (.-id container) container-id))
         (when-let [manifest (extract-manifest code-text)]
-          (js/console.log "[Gist Installer] Found installable script:" (:script-name manifest))
+          (js/console.log "[Web Userscript Installer] Found installable script:" (:script-name manifest))
           (let [gist-data {:id container-id
                           :manifest manifest
-                          :raw-url (get-gist-raw-url container)
+                          :code code-text
                           :status :ready}]
             ;; Add to state
             (swap! !state update :gists conj gist-data)
@@ -347,11 +346,11 @@
             (attach-button-to-gist! container gist-data)))))))
 
 (defn init! []
-  (js/console.log "[Gist Installer] Initializing with Replicant...")
+  (js/console.log "[Web Userscript Installer] Initializing with Replicant...")
   (setup-ui!)
   (if (= js/document.readyState "loading")
     (.addEventListener js/document "DOMContentLoaded" scan-gist-files!)
     (scan-gist-files!))
-  (js/console.log "[Gist Installer] Ready"))
+  (js/console.log "[Web Userscript Installer] Ready"))
 
 (init!)

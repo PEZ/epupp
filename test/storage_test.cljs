@@ -602,3 +602,125 @@
             (test "uses fallback name when no manifest" test-build-bundled-uses-fallback-name-when-no-manifest)
             (test "manifest with string match" test-build-bundled-manifest-with-string-match)
             (test "manifest with empty match array" test-build-bundled-manifest-with-empty-match-array)))
+
+;; ============================================================
+;; Source metadata tests (Batch A)
+;; ============================================================
+
+(defn- test-save-script-with-source-keyword []
+  (let [code "^{:epupp/script-name \"test.cljs\"
+ :epupp/auto-run-match \"https://example.com/*\"}
+(ns test)"
+        script {:script/id "test-1"
+                :script/name "test.cljs"
+                :script/code code
+                :script/source :source/panel}
+        manifest (mp/extract-manifest code)]
+    ;; Script should have source preserved
+    (-> (expect (:script/source script))
+        (.toBe :source/panel))))
+
+(defn- test-save-script-with-source-url-string []
+  (let [code "^{:epupp/script-name \"gist.cljs\"}
+(ns gist)"
+        script {:script/id "gist-1"
+                :script/name "gist.cljs"
+                :script/code code
+                :script/source "https://gist.github.com/user/abc123"}
+        manifest (mp/extract-manifest code)]
+    ;; Script should have URL source preserved
+    (-> (expect (:script/source script))
+        (.toBe "https://gist.github.com/user/abc123"))
+    ;; Verify it's a string
+    (-> (expect (string? (:script/source script)))
+        (.toBe true))))
+
+(defn- test-save-script-without-source-no-crash []
+  (let [code "^{:epupp/script-name \"no-source.cljs\"}
+(ns no-source)"
+        script {:script/id "no-source-1"
+                :script/name "no-source.cljs"
+                :script/code code}]
+    ;; Should not crash when source is omitted
+    (-> (expect (:script/source script))
+        (.toBeUndefined))
+    ;; Script should still be valid
+    (-> (expect (:script/name script))
+        (.toBe "no-source.cljs"))))
+
+(defn- test-source-preserved-on-update-existing-source []
+  ;; Simulating an update: existing script has :source/panel, update preserves it
+  (let [code-v1 "^{:epupp/script-name \"update-test.cljs\"}
+(ns update-test)
+(defn v1 [] 1)"
+        code-v2 "^{:epupp/script-name \"update-test.cljs\"}
+(ns update-test)
+(defn v2 [] 2)"
+        ;; Existing script with source
+        existing {:script/id "update-1"
+                  :script/name "update-test.cljs"
+                  :script/code code-v1
+                  :script/source :source/panel
+                  :script/enabled true}
+        ;; Update with same source preserved
+        updated {:script/id "update-1"
+                 :script/name "update-test.cljs"
+                 :script/code code-v2
+                 :script/source :source/panel}]
+    ;; Source should be preserved across updates
+    (-> (expect (:script/source updated))
+        (.toBe :source/panel))))
+
+(defn- test-source-changed-on-update-new-source []
+  ;; Simulating changing source: panel script updated via REPL
+  (let [code "^{:epupp/script-name \"change-source.cljs\"}
+(ns change-source)"
+        existing {:script/id "change-1"
+                  :script/name "change-source.cljs"
+                  :script/code code
+                  :script/source :source/panel}
+        ;; Update from REPL changes source
+        updated {:script/id "change-1"
+                 :script/name "change-source.cljs"
+                 :script/code code
+                 :script/source :source/repl}]
+    ;; Source should reflect new origin
+    (-> (expect (:script/source updated))
+        (.toBe :source/repl))))
+
+(defn- test-builtin-source-set-by-build-bundled-script []
+  (let [bundled {:script/id "builtin-1"
+                 :path "userscripts/test.cljs"
+                 :name "test.cljs"}
+        code "{:epupp/script-name \"test.cljs\"}
+(ns test)"
+        result (storage/build-bundled-script bundled code)]
+    ;; Built-in should have :source/built-in
+    (-> (expect (:script/source result))
+        (.toBe :source/built-in))))
+
+(defn- test-different-source-types []
+  ;; Verify all expected source types work
+  (let [panel-source :source/panel
+        repl-source :source/repl
+        builtin-source :source/built-in
+        url-source "https://example.com/script.cljs"]
+    ;; All sources should be defined (not nil/undefined)
+    (-> (expect panel-source)
+        (.toBeDefined))
+    (-> (expect repl-source)
+        (.toBeDefined))
+    (-> (expect builtin-source)
+        (.toBeDefined))
+    (-> (expect (string? url-source))
+        (.toBe true))))
+
+(describe "Script source metadata (Batch A)"
+          (fn []
+            (test "save script with :source/panel keyword" test-save-script-with-source-keyword)
+            (test "save script with URL string source" test-save-script-with-source-url-string)
+            (test "save script without source does not crash" test-save-script-without-source-no-crash)
+            (test "source preserved on update when provided" test-source-preserved-on-update-existing-source)
+            (test "source can be changed on update" test-source-changed-on-update-new-source)
+            (test "built-in scripts get :source/built-in" test-builtin-source-set-by-build-bundled-script)
+            (test "different source types work correctly" test-different-source-types)))

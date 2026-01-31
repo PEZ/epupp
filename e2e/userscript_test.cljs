@@ -245,7 +245,7 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Wait for gist installer to exist in storage by id with non-empty code
+        ;; Wait for web userscript installer to exist in storage by id with non-empty code
         ;; Poll using .evaluate loop - same pattern as wait-for-event
         (let [start (.now js/Date)
               timeout-ms 5000]
@@ -256,14 +256,14 @@
                                                                      (.get js/chrome.storage.local #js ["scripts"]
                                                                            (fn [result] (resolve result))))))))
                   scripts (.-scripts storage-data)
-                  gist-installer (when scripts
-                                   (.find scripts (fn [s]
-                                                    (= (.-id s) "epupp-builtin-gist-installer"))))
-                  has-code (and gist-installer
-                                (.-code gist-installer)
-                                (pos? (.-length (.-code gist-installer))))]
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
               (if has-code
-                (js/console.log "Gist installer re-installed with code")
+                (js/console.log "Web Userscript Installer re-installed with code")
                 (if (> (- (.now js/Date) start) timeout-ms)
                   (throw (js/Error. "Timeout waiting for gist installer with code"))
                   (do
@@ -343,16 +343,16 @@
                                                                      (.get js/chrome.storage.local #js ["scripts"]
                                                                            (fn [result] (resolve result))))))))
                   scripts (.-scripts storage-data)
-                  gist-installer (when scripts
-                                   (.find scripts (fn [s]
-                                                    (= (.-id s) "epupp-builtin-gist-installer"))))
-                  has-code (and gist-installer
-                                (.-code gist-installer)
-                                (pos? (.-length (.-code gist-installer))))]
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
               (if has-code
-                (js/console.log "Gist installer re-installed with code")
+                (js/console.log "Web Userscript Installer re-installed with code")
                 (if (> (- (.now js/Date) start) timeout-ms)
-                  (throw (js/Error. "Timeout waiting for gist installer with code"))
+                  (throw (js/Error. "Timeout waiting for web userscript installer with code"))
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
@@ -413,6 +413,124 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_web_installer_user_pattern_extension []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and wait for built-in web installer to be re-installed
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Wait for web userscript installer to be reinstalled
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
+              (if has-code
+                (js/console.log "Web Userscript Installer ready for pattern test")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for web userscript installer"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                    (recur)))))))
+
+        ;; Navigate to Settings section
+        (js/console.log "Navigating to Settings...")
+        (let [settings-link (.locator popup "a:has-text(\"Settings\")")]
+          (js-await (.click settings-link)))
+
+        ;; Add a custom pattern to extend installer to basic.html
+        (js/console.log "Adding custom pattern...")
+        (let [custom-pattern "http://localhost:18080/basic.html"
+              pattern-input (.locator popup "#new-origin")
+              add-button (.locator popup "button:has-text(\"Add\")")]
+          (js-await (.fill pattern-input custom-pattern))
+          (js-await (.click add-button))
+          (js/console.log "Pattern added, waiting for update..."))
+
+        ;; Wait a moment for storage update to propagate
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+
+        ;; Verify installer script's match patterns were updated in storage
+        (let [storage-data (js-await (.evaluate popup
+                                                (fn []
+                                                  (js/Promise. (fn [resolve]
+                                                                 (.get js/chrome.storage.local #js ["scripts"]
+                                                                       (fn [result] (resolve result))))))))
+              scripts (.-scripts storage-data)
+              installer (when scripts
+                          (.find scripts (fn [s]
+                                           (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+              match-patterns (when installer (.-match installer))]
+          (js/console.log "Installer match patterns:" match-patterns)
+          ;; Verify custom pattern is in the match list
+          (js-await (-> (expect match-patterns)
+                        (.toBeDefined)))
+          (js-await (-> (expect (.includes match-patterns "http://localhost:18080/basic.html"))
+                        (.toBe true))))
+
+        (js-await (.close popup)))
+
+      ;; Now navigate to basic.html and inject code block structure
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Basic.html loaded")
+
+        ;; Inject a gist-like code block structure with installable script
+        (js-await (.evaluate page
+                             (fn []
+                               (let [container (js/document.createElement "div")]
+                                 (set! (.-className container) "file")
+                                 (set! (.-id container) "test-code-block")
+                                 (set! (.-innerHTML container)
+                                       "<div class=\"file-header\">
+                                          <span class=\"gist-blob-name\">test.cljs</span>
+                                        </div>
+                                        <div class=\"blob-wrapper\">
+                                          <table class=\"highlight\">
+                                            <tbody>
+                                              <tr><td class=\"blob-code\"><span class=\"js-file-line\">{:epupp/script-name \"Pattern Test Script\"</span></td></tr>
+                                              <tr><td class=\"blob-code\"><span class=\"js-file-line\"> :epupp/auto-run-match \"*://test.example.com/*\"}</span></td></tr>
+                                              <tr><td class=\"blob-code\"><span class=\"js-file-line\">(ns pattern-test)</span></td></tr>
+                                              <tr><td class=\"blob-code\"><span class=\"js-file-line\">(js/console.log \"Pattern test\")</span></td></tr>
+                                            </tbody>
+                                          </table>
+                                        </div>")
+                                 (.appendChild js/document.body container)))))
+
+        (js/console.log "Code block injected, waiting for Install button...")
+
+        ;; Wait for the installer to add Install button
+        (let [install-btn (.locator page "#test-code-block button:has-text(\"Install\")")]
+          (js-await (-> (expect install-btn)
+                        (.toBeVisible #js {:timeout 10000})))
+          (js/console.log "Install button appeared on custom pattern page!"))
+
+        (js-await (.close page)))
+
+      ;; Verify no errors
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Userscript"
            (fn []
              (test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
@@ -430,4 +548,6 @@
              (test "Userscript: gist installer shows Install button and installs script"
                    test_gist_installer_shows_button_and_installs)
              (test "Userscript: gist installer installs manual-only script"
-                   test_gist_installer_manual_only_script)))
+                   test_gist_installer_manual_only_script)
+             (test "Userscript: web installer extends to custom user patterns"
+                   test_web_installer_user_pattern_extension)))

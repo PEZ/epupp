@@ -305,59 +305,6 @@
               (resolve (str (.-wsPort saved)))
               (resolve "1340"))))))))) ; default ws port
 
-(defn- allowed-script-origins
-  "Get the merged list of allowed origins from config and user storage"
-  []
-  (concat (or (.-allowedScriptOrigins config) [])
-          (storage/get-user-allowed-origins)))
-
-(defn- url-origin-allowed?
-  "Check if a URL starts with any allowed origin prefix"
-  [url]
-  (bg-utils/url-origin-allowed? url (allowed-script-origins)))
-
-(defn ^:async install-userscript!
-  "Install a userscript from a URL. Validates that the URL is from an allowed origin.
-   Name is normalized for uniqueness. Updates existing script with same name.
-   auto-run-match is optional - nil means manual-only script."
-  [dispatch! {:keys [script-name auto-run-match script-url description]}]
-  (when (nil? script-name)
-    (throw (js/Error. "Missing scriptName")))
-  (when (nil? script-url)
-    (throw (js/Error. "Missing script URL")))
-  (when-not (url-origin-allowed? script-url)
-    (throw (js/Error. (str "Script URL not from allowed origin. Allowed: " (vec (allowed-script-origins))))))
-  (js-await (ensure-initialized! dispatch!))
-  (let [code (js-await (fetch-text! script-url))
-        name-error (script-utils/validate-script-name script-name)
-        normalized-name (script-utils/normalize-script-name script-name)
-        ;; Extract run-at from code manifest (more reliable than passed manifest)
-        code-manifest (try
-                        (manifest-parser/extract-manifest code)
-                        (catch :default _e nil))
-        run-at (or (get code-manifest "run-at")
-                   script-utils/default-run-at)
-        ;; Check if script with this name already exists
-        existing-by-name (storage/get-script-by-name normalized-name)
-        ;; Use existing ID if updating, otherwise generate new one
-        script-id (if existing-by-name
-                    (:script/id existing-by-name)
-                    (script-utils/generate-script-id))]
-    (when name-error
-      (throw (js/Error. name-error)))
-    ;; Check for built-in protection
-    (when (and existing-by-name (script-utils/builtin-script? existing-by-name))
-      (throw (js/Error. (str "Cannot overwrite built-in script: " normalized-name))))
-    ;; Create or update script - save-script! handles update vs create based on ID
-    (let [script (cond-> {:script/id script-id
-                          :script/name normalized-name
-                          :script/match (script-utils/normalize-match-patterns auto-run-match)
-                          :script/code code
-                          :script/run-at run-at
-                          :script/enabled true}
-                   (seq description) (assoc :script/description description))]
-      (js-await (storage/save-script! script)))))
-
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.
    Find matching scripts and execute them.
@@ -441,6 +388,7 @@
                              (let [code (.-code message)
                                    enabled (if (some? (.-enabled message)) (.-enabled message) true)
                                    force? (.-force message)
+                                   script-source (.-scriptSource message)
                                    bulk-id (.-bulkId message)
                                    bulk-index (.-bulkIndex message)
                                    bulk-count (.-bulkCount message)]
@@ -475,6 +423,7 @@
                                                            :script/enabled enabled
                                                            :script/run-at run-at
                                                            :script/force? force?}
+                                                    (some? script-source) (assoc :script/source script-source)
                                                     (some? bulk-id) (assoc :script/bulk-id bulk-id)
                                                     (some? bulk-index) (assoc :script/bulk-index bulk-index)
                                                     (some? bulk-count) (assoc :script/bulk-count bulk-count))]
@@ -675,14 +624,37 @@
                           (send-response #js {:success false :error "Not available"})
                           false))
 
-                      "install-userscript"
-                      ;; Manifest already parsed by the installer userscript using Scittle
-                      ;; scriptUrl is the raw URL to fetch the script from
-                      ;; In Squint, keywords work as accessors on JS objects with string keys
-                      (let [manifest (.-manifest message)
-                            script-url (.-scriptUrl message)]
-                        (dispatch! [[:msg/ax.install-userscript send-response manifest script-url]])
-                        true)
+                      ;; Popup - update installer patterns when user changes allowed sites
+                      "update-installer-patterns"
+                      (do
+                        ((^:async fn []
+                           (try
+                             ;; Get the installer script
+                             (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
+                               (if installer
+                                 (let [;; Extract manifest patterns from installer code
+                                       code (:script/code installer)
+                                       manifest (manifest-parser/extract-manifest code)
+                                       manifest-patterns (when manifest
+                                                          (let [raw (aget manifest "auto-run-match")]
+                                                            (cond
+                                                              (vector? raw) raw
+                                                              (string? raw) [raw]
+                                                              :else [])))
+                                       ;; Get user patterns from message
+                                       user-patterns (vec (.-userPatterns message  []))
+                                       ;; Merge: manifest patterns ∪ user patterns
+                                       merged-patterns (vec (distinct (concat manifest-patterns user-patterns)))
+                                       ;; Update installer with merged patterns
+                                       updated-installer (assoc installer :script/match merged-patterns)]
+                                   ;; Save the updated installer (will trigger sync-registrations via storage.onChanged)
+                                   (js-await (storage/save-script! updated-installer))
+                                   (send-response #js {:success true}))
+                                 (send-response #js {:success false :error "Installer script not found"})))
+                             (catch :default err
+                               (log/error "Background" nil "Failed to update installer patterns:" err)
+                               (send-response #js {:success false :error (.-message err)})))))
+                        true) ; Async response
 
                       ;; Panel messages - ensure Scittle is loaded
                       "ensure-scittle"
@@ -936,15 +908,6 @@
       ((^:async fn []
          (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
          (js-await (bg-inject/execute-scripts! tab-id [script])))))
-
-    :userscript/fx.install
-    (let [[install-opts] args]
-      (try
-        (let [saved (js-await (install-userscript! dispatch! install-opts))]
-          {:success true :saved saved})
-        (catch :default err
-          (log/error "Background" "Install" "Install failed:" err)
-          {:success false :error (.-message err)})))
 
     ;; Navigation effects for gather-then-decide pattern
 

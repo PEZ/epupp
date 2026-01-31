@@ -102,21 +102,21 @@ This document identifies every "API" in Epupp - both obvious and subtle - that e
 **Page-initiated userscript installation from allowed origins.**
 
 **Location:** [src/background.cljs](../../src/background.cljs) - `install-userscript` handler
-**Triggered by:** Page sending `install-userscript` message via content bridge
-**Consumers:** Installer scripts (e.g., GitHub Gist installer)
+**Triggered by:** Page sending `save-script` message via content bridge
+**Consumers:** Web Userscript Installer (extracts code from DOM)
 
 **Message shape:**
 ```javascript
 {
-  type: "install-userscript",
-  source: "epupp-userscript",
-  manifest: {...},
-  scriptUrl: "https://gist.github.com/..."
+  type: "save-script",
+  code: "...",  // Script code (from DOM element)
+  source: "https://gist.github.com/..."  // Page URL for provenance
 }
 ```
 
-**URL validation:**
-- Must start with prefix from `allowedScriptOrigins` (config) OR user-added origins
+**Site patterns:**
+- Installer auto-runs on sites matching `installerSitePatterns` (config) OR user-added patterns
+- Uses glob patterns (e.g., `https://example.com/*`) or exact URLs
 - Dev config: GitHub, GitLab, Codeberg, localhost
 - Prod config: GitHub, GitLab, Codeberg only
 
@@ -445,24 +445,22 @@ Key differences:
 ```clojure
 {:dev true/false
  :depsString "{:deps {...}}"  ; Babashka deps string for browser-nrepl
- :allowedScriptOrigins ["https://github.com/" ...]
+ :installerSitePatterns ["https://gist.github.com/*" ...]
 }
 ```
 
-**Allowed script origins (prod):**
-- `https://github.com/`
-- `https://gist.github.com/`
-- `https://raw.githubusercontent.com/`
-- `https://gitlab.com/`
-- `https://codeberg.org/`
+**Installer site patterns (prod):**
+- `https://gist.github.com/*`
+- `https://gitlab.com/*`
+- `https://codeberg.org/*`
 
 **Dev adds:**
 - `http://localhost:*`
 - `http://127.0.0.1:*`
 
-**Stability:** MEDIUM - Origins list will grow
+**Stability:** MEDIUM - Pattern list will grow
 **Versioning:** None
-**Volatile aspects:** New config keys will be added without warning
+**Volatile aspects:** New patterns will be added without warning
 
 ---
 
@@ -662,7 +660,7 @@ Key differences:
 
 ### Medium (May Evolve, But Used)
 
-1. **Build config** - `allowedScriptOrigins`
+1. **Build config** - `installerSitePatterns`
 2. **Panel persistence** - Per-hostname state
 3. **Name normalization** - Script naming rules
 4. **Library loading** - `epupp.repl/manifest!`

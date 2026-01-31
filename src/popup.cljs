@@ -244,7 +244,7 @@
        (let [user-origins (if (.-userAllowedOrigins result)
                             (vec (.-userAllowedOrigins result))
                             [])
-             default-origins (or (.-allowedScriptOrigins config) [])]
+             default-origins (or (.-installerSitePatterns config) [])]
          (dispatch [[:db/ax.assoc
                      :settings/user-origins user-origins
                      :settings/default-origins (vec default-origins)]]))))
@@ -311,6 +311,16 @@
     :popup/fx.save-fs-sync-setting
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
+
+    :popup/fx.update-installer-patterns
+    ;; Update Web Userscript Installer's match patterns with merged user+manifest patterns
+    (let [[user-patterns] args]
+      (js/chrome.runtime.sendMessage
+       #js {:type "update-installer-patterns"
+            :userPatterns (clj->js user-patterns)}
+       (fn [response]
+         (when (and response (not (.-success response)))
+           (log/warn "Popup" nil "Failed to update installer patterns:" (.-error response))))))
 
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
@@ -438,7 +448,7 @@
 
 (defn- make-uf-data []
   {:config/deps-string (.-depsString config)
-   :config/allowed-origins (or (.-allowedScriptOrigins config) [])})
+   :config/allowed-origins (or (.-installerSitePatterns config) [])})
 
 (defn dispatch! [actions]
   (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))
@@ -739,10 +749,10 @@
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
    [:div.settings-section
-    [:h3.settings-section-title "Allowed Userscript-install Base URLs"]
+    [:h3.settings-section-title "Web Installer Sites"]
     [:p.section-description
-     "Scripts can only be installed from URLs that start with one of these prefixes. "
-     "Format: Must start with http:// or https:// and end with / or :"]
+     "URL patterns where the Web Userscript Installer will auto-run. "
+     "Use glob patterns (e.g., https://example.com/*) or exact URLs."]
     [default-origins-list default-origins]
     [user-origins-list origins-shadow]
     [add-origin-form {:value new-origin}]]
