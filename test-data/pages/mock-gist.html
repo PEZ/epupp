@@ -11,6 +11,12 @@
     .blob-wrapper { padding: 10px; }
     pre { margin: 0; font-family: monospace; white-space: pre-wrap; }
     code { display: block; }
+    /* GitHub gist style */
+    .file-header.d-flex { display: flex; justify-content: space-between; }
+    .file-info { flex: 1; }
+    table.js-file-line-container { width: 100%; border-collapse: collapse; font-family: monospace; }
+    td.blob-num { width: 50px; text-align: right; padding-right: 10px; color: #6e7681; user-select: none; }
+    td.blob-code { padding-left: 10px; white-space: pre; }
   </style>
 </head>
 <body>
@@ -67,6 +73,82 @@
 (ns manual-only-script)
 
 (js/console.log "Manual-only script loaded!")</code></pre>
+    </div>
+  </div>
+
+  <!-- ========================================
+       GitHub Gist Style Code Blocks (table-based)
+       ======================================== -->
+
+  <!-- GitHub-style installable gist -->
+  <div class="file" id="github-installable-gist">
+    <div class="file-header d-flex">
+      <div class="file-actions">
+        <a href="/raw/github_test_script.cljs">Raw</a>
+      </div>
+      <div class="file-info">
+        <strong class="gist-blob-name">github_test_script.cljs</strong>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <table class="js-file-line-container" data-tagsearch-path="github_test_script.cljs">
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="1"></td>
+          <td class="blob-code js-file-line">{:epupp/script-name "github_test_script.cljs"</td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="2"></td>
+          <td class="blob-code js-file-line"> :epupp/auto-run-match "*://github-test.example.com/*"</td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="3"></td>
+          <td class="blob-code js-file-line"> :epupp/description "A GitHub-style test script"}</td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="4"></td>
+          <td class="blob-code js-file-line"></td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="5"></td>
+          <td class="blob-code js-file-line">(ns github-test-script)</td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="6"></td>
+          <td class="blob-code js-file-line"></td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="7"></td>
+          <td class="blob-code js-file-line">(js/console.log "GitHub test script loaded!")</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- GitHub-style non-installable (no manifest) -->
+  <div class="file" id="github-non-installable">
+    <div class="file-header d-flex">
+      <div class="file-actions">
+        <a href="/raw/github_regular.cljs">Raw</a>
+      </div>
+      <div class="file-info">
+        <strong class="gist-blob-name">github_regular.cljs</strong>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <table class="js-file-line-container" data-tagsearch-path="github_regular.cljs">
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="1"></td>
+          <td class="blob-code js-file-line">(ns github-regular)</td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="2"></td>
+          <td class="blob-code js-file-line"></td>
+        </tr>
+        <tr>
+          <td class="blob-num js-line-number" data-line-number="3"></td>
+          <td class="blob-code js-file-line">(defn greet [] "Hello from GitHub")</td>
+        </tr>
+      </table>
     </div>
   </div>
 

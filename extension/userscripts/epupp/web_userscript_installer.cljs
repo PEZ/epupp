@@ -82,13 +82,64 @@
                                (not (contains? valid-run-at-values raw-run-at)))}))))
 
 ;; ============================================================
-;; DOM helpers
+;; DOM helpers - Multi-format code block detection
 ;; ============================================================
 
-(defn get-code-block-text
-  "Get text content from a code block (pre element)"
+;; Format types:
+;; - :pre - GitLab/generic <pre> elements
+;; - :github-table - GitHub gist table-based code
+
+(defn- get-pre-text
+  "Extract code text from pre element"
   [pre-element]
   (.-textContent pre-element))
+
+(defn- get-github-table-text
+  "Extract code text from GitHub gist table by joining all js-file-line cells"
+  [table-element]
+  (let [lines (.querySelectorAll table-element "td.js-file-line")]
+    (->> (js/Array.from lines)
+         (map #(.-textContent %))
+         (str/join "\n"))))
+
+(defn- detect-github-tables
+  "Find GitHub gist code tables, return array of {:element :format :code-text}"
+  []
+  (->> (.querySelectorAll js/document "table.js-file-line-container")
+       js/Array.from
+       (map (fn [el]
+              {:element el
+               :format :github-table
+               :code-text (get-github-table-text el)}))))
+
+(defn- detect-pre-elements
+  "Find generic pre elements, return array of {:element :format :code-text}"
+  []
+  (->> (.querySelectorAll js/document "pre")
+       js/Array.from
+       (map (fn [el]
+              {:element el
+               :format :pre
+               :code-text (get-pre-text el)}))))
+
+(defn- detect-all-code-blocks
+  "Detect all code blocks on page. Returns seq of {:element :format :code-text}"
+  []
+  ;; GitHub tables first (more specific), then generic pre elements
+  (concat (detect-github-tables) (detect-pre-elements)))
+
+(defn- get-github-button-container
+  "Get the .file-actions container for GitHub gist button placement"
+  [table-element]
+  (when-let [file-div (.closest table-element ".file")]
+    (.querySelector file-div ".file-actions")))
+
+(defn get-code-block-text
+  "Get text content from a code block info map (for backward compatibility)"
+  [block-info-or-element]
+  (if (map? block-info-or-element)
+    (:code-text block-info-or-element)
+    (.-textContent block-info-or-element)))
 
 
 
@@ -479,39 +530,60 @@
 ;; Gist scanning and initialization
 ;; ============================================================
 
-(defn attach-button-to-block! [pre-element block-data]
-  ;; Check if button container already exists (idempotency)
-  ;; Use aget for property access (Scittle doesn't support .-previousElementSibling)
-  (let [existing-btn (aget pre-element "previousElementSibling")]
-    (when-not (and existing-btn
-                   (= (aget existing-btn "className") "epupp-btn-container"))
-      (let [btn-container (js/document.createElement "div")
-            parent (.-parentElement pre-element)]
-        (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.insertBefore parent btn-container pre-element)
-        ;; Track container for re-renders
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
-        ;; Initial button render with error handling
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (js/console.log "[Web Userscript Installer] Replicant render complete")
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)
-            ;; Fallback: create simple button without Replicant
-            (let [btn (js/document.createElement "button")]
-              (set! (.-textContent btn) "Install")
-              (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
-              (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
-              (.appendChild btn-container btn)
-              (js/console.log "[Web Userscript Installer] Fallback button appended"))))))))
+(defn attach-button-to-block!
+  "Attach install button to a code block. Handles different formats:
+   - :pre - Insert button container before the pre element
+   - :github-table - Append button to .file-actions container"
+  [block-info block-data]
+  (let [element (:element block-info)
+        format (:format block-info)]
+    (case format
+      ;; GitHub gist: append to .file-actions
+      :github-table
+      (when-let [file-actions (get-github-button-container element)]
+        (when-not (.querySelector file-actions ".epupp-btn-container")
+          (let [btn-container (js/document.createElement "span")]
+            (set! (.-className btn-container) "epupp-btn-container")
+            (set! (.. btn-container -style -marginLeft) "8px")
+            (.appendChild file-actions btn-container)
+            (swap! !button-containers assoc (:id block-data) btn-container)
+            (js/console.log "[Web Userscript Installer] GitHub button container created for:" (:script/name block-data))
+            (try
+              (r/render btn-container (render-install-button block-data))
+              (catch :default e
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
+
+      ;; Pre element (GitLab/generic): insert before
+      :pre
+      (let [existing-btn (aget element "previousElementSibling")]
+        (when-not (and existing-btn
+                       (= (aget existing-btn "className") "epupp-btn-container"))
+          (let [btn-container (js/document.createElement "div")
+                parent (.-parentElement element)]
+            (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
+            (set! (.-className btn-container) "epupp-btn-container")
+            (.insertBefore parent btn-container element)
+            (swap! !button-containers assoc (:id block-data) btn-container)
+            (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
+            (try
+              (r/render btn-container (render-install-button block-data))
+              (js/console.log "[Web Userscript Installer] Replicant render complete")
+              (catch :default e
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e)
+                (let [btn (js/document.createElement "button")]
+                  (set! (.-textContent btn) "Install")
+                  (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
+                  (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
+                  (.appendChild btn-container btn)
+                  (js/console.log "[Web Userscript Installer] Fallback button appended"))))))))))
 
 (defn- process-code-block!+
-  "Process a single code block element. Returns promise.
+  "Process a single code block. Returns promise.
+   block-info is {:element :format :code-text}
    Fetches script code if needed to determine state."
-  [pre-element installed-scripts]
-  (let [code-text (.-textContent pre-element)
+  [block-info installed-scripts]
+  (let [element (:element block-info)
+        code-text (:code-text block-info)
         trimmed-text (str/trim code-text)]
     (if (and (> (count trimmed-text) 10)
              (str/starts-with? trimmed-text "{"))
@@ -519,15 +591,15 @@
         (let [script-name (:script-name manifest)]
           (js/console.log "[Web Userscript Installer] Found installable script:" script-name)
           ;; Mark as processed
-          (.setAttribute pre-element "data-epupp-processed" "true")
-          ;; Ensure element has an ID - use aget since Scittle doesn't fully support .-id
-          (let [existing-id (aget pre-element "id")
+          (.setAttribute element "data-epupp-processed" "true")
+          ;; Ensure element has an ID
+          (let [existing-id (aget element "id")
                 block-id (if (and existing-id (pos? (count existing-id)))
                            existing-id
                            (str "block-" (.randomUUID js/crypto)))]
-            (js/console.log "[Web Userscript Installer] Block ID:" block-id "existing:" existing-id)
+            (js/console.log "[Web Userscript Installer] Block ID:" block-id "format:" (:format block-info))
             (when-not (and existing-id (pos? (count existing-id)))
-              (aset pre-element "id" block-id))
+              (aset element "id" block-id))
             ;; Fetch code if script is installed
             (-> (if (get installed-scripts script-name)
                   (fetch-script-code!+ script-name)
@@ -539,26 +611,26 @@
                                block-data (merge {:id block-id
                                                   :manifest manifest
                                                   :code code-text
+                                                  :format (:format block-info)
                                                   :status (:install-state state-info)}
                                                  state-info)]
                            ;; Add to state
                            (swap! !state update :blocks conj block-data)
                            (js/console.log "[Web Userscript Installer] About to attach button for" script-name)
-                           ;; Attach button
-                           (attach-button-to-block! pre-element block-data))))
+                           ;; Attach button - pass block-info for format-aware placement
+                           (attach-button-to-block! block-info block-data))))
                 (.catch (fn [e]
-                          (js/console.error "[Web Userscript Installer] Error processing block" script-name e)))))
+                          (js/console.error "[Web Userscript Installer] Error processing block" script-name e))))))
         (js/Promise.resolve nil))
-      (js/Promise.resolve nil)))))
+      (js/Promise.resolve nil))))
 
 (defn scan-code-blocks! []
-  (let [pre-elements (.querySelectorAll js/document "pre")
-        pre-array (js/Array.from pre-elements)
+  (let [all-blocks (detect-all-code-blocks)
         installed-scripts (:installed-scripts @!state)
-        unprocessed (filter #(not (.getAttribute % "data-epupp-processed")) pre-array)]
+        unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
     ;; Debug: set marker with scan info
     (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-      (set! (.-textContent marker) (str "Scanning: " (count pre-array) " pre elements, " (count unprocessed) " unprocessed")))
+      (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
     ;; Process all unprocessed blocks concurrently
     (-> (js/Promise.all
          (to-array (map #(process-code-block!+ % installed-scripts) unprocessed)))
