@@ -12,7 +12,7 @@
                                            create-panel-page wait-for-event
                                            get-test-events wait-for-save-status wait-for-popup-ready
                                            generate-timing-report print-timing-report
-                                           assert-no-errors!]]))
+                                           assert-no-errors! wait-for-checkbox-state]]))
 
 (defn- code-with-manifest
   "Generate test code with epupp manifest metadata."
@@ -269,6 +269,16 @@
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
+
+        ;; Enable the Web Userscript Installer (disabled by default)
+        (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
+              installer-checkbox (.locator installer-script "input[type='checkbox']")]
+          (js-await (-> (expect installer-checkbox) (.toBeVisible)))
+          (when-not (js-await (.isChecked installer-checkbox))
+            (js/console.log "Enabling Web Userscript Installer...")
+            (js-await (.click installer-checkbox))
+            (js-await (wait-for-checkbox-state installer-checkbox true))))
+
         (js-await (.close popup)))
 
       ;; Navigate to mock gist page
@@ -356,6 +366,16 @@
                   (do
                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                     (recur)))))))
+
+        ;; Enable the Web Userscript Installer (disabled by default)
+        (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
+              installer-checkbox (.locator installer-script "input[type='checkbox']")]
+          (js-await (-> (expect installer-checkbox) (.toBeVisible)))
+          (when-not (js-await (.isChecked installer-checkbox))
+            (js/console.log "Enabling Web Userscript Installer...")
+            (js-await (.click installer-checkbox))
+            (js-await (wait-for-checkbox-state installer-checkbox true))))
+
         (js-await (.close popup)))
 
       ;; Navigate to mock gist page

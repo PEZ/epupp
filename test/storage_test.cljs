@@ -61,17 +61,14 @@
    Logic:
    - No auto-run patterns → always false (manual-only)
    - Has patterns + existing → preserve existing enabled state
-   - Has patterns + new + builtin → true
-   - Has patterns + new + not builtin → false"
-  [{:keys [has-auto-run? existing-enabled is-new? is-builtin?]}]
+   - Has patterns + new → always false (all new scripts start disabled)"
+  [{:keys [has-auto-run? existing-enabled is-new?]}]
   (cond
     ;; No auto-run = disabled (manual-only)
     (not has-auto-run?) false
     ;; Existing script with auto-run = preserve
     (not is-new?) existing-enabled
-    ;; New built-in = enabled
-    is-builtin? true
-    ;; New user script = disabled
+    ;; New script (user or built-in) = disabled
     :else false))
 
 ;; ============================================================
@@ -216,13 +213,13 @@
                 :is-builtin? false}))
       (.toBe false)))
 
-(defn- test-new-builtin-starts-enabled []
+(defn- test-new-builtin-starts-disabled []
   (-> (expect (determine-enabled-state
                {:has-auto-run? true
                 :existing-enabled nil
                 :is-new? true
                 :is-builtin? true}))
-      (.toBe true)))
+      (.toBe false)))
 
 (defn- test-auto-run-to-manual-resets-enabled []
   ;; Script had auto-run and was enabled
@@ -317,7 +314,7 @@
             (test "no auto-run patterns → always disabled" test-no-auto-run-always-disabled)
             (test "existing script with auto-run → preserves enabled state" test-existing-with-auto-run-preserves-enabled)
             (test "new user script with auto-run → starts disabled" test-new-user-script-starts-disabled)
-            (test "new built-in with auto-run → starts enabled" test-new-builtin-starts-enabled)
+            (test "new built-in with auto-run → starts disabled" test-new-builtin-starts-disabled)
             (test "auto-run → manual transition resets enabled" test-auto-run-to-manual-resets-enabled)))
 
 (describe "built-in reconciliation"

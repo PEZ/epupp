@@ -181,7 +181,7 @@
    - Manifest without :epupp/auto-run-match → revoke auto-run (empty match, disabled)
    - No manifest in code → preserve existing match (allows code-only updates)
 
-   New scripts default to disabled for safety (built-in scripts always enabled).
+   New scripts default to disabled for safety (applies to all scripts, including built-ins).
 
    Source tracking:
    - Optional :script/source field preserved if provided
@@ -217,10 +217,10 @@
         ;; CRITICAL: Auto-run match handling (Phase 6)
         ;; When manifest is present, it's the source of truth for match
         ;; Absence of auto-run-match in manifest = explicit revocation
-          manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
-          manifest-match (normalize-auto-run-match manifest-match-raw)
-          manifest-has-auto-run-key? (when has-manifest?
-                   (manifest-has-auto-run-key? manifest))
+        manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
+        manifest-match (normalize-auto-run-match manifest-match-raw)
+        manifest-has-auto-run-key? (when has-manifest?
+                                     (manifest-has-auto-run-key? manifest))
         ;; Determine final match:
         ;; - Manifest has auto-run-match key → use it (even if empty)
         ;; - Manifest present but no match key → revoke (empty)
@@ -238,14 +238,14 @@
                         (when existing (:script/match existing))
                         []))
         has-auto-run? (seq new-match)
-        ;; Determine enabled state
-        default-enabled (if is-builtin? true false)
+        ;; All new scripts (user and built-in) default to disabled
+        default-enabled false
         new-enabled (cond
                       ;; No auto-run = disabled (manual-only script)
                       (not has-auto-run?) false
                       ;; Existing script → preserve enabled state
                       existing (:script/enabled existing)
-                      ;; New script → use default
+                      ;; New script → use default (always disabled)
                       :else default-enabled)
         ;; Build the script with manifest-derived fields
         ;; Only override match when manifest is present (manifest is source of truth)
