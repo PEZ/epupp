@@ -134,15 +134,6 @@
   (when-let [file-div (.closest table-element ".file")]
     (.querySelector file-div ".file-actions")))
 
-(defn get-code-block-text
-  "Get text content from a code block info map (for backward compatibility)"
-  [block-info-or-element]
-  (if (map? block-info-or-element)
-    (:code-text block-info-or-element)
-    (.-textContent block-info-or-element)))
-
-
-
 ;; ============================================================
 ;; State management
 ;; ============================================================
@@ -646,7 +637,7 @@
 (defn init! []
   (js/console.log "[Web Userscript Installer] Initializing with Replicant...")
 
-  ;; Debug marker - visible element to confirm script ran
+  ;; Debug marker - invisible element to confirm script ran
   (let [marker (js/document.createElement "div")]
     (set! (.-id marker) "epupp-installer-debug")
     (set! (.-textContent marker) "Installer script executed")
