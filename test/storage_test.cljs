@@ -267,8 +267,7 @@
 
 (defn- test-migrates-unversioned-storage []
   (let [result #js {:scripts #js []
-                    :granted-origins #js ["https://example.com/*"]
-                    :userAllowedOrigins #js ["https://allowed.example/*"]}
+                    :granted-origins #js ["https://example.com/*"]}
         normalized (storage/normalize-storage-result result)]
     (-> (expect (:storage/schema-version normalized))
         (.toBe 1))
@@ -282,8 +281,7 @@
 (defn- test-keeps-versioned-storage-unchanged []
   (let [result #js {:schemaVersion 1
                     :scripts #js []
-                    :grantedOrigins #js ["https://example.com/*"]
-                    :userAllowedOrigins #js []}
+                    :grantedOrigins #js ["https://example.com/*"]}
         normalized (storage/normalize-storage-result result)]
     (-> (expect (:storage/schema-version normalized))
         (.toBe 1))

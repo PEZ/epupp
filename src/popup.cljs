@@ -29,9 +29,6 @@
          :scripts/list []         ; All userscripts (source of truth)
          :scripts/current-url nil ; Current tab URL for matching
          :scripts/current-tab-id nil ; Current tab ID for connection check
-         :settings/user-origins []    ; User-added allowed origins (source of truth)
-         :settings/new-origin ""      ; Input field for new origin
-         :settings/default-origins [] ; Config origins (read-only)
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
@@ -43,7 +40,6 @@
          ;; Shape: [{:item <original> :ui/entering? bool :ui/leaving? bool}]
          :ui/scripts-shadow []
          :ui/connections-shadow []
-         :ui/origins-shadow []
          ;; List watchers: compare source to shadow, trigger sync actions
          :uf/list-watchers {:scripts/list {:id-fn :script/id
                                            :shadow-path :ui/scripts-shadow
@@ -51,9 +47,7 @@
                             :repl/connections {:id-fn :tab-id
                                                :shadow-path :ui/connections-shadow
                                                :on-change :ui/ax.sync-connections-shadow}
-                            :settings/user-origins {:id-fn identity
-                                                    :shadow-path :ui/origins-shadow
-                                                    :on-change :ui/ax.sync-origins-shadow}}}))
+}}))
 
 
 
@@ -237,42 +231,6 @@
             :code (:script/code script)
             :inject (clj->js (:script/inject script))}))
 
-    :popup/fx.load-user-origins
-    (js/chrome.storage.local.get
-     #js ["userAllowedOrigins"]
-     (fn [result]
-       (let [user-origins (if (.-userAllowedOrigins result)
-                            (vec (.-userAllowedOrigins result))
-                            [])
-             default-origins (or (.-installerSitePatterns config) [])]
-         (dispatch [[:db/ax.assoc
-                     :settings/user-origins user-origins
-                     :settings/default-origins (vec default-origins)]]))))
-
-    :popup/fx.add-user-origin
-    (let [[origin] args]
-      (js/chrome.storage.local.get
-       #js ["userAllowedOrigins"]
-       (fn [result]
-         (let [current (if (.-userAllowedOrigins result)
-                         (vec (.-userAllowedOrigins result))
-                         [])
-               updated (conj current origin)]
-           (js/chrome.storage.local.set
-            #js {:userAllowedOrigins (clj->js updated)})))))
-
-    :popup/fx.remove-user-origin
-    (let [[origin] args]
-      (js/chrome.storage.local.get
-       #js ["userAllowedOrigins"]
-       (fn [result]
-         (let [current (if (.-userAllowedOrigins result)
-                         (vec (.-userAllowedOrigins result))
-                         [])
-               updated (filterv #(not= % origin) current)]
-           (js/chrome.storage.local.set
-            #js {:userAllowedOrigins (clj->js updated)})))))
-
     :popup/fx.load-auto-connect-setting
     (js/chrome.storage.local.get
      #js ["autoConnectRepl"]
@@ -311,16 +269,6 @@
     :popup/fx.save-fs-sync-setting
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
-
-    :popup/fx.update-installer-patterns
-    ;; Update Web Userscript Installer's match patterns with merged user+manifest patterns
-    (let [[user-patterns] args]
-      (js/chrome.runtime.sendMessage
-       #js {:type "update-installer-patterns"
-            :userPatterns (clj->js user-patterns)}
-       (fn [response]
-         (when (and response (not (.-success response)))
-           (log/warn "Popup" nil "Failed to update installer patterns:" (.-error response))))))
 
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
@@ -447,8 +395,7 @@
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
-  {:config/deps-string (.-depsString config)
-   :config/allowed-origins (or (.-installerSitePatterns config) [])})
+  {:config/deps-string (.-depsString config)})
 
 (defn dispatch! [actions]
   (event-handler/dispatch! !state popup-actions/handle-action perform-effect! actions (make-uf-data)))
@@ -662,62 +609,7 @@
         [:div.no-scripts-hint
          "Scripts that won't auto-run for this page appear here."]])]))
 
-(defn origin-item [{:keys [origin editable leaving? entering? on-delete]}]
-  [:div.origin-item {:class (str (when-not editable "origin-item-default ")
-                                 (when entering? "entering ")
-                                 (when leaving? "leaving"))}
-   [:span.origin-url origin]
-   (when editable
-     [view-elements/action-button
-      {:button/variant :danger
-       :button/class "origin-delete"
-       :button/size :sm
-       :button/icon icons/x
-       :button/title "Remove origin"
-       :button/on-click #(on-delete origin)}
-      nil])])
-
-(defn default-origins-list [origins]
-  (when (seq origins)
-    [:div.origins-section
-     [:div.origins-label "Default origins (from extension)"]
-     [:div.origin-list
-      (for [origin origins]
-        ^{:key origin}
-        [origin-item {:origin origin :editable false}])]]))
-
-(defn user-origins-list [origins-shadow]
-  [:div.origins-section
-   [:div.origins-label "Your custom origins"]
-   (if (seq origins-shadow)
-     [:div.origin-list
-      (for [{:keys [item ui/entering? ui/leaving?]} origins-shadow]
-        ^{:key item}
-        [origin-item {:origin item
-                      :editable true
-                      :leaving? leaving?
-                      :entering? entering?
-                      :on-delete #(dispatch! [[:popup/ax.remove-origin %]])}])]
-     [:div.no-origins "No custom origins added yet."])])
-
-(defn add-origin-form [{:keys [value]}]
-  [:div.add-origin-form
-   [:div.add-origin-input-row
-    [:input {:type "text"
-             :placeholder "https://git.example.com/"
-             :value value
-             :on-input #(dispatch! [[:popup/ax.set-new-origin (.. % -target -value)]])
-             :on-key-down #(when (= "Enter" (.-key %))
-                             (dispatch! [[:popup/ax.add-origin]]))}]
-    [view-elements/action-button
-     {:button/variant :secondary
-      :button/class "add-btn"
-      :button/title "Add origin"
-      :button/on-click #(dispatch! [[:popup/ax.add-origin]])}
-     "Add"]]])
-
-(defn settings-content [{:settings/keys [default-origins new-origin auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled]
-                         :ui/keys [origins-shadow]}]
+(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled]}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -748,14 +640,6 @@
      [:p.description.warning
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
-   [:div.settings-section
-    [:h3.settings-section-title "Web Installer Sites"]
-    [:p.section-description
-     "URL patterns where the Web Userscript Installer will auto-run. "
-     "Use glob patterns (e.g., https://example.com/*) or exact URLs."]
-    [default-origins-list default-origins]
-    [user-origins-list origins-shadow]
-    [add-origin-form {:value new-origin}]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description
@@ -884,16 +768,13 @@
 (defn popup-ui [{:ui/keys [sections-collapsed]
                  :scripts/keys [list current-url]
                  :repl/keys [connections]
-                 :settings/keys [default-origins user-origins]
                  :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %))))
-        ;; Settings section height: base + origins (30px each) + form/buttons
-        settings-base-height 850 ; REPL settings + export/import + headers
-        origins-height (* 35 (+ (count default-origins) (max 1 (count user-origins))))
-        settings-max-height (+ settings-base-height origins-height)]
+        ;; Settings section height: base + form/buttons
+        settings-max-height 550] ; REPL settings + export/import + headers
     [:div
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
@@ -1029,7 +910,6 @@
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
-              [:popup/ax.load-user-origins]
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-fs-sync-setting]

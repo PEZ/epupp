@@ -28,8 +28,7 @@
 
 (def initial-state
   {:storage/scripts [base-script]
-   :storage/granted-origins []
-   :storage/user-allowed-origins []})
+   :storage/granted-origins []})
 
 (def uf-data {:system/now 1737100000000})
 

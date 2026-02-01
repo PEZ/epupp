@@ -23,8 +23,7 @@
    Synced via persist! and onChanged listener."
   (atom {:storage/schema-version current-schema-version
          :storage/scripts []
-         :storage/granted-origins []
-         :storage/user-allowed-origins []}))
+         :storage/granted-origins []}))
 
 ;; ============================================================
 ;; Built-in catalog
@@ -54,9 +53,6 @@
                           (some? new-granted) (vec new-granted)
                           (some? old-granted) (vec old-granted)
                           :else [])
-        user-allowed-origins (if (.-userAllowedOrigins result)
-                               (vec (.-userAllowedOrigins result))
-                               [])
         scripts (script-utils/parse-scripts (.-scripts result)
                                             {:extract-manifest mp/extract-manifest})
         migrated? (or (< schema-version current-schema-version)
@@ -66,34 +62,31 @@
     {:storage/schema-version (if migrated? current-schema-version schema-version)
      :storage/scripts scripts
      :storage/granted-origins granted-origins
-     :storage/user-allowed-origins user-allowed-origins
      :storage/remove-keys remove-keys
      :storage/migrated? migrated?}))
 
 (defn ^:async persist!
   "Write current !db state to chrome.storage.local"
   []
-  (let [{:storage/keys [scripts granted-origins user-allowed-origins schema-version]} @!db]
+  (let [{:storage/keys [scripts granted-origins schema-version]} @!db]
     (js-await (js/Promise.
                (fn [resolve]
                  (js/chrome.storage.local.set
                   #js {:schemaVersion schema-version
                        :scripts (clj->js (mapv script-utils/script->js scripts))
-                       :grantedOrigins (clj->js granted-origins)
-                       :userAllowedOrigins (clj->js user-allowed-origins)}
+                       :grantedOrigins (clj->js granted-origins)}
                   (fn [] (resolve nil))))))))
 
 (defn ^:async load!
   "Load scripts from chrome.storage.local into !db atom.
    Returns a promise that resolves when loaded."
   []
-  (let [result (js-await (js/chrome.storage.local.get #js ["schemaVersion" "scripts" "grantedOrigins" "granted-origins" "userAllowedOrigins"]))
-        {:storage/keys [schema-version scripts granted-origins user-allowed-origins remove-keys migrated?]}
+  (let [result (js-await (js/chrome.storage.local.get #js ["schemaVersion" "scripts" "grantedOrigins" "granted-origins"]))
+        {:storage/keys [schema-version scripts granted-origins remove-keys migrated?]}
         (normalize-storage-result result)]
     (reset! !db {:storage/schema-version schema-version
                  :storage/scripts scripts
-                 :storage/granted-origins granted-origins
-                 :storage/user-allowed-origins user-allowed-origins})
+                 :storage/granted-origins granted-origins})
     (when migrated?
       (js-await (persist!)))
     (when (seq remove-keys)
@@ -139,11 +132,6 @@
                              (vec (.-newValue origins-change))
                              [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
-       (when-let [user-origins-change (.-userAllowedOrigins changes)]
-         (let [new-user-origins (if (.-newValue user-origins-change)
-                                  (vec (.-newValue user-origins-change))
-                                  [])]
-           (swap! !db assoc :storage/user-allowed-origins new-user-origins)))
        (log/info "Storage" nil "Updated from external change"))))
   (js-await (load!))
   (js-await (sync-builtin-scripts!))
@@ -381,35 +369,6 @@
   (persist!))
 
 ;; ============================================================
-;; User Allowed Origins CRUD
-;; ============================================================
-
-(defn get-user-allowed-origins
-  "Get user-added allowed script origins"
-  []
-  (:storage/user-allowed-origins @!db))
-
-(defn user-origin-exists?
-  "Check if an origin is already in user allowed origins list"
-  [origin]
-  (some #(= % origin) (get-user-allowed-origins)))
-
-(defn add-user-allowed-origin!
-  "Add an origin to user allowed origins list (if not already present)"
-  [origin]
-  (when-not (user-origin-exists? origin)
-    (swap! !db update :storage/user-allowed-origins conj origin)
-    (persist!)))
-
-(defn remove-user-allowed-origin!
-  "Remove an origin from user allowed origins list"
-  [origin]
-  (swap! !db update :storage/user-allowed-origins
-         (fn [origins]
-           (filterv #(not= % origin) origins)))
-  (persist!))
-
-;; ============================================================
 ;; Built-in userscripts
 ;; ============================================================
 
@@ -510,10 +469,7 @@
            :toggle_script_BANG_ toggle-script!
            :get_granted_origins get-granted-origins
            :add_granted_origin_BANG_ add-granted-origin!
-           :remove_granted_origin_BANG_ remove-granted-origin!
-           :get_user_allowed_origins get-user-allowed-origins
-           :add_user_allowed_origin_BANG_ add-user-allowed-origin!
-           :remove_user_allowed_origin_BANG_ remove-user-allowed-origin!})
+           :remove_granted_origin_BANG_ remove-granted-origin!})
 
 (defn get-script-by-name
   "Find script by name"

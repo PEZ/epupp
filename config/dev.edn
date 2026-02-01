@@ -4,11 +4,4 @@
 ;; Changes here require a rebuild to take effect.
 
 {:dev true
- :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"
- ;; URL patterns where the Web Userscript Installer will auto-run
- ;; Use glob patterns (e.g., https://example.com/*) or exact URLs
- :installerSitePatterns ["https://gist.github.com/*"
-                         "https://gitlab.com/*"
-                         "https://codeberg.org/*"
-                         "http://localhost:*"
-                         "http://127.0.0.1:*"]}
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"}

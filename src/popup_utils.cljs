@@ -54,31 +54,6 @@
   (filterv #(not= (:script/id %) script-id) scripts))
 
 ;; ============================================================
-;; Origin validation
-;; ============================================================
-
-(defn valid-origin?
-  "Validate a URL pattern for Web Installer Sites.
-   Must start with http:// or https://
-   Must contain * (glob pattern) OR be a complete URL (exact match)"
-  [origin]
-  (when (and origin (not= "" (.trim origin)))
-    (let [trimmed (.trim origin)]
-      (and (or (.startsWith trimmed "http://")
-               (.startsWith trimmed "https://"))
-           ;; Must be a glob pattern with * OR a complete URL
-           (or (.includes trimmed "*")
-               ;; Complete URL check: has protocol + domain + path/query
-               (some? (re-matches #"https?://[^/]+/.+" trimmed)))))))
-
-(defn origin-already-exists?
-  "Check if an origin already exists in either default or user lists."
-  [origin default-origins user-origins]
-  (let [trimmed (.trim origin)]
-    (or (some #(= % trimmed) default-origins)
-        (some #(= % trimmed) user-origins))))
-
-;; ============================================================
 ;; Script sorting for display
 ;; ============================================================
 

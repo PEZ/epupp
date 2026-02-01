@@ -555,30 +555,6 @@
          (send-response #js {:success false :error (.-message err)})))))
   true)
 
-(defn- handle-update-installer-patterns [message send-response]
-  ((^:async fn []
-     (try
-       (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
-         (if installer
-           (let [code (:script/code installer)
-                 manifest (manifest-parser/extract-manifest code)
-                 manifest-patterns (when manifest
-                                     (let [raw (aget manifest "auto-run-match")]
-                                       (cond
-                                         (vector? raw) raw
-                                         (string? raw) [raw]
-                                         :else [])))
-                 user-patterns (vec (or (.-userPatterns message) []))
-                 merged-patterns (vec (distinct (concat manifest-patterns user-patterns)))
-                 updated-installer (assoc installer :script/match merged-patterns)]
-             (js-await (storage/save-script! updated-installer))
-             (send-response #js {:success true}))
-           (send-response #js {:success false :error "Installer script not found"})))
-       (catch :default err
-         (log/error "Background" nil "Failed to update installer patterns:" err)
-         (send-response #js {:success false :error (.-message err)})))))
-  true)
-
 (defn- handle-ensure-scittle [message dispatch! send-response]
   (let [target-tab-id (.-tabId message)]
     (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
@@ -657,7 +633,6 @@
                                              (handle-e2e-ensure-builtin dispatch! send-response)
                                              (do (send-response #js {:success false :error "Not available"})
                                                  false))
-                      "update-installer-patterns" (handle-update-installer-patterns message send-response)
                       "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
                       "inject-libs" (handle-inject-libs message dispatch! send-response)
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)

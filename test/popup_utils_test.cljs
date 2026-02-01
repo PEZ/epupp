@@ -99,83 +99,6 @@
     (-> (expect (count result))
         (.toBe 2))))
 
-;; valid-origin? tests
-;; Note: valid-origin? validates Web Installer Site patterns (glob patterns or complete URLs)
-
-(defn- test-accepts-glob-pattern-with-wildcard []
-  (-> (expect (popup-utils/valid-origin? "https://example.com/*"))
-      (.toBe true)))
-
-(defn- test-accepts-http-glob-pattern []
-  (-> (expect (popup-utils/valid-origin? "http://localhost/*"))
-      (.toBe true)))
-
-(defn- test-accepts-complex-glob-pattern []
-  (-> (expect (popup-utils/valid-origin? "https://gist.github.com/*/gist/*"))
-      (.toBe true)))
-
-(defn- test-accepts-complete-url-with-path []
-  (-> (expect (popup-utils/valid-origin? "https://example.com/some/page"))
-      (.toBe true)))
-
-(defn- test-rejects-url-without-wildcard-or-path []
-  (-> (expect (popup-utils/valid-origin? "https://example.com/"))
-      (.toBeFalsy)))
-
-(defn- test-rejects-url-without-trailing-slash []
-  (-> (expect (popup-utils/valid-origin? "https://example.com"))
-      (.toBeFalsy)))
-
-(defn- test-rejects-ftp-protocol []
-  (-> (expect (popup-utils/valid-origin? "ftp://example.com/*"))
-      (.toBeFalsy)))
-
-(defn- test-rejects-empty-string []
-  (-> (expect (popup-utils/valid-origin? ""))
-      (.toBeFalsy)))
-
-(defn- test-rejects-nil []
-  (-> (expect (popup-utils/valid-origin? nil))
-      (.toBeFalsy)))
-
-(defn- test-rejects-whitespace-only-string []
-  (-> (expect (popup-utils/valid-origin? "   "))
-      (.toBeFalsy)))
-
-(defn- test-trims-whitespace-before-validation []
-  (-> (expect (popup-utils/valid-origin? "  https://example.com/*  "))
-      (.toBe true)))
-
-;; origin-already-exists? tests
-
-(defn- test-returns-true-when-origin-is-in-default-list []
-  (-> (expect (popup-utils/origin-already-exists?
-               "https://github.com/"
-               ["https://github.com/" "https://gitlab.com/"]
-               []))
-      (.toBe true)))
-
-(defn- test-returns-true-when-origin-is-in-user-list []
-  (-> (expect (popup-utils/origin-already-exists?
-               "https://custom.com/"
-               ["https://github.com/"]
-               ["https://custom.com/"]))
-      (.toBe true)))
-
-(defn- test-returns-false-when-origin-is-in-neither-list []
-  (-> (expect (popup-utils/origin-already-exists?
-               "https://new.com/"
-               ["https://github.com/"]
-               ["https://custom.com/"]))
-      (.toBeFalsy)))
-
-(defn- test-trims-whitespace-before-comparison []
-  (-> (expect (popup-utils/origin-already-exists?
-               "  https://github.com/  "
-               ["https://github.com/"]
-               []))
-      (.toBe true)))
-
 ;; sort-scripts-for-display tests
 
 (def builtin? #(and (:script/id %) (.startsWith (:script/id %) "epupp-builtin-")))
@@ -277,35 +200,6 @@
             (test "removes script by id" test-removes-script-by-id)
             (test "returns empty list when removing last script" test-returns-empty-list-when-removing-last-script)
             (test "returns unchanged list for non-existent id" test-returns-unchanged-list-for-non-existent-id)))
-
-;; ============================================================
-;; valid-origin? tests
-;; ============================================================
-
-(describe "valid-origin?"
-          (fn []
-            (test "accepts glob pattern with wildcard" test-accepts-glob-pattern-with-wildcard)
-            (test "accepts http:// glob pattern" test-accepts-http-glob-pattern)
-            (test "accepts complex glob pattern" test-accepts-complex-glob-pattern)
-            (test "accepts complete URL with path" test-accepts-complete-url-with-path)
-            (test "rejects URL without wildcard or path" test-rejects-url-without-wildcard-or-path)
-            (test "rejects URL without trailing slash" test-rejects-url-without-trailing-slash)
-            (test "rejects ftp:// protocol" test-rejects-ftp-protocol)
-            (test "rejects empty string" test-rejects-empty-string)
-            (test "rejects nil" test-rejects-nil)
-            (test "rejects whitespace-only string" test-rejects-whitespace-only-string)
-            (test "trims whitespace before validation" test-trims-whitespace-before-validation)))
-
-;; ============================================================
-;; origin-already-exists? tests
-;; ============================================================
-
-(describe "origin-already-exists?"
-          (fn []
-            (test "returns true when origin is in default list" test-returns-true-when-origin-is-in-default-list)
-            (test "returns true when origin is in user list" test-returns-true-when-origin-is-in-user-list)
-            (test "returns false when origin is in neither list" test-returns-false-when-origin-is-in-neither-list)
-            (test "trims whitespace before comparison" test-trims-whitespace-before-comparison)))
 
 ;; ============================================================
 ;; sort-scripts-for-display tests

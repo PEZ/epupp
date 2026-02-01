@@ -2,8 +2,9 @@
 
 Redesign the Gist Installer to become a general-purpose "Web Userscript Installer" that:
 1. Extracts code directly from DOM elements (no URL fetching)
-2. Uses configurable auto-run-match via the Origins setting
-3. Tracks script provenance via new `:script/source` metadata
+2. Works on ANY page via manual execution (play button)
+3. Optionally auto-runs on all pages when user enables it
+4. Tracks script provenance via new `:script/source` metadata
 
 ## Background
 
@@ -12,38 +13,44 @@ Redesign the Gist Installer to become a general-purpose "Web Userscript Installe
 Gist page (hardcoded match) → Extract manifest → Fetch code from raw URL → Validate URL origin → Save
 ```
 
-**Problem:** The "Allowed Userscript-install Base URLs" setting is confusing because:
-- It controls which URLs can be *fetched from*, not where the installer runs
-- The installer's auto-run-match is hardcoded in its manifest
-- Users can't easily extend installer to work on other code-hosting sites
+**Problems:**
+- URL-fetch approach has TOCTOU security concerns
+- "Allowed Userscript-install Base URLs" setting is confusing
+- Complex origin validation logic
+- Limited to pre-configured sites
 
-### Proposed Model
+### Proposed Model (Simplified)
 ```
-Any matched page → Extract code from DOM → Send message with code + page URL → Storage saves with source
+Any page (manual run or auto-run when enabled) → Extract code from DOM → Send message → Storage saves with source
 ```
 
 **Benefits:**
 - **WYSIWYG security** - Code you see is code you install (no TOCTOU via URL fetch)
-- **Simpler mental model** - Setting controls where installer activates
-- **User extensible** - Add any site that displays code blocks
-- **Less code** - No URL fetching, no origin validation for URLs
+- **Works everywhere** - Manual play button works on any page
+- **Simple opt-in** - User enables script to auto-run on all pages
+- **Much less code** - No URL fetching, no origin validation, no Settings UI for patterns
 - **Consolidated logic** - Storage is single source of truth for all save operations
 
 ### No backward compatibility
 
-The userscripts feature is not released yet. Adding any backward compatibility to the code will just be a burden. We're all about forward compatability at this stage.
+The userscripts feature is not released yet. Adding any backward compatibility to the code will just be a burden. We're all about forward compatibility at this stage.
 
 ## Design Decisions
 
-### Origins Setting Repurposed
+### Simplified Auto-Run Strategy
 
-| Current | Proposed |
-|---------|----------|
-| "Allowed Userscript-install Base URLs" | "Web Installer Sites" |
-| Controls *fetch* origins | Controls *auto-run-match* additions |
-| Format: URL prefix (e.g., `https://gist.github.com/`) | Format: URL glob pattern (e.g., `https://gist.github.com/*`) |
+| Aspect | Design |
+|--------|--------|
+| Auto-run match | `"*"` (all URLs) |
+| Default state | Disabled |
+| Manual execution | Always available via popup play button |
+| Auto-run behavior | User enables script to auto-run everywhere |
 
-The installer script's final auto-run-match = `manifest patterns ∪ user-added patterns`
+**No Settings UI for patterns.** Users control behavior entirely via the script's enable/disable toggle:
+- **Disabled (default):** Run manually via play button on any page
+- **Enabled:** Auto-runs on every page navigation
+
+This eliminates the need for origin pattern management, merging logic, and related UI.
 
 ### Provenance Tracking
 
@@ -134,20 +141,18 @@ The background handler for `save-script` routes directly to `storage/save-script
 
 ### Source Files
 - [src/storage.cljs](../../src/storage.cljs) - Script storage schema and operations (CENTRAL)
-- [src/registration.cljs](../../src/registration.cljs) - Content script registration for early-timing scripts
 - [src/background.cljs](../../src/background.cljs) - `install-userscript!` function (to be removed)
 - [src/content_bridge.cljs](../../src/content_bridge.cljs) - Message bridge between page and background
 - [src/background_actions/repl_fs_actions.cljs](../../src/background_actions/repl_fs_actions.cljs) - FS save action
 - [src/panel_actions.cljs](../../src/panel_actions.cljs) - Panel save action
-- [src/popup.cljs](../../src/popup.cljs) - Origins UI (lines 735-755)
-- [src/popup_utils.cljs](../../src/popup_utils.cljs) - Origin validation (lines 55-80)
-- [config/prod.edn](../../config/prod.edn) - Default allowed origins
+- [src/popup.cljs](../../src/popup.cljs) - Origins UI (TO BE REMOVED)
+- [src/popup_actions.cljs](../../src/popup_actions.cljs) - Origin actions (TO BE REMOVED)
 
 ### Userscript Source
-- [extension/userscripts/epupp/gist_installer.cljs](../../extension/userscripts/epupp/gist_installer.cljs) - Current installer script
+- [extension/userscripts/epupp/web_userscript_installer.cljs](../../extension/userscripts/epupp/web_userscript_installer.cljs) - Installer script
 
 ### Test Files
-- [e2e/userscript_test.cljs](../../e2e/userscript_test.cljs) - Gist installer E2E tests
+- [e2e/userscript_test.cljs](../../e2e/userscript_test.cljs) - Installer E2E tests
 - [test-data/pages/mock-gist.html](../../test-data/pages/mock-gist.html) - Mock page for E2E
 
 ---
@@ -161,8 +166,8 @@ Location: `src/storage.cljs`
 
 Add optional `:script/source` field support to `save-script!`. Field should be preserved if provided, ignored if not.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 1.2 Unit tests for source metadata
 Location: `test/storage_test.cljs`
@@ -172,8 +177,8 @@ Test that:
 - Source is preserved on script updates
 - Source is omitted when not provided (no crash)
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 #### 1.3 Update callers to pass source
 Location: Multiple files
@@ -184,33 +189,25 @@ Location: Multiple files
 | REPL FS save | `src/background_actions/repl_fs_actions.cljs` | Add `:script/source :source/repl` |
 | Built-in sync | `src/storage.cljs` (sync-builtins!) | Add `:script/source :source/built-in` |
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 ---
 
 ### Phase 2: Installer Script Refactor
 
-#### 2.1 Rename script file and update manifest
-Location: `extension/userscripts/epupp/gist_installer.cljs` → `web_userscript_installer.cljs`
+#### 2.1 Update installer manifest for universal match
+Location: `extension/userscripts/epupp/web_userscript_installer.cljs`
 
-- Rename file
-- Update `:epupp/script-name` to `"epupp/web_userscript_installer.cljs"`
-- Update namespace to `epupp.web-userscript-installer`
-- Keep existing auto-run-match (will be extended by user settings)
+Change manifest:
+- `:epupp/auto-run-match` → `"*"` (matches all URLs)
+- Script remains `document-idle` timing (default)
+- Script is disabled by default (storage handles this)
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
-#### 2.2 Update bundled builtins reference
-Location: `src/storage.cljs`
-
-Update `bundled-builtins` to reference new filename and path.
-
-- [ ] addressed in code
-- [ ] verified by tests
-
-#### 2.3 Refactor installer to send code via message
+#### 2.2 Refactor installer to send code via message
 Location: `extension/userscripts/epupp/web_userscript_installer.cljs`
 
 Replace URL-fetch approach with direct code extraction:
@@ -220,20 +217,20 @@ Replace URL-fetch approach with direct code extraction:
 
 The background receives this and routes to `storage/save-script!`.
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
-#### 2.4 Add save-script message handler
+#### 2.3 Add save-script message handler
 Location: `src/content_bridge.cljs`, `src/background.cljs`
 
 Add handling for the new `save-script` message type:
 - Content bridge: forward to background (similar to `install-userscript`)
 - Background: extract code/source, call `storage/save-script!` with `:script/source`
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
-#### 2.5 Remove fetch-based install infrastructure
+#### 2.4 Remove fetch-based install infrastructure
 Location: `src/background.cljs`
 
 Remove:
@@ -245,64 +242,67 @@ Remove:
 - `:userscript/fx.install` effect
 - `install-userscript` message handling in content-bridge
 
-- [ ] addressed in code
-- [ ] verified by tests
+- [x] addressed in code
+- [x] verified by tests
 
 ---
 
-### Phase 3: Origins Setting Repurpose
+### Phase 3: Remove Origins Infrastructure (NEW - Simplification)
 
-#### 3.1 Rename and repurpose UI labels
+#### 3.1 Remove Settings UI for user origins
 Location: `src/popup.cljs`
 
-Change:
-- "Allowed Userscript-install Base URLs" → "Web Installer Sites"
-- Description text to explain the new purpose
-- Format hint to show glob pattern format
+Remove:
+- "Web Installer Sites" section from Settings
+- Add/remove origin form components
+- Related render functions
 
 - [x] addressed in code
 - [x] verified by tests
 
-#### 3.2 Change validation to glob patterns
+#### 3.2 Remove origin-related state and actions
+Location: `src/popup.cljs`, `src/popup_actions.cljs`
+
+Remove:
+- `:settings/user-origins` state key
+- `:settings/new-origin` state key
+- `:popup/ax.add-origin` action
+- `:popup/ax.remove-origin` action
+- `:popup/fx.add-user-origin` effect
+- `:popup/fx.remove-user-origin` effect
+- `:popup/fx.update-installer-patterns` effect
+- `:popup/fx.load-user-origins` effect
+
+- [x] addressed in code
+- [x] verified by tests
+
+#### 3.3 Remove origin storage
+Location: `src/storage.cljs`, `src/background.cljs`
+
+Remove:
+- `userAllowedOrigins` from storage schema
+- `handle-update-installer-patterns` message handler
+- Any origin-related storage watchers
+
+- [x] addressed in code
+- [x] verified by tests
+
+#### 3.4 Remove origin validation utilities
 Location: `src/popup_utils.cljs`
 
-Update `valid-origin?` to validate glob patterns instead of URL prefixes:
-- Must start with `http://` or `https://`
-- Must contain `*` (it's a glob pattern)
-- Or be a complete URL (for exact match)
+Remove:
+- `valid-origin?` function (or repurpose if used elsewhere)
+- Pattern validation logic
 
 - [x] addressed in code
 - [x] verified by tests
 
-#### 3.3 Update installer registration on pattern change
-Location: `src/popup.cljs` or `src/background.cljs`
-
-When user adds/removes a pattern:
-1. Merge user patterns with installer's manifest patterns
-2. Update installer script's `:script/match` in storage
-3. Trigger `registration/update-early-registrations!`
-
-This reuses existing registration infrastructure - no special injection mechanism needed.
-
-- [x] addressed in code
-- [x] verified by tests
-
-#### 3.4 Update config defaults
+#### 3.5 Remove config defaults for origins
 Location: `config/*.edn`
 
-Rename `allowedScriptOrigins` to `installerSitePatterns` and update values to glob patterns:
-```edn
-:installerSitePatterns ["https://gist.github.com/*"
-                        "https://gitlab.com/*"
-                        "https://codeberg.org/*"]
-```
-
-Remove raw.githubusercontent.com (no longer fetching, just where installer runs).
-
-Also update all references to `allowedScriptOrigins` in:
-- `src/popup.cljs`
-- `src/storage.cljs`
-- Any tests
+Remove:
+- `allowedScriptOrigins` / `installerSitePatterns` config key
+- Any related configuration
 
 - [x] addressed in code
 - [x] verified by tests
@@ -326,17 +326,21 @@ Update tests to:
 - Reference new script name
 - Test DOM-based installation
 - Remove URL-fetch-related assertions
+- Remove pattern-extension test (no longer applicable)
 
 - [x] addressed in code
-- [ ] verified by tests
+- [x] verified by tests
 
-#### 4.3 Add E2E test for user pattern extension
-Location: `e2e/settings_test.cljs` or `e2e/userscript_test.cljs`
+#### 4.3 Remove/update pattern extension tests
+Location: `e2e/userscript_test.cljs`, `e2e/settings_test.cljs`
 
-Test that adding a custom pattern makes installer run on a new page.
+Remove tests for:
+- Adding custom patterns via Settings
+- Pattern merging behavior
+- Installer running on user-added patterns
 
 - [x] addressed in code
-- [ ] verified by tests
+- [x] verified by tests
 
 ---
 
@@ -346,9 +350,10 @@ Test that adding a custom pattern makes installer run on a new page.
 Location: `docs/user-guide.md`
 
 Update:
-- Settings section to explain "Web Installer Sites"
+- Remove "Web Installer Sites" settings documentation
+- Explain manual execution via play button
+- Explain optional auto-run when enabled
 - Gist Installer references → Web Userscript Installer
-- Any URL-fetching references removed
 
 - [x] addressed in code
 - [x] verified by tests
@@ -356,7 +361,9 @@ Update:
 #### 5.2 Update architecture docs
 Location: `dev/docs/` as appropriate
 
-Document the new `:script/source` field and its semantics.
+Document:
+- `:script/source` field and its semantics
+- Simplified installer model (manual-first, optional auto-run)
 
 - [x] addressed in code
 - [x] verified by tests
@@ -365,33 +372,33 @@ Document the new `:script/source` field and its semantics.
 
 ## Batch Execution Order
 
-**Batch A: Schema Extension + Source Tracking**
+**Batch A: Schema Extension + Source Tracking** (DONE)
 1. Run testrunner baseline
 2. Add `:script/source` support to storage
 3. Add unit tests for source metadata
 4. Update all callers to pass source (panel, REPL, built-in)
 5. Run testrunner verification
 
-**Batch B: Script Refactor**
+**Batch B: Script Refactor** (MOSTLY DONE)
 1. Run testrunner baseline
-2. Rename script file and update references
-3. Refactor installer to extract DOM content and send `save-script` message
-4. Add `save-script` message handler in content-bridge and background
-5. Remove fetch-based install infrastructure
+2. Refactor installer to extract DOM content and send `save-script` message
+3. Add `save-script` message handler in content-bridge and background
+4. Remove fetch-based install infrastructure
+5. Update manifest to `"*"` auto-run-match
 6. Run testrunner verification
 
-**Batch C: Origins Repurpose**
+**Batch C: Remove Origins Infrastructure** (NEW)
 1. Run testrunner baseline
-2. Rename config key and update UI labels
-3. Update validation to glob patterns
-4. Implement pattern merge + re-registration on change
-5. Update config defaults
+2. Remove Settings UI for user origins
+3. Remove origin-related actions and effects
+4. Remove origin storage and handlers
+5. Remove config defaults
 6. Run testrunner verification
 
-**Batch D: E2E Updates**
+**Batch D: E2E Test Cleanup**
 1. Run testrunner baseline
-2. Update mock page and existing tests
-3. Add new E2E for pattern extension
+2. Remove pattern extension tests
+3. Update remaining E2E tests
 4. Run testrunner verification
 
 **Batch E: Documentation**
@@ -403,69 +410,44 @@ Document the new `:script/source` field and its semantics.
 
 ## Open Questions
 
-### Q1: How to inject user patterns into installer script?
-
-**Context:** The installer script runs via content script registration. Its `auto-run-match` is set when the script is registered. User-added patterns need to be merged into this registration.
-
-**Current registration flow:**
-```
-storage/sync-builtins! → registration/update-early-registrations! → registerContentScripts
-```
-
-**Solution:** When user adds/removes patterns in Settings, trigger re-registration of the installer with merged patterns:
-- Manifest patterns + user patterns = final `auto-run-match`
-- Store merged patterns on the installer script's `:script/match`
-- Registration system picks up the updated match
-
-This approach:
-- Uses existing registration infrastructure
-- No global variable injection needed
-- User pattern changes take effect after page refresh (acceptable UX)
-
-**Implementation:** Add a handler for pattern changes that updates the installer script's match field and triggers re-registration.
-
-Options for old Q1 (now resolved):
-- ~~A) Global variable injection~~ - Not needed
-- ~~B) Message-based query~~ - Not needed
-- **C) Content script registration with dynamic patterns** - YES, this is the path
-
-### Q2: Should we support multiple code block formats?
+### Q1: Code block detection strategy
 
 Current: Gist-specific selectors (`.js-file-line`)
 
 Options:
 - Keep tight coupling to known sites (gist, gitlab, codeberg specific selectors)
 - Generic `<pre><code>` detection with manifest sniffing
-- Configurable selectors per-site
+- Site-specific detection with fallback to generic
 
-**Recommendation:** Start with known sites. Add generic detection as enhancement later.
+**Status:** Current implementation detects gist-like structures. Works well enough for manual execution - user navigates to a page with code blocks and runs the installer.
 
-### Q3: Backward compatibility for existing saved origins?
+### Q2: Auto-run performance on all pages
 
-**Not needed.** Userscripts feature not yet released - we have a clean slate. No migration code required.
+With `"*"` auto-run-match and script enabled, installer runs on every page.
 
-### Q4: Should config key be renamed?
+**Mitigations:**
+- Script is disabled by default
+- DOM scanning is fast (querySelector-based)
+- No network requests in scanning phase
+- Install buttons only added when manifests found
 
-Current: `allowedScriptOrigins`
-Semantics change: controls where installer runs, not fetch origins
-
-Options:
-- Keep `allowedScriptOrigins` (minimal change, slightly misleading name)
-- Rename to `installerSitePatterns` (clearer, more churn)
-
-**Recommendation:** Rename to `installerSitePatterns` - clearer intent, and no backward compat needed.
+**Status:** Acceptable. Users who enable it want this behavior.
 
 ---
 
 ## Success Criteria
 
-- [ ] Web Userscript Installer runs on gist.github.com (existing behavior)
-- [ ] User can add custom site patterns via Settings
+- [ ] Web Userscript Installer has `"*"` auto-run-match
+- [ ] Installer is disabled by default
+- [ ] User can run installer manually via play button on any page
+- [ ] User can enable installer for auto-run on all pages
 - [ ] Installer uses DOM content, not URL fetch
 - [ ] Scripts installed via web installer have `:script/source` set to page URL
 - [ ] Scripts saved from panel have `:script/source` set to `:source/panel`
 - [ ] Scripts saved from REPL have `:script/source` set to `:source/repl`
 - [ ] Built-in scripts have `:script/source` set to `:source/built-in`
+- [ ] No "Web Installer Sites" Settings UI (removed)
+- [ ] No origin storage or pattern merging code
 - [ ] All unit tests pass
 - [ ] All E2E tests pass
 - [ ] Zero lint warnings
@@ -475,18 +457,29 @@ Options:
 
 ## Original Plan-producing Prompt
 
-So I did have a hunch that it was about the gist installer. I guess the real fix for my confusion had been that the UI clearly referenced that. But before we go there... The reason I got curious is that the gist installer script already restricts where it is active, and the nature of the script currently makes that the ultimate origin check. Further, I am actually considering expanding the auto-run-match for the script. And changing how it works a bit. Something like:
+Redesign the Gist Installer to become a general-purpose "Web Userscript Installer" that extracts code directly from DOM elements (no URL fetching) and tracks script provenance via `:script/source` metadata.
 
-0. Renaming the script: "Web Userscript Installer" (filename `epupp/web_userscript_installer.cljs`)
-1. The origins setting rather is about auto-run-match for this script (since it is read-only for the user). The final auto-run-match for this script would be whatever is in its manifest, plus the users additions.
-2. The script uses epupp.fs to install the content of the element that has the identified script, rather than downloading from a url.
+**Key design decisions:**
 
-**Refinement 1:** For provenance tracking, expand storage metadata with `:script/source` - either `:source/panel`, `:source/repl`, `:source/built-in`, or a URL for web-installed scripts.
+1. **Rename script:** `epupp/web_userscript_installer.cljs`
+2. **DOM-based extraction:** WYSIWYG security - code you see is code you install
+3. **Provenance tracking:** `:script/source` field tracks origin (`:source/panel`, `:source/repl`, `:source/built-in`, or URL string)
+4. **Storage as single source of truth:** All save paths flow through `storage/save-script!`
+5. **Message-based install:** Installer sends `save-script` message through content bridge
 
-**Refinement 2:** No backward compatibility needed - userscripts feature not released yet.
+**Simplification refinement:**
 
-**Refinement 3:** Storage is single source of truth. Callers pass `:script/source` to storage, storage preserves it. All save paths flow through `storage/save-script!`.
+Remove the "user origins" complexity entirely:
+- Set auto-run-match to `"*"` (all URLs)
+- Disable by default
+- User runs manually via play button (works on any page)
+- OR user enables it for auto-run everywhere
 
-**Refinement 4:** Installer can't call `epupp.fs/save!` directly (runs in page context). Uses message to background which routes to storage.
+This eliminates:
+- Settings UI for managing origin patterns
+- `userAllowedOrigins` storage
+- Pattern merging logic
+- Related effects and actions
+- Configuration for default origins
 
-**Refinement 5:** Rename config key `allowedScriptOrigins` → `installerSitePatterns` for clarity.
+**No backward compatibility needed** - userscripts feature not yet released.

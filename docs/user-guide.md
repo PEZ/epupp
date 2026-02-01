@@ -39,10 +39,20 @@ Very silly examples...
 - Print elements and their selector to the console. Disable it in the extension popup, and then run it from the popup. It will toggle the inspecting at each run: https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e
 - ... TBD!
 
-To install:
-1. Visit the gist
-2. Click the **Install to Epupp** button (that should appear)
-3. Script appears in the popup - enable the checkbox to auto-run on matching sites
+To install from any code-hosting page:
+
+**Manual execution (works on any page):**
+1. Visit the page with code (e.g., a gist)
+2. Open the Epupp popup
+3. Find the **Web Userscript Installer** in the script list
+4. Click the **Play** button to run it on the current page
+5. Click the **Install to Epupp** button that appears on the page
+6. Script appears in the popup
+
+**Auto-run (optional):**
+1. Enable the **Web Userscript Installer** checkbox in the popup
+2. Now it runs automatically on every page you visit
+3. Disable it when you don't need automatic installation buttons
 
 ### Save as Userscript
 
@@ -386,15 +396,6 @@ Use `epupp/manifest!`:
 ## Settings
 
 Access settings from the gear icon in the popup.
-
-### Web Installer Sites
-
-The Web Userscript Installer runs on configured site patterns. By default:
-- `https://gist.github.com/*`
-- `https://gitlab.com/*`
-- `https://codeberg.org/*`
-
-Add custom glob patterns to extend the installer to other code-hosting sites. For example, `https://git.example.com/*` would enable the installer on your company's GitLab instance.
 
 ### Auto-Connect REPL
 

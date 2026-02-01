@@ -9,8 +9,7 @@
 
    uf-data should contain:
    - :system/now - current timestamp
-   - :config/deps-string - deps string for server command generation
-   - :config/allowed-origins - default allowed origins from config"
+   - :config/deps-string - deps string for server command generation"
   [state uf-data [action & args]]
   (case action
     :popup/ax.set-nrepl-port
@@ -75,40 +74,6 @@
           script (some #(when (= (:script/id %) script-id) %) (:scripts/list state))]
       (when script
         {:uf/fxs [[:popup/fx.evaluate-script script]]}))
-
-    :popup/ax.load-user-origins
-    {:uf/fxs [[:popup/fx.load-user-origins]]}
-
-    :popup/ax.set-new-origin
-    (let [[value] args]
-      {:uf/db (assoc state :settings/new-origin value)})
-
-    :popup/ax.add-origin
-    (let [origin (.trim (:settings/new-origin state))
-          default-origins (:settings/default-origins state)
-          user-origins (:settings/user-origins state)]
-      (cond
-        (not (popup-utils/valid-origin? origin))
-        {:uf/dxs [[:popup/ax.show-system-banner "error" "Must start with http:// or https:// and contain * (glob pattern) or be a complete URL" {}]]}
-
-        (popup-utils/origin-already-exists? origin default-origins user-origins)
-        {:uf/dxs [[:popup/ax.show-system-banner "error" "Origin already exists" {}]]}
-
-        :else
-        (let [updated-user-origins (conj user-origins origin)]
-          {:uf/db (-> state
-                      (assoc :settings/user-origins updated-user-origins)
-                      (assoc :settings/new-origin ""))
-           :uf/fxs [[:popup/fx.add-user-origin origin]
-                    [:popup/fx.update-installer-patterns updated-user-origins]]})))
-
-    :popup/ax.remove-origin
-    ;; Simple remove - shadow watcher handles animation
-    (let [[origin] args
-          updated-user-origins (filterv (fn [o] (not= o origin)) (:settings/user-origins state))]
-      {:uf/db (assoc state :settings/user-origins updated-user-origins)
-       :uf/fxs [[:popup/fx.remove-user-origin origin]
-                [:popup/fx.update-installer-patterns updated-user-origins]]})
 
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
@@ -314,48 +279,6 @@
       {:uf/db (update state :ui/connections-shadow
                       (fn [shadow]
                         (filterv (fn [s] (not (contains? ids (:tab-id (:item s))))) shadow)))})
-
-    :ui/ax.sync-origins-shadow
-    (let [[{:keys [added-items removed-ids]}] args
-          shadow (:ui/origins-shadow state)
-          source-list (:settings/user-origins state)
-          ;; Build set of source items for quick lookup (origins are strings)
-          source-set (set source-list)
-          ;; Mark removed items as leaving, update existing items' content (for origins, item IS the origin string)
-          shadow-with-updates (mapv (fn [s]
-                                      (let [origin (:item s)]
-                                        (cond
-                                          ;; Item being removed - mark as leaving
-                                          (contains? removed-ids origin)
-                                          (assoc s :ui/leaving? true)
-                                          ;; Item exists in source - content already correct for origins
-                                          (contains? source-set origin)
-                                          s
-                                          ;; Item not in source and not being removed - keep as is
-                                          :else s)))
-                                    shadow)
-          ;; Add new items with entering flag
-          new-shadow-items (mapv (fn [item] {:item item :ui/entering? true :ui/leaving? false}) added-items)
-          updated-shadow (into shadow-with-updates new-shadow-items)]
-      {:uf/db (assoc state :ui/origins-shadow updated-shadow)
-       :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-origins (set added-items)]] 50]
-                [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-origins removed-ids]] 250]]})
-
-    :ui/ax.clear-entering-origins
-    (let [[ids] args]
-      {:uf/db (update state :ui/origins-shadow
-                      (fn [shadow]
-                        (mapv (fn [s]
-                                (if (contains? ids (:item s))
-                                  (assoc s :ui/entering? false)
-                                  s))
-                              shadow)))})
-
-    :ui/ax.remove-leaving-origins
-    (let [[ids] args]
-      {:uf/db (update state :ui/origins-shadow
-                      (fn [shadow]
-                        (filterv (fn [s] (not (contains? ids (:item s)))) shadow)))})
 
     :popup/ax.set-brave-detected
     (let [[brave?] args]
