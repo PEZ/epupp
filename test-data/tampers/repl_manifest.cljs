@@ -1,3 +1,7 @@
+{:epupp/script-name "example/manifest_tampers.cljs"
+ :epupp/inject ["scittle://replicant.js"
+                "scittle://pprint.js"]}
+
 (ns tampers.repl-manifest)
 ;;
 ;; Prerequisites:
