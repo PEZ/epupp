@@ -8,8 +8,9 @@
     .file-header { background: #f6f8fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
     .gist-blob-name { font-weight: bold; }
     .file-actions a { color: #0366d6; margin-left: 10px; }
-    .blob-code-inner { padding: 10px; font-family: monospace; white-space: pre; }
-    .js-file-line { display: block; }
+    .blob-wrapper { padding: 10px; }
+    pre { margin: 0; font-family: monospace; white-space: pre-wrap; }
+    code { display: block; }
   </style>
 </head>
 <body>
@@ -26,17 +27,13 @@
       </div>
     </div>
     <div class="blob-wrapper">
-      <table class="highlight">
-        <tbody>
-          <tr><td class="blob-code"><span class="js-file-line">{:epupp/script-name "Test Installer Script"</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"> :epupp/auto-run-match "*://test.example.com/*"</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"> :epupp/description "A test script for E2E testing"}</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line">(ns test-installer-script)</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line">(js/console.log "Test script loaded!")</span></td></tr>
-        </tbody>
-      </table>
+      <pre><code>{:epupp/script-name "Test Installer Script"
+ :epupp/auto-run-match "*://test.example.com/*"
+ :epupp/description "A test script for E2E testing"}
+
+(ns test-installer-script)
+
+(js/console.log "Test script loaded!")</code></pre>
     </div>
   </div>
 
@@ -49,16 +46,11 @@
       </div>
     </div>
     <div class="blob-wrapper">
-      <table class="highlight">
-        <tbody>
-          <tr><td class="blob-code"><span class="js-file-line">(ns regular-code)</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line">(defn hello [] "world")</span></td></tr>
-        </tbody>
-      </table>
+      <pre><code>(ns regular-code)
+
+(defn hello [] "world")</code></pre>
     </div>
   </div>
-
 
   <!-- Manual-only gist file (valid manifest but NO auto-run-match) -->
   <div class="file" id="manual-only-gist">
@@ -69,16 +61,12 @@
       </div>
     </div>
     <div class="blob-wrapper">
-      <table class="highlight">
-        <tbody>
-          <tr><td class="blob-code"><span class="js-file-line">{:epupp/script-name "Manual Only Script"</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"> :epupp/description "A script with no auto-run-match"}</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line">(ns manual-only-script)</span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line"></span></td></tr>
-          <tr><td class="blob-code"><span class="js-file-line">(js/console.log "Manual-only script loaded!")</span></td></tr>
-        </tbody>
-      </table>
+      <pre><code>{:epupp/script-name "Manual Only Script"
+ :epupp/description "A script with no auto-run-match"}
+
+(ns manual-only-script)
+
+(js/console.log "Manual-only script loaded!")</code></pre>
     </div>
   </div>
 

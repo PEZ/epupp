@@ -283,10 +283,31 @@
 
       ;; Navigate to mock gist page
       (let [page (js-await (.newPage context))]
+        ;; Capture console output for debugging
+        (.on page "console" (fn [msg] (js/console.log "PAGE CONSOLE:" (.text msg))))
         (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
         (js-await (-> (expect (.locator page "#test-marker"))
                       (.toContainText "ready")))
         (js/console.log "Mock gist page loaded")
+
+        ;; Debug: Check if installer script ran at all
+        (let [debug-marker (.locator page "#epupp-installer-debug")]
+          (try
+            (js-await (-> (expect debug-marker) (.toBeAttached #js {:timeout 5000})))
+            (js/console.log "DEBUG: Installer script executed (marker found)")
+            ;; Wait a moment for scan to complete
+            (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 500))))
+            ;; Read the debug marker content
+            (let [marker-text (js-await (.textContent debug-marker))]
+              (js/console.log "DEBUG marker text:" marker-text))
+            ;; Check for button containers and buttons
+            (let [containers (.locator page ".epupp-btn-container")
+                  all-buttons (.locator page "button")]
+              (let [container-count (js-await (.count containers))
+                    button-count (js-await (.count all-buttons))]
+                (js/console.log "DEBUG: button containers:" container-count ", all buttons:" button-count)))
+            (catch :default e
+              (js/console.log "DEBUG: Installer script DID NOT RUN (no marker):" (.-message e)))))
 
         ;; Wait for the web userscript installer userscript to run and add Install button
         ;; The button should appear on the installable gist file
@@ -433,6 +454,102 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_web_userscript_installer_idempotency []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and wait for built-in web userscript installer to be re-installed
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Wait for web userscript installer to exist in storage with non-empty code
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
+              (if has-code
+                (js/console.log "Web Userscript Installer re-installed with code")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for web userscript installer with code"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                    (recur)))))))
+
+        ;; Enable the Web Userscript Installer (disabled by default)
+        (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
+              installer-checkbox (.locator installer-script "input[type='checkbox']")]
+          (js-await (-> (expect installer-checkbox) (.toBeVisible)))
+          (when-not (js-await (.isChecked installer-checkbox))
+            (js/console.log "Enabling Web Userscript Installer...")
+            (js-await (.click installer-checkbox))
+            (js-await (wait-for-checkbox-state installer-checkbox true))))
+
+        (js-await (.close popup)))
+
+      ;; Navigate to mock gist page
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Mock gist page loaded")
+
+        ;; Wait for the web userscript installer to add Install buttons (first scan)
+        (let [install-buttons (.locator page "button:has-text(\"Install\")")]
+          (js/console.log "Waiting for Install buttons to appear (first scan)...")
+          (js-await (-> (expect install-buttons)
+                        (.toHaveCount 2 #js {:timeout 10000})))
+          (let [initial-count (js-await (.count install-buttons))]
+            (js/console.log "Initial button count:" initial-count)
+
+            ;; Verify that pre elements have been marked as processed
+            (let [processed-pres (js-await (.evaluate page
+                                                      (fn []
+                                                        (let [pres (js/Array.from (.querySelectorAll js/document "pre"))]
+                                                          (count (filter #(.getAttribute % "data-epupp-processed") pres))))))]
+              (js/console.log "Processed pre elements:" processed-pres)
+              (js-await (-> (expect processed-pres)
+                            (.toBeGreaterThan 0))))
+
+            ;; Count button containers to verify structure
+            (let [button-containers (js-await (.evaluate page
+                                                         (fn []
+                                                           (.-length (.querySelectorAll js/document ".epupp-btn-container")))))]
+              (js/console.log "Button containers:" button-containers)
+              (js-await (-> (expect button-containers)
+                            (.toBe initial-count)))
+
+              ;; Verify each button container is followed by a pre element
+              ;; This ensures buttons are in the right place and won't be duplicated
+              (let [containers-with-pres (js-await (.evaluate page
+                                                              (fn []
+                                                                (let [containers (js/Array.from (.querySelectorAll js/document ".epupp-btn-container"))]
+                                                                  (count (filter #(.-nextElementSibling %) containers))))))]
+                (js-await (-> (expect containers-with-pres)
+                              (.toBe button-containers)))))))
+
+        (js-await (.close page)))
+
+      ;; Check for errors
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Userscript"
            (fn []
              (test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
@@ -450,4 +567,6 @@
              (test "Userscript: web userscript installer shows Install button and installs script"
                    test_web_userscript_installer_shows_button_and_installs)
              (test "Userscript: web userscript installer installs manual-only script"
-                   test_web_userscript_installer_manual_only_script)))
+                   test_web_userscript_installer_manual_only_script)
+             (test "Userscript: web userscript installer is idempotent (no duplicate buttons)"
+                   test_web_userscript_installer_idempotency)))

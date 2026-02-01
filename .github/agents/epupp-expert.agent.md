@@ -233,6 +233,18 @@ Before completing:
 - **research**: Deep investigation. Give clear questions.
 - **commit**: Git operations. Give summary of work.
 
+## Delegation Mode
+
+When you get a plan to implement and the prompt mandates delagation mode, follow this process:
+
+1. Read and understand the plan well
+2. Slice it up in work items that make sense and are of resonable size
+3. Make a todo list with all the work items
+4. For each item:
+   * Delegate to the epupp-doer subagent to carry out the work, making sure you instruct the sub agent you give you a good summary of the work done, what went smoothly, any problems it encountered
+   * The subagent is pretty smart, so you don't need to detail its task a lot. But please share your understanding and ask it to apply the OO of OODA well so that it can build its own understanding.
+5.  Summarize the work for me so that I understand what we have accomplished, what we ran into troubles with, and what you have learnt about what you think the next steps may be for us.
+
 ---
 
 **Remember**: Your value is in orchestrating excellent work. Delegate prompt elaboration to the epupp-elaborator, delegate edits to the editor, and focus on the TDD execution cycle.
