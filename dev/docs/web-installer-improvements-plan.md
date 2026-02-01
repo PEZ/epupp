@@ -18,6 +18,7 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 **Reference Implementation:**
 - [web_userscript_installer.cljs](../../extension/userscripts/epupp/web_userscript_installer.cljs)
 - [Archived plan](archive/web-userscript-installer-plan.md)
+- [GitHub and GitLab page research](github-gitlab-page-research.md) - DOM structures, detection patterns, and button placement strategies
 
 ---
 
@@ -37,10 +38,21 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 
 **Problem:** On GitLab snippets, inserting button before `<pre>` messes with the file layout. GitLab has a `.file-actions` container we could use.
 
-**Solution:** Detect GitLab-specific structure and place button last in `.file-actions` like we do for GitHub.
+**Research:** See [github-gitlab-page-research.md](github-gitlab-page-research.md#gitlab-snippet)
 
-- [ ] Add `:gitlab-pre` format detection
-- [ ] Place GitLab buttons in `.file-actions`
+**Current behavior:** Generic `<pre>` detection inserts button before the element
+**GitLab structure:** Vue-rendered with `.file-title-flex-parent` or `.file-actions` containers
+
+**Solution:** Detect GitLab-specific structure and place button in proper container like we do for GitHub.
+
+**Implementation approach:**
+- Wait for Vue to mount (check for `.js-snippets-note-edit-form-holder`)
+- Look for `.file-title-flex-parent` or `.file-actions`
+- Insert button using GitLab button classes: `btn`, `btn-default`
+
+- [ ] Add `:gitlab-snippet` format detection
+- [ ] Implement Vue mount detection
+- [ ] Place GitLab buttons in `.file-title-flex-parent` or `.file-actions`
 - [ ] Add E2E test with GitLab-style mock block
 
 ### 3. Epupp Icon Shows Generic "E"
@@ -59,25 +71,51 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 
 ### 4. Support GitHub Repo Code (Not Just Gists)
 
-**Context:** GitHub displays code differently in repos vs gists. Need to handle both.
+**Context:** GitHub displays code differently in repos vs gists. Repo files use React-based rendering.
 
-| Context | DOM Structure | Detection |
-|---------|---------------|-----------|
-| Gist | `table.js-file-line-container` | Current |
-| Repo blob | `table.js-file-line-container` | Same? TBD |
-| Repo search results | Different, possibly excerpts | Skip |
+**Research:** See [github-gitlab-page-research.md](github-gitlab-page-research.md#github-repo-file)
 
-- [ ] Research GitHub repo code view DOM
-- [ ] Add detection if different from gists
+| Context | DOM Structure | Detection | Notes |
+|---------|---------------|-----------|-------|
+| Gist | `.blob-wrapper.data` in traditional DOM | `meta[name="hostname"]="gist.github.com"` | Current implementation |
+| Repo blob | React-rendered `[data-ssr-id="react-code-view"]` | `meta[name="route-pattern"]` contains `/blob/` | Needs React hydration wait |
+| Repo search results | Different, possibly excerpts | Skip | Not in scope |
+
+**Implementation notes:**
+- Need to wait for React to hydrate (MutationObserver or polling)
+- Look for `[data-ssr-id="react-code-view"]` container
+- Button placement may be in Primer `Button-group` or toolbar
+- File type detection: check file extension in URL or component props
+
+- [ ] Implement React hydration detection
+- [ ] Add `detect-github-repo-file` function
+- [ ] Handle button placement in React component structure
+- [ ] Add E2E test with GitHub repo file mock
 
 ### 5. Support GitLab Repo Code (Not Just Snippets)
 
-**Context:** GitLab displays code differently in repos vs snippets. Need to handle both.
+**Context:** GitLab displays code differently in repos vs snippets. Both use Vue-based rendering with GraphQL data.
 
-Example: https://gitlab.com/intem-oss/combine-taglib/-/blob/develop/src/main/java/se/intem/web/taglib/combined/RequestPath.java?ref_type=heads
+**Research:** See [github-gitlab-page-research.md](github-gitlab-page-research.md#gitlab-repo-file)
 
-- [ ] Research GitLab repo code view DOM
-- [ ] Add detection for GitLab repos
+| Context | DOM Structure | Detection | Notes |
+|---------|---------------|-----------|-------|
+| Snippet | Vue-rendered with GraphQL | `body[data-page="snippets:show"]` | Current implementation |
+| Repo blob | Vue + Monaco editor | URL contains `/blob/`, likely `data-page="projects:blob:show"` | Needs verification |
+
+**Example to test:** https://gitlab.com/gitlab-org/gitlab/-/blob/master/README.md
+
+**Implementation notes:**
+- Need to wait for Vue to mount
+- May use Monaco editor (`.monaco-editor`) for editable views
+- Look for `.file-holder`, `.blob-viewer` containers
+- Button placement likely in `.file-title-flex-parent` or `.file-actions`
+
+- [ ] Verify DOM structure with actual GitLab repo file
+- [ ] Implement Vue mount detection for repo files
+- [ ] Add `detect-gitlab-repo-file` function
+- [ ] Handle button placement in Vue component structure
+- [ ] Add E2E test with GitLab repo file mock
 
 ### 6. Support Textarea Elements
 
