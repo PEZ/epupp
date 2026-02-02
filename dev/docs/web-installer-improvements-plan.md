@@ -47,36 +47,37 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 
 ## Known Issues
 
-### 1. Installed Status Not Detected on Initial Scan
+### 1. Installed Status Not Detected on Initial Scan ✅
 
 **Problem:** Button always renders as "Install" on page load, even when script is already installed. The `fetch-installed-scripts!+` call happens async after the first scan, but the re-scan doesn't update existing button states properly.
 
 **Expected:** Button should show "Installed" or "Update" based on comparison with stored script code.
 
-- [ ] Investigate state update flow
-- [ ] Fix re-render after installed scripts arrive
-- [ ] Add E2E test verifying correct initial state
+**Solution:** Added `update-existing-blocks-with-installed-scripts!+` function that updates block states directly instead of re-scanning (which filtered out already-processed blocks). Called from `init!` after installed scripts are fetched.
 
-### 2. GitLab Button Placement Disrupts Layout
+- [x] Investigate state update flow
+- [x] Fix re-render after installed scripts arrive
+- [x] Add E2E test verifying correct initial state
+
+### 2. GitLab Button Placement Disrupts Layout ✅
 
 **Problem:** On GitLab snippets, inserting button before `<pre>` messes with the file layout. GitLab has a `.file-actions` container we could use.
 
 **Research:** See [github-gitlab-page-research.md](github-gitlab-page-research.md#gitlab-snippet)
 
-**Current behavior:** Generic `<pre>` detection inserts button before the element
-**GitLab structure:** Vue-rendered with `.file-title-flex-parent` or `.file-actions` containers
+**Solution:** Detect GitLab-specific structure and place button in proper container like we do for GitHub. ✅ IMPLEMENTED
 
-**Solution:** Detect GitLab-specific structure and place button in proper container like we do for GitHub.
+**Implementation:**
+- `detect-gitlab-snippets` finds `.file-holder` elements ✅
+- `get-gitlab-snippet-text` extracts code from nested pre ✅
+- Generic pre detection excludes elements inside `.file-holder` ✅
+- Button placed in `.file-actions` container with GitLab classes (`btn btn-default btn-sm`) ✅
+- E2E test verifies correct placement and installation ✅
 
-**Implementation approach:**
-- Wait for Vue to mount (check for `.js-snippets-note-edit-form-holder`)
-- Look for `.file-title-flex-parent` or `.file-actions`
-- Insert button using GitLab button classes: `btn`, `btn-default`
-
-- [ ] Add `:gitlab-snippet` format detection
-- [ ] Implement Vue mount detection
-- [ ] Place GitLab buttons in `.file-title-flex-parent` or `.file-actions`
-- [ ] Add E2E test with GitLab-style mock block
+- [x] Add `:gitlab-snippet` format detection
+- [x] Implement Vue mount detection
+- [x] Place GitLab buttons in `.file-title-flex-parent` or `.file-actions`
+- [x] Add E2E test with GitLab-style mock block
 
 ### 3. Epupp Icon Shows Generic "E"
 
@@ -89,8 +90,8 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 
 **Recommendation:** Inline SVG for self-contained script.
 
-- [ ] Choose icon source approach
-- [ ] Update button component to use real icon
+- [x] Choose icon source approach
+- [x] Update button component to use real icon
 - [ ] Verify icon displays correctly
 
 ---
@@ -204,9 +205,9 @@ Reference: `build/components.css` button styles
 ## Implementation Batches
 
 ### Batch A: Bug Fixes (Critical)
-1. Run testrunner baseline
-2. Fix installed status detection (#1)
-3. Fix GitLab button placement (#2)
+1. ✅ Run testrunner baseline
+2. ✅ Fix installed status detection (#1)
+3. ✅ Fix GitLab button placement (#2)
 4. Fix Epupp icon (#3)
 5. Run testrunner verification
 

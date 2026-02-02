@@ -86,8 +86,9 @@
 ;; ============================================================
 
 ;; Format types:
-;; - :pre - GitLab/generic <pre> elements
+;; - :pre - Generic <pre> elements
 ;; - :github-table - GitHub gist table-based code
+;; - :gitlab-snippet - GitLab snippet with .file-holder container
 
 (defn- get-pre-text
   "Extract code text from pre element"
@@ -102,6 +103,12 @@
          (map #(.-textContent %))
          (str/join "\n"))))
 
+(defn- get-gitlab-snippet-text
+  "Extract code text from GitLab snippet pre element within .file-holder"
+  [file-holder-element]
+  (when-let [pre-element (.querySelector file-holder-element "pre")]
+    (.-textContent pre-element)))
+
 (defn- detect-github-tables
   "Find GitHub gist code tables, return array of {:element :format :code-text}"
   []
@@ -113,26 +120,48 @@
                :code-text (get-github-table-text el)}))))
 
 (defn- detect-pre-elements
-  "Find generic pre elements, return array of {:element :format :code-text}"
+  "Find generic pre elements, return array of {:element :format :code-text}.
+   Excludes pre elements that are inside .file-holder (GitLab-specific containers)."
   []
   (->> (.querySelectorAll js/document "pre")
        js/Array.from
+       (filter (fn [el]
+                 ;; Exclude if inside .file-holder (GitLab snippet)
+                 (not (.closest el ".file-holder"))))
        (map (fn [el]
               {:element el
                :format :pre
                :code-text (get-pre-text el)}))))
 
+(defn- detect-gitlab-snippets
+  "Find GitLab snippet code blocks, return array of {:element :format :code-text}"
+  []
+  (->> (.querySelectorAll js/document ".file-holder")
+       js/Array.from
+       (map (fn [el]
+              {:element el
+               :format :gitlab-snippet
+               :code-text (get-gitlab-snippet-text el)}))
+       (filter #(:code-text %))))
+
 (defn- detect-all-code-blocks
   "Detect all code blocks on page. Returns seq of {:element :format :code-text}"
   []
-  ;; GitHub tables first (more specific), then generic pre elements
-  (concat (detect-github-tables) (detect-pre-elements)))
+  ;; More specific formats first (GitHub tables, GitLab snippets), then generic pre elements
+  (concat (detect-github-tables)
+          (detect-gitlab-snippets)
+          (detect-pre-elements)))
 
 (defn- get-github-button-container
   "Get the .file-actions container for GitHub gist button placement"
   [table-element]
   (when-let [file-div (.closest table-element ".file")]
     (.querySelector file-div ".file-actions")))
+
+(defn- get-gitlab-button-container
+  "Get the .file-actions container for GitLab snippet button placement"
+  [file-holder-element]
+  (.querySelector file-holder-element ".file-actions"))
 
 ;; ============================================================
 ;; State management
@@ -272,14 +301,19 @@
 ;; ============================================================
 
 (defn epupp-icon
-  "Simple Epupp icon (16x16 SVG - 'E' mark)"
+  "Epupp icon - lightning bolt design from extension/icons/icon.svg"
   []
   [:svg {:width 16
          :height 16
-         :viewBox "0 0 16 16"
-         :fill "currentColor"
+         :viewBox "0 0 100 100"
+         :fill "none"
          :style {:flex-shrink 0}}
-   [:path {:d "M3 2h8v2H5v3h5v2H5v3h6v2H3V2z"}]])
+   ;; Blue circle background
+   [:circle {:cx 50 :cy 50 :r 48 :fill "#4a71c4"}]
+   ;; Yellow/gold lightning bolt
+   [:path {:fill "#ffdc73"
+           :transform "translate(50, 50) scale(0.5) translate(-211, -280)"
+           :d "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0  1 2.65 5.53l-2.54 52.23z"}]])
 
 (defn button-tooltip [status]
   (case status
@@ -524,7 +558,8 @@
 (defn attach-button-to-block!
   "Attach install button to a code block. Handles different formats:
    - :pre - Insert button container before the pre element
-   - :github-table - Append button to .file-actions container"
+   - :github-table - Append button to .file-actions container
+   - :gitlab-snippet - Append button to .file-actions container"
   [block-info block-data]
   (let [element (:element block-info)
         format (:format block-info)]
@@ -544,7 +579,22 @@
               (catch :default e
                 (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
 
-      ;; Pre element (GitLab/generic): insert before
+      ;; GitLab snippet: append to .file-actions
+      :gitlab-snippet
+      (when-let [file-actions (get-gitlab-button-container element)]
+        (when-not (.querySelector file-actions ".epupp-btn-container")
+          (let [btn-container (js/document.createElement "span")]
+            (set! (.-className btn-container) "epupp-btn-container btn btn-default btn-sm")
+            (set! (.. btn-container -style -marginLeft) "8px")
+            (.appendChild file-actions btn-container)
+            (swap! !button-containers assoc (:id block-data) btn-container)
+            (js/console.log "[Web Userscript Installer] GitLab button container created for:" (:script/name block-data))
+            (try
+              (r/render btn-container (render-install-button block-data))
+              (catch :default e
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
+
+      ;; Pre element (generic): insert before
       :pre
       (let [existing-btn (aget element "previousElementSibling")]
         (when-not (and existing-btn
@@ -615,6 +665,31 @@
         (js/Promise.resolve nil))
       (js/Promise.resolve nil))))
 
+(defn- update-existing-blocks-with-installed-scripts!+
+  "Update status of existing blocks after installed scripts are fetched.
+   Returns promise that resolves when all updates are complete."
+  [installed-scripts]
+  (let [blocks (:blocks @!state)]
+    (js/console.log "[Web Userscript Installer] Updating" (count blocks) "blocks with" (count (keys installed-scripts)) "installed scripts")
+    (-> (js/Promise.all
+         (to-array
+          (for [block blocks]
+            (let [script-name (get-in block [:manifest :script-name])
+                  page-code (:code block)]
+              (if (get installed-scripts script-name)
+                (-> (fetch-script-code!+ script-name)
+                    (.then (fn [existing-code]
+                             (let [state-info (determine-button-state script-name page-code installed-scripts existing-code)]
+                               (swap! !state update-block-status (:id block) (:install-state state-info))
+                               (js/console.log "[Web Userscript Installer] Updated block" script-name "to" (:install-state state-info)))))
+                    (.catch (fn [e]
+                              (js/console.error "[Web Userscript Installer] Error updating block" script-name e))))
+                (js/Promise.resolve nil))))))
+        (.then (fn [_]
+                 (js/console.log "[Web Userscript Installer] Finished updating block states")))
+        (.catch (fn [error]
+                  (js/console.error "[Web Userscript Installer] Error updating blocks:" error))))))
+
 (defn scan-code-blocks! []
   (let [all-blocks (detect-all-code-blocks)
         installed-scripts (:installed-scripts @!state)
@@ -658,8 +733,8 @@
       (.then (fn [installed-scripts]
                (js/console.log "[Web Userscript Installer] Fetched" (count (keys installed-scripts)) "installed scripts")
                (swap! !state assoc :installed-scripts installed-scripts)
-               ;; Re-scan to update button states with installed info
-               (scan-code-blocks!)))
+               ;; Update existing blocks with installed script info
+               (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
       (.catch (fn [error]
                 (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
 

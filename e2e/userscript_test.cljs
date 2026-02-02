@@ -507,11 +507,11 @@
         (js/console.log "Mock gist page loaded")
 
         ;; Wait for the web userscript installer to add Install buttons (first scan)
-        ;; We expect 3 buttons: 2 from pre-style blocks + 1 from GitHub table-style block
+        ;; We expect 4 buttons: 2 from pre-style blocks + 1 from GitHub table-style block + 1 from GitLab snippet
         (let [install-buttons (.locator page "button:has-text(\"Install\")")]
           (js/console.log "Waiting for Install buttons to appear (first scan)...")
           (js-await (-> (expect install-buttons)
-                        (.toHaveCount 3 #js {:timeout 10000})))
+                        (.toHaveCount 4 #js {:timeout 10000})))
           (let [initial-count (js-await (.count install-buttons))]
             (js/console.log "Initial button count:" initial-count)
 
@@ -645,6 +645,199 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_web_userscript_installer_shows_installed_on_reload []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and enable installer
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Wait for web userscript installer to be re-installed
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
+              (if has-code
+                (js/console.log "Web Userscript Installer re-installed")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for web userscript installer"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                    (recur)))))))
+
+        ;; Enable the installer
+        (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
+              installer-checkbox (.locator installer-script "input[type='checkbox']")]
+          (js-await (-> (expect installer-checkbox) (.toBeVisible)))
+          (when-not (js-await (.isChecked installer-checkbox))
+            (js/console.log "Enabling Web Userscript Installer...")
+            (js-await (.click installer-checkbox))
+            (js-await (wait-for-checkbox-state installer-checkbox true))))
+
+        (js-await (.close popup)))
+
+      ;; Navigate to mock gist and install script
+      (let [page (js-await (.newPage context))]
+        (.on page "console" (fn [msg] (js/console.log "PAGE:" (.text msg))))
+        (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+
+        ;; Install the script
+        (let [install-btn (.locator page "#installable-gist button:has-text(\"Install\")")]
+          (js-await (-> (expect install-btn)
+                        (.toBeVisible #js {:timeout 5000})))
+          (js-await (.click install-btn))
+
+          ;; Confirm installation
+          (let [confirm-btn (.locator page "#epupp-confirm")]
+            (js-await (-> (expect confirm-btn)
+                          (.toBeVisible #js {:timeout 5000})))
+            (js-await (.click confirm-btn))
+
+            ;; Wait for "Installed" indicator
+            (let [installed-indicator (.locator page "#installable-gist button:has-text(\"Installed\")")]
+              (js-await (-> (expect installed-indicator)
+                            (.toBeVisible #js {:timeout 5000})))
+              (js/console.log "Script installed, button shows 'Installed'")))
+
+          ;; Reload the page
+          (js/console.log "Reloading page to test installed status detection...")
+          (js-await (.reload page))
+          (js-await (-> (expect (.locator page "#test-marker"))
+                        (.toContainText "ready")))
+
+          ;; Button should still show "Installed" (not "Install")
+          (let [installed-indicator (.locator page "#installable-gist button:has-text(\"Installed\")")
+                install-btn-wrong (.locator page "#installable-gist button:has-text(\"Install\")")]
+            (js/console.log "After reload, checking button state...")
+            ;; First, ensure the wrong "Install" button does NOT appear
+            (js-await (-> (expect install-btn-wrong)
+                          (.toHaveCount 0 #js {:timeout 3000})))
+            ;; Then verify "Installed" button is visible
+            (js-await (-> (expect installed-indicator)
+                          (.toBeVisible #js {:timeout 500})))
+            (js/console.log "SUCCESS: Button correctly shows 'Installed' after reload")))
+
+        (js-await (.close page)))
+
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_web_userscript_installer_gitlab_button_placement []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Clear storage and enable installer
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Wait for web userscript installer
+        (let [start (.now js/Date)
+              timeout-ms 5000]
+          (loop []
+            (let [storage-data (js-await (.evaluate popup
+                                                    (fn []
+                                                      (js/Promise. (fn [resolve]
+                                                                     (.get js/chrome.storage.local #js ["scripts"]
+                                                                           (fn [result] (resolve result))))))))
+                  scripts (.-scripts storage-data)
+                  installer (when scripts
+                              (.find scripts (fn [s]
+                                               (= (.-id s) "epupp-builtin-web-userscript-installer"))))
+                  has-code (and installer
+                                (.-code installer)
+                                (pos? (.-length (.-code installer))))]
+              (if has-code
+                (js/console.log "Web Userscript Installer re-installed with code")
+                (if (> (- (.now js/Date) start) timeout-ms)
+                  (throw (js/Error. "Timeout waiting for web userscript installer with code"))
+                  (do
+                    (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                    (recur)))))))
+
+        ;; Enable the Web Userscript Installer
+        (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
+              installer-checkbox (.locator installer-script "input[type='checkbox']")]
+          (js-await (-> (expect installer-checkbox) (.toBeVisible)))
+          (when-not (js-await (.isChecked installer-checkbox))
+            (js/console.log "Enabling Web Userscript Installer...")
+            (js-await (.click installer-checkbox))
+            (js-await (wait-for-checkbox-state installer-checkbox true))))
+
+        (js-await (.close popup)))
+
+      ;; Navigate to mock gist page
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/mock-gist.html" #js {:timeout 5000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+        (js/console.log "Mock gist page loaded")
+
+        ;; Verify GitLab-style snippet is detected and button placed in .file-actions
+        (let [install-btn (.locator page "#gitlab-installable-snippet .file-actions button:has-text(\"Install\")")]
+          (js/console.log "Waiting for Install button in GitLab snippet's .file-actions...")
+          (js-await (-> (expect install-btn)
+                        (.toBeVisible #js {:timeout 5000})))
+          (js/console.log "Install button found in .file-actions container")
+
+          ;; Verify the non-installable GitLab block does NOT have a button
+          (let [non-installable-btn (.locator page "#gitlab-non-installable .file-actions button:has-text(\"Install\")")]
+            (js-await (-> (expect non-installable-btn)
+                          (.toHaveCount 0 #js {:timeout 500})))
+            (js/console.log "Confirmed: non-installable GitLab block has no Install button"))
+
+          ;; Click Install and confirm
+          (js-await (.click install-btn))
+
+          ;; Wait for confirmation modal
+          (let [confirm-btn (.locator page "#epupp-confirm")]
+            (js-await (-> (expect confirm-btn)
+                          (.toBeVisible #js {:timeout 1000})))
+            (js/console.log "Confirmation modal appeared, confirming...")
+
+            ;; Confirm the installation
+            (js-await (.click confirm-btn))
+
+            ;; Wait for button to change to "Installed"
+            (let [installed-indicator (.locator page "#gitlab-installable-snippet .file-actions button:has-text(\"Installed\")")]
+              (js-await (-> (expect installed-indicator)
+                            (.toBeVisible #js {:timeout 1000})))
+              (js/console.log "GitLab-style script installed successfully"))))
+
+        (js-await (.close page)))
+
+      ;; Verify script appears in popup
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+
+        (let [script-item (.locator popup ".script-item:has-text(\"gitlab_test_script.cljs\")")]
+          (js-await (-> (expect script-item)
+                        (.toBeVisible #js {:timeout 1000})))
+          (js/console.log "Installed GitLab script visible in popup"))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Userscript"
            (fn []
              (test "Userscript: injects on matching URL and logs SCRIPT_INJECTED"
@@ -666,4 +859,8 @@
              (test "Userscript: web userscript installer is idempotent (no duplicate buttons)"
                    test_web_userscript_installer_idempotency)
              (test "Userscript: web userscript installer detects GitHub-style table code blocks"
-                   test_web_userscript_installer_github_style_block)))
+                   test_web_userscript_installer_github_style_block)
+             (test "Userscript: web userscript installer shows Installed status after reload"
+                   test_web_userscript_installer_shows_installed_on_reload)
+             (test "Userscript: web userscript installer places GitLab buttons in .file-actions"
+                   test_web_userscript_installer_gitlab_button_placement)))

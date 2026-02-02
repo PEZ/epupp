@@ -152,5 +152,47 @@
     </div>
   </div>
 
+  <!-- ========================================
+       GitLab Snippet Style Code Blocks
+       ======================================== -->
+
+  <!-- GitLab-style installable snippet -->
+  <div class="file-holder" id="gitlab-installable-snippet" data-snippet-type="clojure">
+    <div class="file-title-flex-parent">
+      <div class="file-header-content">
+        <strong>gitlab_test_script.cljs</strong>
+      </div>
+      <div class="file-actions">
+        <a href="/raw/gitlab_test_script.cljs" class="btn btn-default btn-sm">Raw</a>
+      </div>
+    </div>
+    <div class="blob-content">
+      <pre class="code highlight"><code>{:epupp/script-name "gitlab_test_script.cljs"
+ :epupp/auto-run-match "*://gitlab-test.example.com/*"
+ :epupp/description "A GitLab-style test script"}
+
+(ns gitlab-test-script)
+
+(js/console.log "GitLab test script loaded!")</code></pre>
+    </div>
+  </div>
+
+  <!-- GitLab-style non-installable (no manifest) -->
+  <div class="file-holder" id="gitlab-non-installable" data-snippet-type="clojure">
+    <div class="file-title-flex-parent">
+      <div class="file-header-content">
+        <strong>gitlab_regular.cljs</strong>
+      </div>
+      <div class="file-actions">
+        <a href="/raw/gitlab_regular.cljs" class="btn btn-default btn-sm">Raw</a>
+      </div>
+    </div>
+    <div class="blob-content">
+      <pre class="code highlight"><code>(ns gitlab-regular)
+
+(defn greet [] "Hello from GitLab")</code></pre>
+    </div>
+  </div>
+
 </body>
 </html>
