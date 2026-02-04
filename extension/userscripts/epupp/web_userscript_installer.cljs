@@ -176,9 +176,9 @@
         :code-text code-text}])))
 
 (defn- detect-all-code-blocks
-  "Detect all code blocks on page. Returns seq of {:element :format :code-text}"
+  "Detect all code blocks on page. Returns seq of {:element :format :code-text}.
+   More specific formats listed first for priority. Global dedup prevents duplicates."
   []
-  ;; More specific formats first (GitHub tables, GitHub repos, GitLab snippets), then generic elements
   (concat (detect-github-tables)
           (detect-github-repo-files)
           (detect-gitlab-snippets)
@@ -198,9 +198,13 @@
 
 (defn- get-github-repo-button-container
   "Get the button container for GitHub repo file button placement.
-   The element is the header container; find ButtonGroup inside it."
+   Finds ButtonGroup containing Raw button, or first ButtonGroup as fallback."
   [header-element]
-  (.querySelector header-element "[class*='ButtonGroup']"))
+  (let [button-groups (js/Array.from (.querySelectorAll header-element "[class*='ButtonGroup']"))]
+    (or (->> button-groups
+             (filter #(.querySelector % "[data-testid='raw-button']"))
+             first)
+        (first button-groups))))
 
 ;; ============================================================
 ;; State management
@@ -611,23 +615,35 @@
 ;; Gist scanning and initialization
 ;; ============================================================
 
+(defn- script-button-exists?
+  "Check if a button for this script name already exists anywhere on the page."
+  [script-name]
+  (some? (.querySelector js/document (str "[data-epupp-script='" script-name "']"))))
+
 (defn attach-button-to-block!
   "Attach install button to a code block. Handles different formats:
    - :pre - Insert button container before the pre element
    - :textarea - Insert button container before the textarea element
    - :github-table - Append button to .file-actions container
    - :github-repo - Append button to Button-group or Box-actions container
-   - :gitlab-snippet - Append button to .file-actions container"
+   - :gitlab-snippet - Append button to .file-actions container
+
+   Checks globally if a button for this script already exists (prevents duplicates
+   when multiple detection strategies find the same script content)."
   [block-info block-data]
   (let [element (:element block-info)
-        format (:format block-info)]
-    (case format
+        format (:format block-info)
+        script-name (get-in block-data [:manifest :script-name])]
+    ;; Global dedup: if button for this script exists anywhere, skip
+    (when-not (script-button-exists? script-name)
+      (case format
       ;; GitHub gist: append to .file-actions
       :github-table
       (when-let [file-actions (get-github-button-container element)]
         (when-not (.querySelector file-actions ".epupp-btn-container")
           (let [btn-container (js/document.createElement "span")]
             (set! (.-className btn-container) "epupp-btn-container")
+            (.setAttribute btn-container "data-epupp-script" script-name)
             (set! (.. btn-container -style -marginLeft) "8px")
             (.appendChild file-actions btn-container)
             (swap! !button-containers assoc (:id block-data) btn-container)
@@ -643,6 +659,7 @@
         (when-not (.querySelector file-actions ".epupp-btn-container")
           (let [btn-container (js/document.createElement "span")]
             (set! (.-className btn-container) "epupp-btn-container")
+            (.setAttribute btn-container "data-epupp-script" script-name)
             (set! (.. btn-container -style -marginLeft) "8px")
             (.appendChild file-actions btn-container)
             (swap! !button-containers assoc (:id block-data) btn-container)
@@ -658,6 +675,7 @@
         (when-not (.querySelector button-container ".epupp-btn-container")
           (let [btn-container (js/document.createElement "span")]
             (set! (.-className btn-container) "epupp-btn-container")
+            (.setAttribute btn-container "data-epupp-script" script-name)
             (set! (.. btn-container -style -marginLeft) "8px")
             (.appendChild button-container btn-container)
             (swap! !button-containers assoc (:id block-data) btn-container)
@@ -676,6 +694,7 @@
                 parent (.-parentElement element)]
             (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
             (set! (.-className btn-container) "epupp-btn-container")
+            (.setAttribute btn-container "data-epupp-script" script-name)
             (.insertBefore parent btn-container element)
             (swap! !button-containers assoc (:id block-data) btn-container)
             (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
@@ -700,12 +719,13 @@
                 parent (.-parentElement element)]
             (js/console.log "[Web Userscript Installer] Creating textarea container for:" (:script/name block-data))
             (set! (.-className btn-container) "epupp-btn-container")
+            (.setAttribute btn-container "data-epupp-script" script-name)
             (.insertBefore parent btn-container element)
             (swap! !button-containers assoc (:id block-data) btn-container)
             (try
               (r/render btn-container (render-install-button block-data))
               (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))))
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))))))
 
 (defn- process-code-block!+
   "Process a single code block. Returns promise.
