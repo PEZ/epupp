@@ -608,7 +608,7 @@
       (when-let [file-actions (get-gitlab-button-container element)]
         (when-not (.querySelector file-actions ".epupp-btn-container")
           (let [btn-container (js/document.createElement "span")]
-            (set! (.-className btn-container) "epupp-btn-container btn btn-default btn-sm")
+            (set! (.-className btn-container) "epupp-btn-container")
             (set! (.. btn-container -style -marginLeft) "8px")
             (.appendChild file-actions btn-container)
             (swap! !button-containers assoc (:id block-data) btn-container)
