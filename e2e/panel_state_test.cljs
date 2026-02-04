@@ -43,8 +43,8 @@
         (js-await (-> (expect textarea) (.toHaveValue (js/RegExp. "\\(defn hello \\[s\\]"))))
 
         (js-await (-> (expect name-field) (.toContainText "hello_world.cljs")))
-        ;; Default script has example.com match pattern
-        (js-await (-> (expect match-field) (.toContainText "https://example.com/*")))
+        ;; Default script uses current hostname for match pattern
+        (js-await (-> (expect match-field) (.toContainText "https://test.example.com/*")))
 
         (js-await (-> (expect (.locator panel "button.btn-save")) (.toBeEnabled)))
 

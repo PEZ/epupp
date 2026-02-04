@@ -4,11 +4,16 @@
   (:require [script-utils :as script-utils]
             [manifest-parser :as mp]))
 
-(def default-script
-  "Default script shown when panel initializes with no saved state.
-   Has a valid manifest with proper name and namespace."
-  "{:epupp/script-name \"hello_world.cljs\"
- :epupp/auto-run-match \"https://example.com/*\"
+(defn default-script
+  "Generate default script for panel initialization.
+   Uses the current hostname for the auto-run-match pattern.
+   Falls back to example.com if hostname is unknown or missing."
+  [hostname]
+  (let [effective-host (if (or (nil? hostname) (= hostname "unknown"))
+                         "example.com"
+                         hostname)]
+    (str "{:epupp/script-name \"hello_world.cljs\"
+ :epupp/auto-run-match \"https://" effective-host "/*\"
  :epupp/description \"A script saying hello\"}
 
 (ns hello-world)
@@ -16,7 +21,7 @@
 (defn hello [s]
   (js/console.log \"Epupp: Hello\" (str s \"!\")))
 
-(hello \"World\")")
+(hello \"World\")")))
 
 (defn- build-manifest-dxs
   "Build deferred dispatch actions from manifest data.
@@ -266,7 +271,7 @@
     :editor/ax.initialize-editor
     (let [[{:keys [code hostname]}] args
           ;; Use default script if no code saved
-          effective-code (if (seq code) code default-script)
+          effective-code (if (seq code) code (default-script hostname))
           ;; Parse manifest from code
           manifest (try (mp/extract-manifest effective-code) (catch :default _ nil))
           hints (build-manifest-hints manifest)
@@ -283,11 +288,13 @@
 
     :editor/ax.new-script
     ;; Reset editor to default script state, preserving results
-    (let [manifest (try (mp/extract-manifest default-script) (catch :default _ nil))
+    (let [hostname (:panel/current-hostname state)
+          script (default-script hostname)
+          manifest (try (mp/extract-manifest script) (catch :default _ nil))
           hints (build-manifest-hints manifest)
           dxs (build-manifest-dxs manifest)]
       {:uf/db (assoc state
-                     :panel/code default-script
+                     :panel/code script
                      :panel/original-name nil
                      :panel/script-name ""
                      :panel/script-match ""
