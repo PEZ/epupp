@@ -201,10 +201,12 @@
    Finds ButtonGroup containing Raw button, or first ButtonGroup as fallback."
   [header-element]
   (let [button-groups (js/Array.from (.querySelectorAll header-element "[class*='ButtonGroup']"))]
-    (or (->> button-groups
-             (filter #(.querySelector % "[data-testid='raw-button']"))
-             first)
-        (first button-groups))))
+    (->> (or (->> button-groups
+                  (filter #(.querySelector % "[data-testid='raw-button']"))
+                  first)
+             (first button-groups))
+         .-parentElement
+         .-parentElement)))
 
 ;; ============================================================
 ;; State management
@@ -383,33 +385,31 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status format] :as block}]
-  (let [clickable? (#{:install :update} status)
-        github-repo? (= format :github-repo)]
+(defn render-install-button [{:keys [id status] :as block}]
+  (let [clickable? (#{:install :update} status)]
     [:button.epupp-install-btn
      {:on {:click [:block/show-confirm id]}
       :disabled (not clickable?)
       :title (button-tooltip block)
-      :style (cond-> {:padding "6px 12px"
-                      :display "inline-flex"
-                      :align-items "center"
-                      :gap "6px"
-                      :background (case status
-                                    :install "#2ea44f"
-                                    :update "#d97706"
-                                    :installed "#6c757d"
-                                    :installing "#2ea44f"
-                                    :error "#dc3545"
-                                    "#2ea44f")
-                      :color "white"
-                      :border "1px solid rgba(27,31,36,0.15)"
-                      :border-radius "4px"
-                      :font-size "12px"
-                      :font-weight "500"
-                      :font-family "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-                      :cursor (if clickable? "pointer" "default")
-                      :transition "all 150ms"}
-               (not github-repo?) (assoc :margin "8px 0"))}
+      :style {:padding "6px 12px"
+              :display "inline-flex"
+              :align-items "center"
+              :gap "6px"
+              :background (case status
+                            :install "#2ea44f"
+                            :update "#d97706"
+                            :installed "#8b97a1"
+                            :installing "#2ea44f"
+                            :error "#dc3545"
+                            "#2ea44f")
+              :color "white"
+              :border "1px solid rgba(27,31,36,0.15)"
+              :border-radius "4px"
+              :font-size "12px"
+              :font-weight "500"
+              :font-family "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+              :cursor (if clickable? "pointer" "default")
+              :transition "all 150ms"}}
      (epupp-icon)
      (case status
        :install "Install"
