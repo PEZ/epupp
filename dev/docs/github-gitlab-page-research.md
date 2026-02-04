@@ -196,9 +196,9 @@ function waitForGitLabSnippet() {
 - URL pattern: `/<namespace>/<project>/-/blob/<branch>/<path>`
 - May use Monaco editor for editable views
 
-**Note:** No specific example was available during research. Recommend testing with:
-- https://gitlab.com/gitlab-org/gitlab/-/blob/master/README.md
-- Or any public GitLab repo file
+Test with:
+- https://gitlab.com/pappapez/userscripts-test/-/blob/main/pez/gitlab_repo_test_us.cljs
+- Also check other public GitLab repo files and see if it varies any.
 
 **Expected selectors (to verify):**
 - Monaco editor: `.monaco-editor` (for edit mode)

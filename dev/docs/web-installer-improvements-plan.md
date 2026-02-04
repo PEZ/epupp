@@ -79,31 +79,26 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 - [x] Place GitLab buttons in `.file-title-flex-parent` or `.file-actions`
 - [x] Add E2E test with GitLab-style mock block
 
-### 3. Epupp Icon Shows Generic "E"
+### 3. Epupp Icon Shows Generic "E" ✅
 
 **Problem:** The button displays a generic "E" icon instead of the actual Epupp icon.
 
-**Solution Options:**
-- Inline SVG in the script (self-contained)
-- Base64 encoded data URI
-- Fetch from extension via content bridge (`chrome.runtime.getURL()`)
-
-**Recommendation:** Inline SVG for self-contained script.
+**Solution:** Inline SVG extracted from `extension/icons/icon.svg`. Self-contained in the script, no network requests needed.
 
 - [x] Choose icon source approach
 - [x] Update button component to use real icon
-- [ ] Verify icon displays correctly
+- [x] Verify icon displays correctly
 
 ---
 
 ## Enhancements
 
-### 4. Button State Display
+### 4. Button State Display ✅
 
 **Context:** Button should reflect whether script is installed, needs update, or is fresh.
 
 | State | Button Text | Enabled? | Style | Tooltip |
-|-------|-------------|----------|-------|---------|
+|-------|-------------|----------|-------|--------|
 | `:install` | "Install" | Yes | Primary (green) | "Install to Epupp" |
 | `:update` | "Update" | Yes | Warning (amber) | "Update existing Epupp script" |
 | `:installed` | "Installed" | No | Muted (gray) | "Already installed in Epupp (identical)" |
@@ -112,11 +107,13 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 
 **Code comparison:** Simple string equality. If user reformats, they probably want to update anyway.
 
-- [ ] Verify current state rendering matches table
-- [ ] Add tooltips via `title` attribute
-- [ ] Test all states visually
+**Solution:** Added `title` attribute to `render-install-button` with state-specific tooltips. Error state includes the actual error message in the tooltip.
 
-### 5. Dialog Improvements
+- [x] Verify current state rendering matches table
+- [x] Add tooltips via `title` attribute
+- [x] Test all states visually
+
+### 5. Dialog Improvements ✅
 
 **Current:** Dialog always shows "Install Userscript"
 
@@ -126,10 +123,12 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 - For updates: show "This will update the existing script"
 - Error dialog: show actual error message from manifest parsing or storage layer
 
-- [ ] Update modal title for install vs update
-- [ ] Update confirm button text
-- [ ] Add error dialog for failed installs
-- [ ] Parse and display helpful error messages
+**Solution:** Already implemented - `modal-title`, `modal-description`, and confirm button text all vary based on `:update?` state. Error handling shows inline error messages in the modal.
+
+- [x] Update modal title for install vs update
+- [x] Update confirm button text
+- [x] Add error dialog for failed installs
+- [x] Parse and display helpful error messages
 
 ### 6. Support GitHub Repo Code (Not Just Gists)
 
@@ -165,7 +164,8 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 | Snippet | Vue-rendered with GraphQL | `body[data-page="snippets:show"]` | Current implementation |
 | Repo blob | Vue + Monaco editor | URL contains `/blob/`, likely `data-page="projects:blob:show"` | Needs verification |
 
-**Example to test:** https://gitlab.com/gitlab-org/gitlab/-/blob/master/README.md
+**Example to check:** https://gitlab.com/gitlab-org/gitlab/-/blob/master/README.md
+**Example to test with userscript:** https://gitlab.com/pappapez/userscripts-test/-/blob/main/pez/gitlab_repo_test_us.cljs
 
 **Implementation notes:**
 - Need to wait for Vue to mount
@@ -204,19 +204,19 @@ Reference: `build/components.css` button styles
 
 ## Implementation Batches
 
-### Batch A: Bug Fixes (Critical)
+### Batch A: Bug Fixes (Critical) ✅
 1. ✅ Run testrunner baseline
 2. ✅ Fix installed status detection (#1)
 3. ✅ Fix GitLab button placement (#2)
-4. Fix Epupp icon (#3)
-5. Run testrunner verification
+4. ✅ Fix Epupp icon (#3)
+5. ✅ Run testrunner verification
 
-### Batch B: UX Improvements
-1. Run testrunner baseline
-2. Verify button state display (#4)
-3. Dialog improvements (#5)
-4. Epupp-branded styling (#9)
-5. Run testrunner verification
+### Batch B: UX Improvements ✅
+1. ✅ Run testrunner baseline
+2. ✅ Verify button state display (#4)
+3. ✅ Dialog improvements (#5)
+4. Epupp-branded styling (#9) - deferred, current styling acceptable
+5. ✅ Run testrunner verification
 
 ### Batch C: GitHub/GitLab Repo Support
 1. Run testrunner baseline

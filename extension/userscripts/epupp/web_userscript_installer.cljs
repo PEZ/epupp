@@ -178,14 +178,19 @@
 (defn find-block-by-id [state block-id]
   (first (filter #(= (:id %) block-id) (:blocks state))))
 
-(defn update-block-status [state block-id new-status]
-  (update state :blocks
-          (fn [blocks]
-            (mapv (fn [b]
-                    (if (= (:id b) block-id)
-                      (assoc b :status new-status)
-                      b))
-                  blocks))))
+(defn update-block-status
+  ([state block-id new-status]
+   (update-block-status state block-id new-status nil))
+  ([state block-id new-status error-message]
+   (update state :blocks
+           (fn [blocks]
+             (mapv (fn [b]
+                     (if (= (:id b) block-id)
+                       (cond-> (assoc b :status new-status)
+                         error-message (assoc :error-message error-message)
+                         (not= new-status :error) (dissoc :error-message))
+                       b))
+                   blocks)))))
 
 (defn- determine-button-state
   "Determine button state based on installed scripts.
@@ -315,13 +320,13 @@
            :transform "translate(50, 50) scale(0.5) translate(-211, -280)"
            :d "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0  1 2.65 5.53l-2.54 52.23z"}]])
 
-(defn button-tooltip [status]
+(defn button-tooltip [{:keys [status error-message]}]
   (case status
     :install "Install to Epupp"
     :update "Update existing Epupp script"
     :installed "Already installed in Epupp (identical)"
     :installing "Installing..."
-    :error "Installation failed"
+    :error (or error-message "Installation failed")
     "Install to Epupp"))
 
 (defn run-at-label [run-at]
@@ -330,12 +335,12 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status]}]
+(defn render-install-button [{:keys [id status] :as block}]
   (let [clickable? (#{:install :update} status)]
     [:button.epupp-install-btn
      {:on {:click [:block/show-confirm id]}
       :disabled (not clickable?)
-      :title (button-tooltip status)
+      :title (button-tooltip block)
       :style {:margin "8px 0"
               :padding "6px 12px"
               :display "inline-flex"
@@ -510,7 +515,7 @@
                (swap! !state update-block-status block-id :installed))
              (let [error-msg (or (.-error response) "Installation failed")]
                (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
-               (swap! !state update-block-status block-id :error)
+               (swap! !state update-block-status block-id :error error-msg)
                (swap! !state assoc :modal {:visible? true
                                            :mode :error
                                            :block-id block-id
