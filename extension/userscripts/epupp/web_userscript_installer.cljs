@@ -361,19 +361,12 @@
 (defn epupp-icon
   "Epupp icon - loads from extension URL when available, falls back to inline SVG."
   []
-  (if-let [icon-url (:icon-url @!state)]
+  (when-let [icon-url (:icon-url @!state)]
     [:img {:src icon-url
            :width 16
            :height 16
            :alt "Epupp"
-           :style {:flex-shrink 0}}]
-    ;; Fallback inline SVG (used before extension URL is fetched)
-    [:svg {:width 16
-           :height 16
-           :viewBox "0 0 100 100"
-           :fill "none"
-           :style {:flex-shrink 0}}
-     [:circle {:cx 50 :cy 50 :r 48 :fill "#4a71c4"}]]))
+           :style {:flex-shrink 0}}]))
 
 (defn button-tooltip [{:keys [status error-message]}]
   (case status
@@ -390,37 +383,38 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status] :as block}]
-  (let [clickable? (#{:install :update} status)]
+(defn render-install-button [{:keys [id status format] :as block}]
+  (let [clickable? (#{:install :update} status)
+        github-repo? (= format :github-repo)]
     [:button.epupp-install-btn
      {:on {:click [:block/show-confirm id]}
       :disabled (not clickable?)
       :title (button-tooltip block)
-      :style {:margin "8px 0"
-              :padding "6px 12px"
-              :display "inline-flex"
-              :align-items "center"
-              :gap "6px"
-              :background (case status
-                            :install "#2ea44f"
-                            :update "#d97706"
-                            :installed "#6c757d"
-                            :installing "#2ea44f"
-                            :error "#dc3545"
-                            "#2ea44f")
-              :color "white"
-              :border "1px solid rgba(27,31,36,0.15)"
-              :border-radius "4px"
-              :font-size "12px"
-              :font-weight "500"
-              :font-family "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-              :cursor (if clickable? "pointer" "default")
-              :transition "all 150ms"}}
+      :style (cond-> {:padding "6px 12px"
+                      :display "inline-flex"
+                      :align-items "center"
+                      :gap "6px"
+                      :background (case status
+                                    :install "#2ea44f"
+                                    :update "#d97706"
+                                    :installed "#6c757d"
+                                    :installing "#2ea44f"
+                                    :error "#dc3545"
+                                    "#2ea44f")
+                      :color "white"
+                      :border "1px solid rgba(27,31,36,0.15)"
+                      :border-radius "4px"
+                      :font-size "12px"
+                      :font-weight "500"
+                      :font-family "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                      :cursor (if clickable? "pointer" "default")
+                      :transition "all 150ms"}
+               (not github-repo?) (assoc :margin "8px 0"))}
      (epupp-icon)
      (case status
        :install "Install"
        :update "Update"
-       :installed "✓ Installed"
+       :installed "✓"
        :installing "Installing..."
        :error "Install Failed"
        "Install")]))
@@ -536,6 +530,28 @@
 ;; Event handling
 ;; ============================================================
 
+(defn- handle-confirm-install!
+  "Handle the confirm-install action: close modal, set installing state, send save request."
+  [block-id code]
+  (js/console.log "[Web Userscript Installer] Confirming install for block:" block-id)
+  (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
+  (swap! !state update-block-status block-id :installing)
+  (send-save-request!
+   code
+   (fn [response]
+     (js/console.log "[Web Userscript Installer] Save response:" (.-success response) (.-error response))
+     (if (.-success response)
+       (do
+         (js/console.log "[Web Userscript Installer] Save successful, updating to :installed")
+         (swap! !state update-block-status block-id :installed))
+       (let [error-msg (or (.-error response) "Installation failed")]
+         (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
+         (swap! !state update-block-status block-id :error error-msg)
+         (swap! !state assoc :modal {:visible? true
+                                     :mode :error
+                                     :block-id block-id
+                                     :error-message error-msg}))))))
+
 (defn handle-event [_replicant-data action]
   (let [[action-type & args] action]
     (case action-type
@@ -557,24 +573,7 @@
 
       :block/confirm-install
       (let [[block-id code] args]
-        (js/console.log "[Web Userscript Installer] Confirming install for block:" block-id)
-        (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
-        (swap! !state update-block-status block-id :installing)
-        (send-save-request!
-         code
-         (fn [response]
-           (js/console.log "[Web Userscript Installer] Save response:" (.-success response) (.-error response))
-           (if (.-success response)
-             (do
-               (js/console.log "[Web Userscript Installer] Save successful, updating to :installed")
-               (swap! !state update-block-status block-id :installed))
-             (let [error-msg (or (.-error response) "Installation failed")]
-               (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
-               (swap! !state update-block-status block-id :error error-msg)
-               (swap! !state assoc :modal {:visible? true
-                                           :mode :error
-                                           :block-id block-id
-                                           :error-message error-msg}))))))
+        (handle-confirm-install! block-id code))
 
       ;; Default
       (js/console.warn "[Block Installer] Unknown action:" (pr-str action-type)))))
@@ -620,112 +619,132 @@
   [script-name]
   (some? (.querySelector js/document (str "[data-epupp-script='" script-name "']"))))
 
-(defn attach-button-to-block!
-  "Attach install button to a code block. Handles different formats:
-   - :pre - Insert button container before the pre element
-   - :textarea - Insert button container before the textarea element
-   - :github-table - Append button to .file-actions container
-   - :github-repo - Append button to Button-group or Box-actions container
-   - :gitlab-snippet - Append button to .file-actions container
+(defn- attach-github-table-button!
+  "Append button to .file-actions container for GitHub gist format."
+  [element script-name block-data]
+  (when-let [file-actions (get-github-button-container element)]
+    (when-not (.querySelector file-actions ".epupp-btn-container")
+      (let [btn-container (js/document.createElement "span")]
+        (set! (.-className btn-container) "epupp-btn-container")
+        (.setAttribute btn-container "data-epupp-script" script-name)
+        (set! (.. btn-container -style -marginLeft) "8px")
+        (.appendChild file-actions btn-container)
+        (swap! !button-containers assoc (:id block-data) btn-container)
+        (js/console.log "[Web Userscript Installer] GitHub button container created for:" (:script/name block-data))
+        (try
+          (r/render btn-container (render-install-button block-data))
+          (catch :default e
+            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
 
+(defn- attach-gitlab-snippet-button!
+  "Append button to .file-actions container for GitLab snippet format."
+  [element script-name block-data]
+  (when-let [file-actions (get-gitlab-button-container element)]
+    (when-not (.querySelector file-actions ".epupp-btn-container")
+      (let [btn-container (js/document.createElement "span")]
+        (set! (.-className btn-container) "epupp-btn-container")
+        (.setAttribute btn-container "data-epupp-script" script-name)
+        (set! (.. btn-container -style -marginLeft) "8px")
+        (.appendChild file-actions btn-container)
+        (swap! !button-containers assoc (:id block-data) btn-container)
+        (js/console.log "[Web Userscript Installer] GitLab button container created for:" (:script/name block-data))
+        (try
+          (r/render btn-container (render-install-button block-data))
+          (catch :default e
+            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+
+(defn- attach-github-repo-button!
+  "Append button to ButtonGroup for GitHub repo file format."
+  [element script-name block-data]
+  (when-let [button-container (get-github-repo-button-container element)]
+    (when-not (.querySelector button-container ".epupp-btn-container")
+      (let [btn-container (js/document.createElement "div")]
+        (set! (.-className btn-container) "epupp-btn-container")
+        (.setAttribute btn-container "data-epupp-script" script-name)
+        (.appendChild button-container btn-container)
+        (swap! !button-containers assoc (:id block-data) btn-container)
+        (js/console.log "[Web Userscript Installer] GitHub repo button container created for:" (:script/name block-data))
+        (try
+          (r/render btn-container (render-install-button block-data))
+          (catch :default e
+            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+
+(defn- attach-pre-button!
+  "Insert button container before a pre element."
+  [element script-name block-data]
+  (let [existing-btn (aget element "previousElementSibling")]
+    (when-not (and existing-btn
+                   (= (aget existing-btn "className") "epupp-btn-container"))
+      (let [btn-container (js/document.createElement "div")
+            parent (.-parentElement element)]
+        (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
+        (set! (.-className btn-container) "epupp-btn-container")
+        (.setAttribute btn-container "data-epupp-script" script-name)
+        (.insertBefore parent btn-container element)
+        (swap! !button-containers assoc (:id block-data) btn-container)
+        (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
+        (try
+          (r/render btn-container (render-install-button block-data))
+          (js/console.log "[Web Userscript Installer] Replicant render complete")
+          (catch :default e
+            (js/console.error "[Web Userscript Installer] Replicant render error:" e)
+            (let [btn (js/document.createElement "button")]
+              (set! (.-textContent btn) "Install")
+              (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
+              (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
+              (.appendChild btn-container btn)
+              (js/console.log "[Web Userscript Installer] Fallback button appended"))))))))
+
+(defn- attach-textarea-button!
+  "Insert button container before a textarea element."
+  [element script-name block-data]
+  (let [existing-btn (aget element "previousElementSibling")]
+    (when-not (and existing-btn
+                   (= (aget existing-btn "className") "epupp-btn-container"))
+      (let [btn-container (js/document.createElement "div")
+            parent (.-parentElement element)]
+        (js/console.log "[Web Userscript Installer] Creating textarea container for:" (:script/name block-data))
+        (set! (.-className btn-container) "epupp-btn-container")
+        (.setAttribute btn-container "data-epupp-script" script-name)
+        (.insertBefore parent btn-container element)
+        (swap! !button-containers assoc (:id block-data) btn-container)
+        (try
+          (r/render btn-container (render-install-button block-data))
+          (catch :default e
+            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+
+(defn attach-button-to-block!
+  "Attach install button to a code block based on format.
    Checks globally if a button for this script already exists (prevents duplicates
    when multiple detection strategies find the same script content)."
   [block-info block-data]
   (let [element (:element block-info)
         format (:format block-info)
         script-name (get-in block-data [:manifest :script-name])]
-    ;; Global dedup: if button for this script exists anywhere, skip
     (when-not (script-button-exists? script-name)
       (case format
-      ;; GitHub gist: append to .file-actions
-      :github-table
-      (when-let [file-actions (get-github-button-container element)]
-        (when-not (.querySelector file-actions ".epupp-btn-container")
-          (let [btn-container (js/document.createElement "span")]
-            (set! (.-className btn-container) "epupp-btn-container")
-            (.setAttribute btn-container "data-epupp-script" script-name)
-            (set! (.. btn-container -style -marginLeft) "8px")
-            (.appendChild file-actions btn-container)
-            (swap! !button-containers assoc (:id block-data) btn-container)
-            (js/console.log "[Web Userscript Installer] GitHub button container created for:" (:script/name block-data))
-            (try
-              (r/render btn-container (render-install-button block-data))
-              (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
+        :github-table  (attach-github-table-button! element script-name block-data)
+        :gitlab-snippet (attach-gitlab-snippet-button! element script-name block-data)
+        :github-repo   (attach-github-repo-button! element script-name block-data)
+        :pre           (attach-pre-button! element script-name block-data)
+        :textarea      (attach-textarea-button! element script-name block-data)))))
 
-      ;; GitLab snippet: append to .file-actions
-      :gitlab-snippet
-      (when-let [file-actions (get-gitlab-button-container element)]
-        (when-not (.querySelector file-actions ".epupp-btn-container")
-          (let [btn-container (js/document.createElement "span")]
-            (set! (.-className btn-container) "epupp-btn-container")
-            (.setAttribute btn-container "data-epupp-script" script-name)
-            (set! (.. btn-container -style -marginLeft) "8px")
-            (.appendChild file-actions btn-container)
-            (swap! !button-containers assoc (:id block-data) btn-container)
-            (js/console.log "[Web Userscript Installer] GitLab button container created for:" (:script/name block-data))
-            (try
-              (r/render btn-container (render-install-button block-data))
-              (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
-
-      ;; GitHub repo file: append to Button-group or Box-actions
-      :github-repo
-      (when-let [button-container (get-github-repo-button-container element)]
-        (when-not (.querySelector button-container ".epupp-btn-container")
-          (let [btn-container (js/document.createElement "span")]
-            (set! (.-className btn-container) "epupp-btn-container")
-            (.setAttribute btn-container "data-epupp-script" script-name)
-            (set! (.. btn-container -style -marginLeft) "8px")
-            (.appendChild button-container btn-container)
-            (swap! !button-containers assoc (:id block-data) btn-container)
-            (js/console.log "[Web Userscript Installer] GitHub repo button container created for:" (:script/name block-data))
-            (try
-              (r/render btn-container (render-install-button block-data))
-              (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
-
-      ;; Pre element (generic): insert before
-      :pre
-      (let [existing-btn (aget element "previousElementSibling")]
-        (when-not (and existing-btn
-                       (= (aget existing-btn "className") "epupp-btn-container"))
-          (let [btn-container (js/document.createElement "div")
-                parent (.-parentElement element)]
-            (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
-            (set! (.-className btn-container) "epupp-btn-container")
-            (.setAttribute btn-container "data-epupp-script" script-name)
-            (.insertBefore parent btn-container element)
-            (swap! !button-containers assoc (:id block-data) btn-container)
-            (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
-            (try
-              (r/render btn-container (render-install-button block-data))
-              (js/console.log "[Web Userscript Installer] Replicant render complete")
-              (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e)
-                (let [btn (js/document.createElement "button")]
-                  (set! (.-textContent btn) "Install")
-                  (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
-                  (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
-                  (.appendChild btn-container btn)
-                  (js/console.log "[Web Userscript Installer] Fallback button appended")))))))
-
-      ;; Textarea element (generic): insert before
-      :textarea
-      (let [existing-btn (aget element "previousElementSibling")]
-        (when-not (and existing-btn
-                       (= (aget existing-btn "className") "epupp-btn-container"))
-          (let [btn-container (js/document.createElement "div")
-                parent (.-parentElement element)]
-            (js/console.log "[Web Userscript Installer] Creating textarea container for:" (:script/name block-data))
-            (set! (.-className btn-container) "epupp-btn-container")
-            (.setAttribute btn-container "data-epupp-script" script-name)
-            (.insertBefore parent btn-container element)
-            (swap! !button-containers assoc (:id block-data) btn-container)
-            (try
-              (r/render btn-container (render-install-button block-data))
-              (catch :default e
-                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))))))
+(defn- create-and-attach-block!
+  "Create block-data from processing results and attach button to DOM."
+  [block-info block-id manifest code-text existing-code installed-scripts]
+  (let [script-name (:script-name manifest)
+        state-info (determine-button-state script-name code-text installed-scripts existing-code)
+        _ (js/console.log "[Web Userscript Installer] State info:" (pr-str state-info))
+        block-data (merge {:id block-id
+                           :manifest manifest
+                           :code code-text
+                           :format (:format block-info)
+                           :status (:install-state state-info)}
+                          state-info)]
+    (js/console.log "[Web Userscript Installer] Processing block:" script-name "existing-code:" (some? existing-code))
+    (swap! !state update :blocks conj block-data)
+    (js/console.log "[Web Userscript Installer] About to attach button for" script-name)
+    (attach-button-to-block! block-info block-data)))
 
 (defn- process-code-block!+
   "Process a single code block. Returns promise.
@@ -738,39 +757,22 @@
     (if (and (> (count trimmed-text) 10)
              (str/starts-with? trimmed-text "{"))
       (if-let [manifest (extract-manifest code-text)]
-        (let [script-name (:script-name manifest)]
+        (let [script-name (:script-name manifest)
+              existing-id (aget element "id")
+              block-id (if (and existing-id (pos? (count existing-id)))
+                         existing-id
+                         (str "block-" (.randomUUID js/crypto)))]
           (js/console.log "[Web Userscript Installer] Found installable script:" script-name)
-          ;; Mark as processed
           (.setAttribute element "data-epupp-processed" "true")
-          ;; Ensure element has an ID
-          (let [existing-id (aget element "id")
-                block-id (if (and existing-id (pos? (count existing-id)))
-                           existing-id
-                           (str "block-" (.randomUUID js/crypto)))]
-            (js/console.log "[Web Userscript Installer] Block ID:" block-id "format:" (:format block-info))
-            (when-not (and existing-id (pos? (count existing-id)))
-              (aset element "id" block-id))
-            ;; Fetch code if script is installed
-            (-> (if (get installed-scripts script-name)
-                  (fetch-script-code!+ script-name)
-                  (js/Promise.resolve nil))
-                (.then (fn [existing-code]
-                         (js/console.log "[Web Userscript Installer] Processing block:" script-name "existing-code:" (some? existing-code))
-                         (let [state-info (determine-button-state script-name code-text installed-scripts existing-code)
-                               _ (js/console.log "[Web Userscript Installer] State info:" (pr-str state-info))
-                               block-data (merge {:id block-id
-                                                  :manifest manifest
-                                                  :code code-text
-                                                  :format (:format block-info)
-                                                  :status (:install-state state-info)}
-                                                 state-info)]
-                           ;; Add to state
-                           (swap! !state update :blocks conj block-data)
-                           (js/console.log "[Web Userscript Installer] About to attach button for" script-name)
-                           ;; Attach button - pass block-info for format-aware placement
-                           (attach-button-to-block! block-info block-data))))
-                (.catch (fn [e]
-                          (js/console.error "[Web Userscript Installer] Error processing block" script-name e))))))
+          (js/console.log "[Web Userscript Installer] Block ID:" block-id "format:" (:format block-info))
+          (when-not (and existing-id (pos? (count existing-id)))
+            (aset element "id" block-id))
+          (-> (if (get installed-scripts script-name)
+                (fetch-script-code!+ script-name)
+                (js/Promise.resolve nil))
+              (.then #(create-and-attach-block! block-info block-id manifest code-text % installed-scripts))
+              (.catch (fn [e]
+                        (js/console.error "[Web Userscript Installer] Error processing block" script-name e)))))
         (js/Promise.resolve nil))
       (js/Promise.resolve nil))))
 
