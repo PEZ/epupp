@@ -228,6 +228,15 @@
                   (stop-keepalive!)
                   (set-connected! false)))))
 
+          "get-icon-url"
+          ;; No forwarding needed - content bridge can resolve extension URLs directly
+          (.postMessage js/window
+                        #js {:source "epupp-bridge"
+                             :type "get-icon-url-response"
+                             :requestId (.-requestId msg)
+                             :url (js/chrome.runtime.getURL "icons/icon.svg")}
+                        "*")
+
           nil))
 
       ;; Handle messages from userscripts (epupp-userscript)

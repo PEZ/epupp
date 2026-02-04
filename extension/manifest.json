@@ -36,10 +36,11 @@
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.600",
+  "version": "0.0.7.602",
   "web_accessible_resources": [
     {
       "resources": [
+        "icons/icon.svg",
         "vendor/scittle.js",
         "vendor/scittle.nrepl.js",
         "vendor/scittle.pprint.js",

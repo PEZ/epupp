@@ -186,6 +186,7 @@
 (defonce !state
   (atom {:blocks []
          :installed-scripts {}
+         :icon-url nil
          :modal {:visible? false
                  :mode nil  ;; :confirm or :error
                  :block-id nil
@@ -262,6 +263,13 @@
             (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
             "*"))))))
 
+(defn fetch-icon-url!+
+  "Fetch the Epupp icon URL from the extension. Returns promise of URL string."
+  []
+  (-> (send-and-receive "get-icon-url" {} "get-icon-url-response")
+      (.then (fn [msg]
+               (.-url msg)))))
+
 (defn fetch-installed-scripts!+
   "Fetch installed scripts from extension. Returns promise of map (script-name -> script-data)."
   []
@@ -324,19 +332,21 @@
 ;; ============================================================
 
 (defn epupp-icon
-  "Epupp icon - lightning bolt design from extension/icons/icon.svg"
+  "Epupp icon - loads from extension URL when available, falls back to inline SVG."
   []
-  [:svg {:width 16
-         :height 16
-         :viewBox "0 0 100 100"
-         :fill "none"
-         :style {:flex-shrink 0}}
-   ;; Blue circle background
-   [:circle {:cx 50 :cy 50 :r 48 :fill "#4a71c4"}]
-   ;; Yellow/gold lightning bolt
-   [:path {:fill "#ffdc73"
-           :transform "translate(50, 50) scale(0.5) translate(-211, -280)"
-           :d "M224.12 259.93h21.11a5.537 5.537 0 0 1 4.6 8.62l-50.26 85.75a5.536 5.536 0 0 1-7.58 1.88 5.537 5.537 0 0 1-2.56-5.85l7.41-52.61-24.99.43a5.538 5.538 0 0 1-5.61-5.43c0-1.06.28-2.04.78-2.89l49.43-85.71a5.518 5.518 0 0 1 7.56-1.95 5.518 5.518 0 0  1 2.65 5.53l-2.54 52.23z"}]])
+  (if-let [icon-url (:icon-url @!state)]
+    [:img {:src icon-url
+           :width 16
+           :height 16
+           :alt "Epupp"
+           :style {:flex-shrink 0}}]
+    ;; Fallback inline SVG (used before extension URL is fetched)
+    [:svg {:width 16
+           :height 16
+           :viewBox "0 0 100 100"
+           :fill "none"
+           :style {:flex-shrink 0}}
+     [:circle {:cx 50 :cy 50 :r 48 :fill "#4a71c4"}]]))
 
 (defn button-tooltip [{:keys [status error-message]}]
   (case status
@@ -782,6 +792,14 @@
   (if (= js/document.readyState "loading")
     (.addEventListener js/document "DOMContentLoaded" scan-with-retry!)
     (scan-with-retry!))
+
+  ;; Fetch icon URL from extension (for single-source icon updates)
+  (-> (fetch-icon-url!+)
+      (.then (fn [url]
+               (js/console.log "[Web Userscript Installer] Got icon URL:" url)
+               (swap! !state assoc :icon-url url)))
+      (.catch (fn [error]
+                (js/console.warn "[Web Userscript Installer] Could not fetch icon URL, using fallback:" error))))
 
   ;; Fetch installed scripts in background for state awareness
   ;; This will update button states when info arrives
