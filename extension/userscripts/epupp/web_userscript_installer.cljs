@@ -191,6 +191,8 @@
                  :block-id nil
                  :error-message nil}}))
 
+(def retry-delays [100 1000 3000])
+
 (defn find-block-by-id [state block-id]
   (first (filter #(= (:id %) block-id) (:blocks state))))
 
@@ -747,6 +749,22 @@
                   (when-let [marker (js/document.getElementById "epupp-installer-debug")]
                     (set! (.-textContent marker) (str "Scan ERROR: " (.-message error)))))))))
 
+(defn scan-with-retry!
+  "Scan for code blocks, retry with backoff if no blocks found"
+  ([] (scan-with-retry! 0))
+  ([retry-index]
+   (-> (scan-code-blocks!)
+       (.then (fn [_]
+                (let [block-count (count (:blocks @!state))]
+                  (if (and (zero? block-count)
+                           (< retry-index (count retry-delays)))
+                    (let [delay (nth retry-delays retry-index)]
+                      (js/console.log "[Web Userscript Installer] No blocks found, retrying in" delay "ms (attempt" (inc retry-index) "of" (count retry-delays) ")")
+                      (js/setTimeout #(scan-with-retry! (inc retry-index)) delay))
+                    (js/console.log "[Web Userscript Installer] Scan complete, found" block-count "blocks")))))
+       (.catch (fn [error]
+                 (js/console.error "[Web Userscript Installer] Scan error:" error))))))
+
 (defn init! []
   (js/console.log "[Web Userscript Installer] Initializing with Replicant...")
 
@@ -762,8 +780,8 @@
 
   ;; Scan immediately (with empty installed-scripts)
   (if (= js/document.readyState "loading")
-    (.addEventListener js/document "DOMContentLoaded" scan-code-blocks!)
-    (scan-code-blocks!))
+    (.addEventListener js/document "DOMContentLoaded" scan-with-retry!)
+    (scan-with-retry!))
 
   ;; Fetch installed scripts in background for state awareness
   ;; This will update button states when info arrives

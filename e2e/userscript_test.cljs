@@ -507,11 +507,13 @@
         (js/console.log "Mock gist page loaded")
 
         ;; Wait for the web userscript installer to add Install buttons (first scan)
-        ;; We expect 4 buttons: 2 from pre-style blocks + 1 from GitHub table-style block + 1 from GitLab snippet
+        ;; We expect 7 buttons:
+        ;;   2 original pre blocks + 1 GitHub table + 1 GitLab snippet
+        ;;   + 3 from Batch C: nested code pre, syntax highlighted pre, textarea
         (let [install-buttons (.locator page "button:has-text(\"Install\")")]
           (js/console.log "Waiting for Install buttons to appear (first scan)...")
           (js-await (-> (expect install-buttons)
-                        (.toHaveCount 4 #js {:timeout 10000})))
+                        (.toHaveCount 7 #js {:timeout 10000})))
           (let [initial-count (js-await (.count install-buttons))]
             (js/console.log "Initial button count:" initial-count)
 
