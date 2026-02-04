@@ -246,5 +246,27 @@
     </div>
   </div>
 
+  <!-- ========================================
+       GitHub Repo File Style (React-based)
+       Matches real GitHub repo pages structure
+       ======================================== -->
+
+  <!-- GitHub repo-style installable file - matches real GitHub structure -->
+  <div id="github-repo-installable" class="react-app">
+    <div class="react-blob-header-edit-and-raw-actions">
+      <div class="prc-ButtonGroup-ButtonGroup-testHash">
+        <a href="/raw/github_repo_script.cljs" class="Button">Raw</a>
+        <a href="#" class="Button">Blame</a>
+      </div>
+    </div>
+    <div class="react-code-lines">{:epupp/script-name "github_repo_script.cljs"
+ :epupp/auto-run-match "*://github-repo-test.example.com/*"
+ :epupp/description "A GitHub repo-style test script"}
+
+(ns github-repo-script)
+
+(js/console.log "GitHub repo script loaded!")</div>
+  </div>
+
 </body>
 </html>

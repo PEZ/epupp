@@ -159,11 +159,28 @@
                :code-text (get-gitlab-snippet-text el)}))
        (filter #(:code-text %))))
 
+(defn- get-github-repo-text
+  "Extract code text from GitHub repo file via .react-code-lines container"
+  []
+  (when-let [code-lines (.querySelector js/document ".react-code-lines")]
+    (.-textContent code-lines)))
+
+(defn- detect-github-repo-files
+  "Find GitHub repo file via header container (React-based).
+   Returns single-element seq with :element being the header container."
+  []
+  (when-let [header (.querySelector js/document ".react-blob-header-edit-and-raw-actions")]
+    (when-let [code-text (get-github-repo-text)]
+      [{:element header
+        :format :github-repo
+        :code-text code-text}])))
+
 (defn- detect-all-code-blocks
   "Detect all code blocks on page. Returns seq of {:element :format :code-text}"
   []
-  ;; More specific formats first (GitHub tables, GitLab snippets), then generic elements (pre, textarea)
+  ;; More specific formats first (GitHub tables, GitHub repos, GitLab snippets), then generic elements
   (concat (detect-github-tables)
+          (detect-github-repo-files)
           (detect-gitlab-snippets)
           (detect-pre-elements)
           (detect-textarea-elements)))
@@ -178,6 +195,12 @@
   "Get the .file-actions container for GitLab snippet button placement"
   [file-holder-element]
   (.querySelector file-holder-element ".file-actions"))
+
+(defn- get-github-repo-button-container
+  "Get the button container for GitHub repo file button placement.
+   The element is the header container; find ButtonGroup inside it."
+  [header-element]
+  (.querySelector header-element "[class*='ButtonGroup']"))
 
 ;; ============================================================
 ;; State management
@@ -593,6 +616,7 @@
    - :pre - Insert button container before the pre element
    - :textarea - Insert button container before the textarea element
    - :github-table - Append button to .file-actions container
+   - :github-repo - Append button to Button-group or Box-actions container
    - :gitlab-snippet - Append button to .file-actions container"
   [block-info block-data]
   (let [element (:element block-info)
@@ -623,6 +647,21 @@
             (.appendChild file-actions btn-container)
             (swap! !button-containers assoc (:id block-data) btn-container)
             (js/console.log "[Web Userscript Installer] GitLab button container created for:" (:script/name block-data))
+            (try
+              (r/render btn-container (render-install-button block-data))
+              (catch :default e
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e))))))
+
+      ;; GitHub repo file: append to Button-group or Box-actions
+      :github-repo
+      (when-let [button-container (get-github-repo-button-container element)]
+        (when-not (.querySelector button-container ".epupp-btn-container")
+          (let [btn-container (js/document.createElement "span")]
+            (set! (.-className btn-container) "epupp-btn-container")
+            (set! (.. btn-container -style -marginLeft) "8px")
+            (.appendChild button-container btn-container)
+            (swap! !button-containers assoc (:id block-data) btn-container)
+            (js/console.log "[Web Userscript Installer] GitHub repo button container created for:" (:script/name block-data))
             (try
               (r/render btn-container (render-install-button block-data))
               (catch :default e
