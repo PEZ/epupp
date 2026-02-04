@@ -133,6 +133,21 @@
                :format :pre
                :code-text (get-pre-text el)}))))
 
+(defn- get-textarea-text
+  "Extract code text from textarea element using .value property"
+  [textarea-element]
+  (aget textarea-element "value"))
+
+(defn- detect-textarea-elements
+  "Find textarea elements, return array of {:element :format :code-text}"
+  []
+  (->> (.querySelectorAll js/document "textarea")
+       js/Array.from
+       (map (fn [el]
+              {:element el
+               :format :textarea
+               :code-text (get-textarea-text el)}))))
+
 (defn- detect-gitlab-snippets
   "Find GitLab snippet code blocks, return array of {:element :format :code-text}"
   []
@@ -147,10 +162,11 @@
 (defn- detect-all-code-blocks
   "Detect all code blocks on page. Returns seq of {:element :format :code-text}"
   []
-  ;; More specific formats first (GitHub tables, GitLab snippets), then generic pre elements
+  ;; More specific formats first (GitHub tables, GitLab snippets), then generic elements (pre, textarea)
   (concat (detect-github-tables)
           (detect-gitlab-snippets)
-          (detect-pre-elements)))
+          (detect-pre-elements)
+          (detect-textarea-elements)))
 
 (defn- get-github-button-container
   "Get the .file-actions container for GitHub gist button placement"
@@ -563,6 +579,7 @@
 (defn attach-button-to-block!
   "Attach install button to a code block. Handles different formats:
    - :pre - Insert button container before the pre element
+   - :textarea - Insert button container before the textarea element
    - :github-table - Append button to .file-actions container
    - :gitlab-snippet - Append button to .file-actions container"
   [block-info block-data]
@@ -621,7 +638,23 @@
                   (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
                   (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
                   (.appendChild btn-container btn)
-                  (js/console.log "[Web Userscript Installer] Fallback button appended"))))))))))
+                  (js/console.log "[Web Userscript Installer] Fallback button appended")))))))
+
+      ;; Textarea element (generic): insert before
+      :textarea
+      (let [existing-btn (aget element "previousElementSibling")]
+        (when-not (and existing-btn
+                       (= (aget existing-btn "className") "epupp-btn-container"))
+          (let [btn-container (js/document.createElement "div")
+                parent (.-parentElement element)]
+            (js/console.log "[Web Userscript Installer] Creating textarea container for:" (:script/name block-data))
+            (set! (.-className btn-container) "epupp-btn-container")
+            (.insertBefore parent btn-container element)
+            (swap! !button-containers assoc (:id block-data) btn-container)
+            (try
+              (r/render btn-container (render-install-button block-data))
+              (catch :default e
+                (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))))
 
 (defn- process-code-block!+
   "Process a single code block. Returns promise.

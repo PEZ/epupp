@@ -179,16 +179,27 @@ The Web Userscript Installer has been refactored from the original "Gist Install
 - [ ] Handle button placement in Vue component structure
 - [ ] Add E2E test with GitLab repo file mock
 
-### 8. Support Textarea Elements
+### 8. Improve Generic Pre/Textarea Detection ✅
 
-**Context:** Some pages display code in `<textarea>` elements (e.g., GitHub raw file views).
+**Context:** Before adding site-specific repo support, improve generic detection to handle more cases.
 
-Example: https://github.com/PEZ/browser-jack-in/blob/userscripts/test-data/tampers/repl_manifest.cljs
+**Pre elements with child elements:**
+- Current `detect-pre-elements` uses `textContent` which handles nested elements
+- Verified it works with `<pre><code>...</code></pre>` and `<pre><span>...</span></pre>` patterns
+- Syntax-highlighted code where each token is wrapped in spans works automatically via `textContent`
 
-- [ ] Add `detect-textarea-elements` function
-- [ ] Extract text from textarea value
-- [ ] Place button before textarea (generic placement)
-- [ ] Add mock block to test page
+**Textarea elements:**
+- Some pages display code in `<textarea>` elements (e.g., raw file views, code editors)
+- Extract text from textarea `.value` property
+- Place button before textarea (generic placement)
+
+Example raw view: https://github.com/PEZ/browser-jack-in/blob/userscripts/test-data/tampers/repl_manifest.cljs
+
+- [x] Verify `detect-pre-elements` handles nested child elements correctly
+- [x] Add `detect-textarea-elements` function
+- [x] Extract text from textarea value
+- [x] Place button before textarea (generic placement)
+- [x] Add mock blocks to test page (pre with children, textarea)
 
 ### 9. Epupp-Branded Button Styling
 
@@ -218,16 +229,22 @@ Reference: `build/components.css` button styles
 4. Epupp-branded styling (#9) - deferred, current styling acceptable
 5. ✅ Run testrunner verification
 
-### Batch C: GitHub/GitLab Repo Support
+### Batch C: Generic Format Detection (Foundation) ✅
+1. ✅ Run testrunner baseline
+2. ✅ Improve generic pre/textarea detection (#8)
+   - Verify pre with nested children works
+   - Add textarea element support
+3. ✅ Run testrunner verification
+
+**Rationale:** Solid generic detection provides fallback for any page. Site-specific detection (Batch D) can then override with better button placement.
+
+### Batch D: Site-Specific Repo Support
 1. Run testrunner baseline
 2. Support GitHub repo code (#6)
 3. Support GitLab repo code (#7)
 4. Run testrunner verification
 
-### Batch D: Expanded Format Support
-1. Run testrunner baseline
-2. Support textarea elements (#8)
-3. Run testrunner verification
+**Rationale:** After generic detection works, add site-specific handling for better UX on GitHub/GitLab repos (proper button placement in toolbars, framework timing).
 
 ---
 
@@ -237,7 +254,7 @@ Reference: `build/components.css` button styles
 - GitLab snippet: https://gitlab.com/-/snippets/4922251
 - GitHub gist: https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e
 - GitHub repo file: (need example with manifest)
-- GitLab repo file: (need example with manifest)
+- GitLab repo file: https://gitlab.com/pappapez/userscripts-test/-/blob/main/pez/gitlab_repo_test_us.cljs
 
 **E2E mock page:** `test-data/pages/mock-gist.html`
 

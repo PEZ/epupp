@@ -194,5 +194,57 @@
     </div>
   </div>
 
+  <!-- ========================================
+       Generic Format Tests (Batch C)
+       ======================================== -->
+
+  <!-- Pre with nested <code> element -->
+  <div class="file" id="pre-nested-code">
+    <div class="file-header">
+      <span class="gist-blob-name">nested_code_script.cljs</span>
+    </div>
+    <div class="blob-wrapper">
+      <pre><code>{:epupp/script-name "nested_code_script.cljs"
+ :epupp/auto-run-match "*://nested-code-test.example.com/*"
+ :epupp/description "Test pre with nested code element"}
+
+(ns nested-code-script)
+
+(js/console.log "Nested code script works!")</code></pre>
+    </div>
+  </div>
+
+  <!-- Pre with syntax-highlighted spans -->
+  <div class="file" id="pre-syntax-highlighted">
+    <div class="file-header">
+      <span class="gist-blob-name">syntax_highlighted_script.cljs</span>
+    </div>
+    <div class="blob-wrapper">
+      <pre><span class="token punctuation">{</span><span class="token keyword">:epupp/script-name</span> <span class="token string">"syntax_highlighted_script.cljs"</span>
+ <span class="token keyword">:epupp/auto-run-match</span> <span class="token string">"*://syntax-test.example.com/*"</span>
+ <span class="token keyword">:epupp/description</span> <span class="token string">"Test pre with syntax highlighting"</span><span class="token punctuation">}</span>
+
+<span class="token punctuation">(</span><span class="token keyword">ns</span> <span class="token plain">syntax-highlighted-script</span><span class="token punctuation">)</span>
+
+<span class="token punctuation">(</span><span class="token plain">js/console.log</span> <span class="token string">"Syntax highlighted script works!"</span><span class="token punctuation">)</span></pre>
+    </div>
+  </div>
+
+  <!-- Textarea element -->
+  <div class="file" id="textarea-element">
+    <div class="file-header">
+      <span class="gist-blob-name">textarea_script.cljs</span>
+    </div>
+    <div class="blob-wrapper">
+      <textarea rows="10" cols="80">{:epupp/script-name "textarea_script.cljs"
+ :epupp/auto-run-match "*://textarea-test.example.com/*"
+ :epupp/description "Test textarea element"}
+
+(ns textarea-script)
+
+(js/console.log "Textarea script works!")</textarea>
+    </div>
+  </div>
+
 </body>
 </html>
