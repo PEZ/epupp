@@ -389,6 +389,8 @@
   (let [clickable? (#{:install :update} status)]
     [:button.epupp-install-btn
      {:on {:click [:block/show-confirm id]}
+      :data-e2e-install-state (name status)
+      :data-e2e-script-name (get-in block [:manifest :script-name])
       :disabled (not clickable?)
       :title (button-tooltip block)
       :style {:padding "6px 12px"
