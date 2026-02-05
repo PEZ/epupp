@@ -751,6 +751,13 @@
   ;; Set up Replicant dispatcher (once)
   (r/set-dispatch! handle-event)
 
+  ;; Dismiss modal on ESC key
+  (.addEventListener js/document "keydown"
+                     (fn [e]
+                       (when (and (= (.-key e) "Escape")
+                                  (get-in @!state [:modal :visible?]))
+                         (swap! !state assoc :modal {:visible? false :mode nil :block-id nil}))))
+
   ;; Re-render on state changes
   (add-watch !state ::render (fn [_ _ _ _] (render-ui!)))
 
