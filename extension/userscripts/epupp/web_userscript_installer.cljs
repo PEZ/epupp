@@ -364,11 +364,10 @@
   "Epupp icon - loads from extension URL when available, falls back to inline SVG."
   []
   (when-let [icon-url (:icon-url @!state)]
-    [:img {:src icon-url
-           :width 16
-           :height 16
-           :alt "Epupp"
-           :style {:flex-shrink 0}}]))
+    [:img.epupp-icon {:src icon-url
+                      :width 16
+                      :height 16
+                      :alt "Epupp"}]))
 
 (defn button-tooltip [{:keys [status error-message]}]
   (case status
@@ -386,37 +385,15 @@
     "document-idle (default)"))
 
 (defn render-install-button [{:keys [id status] :as block}]
-  (let [clickable? (#{:install :update} status)]
+  (let [clickable? (#{:install :update} status)
+        status-class (str "is-" (name status))]
     [:button.epupp-install-btn
-     {:on {:click [:block/show-confirm id]}
+     {:class status-class
+      :on {:click [:block/show-confirm id]}
       :data-e2e-install-state (name status)
       :data-e2e-script-name (get-in block [:manifest :script-name])
       :disabled (not clickable?)
-      :title (button-tooltip block)
-      :style {:padding "6px 12px"
-              :display "inline-flex"
-              :align-items "center"
-              :gap "6px"
-              :background (case status
-                            :install "#2ea44f"
-                            :update "#d97706"
-                            :installed :transparent
-                            :installing "#2ea44f"
-                            :error "#dc3545"
-                            "#2ea44f")
-              :color (case status
-                       :installed :black
-                       :white)
-              :border "1px solid"
-              :border-color (case status
-                              :installed :transparent
-                              "rgba(27,31,36,0.15)")
-              :border-radius "4px"
-              :font-size "12px"
-              :font-weight "500"
-              :font-family "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-              :cursor (if clickable? "pointer" "default")
-              :transition "all 150ms"}}
+      :title (button-tooltip block)}
      (epupp-icon)
      (case status
        :install "Install"
@@ -434,83 +411,68 @@
         modal-title (if is-update? "Update Userscript" "Install Userscript")
         confirm-text (if is-update? "Update" "Install")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/overlay-click]}
-      :style {:position "fixed" :top 0 :left 0 :right 0 :bottom 0
-              :background "rgba(0,0,0,0.5)" :z-index 9998
-              :display "flex" :align-items "center" :justify-content "center"}}
+     {:on {:click [:block/overlay-click]}}
      [:div.epupp-modal
-      {:on {:click [:block/modal-click]}
-       :style {:background "white" :padding "24px" :border-radius "8px"
-               :max-width "500px" :box-shadow "0 8px 24px rgba(0,0,0,0.3)"
-               :z-index 9999}}
-      [:h2 {:style {:margin-top 0}} modal-title]
+      {:on {:click [:block/modal-click]}}
+      [:h2 modal-title]
       ;; Property table
-      [:table {:style {:width "100%" :border-collapse "collapse" :margin-bottom "16px"}}
+      [:table.epupp-modal__table
        [:tbody
         [:tr
-         [:td {:style {:padding "6px 0" :color "#666" :width "100px"}} "Name"]
-         [:td {:style {:padding "6px 0"}}
+         [:td "Name"]
+         [:td
           [:code script-name]
           (when name-normalized?
             [:span
              [:br]
-             [:span {:style {:color "#888" :font-size "12px"}}
+             [:span.epupp-modal__note
               "Normalized from: " raw-script-name]])]]
         [:tr
-         [:td {:style {:padding "6px 0" :color "#666"}} "URL Pattern"]
-         [:td {:style {:padding "6px 0"}} (or auto-run-match [:em "None"])]]
+         [:td "URL Pattern"]
+         [:td (or auto-run-match [:em "None"])]]
         [:tr
-         [:td {:style {:padding "6px 0" :color "#666"}} "Description"]
-         [:td {:style {:padding "6px 0"}} (or description [:em "Not specified"])]]
+         [:td "Description"]
+         [:td (or description [:em "Not specified"])]]
         [:tr
-         [:td {:style {:padding "6px 0" :color "#666"}} "Run At"]
-         [:td {:style {:padding "6px 0"}}
+         [:td "Run At"]
+         [:td
           (run-at-label run-at)
           (when run-at-invalid?
             [:span
              [:br]
-             [:span {:style {:color "#d97706" :font-size "12px"}}
+             [:span.epupp-modal__note.is-warning
               "Invalid value \"" raw-run-at "\" - using default"]])]]]]
-      [:p {:style {:margin "0 0 8px"}} [:strong "Source:"]]
-      [:p {:style {:margin "0 0 16px"}}
+      [:p [:strong "Source:"]]
+      [:p
        [:code {:style {:word-break "break-all"}} page-url]]
       ;; Context message
-      [:p {:style {:color "#666" :font-size "14px" :margin-bottom "16px"}}
+      [:p.epupp-modal__context
        (if is-update?
          "This will update the existing script."
          "This will install the script from this page.")]
-      [:div {:style {:display "flex" :gap "8px" :justify-content "flex-end"}}
-       [:button#epupp-cancel {:on {:click [:block/cancel-install]}
-                              :style {:padding "6px 16px" :background "#f6f8fa"
-                                      :border "1px solid #d0d7de" :border-radius "6px"
-                                      :cursor "pointer"}}
+      [:div.epupp-modal__actions
+       [:button.epupp-btn.epupp-btn--secondary
+        {:id "epupp-cancel"
+         :on {:click [:block/cancel-install]}}
         "Cancel"]
-       [:button#epupp-confirm {:on {:click [:block/confirm-install id code]}
-                               :style {:padding "6px 16px" :background "#2ea44f"
-                                       :color "white" :border "1px solid rgba(27,31,36,0.15)"
-                                       :border-radius "6px" :cursor "pointer"}}
+       [:button.epupp-btn.epupp-btn--primary
+        {:id "epupp-confirm"
+         :on {:click [:block/confirm-install id code]}}
         confirm-text]]]]))
 
 (defn render-error-dialog [{:keys [error-message is-update?]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/close-error]}
-      :style {:position "fixed" :top 0 :left 0 :right 0 :bottom 0
-              :background "rgba(0,0,0,0.5)" :z-index 9998
-              :display "flex" :align-items "center" :justify-content "center"}}
+     {:on {:click [:block/close-error]}}
      [:div.epupp-modal
-      {:on {:click [:block/modal-click]}
-       :style {:background "white" :padding "24px" :border-radius "8px"
-               :max-width "500px" :box-shadow "0 8px 24px rgba(0,0,0,0.3)"
-               :z-index 9999}}
-      [:h2 {:style {:margin-top 0 :color "#dc3545"}} title]
-      [:p {:style {:margin "16px 0" :color "#333"}}
+      {:on {:click [:block/modal-click]}}
+      [:h2.is-error title]
+      [:p
        (or error-message "An unknown error occurred.")]
-      [:div {:style {:display "flex" :gap "8px" :justify-content "flex-end"}}
-       [:button#epupp-close-error {:on {:click [:block/close-error]}
-                                   :style {:padding "6px 16px" :background "#f6f8fa"
-                                           :border "1px solid #d0d7de" :border-radius "6px"
-                                           :cursor "pointer"}}
+      [:div.epupp-modal__actions
+       [:button.epupp-btn.epupp-btn--secondary
+        {:id "epupp-close-error"
+         :on {:click [:block/close-error]}}
         "Close"]]]]))
 
 (defn render-app [state]
@@ -601,6 +563,162 @@
     (when-let [block (find-block-by-id @!state block-id)]
       (r/render btn-container (render-install-button block)))))
 
+(defn ensure-installer-css!
+  "Inject installer CSS into document.head (idempotent - no-op if already exists)."
+  []
+  (when-not (js/document.getElementById "epupp-wui-styles")
+    (let [style-el (js/document.createElement "style")]
+      (set! (.-id style-el) "epupp-wui-styles")
+      (set! (.-textContent style-el)
+            "/* Epupp Web Userscript Installer Styles */
+
+/* Button base and states */
+.epupp-install-btn {
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: all 150ms;
+}
+
+.epupp-install-btn.is-install {
+  background: #2ea44f;
+  color: white;
+  border-color: rgba(27,31,36,0.15);
+  cursor: pointer;
+}
+
+.epupp-install-btn.is-update {
+  background: #d97706;
+  color: white;
+  border-color: rgba(27,31,36,0.15);
+  cursor: pointer;
+}
+
+.epupp-install-btn.is-installed {
+  background: transparent;
+  color: black;
+  border-color: transparent;
+  cursor: default;
+}
+
+.epupp-install-btn.is-installing {
+  background: #2ea44f;
+  color: white;
+  border-color: rgba(27,31,36,0.15);
+  cursor: default;
+}
+
+.epupp-install-btn.is-error {
+  background: #dc3545;
+  color: white;
+  border-color: rgba(27,31,36,0.15);
+  cursor: default;
+}
+
+/* Modal overlay and box */
+.epupp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.epupp-modal {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 500px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 9999;
+}
+
+.epupp-modal h2 {
+  margin-top: 0;
+}
+
+.epupp-modal h2.is-error {
+  color: #dc3545;
+}
+
+/* Modal table */
+.epupp-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.epupp-modal__table td {
+  padding: 6px 0;
+}
+
+.epupp-modal__table td:first-child {
+  color: #666;
+  width: 100px;
+}
+
+.epupp-modal__note {
+  color: #888;
+  font-size: 12px;
+}
+
+.epupp-modal__note.is-warning {
+  color: #d97706;
+}
+
+/* Modal actions */
+.epupp-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.epupp-modal__context {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* Buttons */
+.epupp-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.epupp-btn--secondary {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+}
+
+.epupp-btn--primary {
+  background: #2ea44f;
+  color: white;
+  border: 1px solid rgba(27,31,36,0.15);
+}
+
+/* Container margin */
+.epupp-btn-container {
+  margin-left: 8px;
+}
+
+/* Icon */
+.epupp-icon {
+  flex-shrink: 0;
+}")
+      (.appendChild js/document.head style-el))))
+
 (defn setup-ui! []
   ;; Create main UI container for modal
   (let [container (js/document.createElement "div")]
@@ -626,116 +744,69 @@
   [script-name]
   (some? (.querySelector js/document (str "[data-epupp-script='" script-name "']"))))
 
-(defn- attach-github-table-button!
-  "Append button to .file-actions container for GitHub gist format."
-  [element script-name block-data]
-  (when-let [file-actions (get-github-button-container element)]
-    (when-not (.querySelector file-actions ".epupp-btn-container")
-      (let [btn-container (js/document.createElement "span")]
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.setAttribute btn-container "data-epupp-script" script-name)
-        (set! (.. btn-container -style -marginLeft) "8px")
-        (.appendChild file-actions btn-container)
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (js/console.log "[Web Userscript Installer] GitHub button container created for:" (:script/name block-data))
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+(defn- create-button-container!
+  "Create a button container element, set script attribute, register it, return it."
+  [tag-name script-name block-id]
+  (let [btn-container (js/document.createElement tag-name)]
+    (set! (.-className btn-container) "epupp-btn-container")
+    (.setAttribute btn-container "data-epupp-script" script-name)
+    (swap! !button-containers assoc block-id btn-container)
+    btn-container))
 
-(defn- attach-gitlab-snippet-button!
-  "Append button to .file-actions container for GitLab snippet format."
-  [element script-name block-data]
-  (when-let [file-actions (get-gitlab-button-container element)]
-    (when-not (.querySelector file-actions ".epupp-btn-container")
-      (let [btn-container (js/document.createElement "span")]
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.setAttribute btn-container "data-epupp-script" script-name)
-        (set! (.. btn-container -style -marginLeft) "8px")
-        (.appendChild file-actions btn-container)
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (js/console.log "[Web Userscript Installer] GitLab button container created for:" (:script/name block-data))
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+(defn- render-button-into-container!
+  "Render install button into container with error handling.
+   Returns true if Replicant render succeeded."
+  [container block-data]
+  (try
+    (r/render container (render-install-button block-data))
+    true
+    (catch :default e
+      (js/console.error "[Web Userscript Installer] Replicant render error:" e)
+      false)))
 
-(defn- attach-github-repo-button!
-  "Append button to ButtonGroup for GitHub repo file format."
-  [element script-name block-data]
-  (when-let [button-container (get-github-repo-button-container element)]
-    (when-not (.querySelector button-container ".epupp-btn-container")
-      (let [btn-container (js/document.createElement "span")]
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.setAttribute btn-container "data-epupp-script" script-name)
-        (set! (.. btn-container -style -marginLeft) "8px")
-        (.appendChild button-container btn-container)
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (js/console.log "[Web Userscript Installer] GitHub repo button container created for:" (:script/name block-data))
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+(def ^:private format-specs
+  "Specs for attaching buttons to different code block formats."
+  {:github-table   {:tag "span" :get-container get-github-button-container :insert :append}
+   :gitlab-snippet {:tag "span" :get-container get-gitlab-button-container :insert :append}
+   :github-repo    {:tag "span" :get-container get-github-repo-button-container :insert :append}
+   :pre            {:tag "div" :insert :before}
+   :textarea       {:tag "div" :insert :before}})
 
-(defn- attach-pre-button!
-  "Insert button container before a pre element."
-  [element script-name block-data]
-  (let [existing-btn (aget element "previousElementSibling")]
-    (when-not (and existing-btn
-                   (= (aget existing-btn "className") "epupp-btn-container"))
-      (let [btn-container (js/document.createElement "div")
-            parent (.-parentElement element)]
-        (js/console.log "[Web Userscript Installer] Creating container for:" (:script/name block-data) "parent:" (some? parent))
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.setAttribute btn-container "data-epupp-script" script-name)
-        (.insertBefore parent btn-container element)
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (js/console.log "[Web Userscript Installer] Container inserted, about to render button")
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (js/console.log "[Web Userscript Installer] Replicant render complete")
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)
-            (let [btn (js/document.createElement "button")]
-              (set! (.-textContent btn) "Install")
-              (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
-              (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
-              (.appendChild btn-container btn)
-              (js/console.log "[Web Userscript Installer] Fallback button appended"))))))))
+(defn- attach-button!
+  "Button attachment using format specs."
+  [element script-name block-data format]
+  (let [{:keys [tag get-container insert]} (get format-specs format)]
+    (case insert
+      :append
+      (when-let [target-container (get-container element)]
+        (when-not (.querySelector target-container ".epupp-btn-container")
+          (let [btn-container (create-button-container! tag script-name (:id block-data))]
+            (.appendChild target-container btn-container)
+            (render-button-into-container! btn-container block-data))))
 
-(defn- attach-textarea-button!
-  "Insert button container before a textarea element."
-  [element script-name block-data]
-  (let [existing-btn (aget element "previousElementSibling")]
-    (when-not (and existing-btn
-                   (= (aget existing-btn "className") "epupp-btn-container"))
-      (let [btn-container (js/document.createElement "div")
-            parent (.-parentElement element)]
-        (js/console.log "[Web Userscript Installer] Creating textarea container for:" (:script/name block-data))
-        (set! (.-className btn-container) "epupp-btn-container")
-        (.setAttribute btn-container "data-epupp-script" script-name)
-        (.insertBefore parent btn-container element)
-        (swap! !button-containers assoc (:id block-data) btn-container)
-        (try
-          (r/render btn-container (render-install-button block-data))
-          (catch :default e
-            (js/console.error "[Web Userscript Installer] Replicant render error:" e)))))))
+      :before
+      (let [existing-btn (.-previousElementSibling element)]
+        (when-not (and existing-btn (= (.-className existing-btn) "epupp-btn-container"))
+          (let [btn-container (create-button-container! tag script-name (:id block-data))
+                parent (.-parentElement element)]
+            (.insertBefore parent btn-container element)
+            (when-not (render-button-into-container! btn-container block-data)
+              ;; Fallback for :pre format only
+              (when (= format :pre)
+                (let [btn (js/document.createElement "button")]
+                  (set! (.-textContent btn) "Install")
+                  (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
+                  (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
+                  (.appendChild btn-container btn))))))))))
 
 (defn attach-button-to-block!
-  "Attach install button to a code block based on format.
-   Checks globally if a button for this script already exists (prevents duplicates
-   when multiple detection strategies find the same script content)."
+  "Attach install button to a code block based on format."
   [block-info block-data]
   (let [element (:element block-info)
         format (:format block-info)
         script-name (get-in block-data [:manifest :script-name])]
     (when-not (script-button-exists? script-name)
-      (case format
-        :github-table  (attach-github-table-button! element script-name block-data)
-        :gitlab-snippet (attach-gitlab-snippet-button! element script-name block-data)
-        :github-repo   (attach-github-repo-button! element script-name block-data)
-        :pre           (attach-pre-button! element script-name block-data)
-        :textarea      (attach-textarea-button! element script-name block-data)))))
+      (attach-button! element script-name block-data format))))
 
 (defn- create-and-attach-block!
   "Create block-data from processing results and attach button to DOM."
@@ -855,6 +926,7 @@
     (when js/document.body
       (.appendChild js/document.body marker)))
 
+  (ensure-installer-css!)
   (setup-ui!)
 
   ;; Scan immediately (with empty installed-scripts)
