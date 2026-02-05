@@ -31,7 +31,8 @@
          :panel/selection nil       ; Current textarea selection {:start :end :text}
          :panel/system-banners []        ; System banners [{:id :type :message :leaving} ...]
          :panel/system-bulk-names {}     ; bulk-id -> [script-name ...]
-         :panel/scripts-list []})) ; bulk-id -> [script-name ...]
+         :panel/scripts-list []          ; bulk-id -> [script-name ...]
+         :panel/tab-connected? false}))  ; Is the inspected tab connected to REPL?
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -287,6 +288,17 @@
                        (script-utils/parse-scripts scripts-raw {:extract-manifest mp/extract-manifest})
                        [])]
          (dispatch [[:editor/ax.update-scripts-list scripts]]))))
+
+    :editor/fx.load-connections
+    (let [inspected-tab-id (js/chrome.devtools.inspectedWindow.tabId)]
+      (js/chrome.runtime.sendMessage
+       #js {:type "get-connections"}
+       (fn [response]
+         (when (and response (.-success response))
+           (let [connections (.-connections response)
+                 tab-id-str (str inspected-tab-id)
+                 connected? (boolean (some #(= tab-id-str (str (.-tab-id %))) connections))]
+             (dispatch [[:editor/ax.set-tab-connected connected?]]))))))
 
     :uf/unhandled-fx))
 
@@ -669,11 +681,11 @@
 
 
 
-(defn panel-header [{:panel/keys [needs-refresh? system-banners scittle-status]}]
+(defn panel-header [{:panel/keys [needs-refresh? system-banners tab-connected?]}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
-    :elements/icon [icons/epupp-logo {:size 28 :connected? (= :loaded scittle-status)}]
+    :elements/icon [icons/epupp-logo {:size 28 :connected? tab-connected?}]
     :elements/status "Ready"
     :elements/permanent-banner (when needs-refresh? [refresh-banner])
     :elements/temporary-banner (when (seq system-banners)
@@ -756,6 +768,8 @@
                                    (render!)
                                    ;; Check Scittle status on init
                                    (dispatch! [[:editor/ax.check-scittle]])
+                                   ;; Load connection status for current tab
+                                   (perform-effect! dispatch! [:editor/fx.load-connections])
                                    ;; Load scripts list for conflict detection
                                    (perform-effect! dispatch! [:editor/fx.load-scripts-list])
                                    ;; Check if there's a script to edit (from popup)
@@ -851,12 +865,14 @@
            (dispatch! [[:editor/ax.new-script]])
            (dispatch! [[:editor/ax.reload-script-from-storage script-name]]))))
 
-     ;; Connection status changes - check if our inspected tab disconnected
+     ;; Connection status changes - track if our inspected tab is connected
      (= "connections-changed" (.-type message))
      (let [connections (.-connections message)
            inspected-tab-id js/chrome.devtools.inspectedWindow.tabId
-           tab-connected? (some #(= (.-tabId %) inspected-tab-id) connections)]
-       ;; If inspected tab is no longer connected, reset scittle status
+           tab-connected? (boolean (some #(= (.-tabId %) inspected-tab-id) connections))]
+       ;; Update connection state for icon display
+       (dispatch! [[:editor/ax.set-tab-connected tab-connected?]])
+       ;; If disconnected, also reset scittle status
        (when-not tab-connected?
          (dispatch! [[:editor/ax.handle-ws-close]]))))
    ;; Return false - we don't send async response

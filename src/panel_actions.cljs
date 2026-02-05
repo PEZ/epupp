@@ -373,7 +373,13 @@
                    :panel/scittle-status :unknown)}
 
     :editor/ax.handle-ws-close
-    {:uf/db (assoc state :panel/scittle-status :unknown)}
+    {:uf/db (-> state
+                (assoc :panel/scittle-status :unknown)
+                (assoc :panel/tab-connected? false))}
+
+    :editor/ax.set-tab-connected
+    (let [[connected?] args]
+      {:uf/db (assoc state :panel/tab-connected? connected?)})
 
     :editor/ax.set-init-version
     (let [[version] args]

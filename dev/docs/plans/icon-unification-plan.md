@@ -56,7 +56,7 @@ Add task to [bb.edn](../../../bb.edn) that runs the script.
 - [x] Add `gen-icons` task to bb.edn
 - [x] Task runs successfully and produces icons
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 3. Simplify toolbar icon states
 
@@ -66,7 +66,7 @@ Update [background_utils.cljs](../../../src/background_utils.cljs):
 - [x] Remove `"injected"` from icon selection logic
 - [x] Update E2E tests that assert on icon states
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 4. Update display icon computation
 
@@ -83,7 +83,7 @@ Update [popup.cljs](../../../src/popup.cljs):
 
 - [x] Pass `connected?` prop from subscription to `epupp-logo`
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 6. Wire panel logo to REPL state
 
@@ -101,7 +101,7 @@ Clean up [extension/icons/](../../../extension/icons/):
 - [x] Delete `icon.svg`, `old-icon.svg`
 - [x] Keep only generated files
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 8. Verify extension loads
 
@@ -109,7 +109,7 @@ Manifest references `icons/` paths which remain unchanged.
 
 - [x] Extension loads correctly with new icons
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ---
 
@@ -185,7 +185,7 @@ The manifest default icons (`icon-*.png`) should use the connected (gold) versio
 - [x] Update `scripts/icon.clj` to copy connected icons to manifest defaults
 - [x] Also generate `icon.svg` for web installer
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### Fix 2: Panel logo not reactive to disconnect
 
@@ -195,7 +195,7 @@ Panel logo starts with connected state and doesn't react when REPL disconnects.
 - [x] Panel listens for `connections-changed` messages
 - [x] Resets to white when inspected tab disconnects
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [ ] Verified by PEZ - **STILL BROKEN**: Shows connected on start, then inverts (shows disconnected on connect)
 
 ### Fix 3: Toolbar icon doesn't return to disconnected
 
@@ -204,8 +204,16 @@ Toolbar icon reacts to connect but stays connected even when all tabs disconnect
 - [x] Fixed bg_ws.cljs to use `:disconnected` instead of removed `:injected` state
 - [x] Fixed bg_inject.cljs to use `:disconnected` when Scittle is injected but not connected
 - [x] Updated unit tests to use `:disconnected`
+- [x] Fixed `close-ws!` to update icon state (root cause: onclose handler was cleared but icon wasn't updated)
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [ ] Verified by PEZ - Previous fix incomplete, added icon update to close-ws!
+
+### Reference: Popup icon behavior (works correctly)
+
+Popup icon works correctly and should be used as reference:
+- Shows connected (gold) on connected tabs
+- Shows disconnected (white) on tabs that are not connected
+- This is the correct tab-specific behavior
 
 ---
 

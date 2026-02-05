@@ -48,7 +48,9 @@
       (.close ws)
       (catch :default e
         (log/error "Background" "WS" "Error closing WebSocket:" e))))
-  (dispatch! [[:ws/ax.unregister tab-id]]))
+  (dispatch! [[:ws/ax.unregister tab-id]])
+  ;; Update icon to disconnected (since we cleared onclose, we must do it here)
+  (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))
 
 (defn send-to-tab
   "Send message to content script in a tab.
