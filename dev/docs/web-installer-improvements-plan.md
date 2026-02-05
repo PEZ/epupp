@@ -262,19 +262,19 @@ Reference: `build/components.css` button styles
 
 ## Success Criteria
 
-- [ ] Installer finds manifests in any `<pre>` or `<pre><code>` block
-- [ ] Button appears above the code block it pertains to
-- [ ] Button shows correct state: Install/Update/Installed
-- [ ] Installed state shows disabled button
-- [ ] Running installer twice doesn't create duplicate buttons
-- [ ] Button has Epupp icon and matches extension styling
-- [ ] Tooltips explain the action
-- [ ] Dialog title reflects install vs update
-- [ ] Dialog confirm button says "Install" or "Update" appropriately
+- [x] Installer finds manifests in any `<pre>` or `<pre><code>` block
+- [x] Button appears above the code block it pertains to
+- [x] Button shows correct state: Install/Update/Installed
+- [x] Installed state shows disabled button
+- [x] Running installer twice doesn't create duplicate buttons
+- [x] Button has Epupp icon and matches extension styling
+- [x] Tooltips explain the action
+- [x] Dialog title reflects install vs update
+- [x] Dialog confirm button says "Install" or "Update" appropriately
 - [ ] Error dialog shows when install fails with helpful error message
-- [ ] GitLab buttons placed in proper container (not disrupting layout)
-- [ ] All unit tests pass
-- [ ] All E2E tests pass
+- [x] GitLab buttons placed in proper container (not disrupting layout)
+- [x] All unit tests pass
+- [x] All E2E tests pass
 - [ ] Zero lint warnings
 
 ---
