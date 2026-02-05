@@ -177,7 +177,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/6)
-        run: xvfb-run --auto-servernum bb test:e2e:ci --retries=2 --shard=${{ matrix.shard }}/6
+        run: xvfb-run --auto-servernum bb test:e2e:ci --shard=${{ matrix.shard }}/6
 
       - name: Upload test results
         if: always()

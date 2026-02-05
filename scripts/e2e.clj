@@ -20,6 +20,9 @@
 (def ^:private browser-nrepl-port-2 12347)
 (def ^:private browser-ws-port-2 12348)
 
+;; Default Playwright retries for flakiness tolerance
+(def ^:private default-retries 2)
+
 ;; E2E log file for subprocess output (timestamped to prevent conflicts)
 (def ^:private e2e-log-file
   (str "/tmp/epupp-e2e-" (System/currentTimeMillis) ".log"))
@@ -101,7 +104,8 @@
   (with-test-server
     #(with-browser-nrepls
        (fn []
-         (let [result (apply p/shell {:continue true} "npx playwright test" args)]
+         (let [args (into [(str "--retries=" default-retries)] args)
+               result (apply p/shell {:continue true} "npx playwright test" args)]
            (System/exit (:exit result)))))))
 
 ;; ============================================================
@@ -455,6 +459,7 @@
   [args]
   (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int}
                                                   :alias {:s :serial :r :repeat}})
+        args (into [(str "--retries=" default-retries)] args)
         serial? (:serial opts)
         n-shards (or (:shards opts) default-n-shards)
         repeat-count (max 1 (or (:repeat opts) 1))]
