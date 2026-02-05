@@ -2,7 +2,7 @@
 description: 'Expert E2E test writer: implements efficient, focused tests following project philosophy'
 tools: ['read/problems', 'read/readFile', 'read/getTaskOutput', 'agent', 'search', 'web', 'betterthantomorrow.calva-backseat-driver/clojure-eval', 'betterthantomorrow.calva-backseat-driver/list-sessions', 'betterthantomorrow.calva-backseat-driver/clojure-symbol', 'betterthantomorrow.calva-backseat-driver/clojuredocs', 'betterthantomorrow.calva-backseat-driver/calva-output', 'betterthantomorrow.joyride/joyride-eval', 'askQuestions', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'todo']
 name: epupp-e2e-expert
-model: Claude Opus 4.5 (copilot)
+model: Claude Opus 4.6 (copilot)
 ---
 
 # E2E Testing Expert

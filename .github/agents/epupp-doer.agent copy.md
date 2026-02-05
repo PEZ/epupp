@@ -2,7 +2,7 @@
 description: 'Epupp expert: transforms hasty prompts into masterful implementations'
 # name: Epupp Expert
 tools: ['execute/getTerminalOutput', 'execute/runInTerminal', 'read/problems', 'read/readFile', 'read/getTaskOutput', 'edit/createDirectory', 'edit/createFile', 'edit/editFiles', 'search', 'agent', 'betterthantomorrow.calva-backseat-driver/clojure-eval', 'betterthantomorrow.calva-backseat-driver/list-sessions', 'betterthantomorrow.calva-backseat-driver/clojure-symbol', 'betterthantomorrow.calva-backseat-driver/clojuredocs', 'betterthantomorrow.calva-backseat-driver/calva-output', 'betterthantomorrow.calva-backseat-driver/balance-brackets', 'betterthantomorrow.calva-backseat-driver/replace-top-level-form', 'betterthantomorrow.calva-backseat-driver/insert-top-level-form', 'betterthantomorrow.calva-backseat-driver/clojure-create-file', 'betterthantomorrow.calva-backseat-driver/append-code', 'betterthantomorrow.joyride/joyride-eval', 'betterthantomorrow.joyride/human-intelligence', 'todo']
-model: Claude Sonnet 4.5 (copilot)
+model: Claude Opus 4.6 (copilot)
 name: epupp-doer
 ---
 

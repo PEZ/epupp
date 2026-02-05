@@ -1,6 +1,6 @@
 ---
 description: 'Researcher'
-model: Claude Sonnet 4.5 (copilot)
+model: Claude Opus 4.6 (copilot)
 # tools: ['run_in_terminal', 'get_changed_files', 'read_file', 'grep_search']
 ---
 
