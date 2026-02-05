@@ -183,6 +183,7 @@ Issues found during verification:
 The manifest default icons (`icon-*.png`) should use the connected (gold) version, not disconnected. The gold icon is the brand identity.
 
 - [x] Update `scripts/icon.clj` to copy connected icons to manifest defaults
+- [x] Also generate `icon.svg` for web installer
 - [x] E2E tests green
 - [ ] Verified by PEZ
 
@@ -200,8 +201,9 @@ Panel logo starts with connected state and doesn't react when REPL disconnects.
 
 Toolbar icon reacts to connect but stays connected even when all tabs disconnect.
 
-- [x] Modified `icon-actions/clear-state` to trigger toolbar update effect
-- [x] Toolbar icon now returns to white when all tabs disconnect
+- [x] Fixed bg_ws.cljs to use `:disconnected` instead of removed `:injected` state
+- [x] Fixed bg_inject.cljs to use `:disconnected` when Scittle is injected but not connected
+- [x] Updated unit tests to use `:disconnected`
 - [x] E2E tests green
 - [ ] Verified by PEZ
 

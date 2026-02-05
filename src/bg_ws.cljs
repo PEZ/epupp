@@ -80,7 +80,7 @@
     (log/info "Background" "WS" "Disconnecting tab" other-tab-id "- port" port "claimed by tab" tab-id)
     (close-ws! connections dispatch! other-tab-id)
     ;; Update icon for the disconnected tab
-    (bg-icon/update-icon-for-tab! dispatch! other-tab-id :injected))
+    (bg-icon/update-icon-for-tab! dispatch! other-tab-id :disconnected))
 
   ;; Fetch tab title and favicon for display
   (js/chrome.tabs.get
@@ -132,8 +132,8 @@
                                         :code (.-code event)
                                         :reason (.-reason event)})
                    (dispatch! [[:ws/ax.unregister tab-id]])
-                   ;; When WS closes, go back to injected state (Scittle still loaded)
-                   (bg-icon/update-icon-for-tab! dispatch! tab-id :injected))))
+                   ;; When WS closes, set to disconnected (we no longer have an intermediate injected state)
+                   (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))))
          (catch :default e
            (log/error "Background" "WS" "Failed to create WebSocket:" e)
            (send-to-tab tab-id {:type "ws-error"

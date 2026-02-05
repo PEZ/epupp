@@ -48,11 +48,16 @@
 
 (defn generate-all!
   "Generate all toolbar icons (connected and disconnected states).
-   Connected icons also generate icon-*.png for manifest default (gold brand identity)."
+   Connected icons also generate icon-*.png and icon.svg for manifest default (gold brand identity)."
   []
   (println "Generating Epupp toolbar icons from hiccup...")
   (generate-icon! false "disconnected" false)
   (generate-icon! true "connected" true)   ; also-default? = true for connected (gold)
+  ;; Also copy connected SVG to icon.svg for web installer
+  (let [src "extension/icons/icon-connected.svg"
+        dest "extension/icons/icon.svg"]
+    (fs/copy src dest {:replace-existing true})
+    (println (str "  → " dest " (web installer)")))
   (println "✓ All icons generated successfully!"))
 
 ;; Run when script is executed
