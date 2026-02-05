@@ -32,6 +32,8 @@
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
+         :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
+         :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
@@ -166,19 +168,26 @@
           nil)))
 
     :popup/fx.load-saved-ports
-    ;; chrome.storage.local.get uses callback API, keep as-is
     (let [tab (js-await (get-active-tab))
           key (storage-key tab)]
       (js/chrome.storage.local.get
        #js [key]
        (fn [result]
-         (when-let [saved (aget result key)]
-           (let [actions (cond-> []
-                           (.-nreplPort saved)
-                           (conj [:db/ax.assoc :ports/nrepl (str (.-nreplPort saved))])
-                           (.-wsPort saved)
-                           (conj [:db/ax.assoc :ports/ws (str (.-wsPort saved))]))]
-             (when (seq actions)
+         (let [saved (aget result key)]
+           (if saved
+             ;; Per-hostname ports found - use them
+             (let [actions (cond-> []
+                             (.-nreplPort saved)
+                             (conj [:db/ax.assoc :ports/nrepl (str (.-nreplPort saved))])
+                             (.-wsPort saved)
+                             (conj [:db/ax.assoc :ports/ws (str (.-wsPort saved))]))]
+               (when (seq actions)
+                 (dispatch actions)))
+             ;; No per-hostname ports - fall back to default settings
+             (let [state @!state
+                   actions [[:db/ax.assoc
+                             :ports/nrepl (:settings/default-nrepl-port state)
+                             :ports/ws (:settings/default-ws-port state)]]]
                (dispatch actions)))))))
 
     :popup/fx.load-scripts
@@ -269,6 +278,26 @@
     :popup/fx.save-fs-sync-setting
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
+
+    :popup/fx.load-default-ports-setting
+    (js/chrome.storage.local.get
+     #js ["defaultNreplPort" "defaultWsPort"]
+     (fn [result]
+       (let [nrepl-port (aget result "defaultNreplPort")
+             ws-port (aget result "defaultWsPort")
+             actions (cond-> []
+                       (some? nrepl-port)
+                       (conj [:db/ax.assoc :settings/default-nrepl-port (str nrepl-port)])
+                       (some? ws-port)
+                       (conj [:db/ax.assoc :settings/default-ws-port (str ws-port)]))]
+         (when (seq actions)
+           (dispatch actions)))))
+
+    :popup/fx.save-default-ports-setting
+    (let [[ports] args]
+      (js/chrome.storage.local.set
+       #js {:defaultNreplPort (:settings/default-nrepl-port ports)
+            :defaultWsPort (:settings/default-ws-port ports)}))
 
     :popup/fx.dump-dev-log
     ;; Fetch test events from storage and console.log with a marker
@@ -609,7 +638,7 @@
         [:div.no-scripts-hint
          "Scripts that won't auto-run for this page appear here."]])]))
 
-(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled]}]
+(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled] :as state}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -640,6 +669,19 @@
      [:p.description.warning
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
+   [:div.settings-section
+    [:h3.settings-section-title "Default REPL Ports"]
+    [:p.section-description
+     "Pre-fill port inputs for hostnames without saved ports."]
+    [:div.port-row
+     [port-input {:id "default-nrepl-port"
+                  :label "nREPL:"
+                  :value (:settings/default-nrepl-port state)
+                  :on-change #(dispatch! [[:popup/ax.set-default-nrepl-port %]])}]
+     [port-input {:id "default-ws-port"
+                  :label "WebSocket:"
+                  :value (:settings/default-ws-port state)
+                  :on-change #(dispatch! [[:popup/ax.set-default-ws-port %]])}]]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description
@@ -774,7 +816,7 @@
         other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %))))
         ;; Settings section height: base + form/buttons
-        settings-max-height 550] ; REPL settings + export/import + headers
+        settings-max-height 650] ; REPL settings + default ports + export/import + headers
     [:div
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
@@ -869,7 +911,8 @@
                                (if (= operation "delete") "deleted" "saved"))
 
                           :else
-                          (str "Script \"" script-name "\" " operation "d"))]         (when bulk-id
+                          (str "Script \"" script-name "\" " operation "d"))]
+         (when bulk-id
            (dispatch! [[:popup/ax.track-bulk-name bulk-id script-name]]))
          ;; Flash on errors or unchanged saves so user knows which file was affected
          (when (and (or (= event-type "error") unchanged?)
@@ -906,7 +949,8 @@
              (when (seq changed-names)
                (dispatch! [[:popup/ax.mark-scripts-modified (vec changed-names)]]))))))))
 
-  (dispatch! [[:popup/ax.load-saved-ports]
+  (dispatch! [[:popup/ax.load-default-ports-setting]
+              [:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]

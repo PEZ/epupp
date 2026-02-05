@@ -291,19 +291,22 @@
             (catch :default _ (resolve "default")))))))))
 
 (defn ^:async get-saved-ws-port
-  "Get saved WebSocket port for a tab's hostname."
+  "Get saved WebSocket port for a tab's hostname.
+   Falls back to user-configured default port, then to 1340."
   [tab-id]
   (let [hostname (js-await (get-tab-hostname tab-id))
         key (str "ports_" hostname)]
     (js/Promise.
      (fn [resolve]
        (js/chrome.storage.local.get
-        #js [key]
+        #js [key "defaultWsPort"]
         (fn [result]
           (let [saved (aget result key)]
             (if (and saved (.-wsPort saved))
               (resolve (str (.-wsPort saved)))
-              (resolve "1340"))))))))) ; default ws port
+              (let [default-port (aget result "defaultWsPort")]
+                (resolve (str (or default-port "1340"))))))))))))
+ ; default ws port
 
 (defn ^:async process-navigation!
   "Process a navigation event after ensuring initialization is complete.

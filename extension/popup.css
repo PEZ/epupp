@@ -90,7 +90,7 @@ body {
 }
 
 .port-row input {
-  width: 68px;
+  width: 6em;
   padding: 6px 8px;
   font-size: 13px;
   border: 1px solid var(--color-border);

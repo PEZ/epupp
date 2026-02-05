@@ -25,7 +25,9 @@
    :scripts/current-url nil
    :settings/user-origins []
    :settings/new-origin ""
-   :settings/default-origins []})
+   :settings/default-origins []
+   :settings/default-nrepl-port "1339"
+   :settings/default-ws-port "1340"})
 
 (def uf-data {:system/now 1234567890
               :config/deps-string "{:deps {}}"})
@@ -131,9 +133,34 @@
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.load-current-url))))
 
-;; ============================================================
-;; Test Registration
-;; ============================================================
+;; Default port settings
+
+(defn- test-set-default-nrepl-port-updates-and-saves []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-default-nrepl-port "12345"])]
+    (-> (expect (:settings/default-nrepl-port (:uf/db result)))
+        (.toBe "12345"))
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.save-default-ports-setting))))
+
+(defn- test-set-default-ws-port-updates-and-saves []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-default-ws-port "12346"])]
+    (-> (expect (:settings/default-ws-port (:uf/db result)))
+        (.toBe "12346"))
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.save-default-ports-setting))))
+
+(defn- test-set-default-nrepl-port-preserves-other-default []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-default-nrepl-port "9999"])
+        [_fx-name ports] (first (:uf/fxs result))]
+    (-> (expect (:settings/default-nrepl-port ports))
+        (.toBe "9999"))
+    (-> (expect (:settings/default-ws-port ports))
+        (.toBe "1340"))))
+
+(defn- test-load-default-ports-triggers-effect []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.load-default-ports-setting])]
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.load-default-ports-setting))))
 
 (describe "popup connection actions"
           (fn []
@@ -156,4 +183,10 @@
             (test ":popup/ax.check-status triggers effect" test-check-status-triggers-effect)
             (test ":popup/ax.load-saved-ports triggers effect" test-load-saved-ports-triggers-effect)
             (test ":popup/ax.load-scripts triggers effect" test-load-scripts-triggers-effect)
-            (test ":popup/ax.load-current-url triggers effect" test-load-current-url-triggers-effect)))
+            (test ":popup/ax.load-current-url triggers effect" test-load-current-url-triggers-effect)
+
+            ;; Default port settings
+            (test ":popup/ax.set-default-nrepl-port updates and saves" test-set-default-nrepl-port-updates-and-saves)
+            (test ":popup/ax.set-default-ws-port updates and saves" test-set-default-ws-port-updates-and-saves)
+            (test ":popup/ax.set-default-nrepl-port preserves other default" test-set-default-nrepl-port-preserves-other-default)
+            (test ":popup/ax.load-default-ports-setting triggers effect" test-load-default-ports-triggers-effect)))

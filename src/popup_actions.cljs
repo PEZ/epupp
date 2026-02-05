@@ -75,6 +75,21 @@
       (when script
         {:uf/fxs [[:popup/fx.evaluate-script script]]}))
 
+    :popup/ax.set-default-nrepl-port
+    (let [[port] args
+          new-state (assoc state :settings/default-nrepl-port port)]
+      {:uf/db new-state
+       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]]})
+
+    :popup/ax.set-default-ws-port
+    (let [[port] args
+          new-state (assoc state :settings/default-ws-port port)]
+      {:uf/db new-state
+       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]]})
+
+    :popup/ax.load-default-ports-setting
+    {:uf/fxs [[:popup/fx.load-default-ports-setting]]}
+
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
 
