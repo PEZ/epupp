@@ -533,7 +533,7 @@
                                      :block-id block-id
                                      :error-message error-msg}))))))
 
-(defn handle-event [_replicant-data action]
+(defn handle-event [replicant-data action]
   (let [[action-type & args] action]
     (case action-type
       :block/show-confirm
@@ -544,7 +544,9 @@
       (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
 
       :block/modal-click
-      nil  ;; Don't close when clicking inside modal
+      ;; Stop propagation to prevent overlay-click from firing
+      (when-let [e (:replicant/dom-event replicant-data)]
+        (.stopPropagation e))
 
       :block/cancel-install
       (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
