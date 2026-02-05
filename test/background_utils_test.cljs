@@ -54,15 +54,15 @@
 
 (defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected-alt []
   (-> (expect (bg/compute-display-icon-state {123 "disconnected" 456 "connected"} 123))
-      (.toBe "connected")))
+      (.toBe "disconnected")))
 
 (defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected []
   (-> (expect (bg/compute-display-icon-state {123 "disconnected" 456 "connected"} 123))
-      (.toBe "connected")))
+      (.toBe "disconnected")))
 
 (defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-not-in-state []
   (-> (expect (bg/compute-display-icon-state {456 "connected"} 123))
-      (.toBe "connected")))
+      (.toBe "disconnected")))
 
 ;; get-icon-paths
 
@@ -255,12 +255,12 @@
             (test "returns disconnected when active tab is disconnected" test-compute-display-icon-returns-disconnected-when-active-tab-disconnected)
             (test "returns disconnected when only non-active tabs exist" test-compute-display-icon-returns-disconnected-when-only-non-active-tabs-exist)))
 
-(describe "compute-display-icon-state - global connected state"
+(describe "compute-display-icon-state - per-tab connected state"
           (fn []
             (test "returns connected when active tab is connected" test-compute-display-icon-returns-connected-when-active-tab-connected)
-            (test "returns connected when different tab is connected, active is disconnected (alt)" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected-alt)
-            (test "returns connected when different tab is connected, active is disconnected" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected)
-            (test "returns connected when different tab is connected, active not in state" test-compute-display-icon-returns-connected-when-different-tab-connected-active-not-in-state)))
+            (test "returns disconnected when different tab is connected, active is disconnected" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected-alt)
+            (test "returns disconnected when different tab is connected, active is disconnected (dup)" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected)
+            (test "returns disconnected when different tab is connected, active not in state" test-compute-display-icon-returns-connected-when-different-tab-connected-active-not-in-state)))
 
 (describe "get-icon-paths"
           (fn []

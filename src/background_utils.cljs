@@ -9,17 +9,15 @@
   (boolean (some #(= % "connected") (vals icon-states))))
 
 (defn compute-display-icon-state
-  "Compute icon state to display based on:
-   - Connected is GLOBAL: if ANY tab has REPL connected -> gold
-   - Otherwise: disconnected (white)
+  "Compute icon state to display for the active tab.
+   Shows connected (gold) only when the active tab has a REPL connection.
+   Shows disconnected (white) otherwise.
 
    Pure function - takes icon-states map and active-tab-id."
-  [icon-states _active-tab-id]
-  (cond
-    ;; Global: any tab connected -> gold
-    (any-tab-connected? icon-states) "connected"
-    ;; Default: disconnected
-    :else "disconnected"))
+  [icon-states active-tab-id]
+  (if (= "connected" (get icon-states active-tab-id))
+    "connected"
+    "disconnected"))
 
 (defn get-icon-paths
   "Get icon paths for a given state.

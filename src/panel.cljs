@@ -297,7 +297,7 @@
          (when (and response (.-success response))
            (let [connections (.-connections response)
                  tab-id-str (str inspected-tab-id)
-                 connected? (boolean (some #(= tab-id-str (str (.-tab-id %))) connections))]
+                 connected? (boolean (some #(= tab-id-str (str (:tab-id %))) connections))]
              (dispatch [[:editor/ax.set-tab-connected connected?]]))))))
 
     :uf/unhandled-fx))
@@ -695,7 +695,7 @@
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
 
 (defn panel-ui [state]
-  [:div.panel-root
+  [:div.panel-root {:data-e2e-connected (str (boolean (:panel/tab-connected? state)))}
    [panel-header state]
    [:div.panel-content
     ;; Debug info for tests (hidden but queryable by E2E tests)
@@ -870,7 +870,7 @@
      (let [connections (.-connections message)
            inspected-tab-id js/chrome.devtools.inspectedWindow.tabId
            tab-id-str (str inspected-tab-id)
-           tab-connected? (boolean (some #(= (str (.-tab-id %)) tab-id-str) connections))]
+           tab-connected? (boolean (some #(= (str (:tab-id %)) tab-id-str) connections))]
        ;; Update connection state for icon display
        (dispatch! [[:editor/ax.set-tab-connected tab-connected?]])
        ;; If disconnected, also reset scittle status

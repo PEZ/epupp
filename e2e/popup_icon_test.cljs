@@ -92,19 +92,18 @@
       (finally
         (js-await (.close context))))))
 
-(defn- ^:async test_connected_state_is_global []
-  (.setTimeout test 10000)
+(defn- ^:async test_icon_reflects_active_tab_connection_state []
+  (.setTimeout test 15000)
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))
         ws-port-1 12346]
     (try
-      ;; Open Tab A
+      ;; Open Tab A and connect
       (let [tab-a (js-await (.newPage context))]
         (js-await (.goto tab-a "http://localhost:18080/basic.html" #js {:timeout 1000}))
         (js-await (-> (expect (.locator tab-a "#test-marker"))
                       (.toContainText "ready")))
 
-        ;; Connect Tab A
         (let [popup (js-await (create-popup-page context ext-id))
               tab-a-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))]
           (js-await (fixtures/connect-tab popup tab-a-id ws-port-1))
@@ -114,23 +113,35 @@
         ;; Verify Tab A shows connected
         (let [popup (js-await (create-popup-page context ext-id))
               tab-a-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+              _ (js-await (activate-tab popup tab-a-id))
+              _ (js-await (update-icon popup tab-a-id))
               state (js-await (wait-for-icon-state popup tab-a-id #js ["connected"] 5000))]
           (js-await (-> (expect (= state "connected"))
                         (.toBeTruthy)))
           (js-await (.close popup)))
 
-        ;; Open Tab B (different URL)
+        ;; Open Tab B (not connected)
         (let [tab-b (js-await (.newPage context))]
           (js-await (.goto tab-b "http://localhost:18080/spa-test.html" #js {:timeout 1000}))
           (js-await (-> (expect (.locator tab-b "#test-marker"))
                         (.toContainText "ready")))
 
-          ;; Tab B should ALSO show connected (global state - Tab A is connected)
+          ;; Switch to Tab B - icon should show DISCONNECTED (Tab B has no connection)
           (let [popup (js-await (create-popup-page context ext-id))
                 tab-b-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/spa-test.html"))
                 _ (js-await (activate-tab popup tab-b-id))
                 _ (js-await (update-icon popup tab-b-id))
-                state (js-await (wait-for-icon-state popup tab-b-id #js ["connected"] 5000))]
+                state (js-await (wait-for-icon-state popup tab-b-id #js ["disconnected"] 2000))]
+            (js-await (-> (expect (= state "disconnected"))
+                          (.toBeTruthy)))
+            (js-await (.close popup)))
+
+          ;; Switch back to Tab A - should show connected again
+          (let [popup (js-await (create-popup-page context ext-id))
+                tab-a-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/basic.html"))
+                _ (js-await (activate-tab popup tab-a-id))
+                _ (js-await (update-icon popup tab-a-id))
+                state (js-await (wait-for-icon-state popup tab-a-id #js ["connected"] 5000))]
             (js-await (-> (expect (= state "connected"))
                           (.toBeTruthy)))
             (js-await (assert-no-errors! popup))
@@ -147,5 +158,5 @@
              (test "Popup Icon: toolbar icon reflects REPL connection state"
                    test_toolbar_icon_reflects_connection_state)
 
-             (test "Popup Icon: connected state is global across all tabs"
-                   test_connected_state_is_global)))
+             (test "Popup Icon: icon reflects active tab connection state (tab-specific)"
+                   test_icon_reflects_active_tab_connection_state)))
