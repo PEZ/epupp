@@ -1,24 +1,11 @@
 (ns e2e.popup-icon-test
   "E2E tests for popup toolbar icon state."
   (:require ["@playwright/test" :refer [test expect]]
-            [clojure.string :as str]
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
-                                           create-panel-page wait-for-popup-ready
-                                           wait-for-save-status activate-tab update-icon
+                                           wait-for-popup-ready activate-tab update-icon
                                            assert-no-errors!]]))
 
-(defn- code-with-manifest
-  "Generate test code with epupp manifest metadata."
-  [{:keys [name match description run-at code]
-    :or {code "(println \"Test script\")"}}]
-  (let [meta-parts (cond-> []
-                     name (conj (str ":epupp/script-name \"" name "\""))
-                     match (conj (str ":epupp/auto-run-match \"" match "\""))
-                     description (conj (str ":epupp/description \"" description "\""))
-                     run-at (conj (str ":epupp/run-at \"" run-at "\"")))
-        meta-block (when (seq meta-parts)
-                     (str "{" (str/join "\n " meta-parts) "}\n\n"))]
-    (str meta-block code)))
+
 
 ;; =============================================================================
 ;; Popup User Journey: Toolbar Icon State

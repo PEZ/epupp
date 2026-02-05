@@ -47,7 +47,7 @@ Create [scripts/icon.clj](../../../scripts/icon.clj):
 - [x] Write `icon-disconnected.svg` and `icon-connected.svg` to [extension/icons/](../../../extension/icons/)
 - [x] Shell out to `rsvg-convert` for PNGs at 16, 32, 48, 128
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 2. Add `bb gen-icons` task
 
@@ -75,7 +75,7 @@ Update [bg_icon.cljs](../../../src/bg_icon.cljs):
 - [x] `compute-display-icon-state` returns only `"disconnected"` or `"connected"`
 - [x] Unit tests updated if needed
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 5. Wire popup logo to REPL state
 
@@ -91,7 +91,7 @@ Update [panel.cljs](../../../src/panel.cljs) to match popup pattern:
 
 - [x] Use `[icons/epupp-logo]` with `connected?` prop like popup does
 - [x] E2E tests green
-- [ ] Verified by PEZ
+- [x] Verified by PEZ
 
 ### 7. Remove obsolete icon files
 
@@ -189,50 +189,43 @@ The manifest default icons (`icon-*.png`) should use the connected (gold) versio
 
 ### Fix 2: Toolbar icon not fully tab-aware
 
-Toolbar icon reacts to connect/disconnect but does not track tab switching correctly.
+Toolbar icon showed "connected" globally when ANY tab was connected, instead of showing the active tab's state.
 
-**Current behavior (partially broken):**
-- Reacts to connect: shows connected - OK
-- Reacts to disconnect: shows disconnected - sometimes works, sometimes doesn't
-- Switching to a disconnected tab while icon shows connected: stays connected - WRONG
+**Root causes:**
+1. `compute-display-icon-state` used global logic (`any-tab-connected?`) ignoring the active tab
+2. `bg_ws.cljs` and `bg_inject.cljs` still set removed `:injected` state after icon simplification
+3. `close-ws!` cleared the `onclose` handler but didn't update the icon
 
-**Correct behavior:**
-- React to connect: show connected (gold) for that tab
-- React to disconnect: show disconnected (white) for that tab
-- React to tab switch: update to show the active tab's connection status
-
-Root cause: icon state is tracked per-tab in bg_icon.cljs, but tab-switch events are not triggering icon updates, and disconnect handling is inconsistent.
-
+**Fixes applied:**
+- [x] Changed `compute-display-icon-state` to per-tab: checks active tab's state only
 - [x] Fixed bg_ws.cljs to use `:disconnected` instead of removed `:injected` state
 - [x] Fixed bg_inject.cljs to use `:disconnected` when Scittle is injected but not connected
-- [x] Fixed `close-ws!` to update icon state
-- [ ] Add tab activation listener (`chrome.tabs.onActivated`) to update toolbar icon for newly active tab
-- [ ] Verify disconnect updates icon consistently for all tabs
-- [ ] E2E tests green
-- [ ] Verified by PEZ
+- [x] Fixed `close-ws!` to update icon state after clearing onclose handler
+- [x] Updated unit tests from global to per-tab expectations
+- [x] Added E2E test: "icon reflects active tab connection state (tab-specific)"
+- [x] E2E tests green (115 tests)
+- [x] Verified by PEZ
 
 ### Fix 3: Panel logo not reactive to connection state
 
-Panel logo starts disconnected and never changes state.
+Panel logo started disconnected and never changed.
 
-**Current behavior (broken):**
-- Starts showing disconnected (white) - OK
-- Never changes to connected on connect - WRONG
-- Never changes back to disconnected on disconnect - WRONG
+**Root causes:**
+1. Property access bug: `(.-tab-id %)` compiled to `.tab_id` in Squint, but JS key was `"tab-id"` from `clj->js`
+2. Function call bug: `(js/chrome.devtools.inspectedWindow.tabId)` was called as function instead of property access
+3. No `data-e2e-connected` attribute for test observability
 
-**Correct behavior:**
-- Start by querying current connection state for the inspected tab
-- React to connect: show connected (gold)
-- React to disconnect: show disconnected (white)
-
-Root cause: the connection query effect and message listener are not working correctly in the panel context.
-
+**Fixes applied:**
 - [x] Added `:panel/tab-connected?` state tracking
 - [x] Added `:editor/fx.load-connections` effect to query connections on init
 - [x] Panel listens for `connections-changed` messages
-- [ ] Debug why connection query/messages are not reaching panel
-- [ ] E2E tests green
-- [ ] Verified by PEZ
+- [x] Fixed Squint property access: `(.-tab-id %)` to `(:tab-id %)` in both effect and listener
+- [x] Fixed property access: removed parens from `(js/chrome.devtools.inspectedWindow.tabId)`
+- [x] Added `data-e2e-connected` attribute to panel root for test observability
+- [x] Added `create-panel-page-for-tab` fixture helper for dynamic tab ID mocking
+- [x] Added E2E test: "panel logo reacts to connection state changes"
+- [x] E2E tests green (115 tests)
+- [x] Verified by PEZ
 
 ### Reference: Popup icon behavior (works correctly)
 
