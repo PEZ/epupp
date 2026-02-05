@@ -10,7 +10,7 @@ This guide orients developers to quickly understand, navigate, and make surgical
 | Panel logic & state | [src/panel.cljs](../../src/panel.cljs), [src/panel_actions.cljs](../../src/panel_actions.cljs) |
 | Shared components | [src/view_elements.cljs](../../src/view_elements.cljs) |
 | Event system core | [src/event_handler.cljs](../../src/event_handler.cljs) |
-| Icons | [src/icons.cljs](../../src/icons.cljs) |
+| Icons | [src/icons.cljc](../../src/icons.cljc) |
 | Styling | [extension/design-tokens.css](../../extension/design-tokens.css), [css-architecture.md](architecture/css-architecture.md) |
 | Unit tests | [test/popup_actions_test.cljs](../../test/popup_actions_test.cljs), [test/panel_test.cljs](../../test/panel_test.cljs) |
 | E2E tests | [e2e/popup_*.cljs](../../e2e/), [e2e/panel_*.cljs](../../e2e/) |
@@ -296,7 +296,7 @@ See [css-architecture.md](architecture/css-architecture.md) for the layered CSS 
 | `src/panel_actions.cljs` | Panel action handlers (pure, testable) |
 | `src/view_elements.cljs` | Shared UI components |
 | `src/event_handler.cljs` | Uniflow dispatch system |
-| `src/icons.cljs` | SVG icon components |
+| `src/icons.cljc` | SVG icon components |
 
 ### Test Files
 

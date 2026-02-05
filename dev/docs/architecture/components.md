@@ -28,7 +28,7 @@ This document is a map of where the architecture lives in code.
 | `manifest_parser.cljs` | Shared | Parse manifest maps from code (`:epupp/*`) |
 | `scittle_libs.cljs` | Shared | Resolve Scittle library URLs and dependency lists |
 | `event_handler.cljs` | Shared | Uniflow event system |
-| `icons.cljs` | Shared | SVG icon components |
+| `icons.cljc` | Shared | SVG icon components |
 | `view_elements.cljs` | Shared | Shared Hiccup components (buttons, status, empty states) |
 | `test_logger.cljs` | Shared | Test instrumentation and error capture |
 
@@ -75,7 +75,7 @@ graph LR
     subgraph "UI & Framework"
         reagami
         event_handler.cljs
-        icons.cljs
+        icons.cljc
     end
 
     subgraph "Standalone"
@@ -97,7 +97,7 @@ graph LR
     popup.cljs --> popup_utils.cljs
     popup.cljs --> reagami
     popup.cljs --> event_handler.cljs
-    popup.cljs --> icons.cljs
+    popup.cljs --> icons.cljc
     popup.cljs --> script_utils.cljs
 
     %% Panel dependencies

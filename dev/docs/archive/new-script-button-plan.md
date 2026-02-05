@@ -72,7 +72,7 @@ The exception: If code equals `default-script`, no confirmation needed (nothing 
 
 ## Implementation Plan
 
-### 1. Add "plus" icon to icons.cljs
+### 1. Add "plus" icon to icons.cljc
 
 The icons module needs a plus icon for the New Script button.
 
@@ -148,7 +148,7 @@ Add a new test to `e2e/panel_test.cljs`:
 
 ## Files to Modify
 
-1. [src/icons.cljs](../../src/icons.cljs) - Add `plus` icon
+1. [src/icons.cljc](../../src/icons.cljc) - Add `plus` icon
 2. [src/panel_actions.cljs](../../src/panel_actions.cljs) - Add `:editor/ax.new-script` action
 3. [src/panel.cljs](../../src/panel.cljs) - Add New Script button to UI
 4. [extension/panel.css](../../extension/panel.css) - Style the button and header
@@ -163,7 +163,7 @@ Add a new test to `e2e/panel_test.cljs`:
 
 ## Implementation Order
 
-1. Add `plus` icon to icons.cljs
+1. Add `plus` icon to icons.cljc
 2. Add `:editor/ax.new-script` action to panel_actions.cljs
 3. Add unit tests for the new action
 4. Run `bb test` to verify

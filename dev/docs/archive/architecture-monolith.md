@@ -64,7 +64,7 @@ flowchart TB
 | `script_utils.cljs` | Shared | Pure utilities for script data and URL pattern matching |
 | `manifest_parser.cljs` | Shared | Parse `:epupp/run-at` and other annotations from code |
 | `event_handler.cljs` | Shared | Uniflow event system |
-| `icons.cljs` | Shared | SVG icon components |
+| `icons.cljc` | Shared | SVG icon components |
 
 ## Message Protocol
 
@@ -397,7 +397,7 @@ graph TD
 
     popup.cljs --> reagami
     popup.cljs --> event_handler.cljs
-    popup.cljs --> icons.cljs
+    popup.cljs --> icons.cljc
     popup.cljs --> script_utils.cljs
 
     panel.cljs --> reagami
@@ -413,7 +413,7 @@ graph TD
     devtools.cljs:::standalone
     script_utils.cljs:::standalone
     event_handler.cljs:::standalone
-    icons.cljs:::standalone
+    icons.cljc:::standalone
 
     classDef standalone fill:#f9f,stroke:#333,stroke-dasharray: 5 5
 ```

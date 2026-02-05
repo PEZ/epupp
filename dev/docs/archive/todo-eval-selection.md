@@ -240,4 +240,4 @@ The textarea selection can be tracked via the `selectionchange` document event o
 - [test/panel_test.cljs](../../test/panel_test.cljs) - Unit tests (if they exist)
 - [e2e/panel_test.cljs](../../e2e/panel_test.cljs) - E2E tests
 - [extension/panel.css](../../extension/panel.css) - Styles
-- [src/icons.cljs](../../src/icons.cljs) - Icon components (has `play` icon)
+- [src/icons.cljc](../../src/icons.cljc) - Icon components (has `play` icon)

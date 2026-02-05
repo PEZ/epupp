@@ -301,7 +301,7 @@ Or make it a separate collapsible section if preferred.
 
 #### 4.3 Add icon for reveal button
 
-**File:** `src/icons.cljs`
+**File:** `src/icons.cljc`
 
 Add `external-link` icon (from VS Code Codicons):
 ```clojure

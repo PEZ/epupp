@@ -29,7 +29,7 @@ VS Code codicons is a viable and well-suited icon source for the Epupp browser e
 4. Can satisfy attribution "in any reasonable manner" based on context
 
 **Recommended Attribution Approach:**
-- Add comment in `src/icons.cljs`: `; Icons adapted from VS Code Codicons (CC BY 4.0) - https://github.com/microsoft/vscode-codicons`
+- Add comment in `src/icons.cljc`: `; Icons adapted from VS Code Codicons (CC BY 4.0) - https://github.com/microsoft/vscode-codicons`
 - This satisfies "reasonable manner" for embedded/inline usage
 
 ## 2. Icon Structure Analysis
@@ -166,7 +166,7 @@ The `rocket.svg` icon is an excellent choice for document-start timing because:
    ```
    https://raw.githubusercontent.com/microsoft/vscode-codicons/main/src/icons/{icon-name}.svg
    ```
-4. **Convert to hiccup** using existing pattern in `src/icons.cljs`
+4. **Convert to hiccup** using existing pattern in `src/icons.cljc`
 5. **Add attribution comment** if this is the first codicon
 
 **Alternative: Clone Repository**
@@ -186,7 +186,7 @@ Could create a bb task to fetch and convert icons automatically, but manual conv
 
 **Recommended Implementation:**
 ```clojure
-;; In src/icons.cljs header:
+;; In src/icons.cljc header:
 (ns icons)
 
 ;; Icons adapted from VS Code Codicons by Microsoft
@@ -239,7 +239,7 @@ The library lacks a traditional lightning bolt. **Recommendation:** Use `rocket.
 
 ### Phase 1: Add Attribution (1 min)
 ```clojure
-;; Add to top of src/icons.cljs
+;; Add to top of src/icons.cljc
 ;; Icons from VS Code Codicons (CC BY 4.0)
 ;; https://github.com/microsoft/vscode-codicons
 ```
@@ -307,7 +307,7 @@ For each icon, follow the pattern:
 3. Fixed 16x16 size (not an issue for this project)
 
 **Clear Path Forward:**
-1. Add attribution comment to `src/icons.cljs`
+1. Add attribution comment to `src/icons.cljc`
 2. Fetch SVGs from GitHub raw URLs
 3. Convert to hiccup using existing pattern
 4. Replace current icon calls

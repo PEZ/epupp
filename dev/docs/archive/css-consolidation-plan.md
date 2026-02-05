@@ -54,7 +54,7 @@ The Hiccup/Reagent components are **first-class citizens** in maintaining stylin
 | [view_elements.cljs](../../src/view_elements.cljs) | Shared components | `app-header`, `app-footer` |
 | [popup.cljs](../../src/popup.cljs) | Popup view | `script-item`, `collapsible-section`, buttons, forms |
 | [panel.cljs](../../src/panel.cljs) | Panel view | `result-item`, `code-input`, `save-script-section` |
-| [icons.cljs](../../src/icons.cljs) | SVG icons | Icon components with `size` and `class` props |
+| [icons.cljc](../../src/icons.cljc) | SVG icons | Icon components with `size` and `class` props |
 
 ### Current Component Patterns
 
