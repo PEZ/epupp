@@ -13,7 +13,7 @@ body {
   width: 100%;
   max-width: 380px;
   max-height: 600px;
-  padding: 20px 10px 20px 20px;
+  padding: 0px 10px 20px 12px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--color-text-primary);
   background: var(--color-bg-elevated);
