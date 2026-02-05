@@ -73,3 +73,4 @@
 * [x] BUG: Gist installer fails to install when manifest does not declare `:epupp/auto-run-match`
 * [ ] Add setting for default repl ports
 * [ ] Make popup and panel show when a script is injected
+* [ ] Run scripts on SPA page navigation

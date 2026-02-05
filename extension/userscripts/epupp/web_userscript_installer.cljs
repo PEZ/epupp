@@ -460,10 +460,6 @@
       [:p
        [:code {:style {:word-break "break-all"}} page-url]]
       ;; Context message
-      [:p.epupp-modal__context
-       (if is-update?
-         "This will update the existing script."
-         "This will install the script from this page.")]
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-cancel"
