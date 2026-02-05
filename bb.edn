@@ -1,10 +1,11 @@
-{:paths ["." "scripts" "e2e"]
+{:paths ["." "scripts" "e2e" "src"]
  :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
         org.babashka/cli {:mvn/version "0.2.23"}
         org.babashka/http-server {:mvn/version "0.1.14"}
         babashka/fs {:mvn/version "0.5.30"}
         org.clojure/data.json {:mvn/version "2.4.0"}
-        io.github.babashka/nrepl-client {:git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}}
+        io.github.babashka/nrepl-client {:git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}
+        hiccup/hiccup {:mvn/version "2.0.0-RC4"}}
  :tasks
  {:requires ([babashka.cli :as cli]
              [start-nrepl]
