@@ -402,7 +402,19 @@
        :installing "Installing..."
        :error "Install Failed"
        "Install")]))
-
+(defn- modal-header
+  "Branded modal header with Epupp icon, title, tagline, and action title."
+  [{:keys [action-title error?]}]
+  (let [icon-url (:icon-url @!state)]
+    [:div.epupp-modal__header
+     [:div.epupp-modal__brand
+      (when icon-url
+        [:img.epupp-modal__icon {:src icon-url :alt "Epupp"}])
+      [:span.epupp-modal__title
+       "Epupp"
+       [:span.epupp-modal__tagline "Live Tamper your Web"]]]
+     [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
+      action-title]]))
 (defn render-modal [{:keys [id manifest code status]}]
   (let [{:keys [script-name raw-script-name name-normalized?
                 auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
@@ -414,7 +426,7 @@
      {:on {:click [:block/overlay-click]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
-      [:h2 modal-title]
+      (modal-header {:action-title modal-title})
       ;; Property table
       [:table.epupp-modal__table
        [:tbody
@@ -466,7 +478,7 @@
      {:on {:click [:block/close-error]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
-      [:h2.is-error title]
+      (modal-header {:action-title title :error? true})
       [:p
        (or error-message "An unknown error occurred.")]
       [:div.epupp-modal__actions
@@ -716,7 +728,17 @@
 /* Icon */
 .epupp-icon {
   flex-shrink: 0;
-}")
+}
+
+/* Modal header */
+.epupp-modal__header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e1e4e8; }
+.epupp-modal__brand { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.epupp-modal__icon { width: 28px; height: 28px; }
+.epupp-modal__title { font-size: 18px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+.epupp-modal__tagline { font-size: 12px; font-weight: 400; font-style: italic; color: #666; }
+.epupp-modal__action-title { margin: 0; font-size: 16px; font-weight: 500; }
+.epupp-modal__action-title.is-error { color: #dc3545; }
+")
       (.appendChild js/document.head style-el))))
 
 (defn setup-ui! []
