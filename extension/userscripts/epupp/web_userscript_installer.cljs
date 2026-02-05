@@ -590,7 +590,7 @@
 
 /* Button base and states */
 .epupp-install-btn {
-  padding: 6px 12px;
+  padding: 4px 8px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -727,12 +727,13 @@
 /* Container margin */
 .epupp-btn-container {
   margin-left: 8px;
+  vertical-align: middle;
 }
 
 /* Icon */
 .epupp-install-btn .epupp-icon {
   flex-shrink: 0;
-  margin: -6px 0;
+  margin: -1px 0;
 }
 
 /* Modal header */
