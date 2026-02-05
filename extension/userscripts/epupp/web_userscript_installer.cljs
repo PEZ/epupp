@@ -733,9 +733,9 @@
 /* Modal header */
 .epupp-modal__header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e1e4e8; }
 .epupp-modal__brand { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.epupp-modal__icon { width: 28px; height: 28px; }
-.epupp-modal__title { font-size: 18px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
-.epupp-modal__tagline { font-size: 12px; font-weight: 400; font-style: italic; color: #666; }
+.epupp-modal__icon { width: 32px; height: 32px; }
+.epupp-modal__title { font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; color: #1a1a1a; }
+.epupp-modal__tagline { font-size: 16px; font-weight: 400; font-style: italic; color: #1a1a1a; }
 .epupp-modal__action-title { margin: 0; font-size: 16px; font-weight: 500; }
 .epupp-modal__action-title.is-error { color: #dc3545; }
 ")
