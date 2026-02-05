@@ -290,7 +290,7 @@
          (dispatch [[:editor/ax.update-scripts-list scripts]]))))
 
     :editor/fx.load-connections
-    (let [inspected-tab-id (js/chrome.devtools.inspectedWindow.tabId)]
+    (let [inspected-tab-id js/chrome.devtools.inspectedWindow.tabId]
       (js/chrome.runtime.sendMessage
        #js {:type "get-connections"}
        (fn [response]
@@ -869,7 +869,8 @@
      (= "connections-changed" (.-type message))
      (let [connections (.-connections message)
            inspected-tab-id js/chrome.devtools.inspectedWindow.tabId
-           tab-connected? (boolean (some #(= (.-tabId %) inspected-tab-id) connections))]
+           tab-id-str (str inspected-tab-id)
+           tab-connected? (boolean (some #(= (str (.-tab-id %)) tab-id-str) connections))]
        ;; Update connection state for icon display
        (dispatch! [[:editor/ax.set-tab-connected tab-connected?]])
        ;; If disconnected, also reset scittle status

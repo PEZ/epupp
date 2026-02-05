@@ -187,32 +187,59 @@ The manifest default icons (`icon-*.png`) should use the connected (gold) versio
 - [x] E2E tests green
 - [x] Verified by PEZ
 
-### Fix 2: Panel logo not reactive to disconnect
+### Fix 2: Toolbar icon not fully tab-aware
 
-Panel logo starts with connected state and doesn't react when REPL disconnects.
+Toolbar icon reacts to connect/disconnect but does not track tab switching correctly.
 
-- [x] Added `:editor/ax.handle-ws-close` action to reset scittle-status
-- [x] Panel listens for `connections-changed` messages
-- [x] Resets to white when inspected tab disconnects
-- [x] E2E tests green
-- [ ] Verified by PEZ - **STILL BROKEN**: Shows connected on start, then inverts (shows disconnected on connect)
+**Current behavior (partially broken):**
+- Reacts to connect: shows connected - OK
+- Reacts to disconnect: shows disconnected - sometimes works, sometimes doesn't
+- Switching to a disconnected tab while icon shows connected: stays connected - WRONG
 
-### Fix 3: Toolbar icon doesn't return to disconnected
+**Correct behavior:**
+- React to connect: show connected (gold) for that tab
+- React to disconnect: show disconnected (white) for that tab
+- React to tab switch: update to show the active tab's connection status
 
-Toolbar icon reacts to connect but stays connected even when all tabs disconnect.
+Root cause: icon state is tracked per-tab in bg_icon.cljs, but tab-switch events are not triggering icon updates, and disconnect handling is inconsistent.
 
 - [x] Fixed bg_ws.cljs to use `:disconnected` instead of removed `:injected` state
 - [x] Fixed bg_inject.cljs to use `:disconnected` when Scittle is injected but not connected
-- [x] Updated unit tests to use `:disconnected`
-- [x] Fixed `close-ws!` to update icon state (root cause: onclose handler was cleared but icon wasn't updated)
-- [x] E2E tests green
-- [ ] Verified by PEZ - Previous fix incomplete, added icon update to close-ws!
+- [x] Fixed `close-ws!` to update icon state
+- [ ] Add tab activation listener (`chrome.tabs.onActivated`) to update toolbar icon for newly active tab
+- [ ] Verify disconnect updates icon consistently for all tabs
+- [ ] E2E tests green
+- [ ] Verified by PEZ
+
+### Fix 3: Panel logo not reactive to connection state
+
+Panel logo starts disconnected and never changes state.
+
+**Current behavior (broken):**
+- Starts showing disconnected (white) - OK
+- Never changes to connected on connect - WRONG
+- Never changes back to disconnected on disconnect - WRONG
+
+**Correct behavior:**
+- Start by querying current connection state for the inspected tab
+- React to connect: show connected (gold)
+- React to disconnect: show disconnected (white)
+
+Root cause: the connection query effect and message listener are not working correctly in the panel context.
+
+- [x] Added `:panel/tab-connected?` state tracking
+- [x] Added `:editor/fx.load-connections` effect to query connections on init
+- [x] Panel listens for `connections-changed` messages
+- [ ] Debug why connection query/messages are not reaching panel
+- [ ] E2E tests green
+- [ ] Verified by PEZ
 
 ### Reference: Popup icon behavior (works correctly)
 
 Popup icon works correctly and should be used as reference:
 - Shows connected (gold) on connected tabs
 - Shows disconnected (white) on tabs that are not connected
+- Reacts to tab switching by showing correct state per tab
 - This is the correct tab-specific behavior
 
 ---
