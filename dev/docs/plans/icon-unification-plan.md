@@ -42,73 +42,73 @@ Unify the Epupp icon system: generate all toolbar PNGs from the `epupp-logo` hic
 
 Create [scripts/icon.clj](../../../scripts/icon.clj):
 
-- [ ] Add `hiccup/hiccup` dep to [bb.edn](../../../bb.edn)
-- [ ] Require `icons/epupp-logo`, render with `hiccup.core/html` for both `connected? true/false`
-- [ ] Write `icon-disconnected.svg` and `icon-connected.svg` to [extension/icons/](../../../extension/icons/)
-- [ ] Shell out to `rsvg-convert` for PNGs at 16, 32, 48, 128
-- [ ] E2E tests green
+- [x] Add `hiccup/hiccup` dep to [bb.edn](../../../bb.edn)
+- [x] Require `icons/epupp-logo`, render with `hiccup.core/html` for both `connected? true/false`
+- [x] Write `icon-disconnected.svg` and `icon-connected.svg` to [extension/icons/](../../../extension/icons/)
+- [x] Shell out to `rsvg-convert` for PNGs at 16, 32, 48, 128
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 2. Add `bb gen-icons` task
 
 Add task to [bb.edn](../../../bb.edn) that runs the script.
 
-- [ ] Add `gen-icons` task to bb.edn
-- [ ] Task runs successfully and produces icons
-- [ ] E2E tests green
+- [x] Add `gen-icons` task to bb.edn
+- [x] Task runs successfully and produces icons
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 3. Simplify toolbar icon states
 
 Update [background_utils.cljs](../../../src/background_utils.cljs):
 
-- [ ] `get-icon-paths` returns only `"disconnected"` or `"connected"` paths
-- [ ] Remove `"injected"` from icon selection logic
-- [ ] Update E2E tests that assert on icon states
-- [ ] E2E tests green
+- [x] `get-icon-paths` returns only `"disconnected"` or `"connected"` paths
+- [x] Remove `"injected"` from icon selection logic
+- [x] Update E2E tests that assert on icon states
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 4. Update display icon computation
 
 Update [bg_icon.cljs](../../../src/bg_icon.cljs):
 
-- [ ] `compute-display-icon-state` returns only `"disconnected"` or `"connected"`
-- [ ] Unit tests updated if needed
-- [ ] E2E tests green
+- [x] `compute-display-icon-state` returns only `"disconnected"` or `"connected"`
+- [x] Unit tests updated if needed
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 5. Wire popup logo to REPL state
 
 Update [popup.cljs](../../../src/popup.cljs):
 
-- [ ] Pass `connected?` prop from subscription to `epupp-logo`
-- [ ] E2E tests green
+- [x] Pass `connected?` prop from subscription to `epupp-logo`
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 6. Wire panel logo to REPL state
 
 Update [panel.cljs](../../../src/panel.cljs) to match popup pattern:
 
-- [ ] Use `[icons/epupp-logo]` with `connected?` prop like popup does
-- [ ] E2E tests green
+- [x] Use `[icons/epupp-logo]` with `connected?` prop like popup does
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 7. Remove obsolete icon files
 
 Clean up [extension/icons/](../../../extension/icons/):
 
-- [ ] Delete `icon-injected-*.png`
-- [ ] Delete `icon.svg`, `old-icon.svg`
-- [ ] Keep only generated files
-- [ ] E2E tests green
+- [x] Delete `icon-injected-*.png`
+- [x] Delete `icon.svg`, `old-icon.svg`
+- [x] Keep only generated files
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ### 8. Verify extension loads
 
 Manifest references `icons/` paths which remain unchanged.
 
-- [ ] Extension loads correctly with new icons
-- [ ] E2E tests green
+- [x] Extension loads correctly with new icons
+- [x] E2E tests green
 - [ ] Verified by PEZ
 
 ---
@@ -170,7 +170,7 @@ When working with implementing this plan:
 
 Items to address after initial implementation if not covered:
 
-- [ ] E2E tests for toolbar icon state changes on connect/disconnect (if not already covered)
+- [x] E2E tests for toolbar icon state changes on connect/disconnect (covered by popup_icon_test.cljs)
 
 ---
 
