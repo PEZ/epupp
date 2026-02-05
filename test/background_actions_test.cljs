@@ -525,18 +525,20 @@
           (fn []
             (test "sets icon state and triggers toolbar update" test-icon-set-state-sets-icon-state-and-triggers-toolbar-update)))
 
-(defn- test-icon-clear-removes-icon-state-without-effects []
+(defn- test-icon-clear-removes-icon-state-and-updates-toolbar []
   (let [state {:icon/states {1 :connected 2 :injected}}
         result (bg-actions/handle-action state uf-data
                  [:icon/ax.clear 1])]
     (-> (expect (get-in result [:uf/db :icon/states 1]))
         (.toBeUndefined))
     (-> (expect (count (:uf/fxs result)))
-        (.toBe 0))))
+        (.toBe 1))
+    (-> (expect (first (:uf/fxs result)))
+        (.toEqual [:icon/fx.update-toolbar! 1]))))
 
 (describe ":icon/ax.clear"
           (fn []
-            (test "removes icon state without effects" test-icon-clear-removes-icon-state-without-effects)))
+            (test "removes icon state and updates toolbar" test-icon-clear-removes-icon-state-and-updates-toolbar)))
 
 (defn- test-icon-prune-keeps-only-valid-tab-ids []
   (let [state {:icon/states {1 :connected 2 :injected}}

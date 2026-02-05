@@ -48,11 +48,11 @@
 
 (defn generate-all!
   "Generate all toolbar icons (connected and disconnected states).
-   Disconnected icons also generate icon-*.png for manifest default."
+   Connected icons also generate icon-*.png for manifest default (gold brand identity)."
   []
   (println "Generating Epupp toolbar icons from hiccup...")
-  (generate-icon! false "disconnected" true)   ; also-default? = true
-  (generate-icon! true "connected" false)
+  (generate-icon! false "disconnected" false)
+  (generate-icon! true "connected" true)   ; also-default? = true for connected (gold)
   (println "✓ All icons generated successfully!"))
 
 ;; Run when script is executed

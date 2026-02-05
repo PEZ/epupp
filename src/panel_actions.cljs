@@ -372,6 +372,9 @@
                    :panel/evaluating? false
                    :panel/scittle-status :unknown)}
 
+    :editor/ax.handle-ws-close
+    {:uf/db (assoc state :panel/scittle-status :unknown)}
+
     :editor/ax.set-init-version
     (let [[version] args]
       {:uf/db (assoc state :panel/init-version version)})

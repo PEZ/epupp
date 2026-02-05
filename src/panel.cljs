@@ -782,10 +782,12 @@
      (when (.-editingScript changes)
        (dispatch! [[:editor/ax.check-editing-script]])))))
 
-;; Listen for FS sync events from background
+;; Listen for messages from background
 (js/chrome.runtime.onMessage.addListener
  (fn [message _sender _send-response]
-   (when (= "system-banner" (.-type message))
+   (cond
+     ;; FS sync events
+     (= "system-banner" (.-type message))
      (let [event-type (aget message "event-type")
            operation (aget message "operation")
            script-name (aget message "script-name")
@@ -847,7 +849,16 @@
        (when affects-current?
          (if (= operation "delete")
            (dispatch! [[:editor/ax.new-script]])
-           (dispatch! [[:editor/ax.reload-script-from-storage script-name]])))))
+           (dispatch! [[:editor/ax.reload-script-from-storage script-name]]))))
+
+     ;; Connection status changes - check if our inspected tab disconnected
+     (= "connections-changed" (.-type message))
+     (let [connections (.-connections message)
+           inspected-tab-id js/chrome.devtools.inspectedWindow.tabId
+           tab-connected? (some #(= (.-tabId %) inspected-tab-id) connections)]
+       ;; If inspected tab is no longer connected, reset scittle status
+       (when-not tab-connected?
+         (dispatch! [[:editor/ax.handle-ws-close]]))))
    ;; Return false - we don't send async response
    false))
 

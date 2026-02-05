@@ -8,11 +8,12 @@
      :uf/fxs [[:icon/fx.update-toolbar! tab-id]]}))
 
 (defn clear-state
-  "Clear icon state for a tab without updating the toolbar icon."
+  "Clear icon state for a tab and update the toolbar icon.
+   This ensures the global icon state reflects reality when tabs close."
   [state {:icon/keys [tab-id]}]
   (let [states (or (:icon/states state) {})]
     {:uf/db (assoc state :icon/states (dissoc states tab-id))
-     :uf/fxs []}))
+     :uf/fxs [[:icon/fx.update-toolbar! tab-id]]}))
 
 (defn prune-states
   "Remove icon states for tabs that no longer exist."

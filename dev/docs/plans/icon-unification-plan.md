@@ -174,6 +174,39 @@ Items to address after initial implementation if not covered:
 
 ---
 
+## Post-Implementation Fixes
+
+Issues found during verification:
+
+### Fix 1: Manifest default icon should be gold (connected)
+
+The manifest default icons (`icon-*.png`) should use the connected (gold) version, not disconnected. The gold icon is the brand identity.
+
+- [x] Update `scripts/icon.clj` to copy connected icons to manifest defaults
+- [x] E2E tests green
+- [ ] Verified by PEZ
+
+### Fix 2: Panel logo not reactive to disconnect
+
+Panel logo starts with connected state and doesn't react when REPL disconnects.
+
+- [x] Added `:editor/ax.handle-ws-close` action to reset scittle-status
+- [x] Panel listens for `connections-changed` messages
+- [x] Resets to white when inspected tab disconnects
+- [x] E2E tests green
+- [ ] Verified by PEZ
+
+### Fix 3: Toolbar icon doesn't return to disconnected
+
+Toolbar icon reacts to connect but stays connected even when all tabs disconnect.
+
+- [x] Modified `icon-actions/clear-state` to trigger toolbar update effect
+- [x] Toolbar icon now returns to white when all tabs disconnect
+- [x] E2E tests green
+- [ ] Verified by PEZ
+
+---
+
 ## Original Plan-producing Prompt
 
 Create a plan for icon unification in Epupp:
