@@ -62,7 +62,7 @@
     * [x] There are some non-Uniflow attrocities in panel.cljs
 * [x] Centralize UI announcements to the banner
 * [x] (Started) Use e2e-prefixed classes for e2e needed checks
-* [ ] The new-script template should add a pattern matching the current page
+* [x] The new-script template should add a pattern matching the current page
 * [x] Built in scripts should be fully replaced on extension update
 * [ ] Never promote `*://` for script matching ever
 * [ ] All repl fs rejects should be system banner in the popup and panel
@@ -72,5 +72,5 @@
 * [ ] Gist installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?
 * [x] BUG: Gist installer fails to install when manifest does not declare `:epupp/auto-run-match`
 * [ ] Add setting for default repl ports
-* [ ] Make popup and panel show when a script is injected
+* [ ] Make popup show when a script is injected
 * [ ] Run scripts on SPA page navigation
