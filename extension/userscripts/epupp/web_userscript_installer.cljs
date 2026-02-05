@@ -374,7 +374,7 @@
   (case status
     :install "Install to Epupp"
     :update "Update existing Epupp script"
-    :installed "Already installed in Epupp (identical)"
+    :installed "Installed in Epupp (identical)"
     :installing "Installing..."
     :error (or error-message "Installation failed")
     "Install to Epupp"))
@@ -400,12 +400,17 @@
               :background (case status
                             :install "#2ea44f"
                             :update "#d97706"
-                            :installed "#8b97a1"
+                            :installed :transparent
                             :installing "#2ea44f"
                             :error "#dc3545"
                             "#2ea44f")
-              :color "white"
-              :border "1px solid rgba(27,31,36,0.15)"
+              :color (case status
+                       :installed :black
+                       :white)
+              :border "1px solid"
+              :border-color (case status
+                              :installed :transparent
+                              "rgba(27,31,36,0.15)")
               :border-radius "4px"
               :font-size "12px"
               :font-weight "500"
@@ -660,9 +665,10 @@
   [element script-name block-data]
   (when-let [button-container (get-github-repo-button-container element)]
     (when-not (.querySelector button-container ".epupp-btn-container")
-      (let [btn-container (js/document.createElement "div")]
+      (let [btn-container (js/document.createElement "span")]
         (set! (.-className btn-container) "epupp-btn-container")
         (.setAttribute btn-container "data-epupp-script" script-name)
+        (set! (.. btn-container -style -marginLeft) "8px")
         (.appendChild button-container btn-container)
         (swap! !button-containers assoc (:id block-data) btn-container)
         (js/console.log "[Web Userscript Installer] GitHub repo button container created for:" (:script/name block-data))
