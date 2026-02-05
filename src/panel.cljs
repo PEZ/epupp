@@ -669,10 +669,11 @@
 
 
 
-(defn panel-header [{:panel/keys [needs-refresh? system-banners]}]
+(defn panel-header [{:panel/keys [needs-refresh? system-banners scittle-status]}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
+    :elements/icon [icons/epupp-logo {:size 28 :connected? (= :loaded scittle-status)}]
     :elements/status "Ready"
     :elements/permanent-banner (when needs-refresh? [refresh-banner])
     :elements/temporary-banner (when (seq system-banners)

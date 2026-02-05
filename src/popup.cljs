@@ -779,7 +779,7 @@
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
-       :elements/icon [icons/epupp-logo {:size 28}]
+       :elements/icon [icons/epupp-logo {:size 28 :connected? (current-tab-connected? state)}]
        :elements/temporary-banner (when-let [banners (seq (:ui/system-banners state))]
                                     [view-elements/system-banners banners])}]
 

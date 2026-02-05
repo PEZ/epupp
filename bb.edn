@@ -17,6 +17,9 @@
                                                                   {:coerce {:nrepl-port :int
                                                                             :websocket-port :int}}))}
 
+  gen-icons {:doc "Generate toolbar icons from epupp-logo hiccup"
+             :task (load-file "scripts/icon.clj")}
+
   bundle-scittle {:doc "Download Scittle and nREPL plugin to src/vendor"
                   :task (tasks/bundle-scittle)}
 

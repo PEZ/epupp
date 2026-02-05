@@ -13,7 +13,7 @@
       (.toBe false)))
 
 (defn- test-any-tab-connected-returns-false-when-no-tabs-connected []
-  (-> (expect (bg/any-tab-connected? {1 "disconnected" 2 "injected"}))
+  (-> (expect (bg/any-tab-connected? {1 "disconnected" 2 "disconnected"}))
       (.toBe false)))
 
 (defn- test-any-tab-connected-returns-true-when-one-tab-connected []
@@ -42,12 +42,8 @@
   (-> (expect (bg/compute-display-icon-state {123 "disconnected"} 123))
       (.toBe "disconnected")))
 
-(defn- test-compute-display-icon-returns-injected-when-active-tab-injected []
-  (-> (expect (bg/compute-display-icon-state {123 "injected"} 123))
-      (.toBe "injected")))
-
-(defn- test-compute-display-icon-returns-disconnected-when-different-tab-injected []
-  (-> (expect (bg/compute-display-icon-state {456 "injected"} 123))
+(defn- test-compute-display-icon-returns-disconnected-when-only-non-active-tabs-exist []
+  (-> (expect (bg/compute-display-icon-state {456 "disconnected"} 123))
       (.toBe "disconnected")))
 
 ;; compute-display-icon-state - global connected state
@@ -56,8 +52,8 @@
   (-> (expect (bg/compute-display-icon-state {123 "connected"} 123))
       (.toBe "connected")))
 
-(defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-injected []
-  (-> (expect (bg/compute-display-icon-state {123 "injected" 456 "connected"} 123))
+(defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected-alt []
+  (-> (expect (bg/compute-display-icon-state {123 "disconnected" 456 "connected"} 123))
       (.toBe "connected")))
 
 (defn- test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected []
@@ -77,14 +73,6 @@
 (defn- test-get-icon-paths-returns-connected-paths-for-connected-string []
   (let [paths (bg/get-icon-paths "connected")]
     (-> (expect (aget paths "16")) (.toBe "icons/icon-connected-16.png"))))
-
-(defn- test-get-icon-paths-returns-injected-paths-for-injected-keyword []
-  (let [paths (bg/get-icon-paths :injected)]
-    (-> (expect (aget paths "16")) (.toBe "icons/icon-injected-16.png"))))
-
-(defn- test-get-icon-paths-returns-injected-paths-for-injected-string []
-  (let [paths (bg/get-icon-paths "injected")]
-    (-> (expect (aget paths "16")) (.toBe "icons/icon-injected-16.png"))))
 
 (defn- test-get-icon-paths-returns-disconnected-paths-for-disconnected-keyword []
   (let [paths (bg/get-icon-paths :disconnected)]
@@ -265,13 +253,12 @@
             (test "returns disconnected for empty state" test-compute-display-icon-returns-disconnected-for-empty-state)
             (test "returns disconnected when active tab not in state" test-compute-display-icon-returns-disconnected-when-active-tab-not-in-state)
             (test "returns disconnected when active tab is disconnected" test-compute-display-icon-returns-disconnected-when-active-tab-disconnected)
-            (test "returns injected when active tab is injected" test-compute-display-icon-returns-injected-when-active-tab-injected)
-            (test "returns disconnected when different tab is injected" test-compute-display-icon-returns-disconnected-when-different-tab-injected)))
+            (test "returns disconnected when only non-active tabs exist" test-compute-display-icon-returns-disconnected-when-only-non-active-tabs-exist)))
 
 (describe "compute-display-icon-state - global connected state"
           (fn []
             (test "returns connected when active tab is connected" test-compute-display-icon-returns-connected-when-active-tab-connected)
-            (test "returns connected when different tab is connected, active is injected" test-compute-display-icon-returns-connected-when-different-tab-connected-active-injected)
+            (test "returns connected when different tab is connected, active is disconnected (alt)" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected-alt)
             (test "returns connected when different tab is connected, active is disconnected" test-compute-display-icon-returns-connected-when-different-tab-connected-active-disconnected)
             (test "returns connected when different tab is connected, active not in state" test-compute-display-icon-returns-connected-when-different-tab-connected-active-not-in-state)))
 
@@ -279,8 +266,6 @@
           (fn []
             (test "returns connected paths for :connected keyword" test-get-icon-paths-returns-connected-paths-for-connected-keyword)
             (test "returns connected paths for 'connected' string" test-get-icon-paths-returns-connected-paths-for-connected-string)
-            (test "returns injected paths for :injected keyword" test-get-icon-paths-returns-injected-paths-for-injected-keyword)
-            (test "returns injected paths for 'injected' string" test-get-icon-paths-returns-injected-paths-for-injected-string)
             (test "returns disconnected paths for :disconnected keyword" test-get-icon-paths-returns-disconnected-paths-for-disconnected-keyword)
             (test "returns disconnected paths for 'disconnected' string" test-get-icon-paths-returns-disconnected-paths-for-disconnected-string)
             (test "returns disconnected paths for nil" test-get-icon-paths-returns-disconnected-paths-for-nil)

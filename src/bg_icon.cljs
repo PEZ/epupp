@@ -15,9 +15,8 @@
   (bg-utils/get-icon-paths state))
 
 (defn- compute-display-icon-state
-  "Compute icon state to display based on:
-   - Connected is GLOBAL: if ANY tab has REPL connected -> green
-   - Injected is TAB-LOCAL: only if active-tab has Scittle -> yellow
+  "Compute icon state to display based on global connection state:
+   - Connected: if ANY tab has REPL connected -> gold
    - Otherwise: disconnected (white)"
   [!state active-tab-id]
   (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
@@ -28,8 +27,8 @@
   (compute-display-icon-state !state tab-id))
 
 (defn ^:async update-icon-now!
-  "Update the toolbar icon based on global (connected) and tab-local (injected) state.
-   Takes the relevant tab-id to use for tab-local state checking."
+  "Update the toolbar icon based on global connection state.
+   Takes the relevant tab-id to determine which tab to consider for display."
   [!state relevant-tab-id]
   (let [display-state (compute-display-icon-state !state relevant-tab-id)]
     (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id relevant-tab-id :state display-state}))

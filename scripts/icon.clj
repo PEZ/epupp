@@ -2,7 +2,7 @@
   "Generate extension toolbar icons from epupp-logo hiccup component"
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
-            [hiccup.core :as h]
+            [hiccup2.core :as h]
             [icons :refer [epupp-logo]]))
 
 (defn- svg-string
@@ -12,8 +12,9 @@
        (h/html hiccup-svg)))
 
 (defn- generate-pngs!
-  "Generate PNG files at multiple sizes from SVG using rsvg-convert"
-  [svg-path base-name]
+  "Generate PNG files at multiple sizes from SVG using rsvg-convert.
+   When also-default? is true, also generates icon-{size}.png for manifest."
+  [svg-path base-name also-default?]
   (let [sizes [16 32 48 128]
         output-dir "extension/icons"]
     (doseq [size sizes]
@@ -23,11 +24,16 @@
                  "-w" (str size)
                  "-h" (str size)
                  svg-path
-                 "-o" output-path)))))
+                 "-o" output-path)
+        (when also-default?
+          (let [default-path (str output-dir "/icon-" size ".png")]
+            (println (str "  → " default-path " (manifest default)"))
+            (fs/copy output-path default-path {:replace-existing true})))))))
 
 (defn- generate-icon!
-  "Generate SVG and PNGs for one icon state"
-  [connected? label]
+  "Generate SVG and PNGs for one icon state.
+   When also-default? is true, also generates icon-*.png for manifest."
+  [connected? label also-default?]
   (println (str "Generating " label " icons..."))
   (let [output-dir "extension/icons"
         base-name (if connected? "icon-connected" "icon-disconnected")
@@ -37,15 +43,16 @@
     (fs/create-dirs output-dir)
     (spit svg-path svg-content)
     (println (str "  ✓ " svg-path))
-    (generate-pngs! svg-path base-name)
+    (generate-pngs! svg-path base-name also-default?)
     (println (str "  ✓ Generated " base-name " PNGs"))))
 
 (defn generate-all!
-  "Generate all toolbar icons (connected and disconnected states)"
+  "Generate all toolbar icons (connected and disconnected states).
+   Disconnected icons also generate icon-*.png for manifest default."
   []
   (println "Generating Epupp toolbar icons from hiccup...")
-  (generate-icon! false "disconnected")
-  (generate-icon! true "connected")
+  (generate-icon! false "disconnected" true)   ; also-default? = true
+  (generate-icon! true "connected" false)
   (println "✓ All icons generated successfully!"))
 
 ;; Run when script is executed

@@ -10,28 +10,24 @@
 
 (defn compute-display-icon-state
   "Compute icon state to display based on:
-   - Connected is GLOBAL: if ANY tab has REPL connected -> green
-   - Injected is TAB-LOCAL: only if active-tab has Scittle -> yellow
+   - Connected is GLOBAL: if ANY tab has REPL connected -> gold
    - Otherwise: disconnected (white)
 
    Pure function - takes icon-states map and active-tab-id."
-  [icon-states active-tab-id]
-  (let [tab-state (get icon-states active-tab-id)]
-    (cond
-      ;; Global: any tab connected -> green
-      (any-tab-connected? icon-states) "connected"
-      ;; Tab-local: active tab injected -> yellow
-      (= "injected" tab-state) "injected"
-      ;; Default: disconnected
-      :else "disconnected")))
+  [icon-states _active-tab-id]
+  (cond
+    ;; Global: any tab connected -> gold
+    (any-tab-connected? icon-states) "connected"
+    ;; Default: disconnected
+    :else "disconnected"))
 
 (defn get-icon-paths
   "Get icon paths for a given state.
-   State can be keyword or string - in Squint they're equivalent."
+   State can be keyword or string - in Squint they're equivalent.
+   Only supports 'connected' and 'disconnected' states."
   [state]
   (let [suffix (case state
                  "connected" "connected"
-                 "injected" "injected"
                  "disconnected")]
     #js {:16 (str "icons/icon-" suffix "-16.png")
          :32 (str "icons/icon-" suffix "-32.png")
