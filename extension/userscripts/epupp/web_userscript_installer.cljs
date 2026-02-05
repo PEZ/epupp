@@ -365,8 +365,8 @@
   []
   (when-let [icon-url (:icon-url @!state)]
     [:img.epupp-icon {:src icon-url
-                      :width 16
-                      :height 16
+                      :width 20
+                      :height 20
                       :alt "Epupp"}]))
 
 (defn button-tooltip [{:keys [status error-message]}]
@@ -402,6 +402,7 @@
        :installing "Installing..."
        :error "Install Failed"
        "Install")]))
+
 (defn- modal-header
   "Branded modal header with Epupp icon, title, tagline, and action title."
   [{:keys [action-title error?]}]
@@ -415,6 +416,7 @@
        [:span.epupp-modal__tagline "Live Tamper your Web"]]]
      [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
       action-title]]))
+
 (defn render-modal [{:keys [id manifest code status]}]
   (let [{:keys [script-name raw-script-name name-normalized?
                 auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
@@ -440,8 +442,8 @@
              [:span.epupp-modal__note
               "Normalized from: " raw-script-name]])]]
         [:tr
-         [:td "URL Pattern"]
-         [:td (or auto-run-match [:em "None"])]]
+         [:td "Auto-run pattern"]
+         [:td (or auto-run-match [:em "None, script configured for manual run"])]]
         [:tr
          [:td "Description"]
          [:td (or description [:em "Not specified"])]]
@@ -728,8 +730,9 @@
 }
 
 /* Icon */
-.epupp-icon {
+.epupp-install-btn .epupp-icon {
   flex-shrink: 0;
+  margin: -6px 0;
 }
 
 /* Modal header */
