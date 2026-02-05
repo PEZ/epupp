@@ -34,13 +34,6 @@ Your work has two modes depending on who called you:
 5. Report clean results to caller
 6. **Always report to flaky expert** with runs count and any flakes found
 
-### Investigation Mode called by flaky expert
-
-**Goal:** Run tests as requested and return results.
-
-1. Default is to run `bb test:e2e --repeat 5`
-2. Return results directly - no separate flaky expert notification needed
-
 ## Watcher Task IDs
 
 Use `read/getTaskOutput` with these task labels:
@@ -59,7 +52,7 @@ If `getTaskOutput` returns "Terminal not found", report that watchers are not ru
 | `bb test` | Unit tests | ~1s |
 | `bb test:e2e` | E2E tests (parallel, Docker) | ~20s |
 | `bb test:e2e -- --grep "pattern"` | Filtered E2E tests | ~10s |
-| `bb test:e2e --repeat 5` | When asked to run N parallel E2E tests | ~2m |
+| `bb test:e2e --repeat 5` | Only when asked to run N parallel E2E tests | ~2m |
 
 There is extremely seldom any point in running full serial E2E tests. Only run filtered serial tests if investigating flakiness. Full parallel runs give the best overall picture of test health.
 
@@ -110,6 +103,8 @@ At rare occasions, Docker build fails for unknown reasons. If this happens:
 - Rerun the full E2E tests if you suspect a Docker issue
 - Do NOT assume code is broken
 
+At occations, the Docker engine is stale and needs restarting. If you see this, use the askQuestions tool to request the human to restart Docker.
+
 ## Flaky Detection and Reporting
 
 ### Detecting Flakes in Daily Work
@@ -119,26 +114,7 @@ When a test fails in your first run:
 2. If it passes on rerun, it's a flake - note it but report clean results to caller
 3. If it fails consistently, it's a real failure - report to caller
 
-**Minimal reruns:** Only rerun enough to determine flake vs real failure (2-3 runs max).
-
-### Reporting to Flaky Expert
-
-After completing your daily work, **always invoke the flaky expert** with:
-
-```edn
-{:reporter "Testrunner Agent"
- :runs N
- :flakes ["Test name 1" "Test name 2"]}
-```
-
-Where:
-- `:runs` = total full parallel E2E runs you performed
-- `:flakes` = tests that failed in some runs but passed in others (empty list if none)
-
-**Rules:**
-- Report even when there are no flakes (flaky expert uses clean run count)
-- Include exact test names as they appear in Playwright output
-- This is a direct report to flaky expert, not part of your response to caller
+**Minimal reruns:** Only rerun enough to determine flake vs real failure (1-2 runs max).
 
 ## Anti-Patterns
 
@@ -158,7 +134,7 @@ Where:
 
 ### You do:
 
-All the stesps enumerated above. (Your process.)
+All the steps enumerated above. (Your process.)
 
 ### Output (report)
 
