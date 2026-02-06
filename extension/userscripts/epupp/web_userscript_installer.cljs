@@ -930,8 +930,8 @@
          (.then (fn [_]
                   (when (= generation @!scan-generation)
                     (let [block-count (count (:blocks @!state))]
-                      (if (and (zero? block-count)
-                               (< retry-index (count retry-delays)))
+                      (when (and (zero? block-count)
+                                 (< retry-index (count retry-delays)))
                         (let [delay (nth retry-delays retry-index)]
                           (js/setTimeout #(scan-with-retry! generation (inc retry-index)) delay)))))))
          (.catch (fn [error]
