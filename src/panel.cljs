@@ -62,7 +62,7 @@
        (js-obj key state-to-save)
        (fn []
          (when js/chrome.runtime.lastError
-           (log/error "Panel" nil "Failed to save state:"
+           (log/error "Panel" "Failed to save state:"
                       (.-message js/chrome.runtime.lastError))))))))
 
 (defn- restore-panel-state!
@@ -729,11 +729,11 @@
         init-version (:panel/init-version @!state)]
     (when (or (nil? current-version)  ; Context invalidated
               (and init-version (not= current-version init-version)))
-      (log/info "Panel" nil "Extension updated or context invalidated")
+      (log/debug "Panel" "Extension updated or context invalidated")
       (dispatch! [[:editor/ax.set-needs-refresh]]))))
 
 (defn on-page-navigated [_url]
-  (log/info "Panel" nil "Page navigated")
+  (log/debug "Panel" "Page navigated")
   (check-version!)
   ;; Reset state for the new page
   (dispatch! [[:editor/ax.reset-for-navigation]])
@@ -742,7 +742,7 @@
   (perform-effect! dispatch! [:editor/fx.restore-panel-state nil]))
 
 (defn init! []
-  (log/info "Panel" nil "Initializing...")
+  (log/info "Panel" "Initializing...")
   ;; Install global error handlers for test mode
   (test-logger/install-global-error-handlers! "panel" js/window)
   ;; Expose state for test debugging
@@ -757,7 +757,7 @@
                                 ((^:async fn []
                                    ;; Load existing scripts from storage before rendering
                                    (js-await (storage/load!))
-                                   (log/info "Panel" nil "Storage loaded, version:" (get-extension-version))
+                                   (log/debug "Panel" "Storage loaded, version:" (get-extension-version))
                                    ;; Watch for render and persist editor state
                                    (add-watch !state :panel/render
                                               (fn [_ _ old-state new-state]

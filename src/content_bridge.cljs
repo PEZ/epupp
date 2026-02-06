@@ -54,7 +54,7 @@
     true
     (catch :default e
       (when (re-find #"Extension context invalidated" (.-message e))
-        (log/info "Bridge" nil "Extension context invalidated, stopping keepalive")
+        (log/debug "Bridge" "Extension context invalidated, stopping keepalive")
         (stop-keepalive!)
         (set-connected! false))
       false)))
@@ -78,7 +78,7 @@
         (case (.-type msg)
           "ws-connect"
           (do
-            (log/info "Bridge" nil "Requesting connection to port:" (.-port msg))
+            (log/debug "Bridge" "Requesting connection to port:" (.-port msg))
             (set-connected! true)
             (send-message-safe!
              #js {:type "ws-connect"
@@ -92,7 +92,7 @@
 
           "list-scripts"
           (do
-            (log/info "Bridge" nil "Forwarding list-scripts request to background")
+            (log/debug "Bridge" "Forwarding list-scripts request to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "list-scripts"
@@ -107,23 +107,23 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "save-script"
           (do
-            (log/info "Bridge" nil "Forwarding save-script request to background")
+            (log/debug "Bridge" "Forwarding save-script request to background")
             (try
               (js/chrome.runtime.sendMessage
-            #js {:type "save-script"
-              :code (.-code msg)
-              :enabled (.-enabled msg)
-              :force (.-force msg)
-                  :scriptSource (.-scriptSource msg)
-                  :bulkId (aget msg "bulk-id")
-              :bulkIndex (aget msg "bulk-index")
-              :bulkCount (aget msg "bulk-count")}
+               #js {:type "save-script"
+                    :code (.-code msg)
+                    :enabled (.-enabled msg)
+                    :force (.-force msg)
+                    :scriptSource (.-scriptSource msg)
+                    :bulkId (aget msg "bulk-id")
+                    :bulkIndex (aget msg "bulk-index")
+                    :bulkCount (aget msg "bulk-count")}
                (fn [response]
                  (.postMessage js/window
                                (js/Object.assign
@@ -134,13 +134,13 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "rename-script"
           (do
-            (log/info "Bridge" nil "Forwarding rename-script request to background")
+            (log/debug "Bridge" "Forwarding rename-script request to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "rename-script"
@@ -157,13 +157,13 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "delete-script"
           (do
-            (log/info "Bridge" nil "Forwarding delete-script request to background")
+            (log/debug "Bridge" "Forwarding delete-script request to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "delete-script"
@@ -182,13 +182,13 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "get-script"
           (do
-            (log/info "Bridge" nil "Forwarding get-script request to background")
+            (log/debug "Bridge" "Forwarding get-script request to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "get-script"
@@ -204,13 +204,13 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "load-manifest"
           (do
-            (log/info "Bridge" nil "Forwarding manifest request to background")
+            (log/debug "Bridge" "Forwarding manifest request to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "load-manifest"
@@ -224,9 +224,17 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
+
+          "log"
+          ;; Level is already a keyword string (e.g., ":debug") from ws_bridge
+          ;; Messages is a JS array, which Squint treats as a sequence for apply
+          (let [level (.-level msg)
+                subsystem (.-subsystem msg)
+                messages (.-messages msg)]
+            (apply log/log level subsystem messages))
 
           "get-icon-url"
           ;; No forwarding needed - content bridge can resolve extension URLs directly
@@ -244,7 +252,7 @@
         (case (.-type msg)
           "install-userscript"
           (do
-            (log/info "Bridge" nil "Forwarding install request to background")
+            (log/debug "Bridge" "Forwarding install request to background")
             ;; This one needs callback, wrap in try/catch
             (try
               (js/chrome.runtime.sendMessage
@@ -261,13 +269,13 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
           "save-script"
           (do
-            (log/info "Bridge" nil "Forwarding save-script request from userscript to background")
+            (log/debug "Bridge" "Forwarding save-script request from userscript to background")
             (try
               (js/chrome.runtime.sendMessage
                #js {:type "save-script"
@@ -285,7 +293,7 @@
                                "*")))
               (catch :default e
                 (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/info "Bridge" nil "Extension context invalidated")
+                  (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
 
@@ -303,7 +311,7 @@
   ;; Check for duplicate
   (if (.has js/window.__epuppInjectedScripts url)
     (do
-      (log/info "Bridge" nil "Script already injected, skipping:" url)
+      (log/debug "Bridge" "Script already injected, skipping:" url)
       (send-response #js {:success true :skipped true}))
     (do
       ;; Track this URL
@@ -311,24 +319,24 @@
       (let [script (js/document.createElement "script")]
         (set! (.-onload script)
               (fn []
-                (log/info "Bridge" nil "Script loaded:" url)
+                (log/debug "Bridge" "Script loaded:" url)
                 (send-response #js {:success true})))
         (set! (.-onerror script)
               (fn [e]
-                (log/error "Bridge" nil "Script load error:" url e)
+                (log/error "Bridge" "Script load error:" url e)
                 ;; Remove from tracker on error so retry is possible
                 (.delete js/window.__epuppInjectedScripts url)
                 (send-response #js {:success false :error (str "Failed to load " url)})))
         (set! (.-src script) url)
         (.appendChild js/document.head script)
-        (log/info "Bridge" nil "Injecting script:" url)))))
+        (log/debug "Bridge" "Injecting script:" url)))))
 
 (defn- clear-old-userscripts!
   "Remove previously injected userscript tags to prevent re-execution on navigation."
   []
   (let [old-scripts (js/document.querySelectorAll "script[type='application/x-scittle'][id^='userscript-']")]
     (when (pos? (.-length old-scripts))
-      (log/info "Bridge" nil "Clearing" (.-length old-scripts) "old userscript tags")
+      (log/debug "Bridge" "Clearing" (.-length old-scripts) "old userscript tags")
       (.forEach old-scripts (fn [script] (.remove script))))))
 
 (defn- inject-userscript!
@@ -339,7 +347,7 @@
     (set! (.-id script) id)
     (set! (.-textContent script) code)
     (.appendChild js/document.head script)
-    (log/info "Bridge" nil "Injected userscript:" id)))
+    (log/debug "Bridge" "Injected userscript:" id)))
 
 (defn- handle-runtime-message [message _sender send-response]
   (let [msg-type (.-type message)]
@@ -347,7 +355,7 @@
       ;; Readiness check - background pings to confirm bridge is ready
       "bridge-ping"
       (do
-        (log/info "Bridge" nil "Responding to ping")
+        (log/debug "Bridge" "Responding to ping")
         (send-response #js {:ready true})
         ;; Return true to keep sendResponse valid for async use
         true)
@@ -375,7 +383,7 @@
       ;; WebSocket relay messages - no response needed
       "ws-open"
       (do
-        (log/info "Bridge" nil "WebSocket connected")
+        (log/debug "Bridge" "WebSocket connected")
         (start-keepalive!)
         (.postMessage js/window
                       #js {:source "epupp-bridge"
@@ -394,7 +402,7 @@
 
       "ws-error"
       (do
-        (log/error "Bridge" nil "WebSocket error:" (.-error message))
+        (log/error "Bridge" "WebSocket error:" (.-error message))
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
@@ -406,7 +414,7 @@
 
       "ws-close"
       (do
-        (log/info "Bridge" nil "WebSocket closed")
+        (log/debug "Bridge" "WebSocket closed")
         (stop-keepalive!)
         (set-connected! false)
         (.postMessage js/window
@@ -423,7 +431,19 @@
   (set! js/window.__browserJackInBridge true)
   ;; Install error handlers for test mode (now that we have EXTENSION_CONFIG)
   (test-logger/install-global-error-handlers! "content-bridge" js/window)
-  (log/info "Bridge" nil "Content script loaded")
+  ;; Load debug logging setting
+  (js/chrome.storage.local.get
+   #js ["settings/debug-logging"]
+   (fn [result]
+     (log/set-debug-enabled! (boolean (aget result "settings/debug-logging")))))
+  ;; Listen for debug logging setting changes
+  (.addListener js/chrome.storage.onChanged
+                (fn [changes area]
+                  (when (and (= area "local") (aget changes "settings/debug-logging"))
+                    (let [change (aget changes "settings/debug-logging")
+                          enabled (boolean (.-newValue change))]
+                      (log/set-debug-enabled! enabled)))))
+  (log/debug "Bridge" "Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
   (.postMessage js/window

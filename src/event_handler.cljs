@@ -1,5 +1,6 @@
 (ns event-handler
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [log :as log]))
 
 ;; Uniflow event handling
 ;;
@@ -22,15 +23,14 @@
       (js/setTimeout #(dispatch actions) timeout))
 
     :log/fx.log
-    (let [[level & ms] args]
+    (let [[level subsystem & ms] args]
       (apply (case level
-               :debug js/console.debug
-               :log js/console.log
-               :info js/console.info
-               :warn js/console.warn
-               :error js/console.error
-               js/console.log)
-             ms))
+               :debug log/debug
+               :info log/info
+               :warn log/warn
+               :error log/error
+               log/info)
+             subsystem ms))
 
     :uf/unhandled-fx))
 
@@ -210,9 +210,9 @@
          (try
            (handle-actions old-state uf-data ax-handler actions)
            (catch :default e
-             {:uf/fxs [[:log/fx.log :error (ex-info "handle-action error"
-                                                    {:error e}
-                                                    :event-handler/handle-actions)]]}))]
+             {:uf/fxs [[:log/fx.log :error "Uniflow" (ex-info "handle-action error"
+                                                              {:error e}
+                                                              :event-handler/handle-actions)]]}))]
      (when db
        (reset! !state db))
      ;; List watchers: detect changes and dispatch actions

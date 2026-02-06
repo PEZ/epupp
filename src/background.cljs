@@ -214,10 +214,10 @@
       (js-await (test-logger/log-event! "EPUPP_API_INJECTED"
                                         {:tab-id tab-id
                                          :files (vec (map :path epupp-api-files))}))
-      (log/info "Background" "REPL" "Injected Epupp API into tab:" tab-id)
+      (log/info "Background:REPL" "Injected Epupp API into tab:" tab-id)
       true)
     (catch :default err
-      (log/error "Background" "REPL" "Failed to inject Epupp API:" err)
+      (log/error "Background:REPL" "Failed to inject Epupp API:" err)
       (js-await (test-logger/log-event! "EPUPP_API_INJECT_ERROR"
                                         {:tab-id tab-id
                                          :error (.-message err)}))
@@ -327,14 +327,14 @@
                                        :all-scripts-count (count all-scripts)
                                        :idle-scripts-count (count idle-scripts)}))
     (when (seq idle-scripts)
-      (log/info "Background" "Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
-      (log/info "Background" "Inject" "Executing" (count idle-scripts) "scripts")
+      (log/debug "Background:Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
+      (log/debug "Background:Inject" "Executing" (count idle-scripts) "scripts")
       (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
       (try
         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
         (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
         (catch :default err
-          (log/error "Background" "Inject" "Failed:" (.-message err))
+          (log/error "Background:Inject" "Failed:" (.-message err))
           (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
 (defn- handle-ws-connect [message tab-id dispatch!]
@@ -579,7 +579,7 @@
     true))
 
 (defn- handle-unknown-message [msg-type]
-  (log/info "Background" nil "Unknown message type:" msg-type)
+  (log/debug "Background" "Unknown message type:" msg-type)
   false)
 
 (defn- add-on-message-handler [dispatch!]
@@ -644,7 +644,7 @@
 (defn- ^:async activate!
   [dispatch!]
 
-  (log/info "Background" nil "Service worker started")
+  (log/info "Background" "Service worker started")
 
   ;; Install global error handlers early so we catch all errors in test mode
   (test-logger/install-global-error-handlers! "background" js/self)
@@ -662,7 +662,7 @@
   ;; Clean up when tab is closed
   (.addListener js/chrome.tabs.onRemoved
                 (fn [tab-id _remove-info]
-                  (log/info "Background" nil "Tab closed, cleaning up:" tab-id)
+                  (log/debug "Background" "Tab closed, cleaning up:" tab-id)
                   (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
                     (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))
                   (bg-icon/clear-icon-state! dispatch! tab-id)
@@ -694,7 +694,7 @@
                   (when (zero? (.-frameId details))
                     (let [tab-id (.-tabId details)]
                       (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
-                        (log/info "Background" "WS" "Closing connection for navigating tab:" tab-id)
+                        (log/debug "Background:WS" "Closing connection for navigating tab:" tab-id)
                         (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))))))
 
   (.addListener js/chrome.webNavigation.onCompleted
@@ -716,29 +716,34 @@
   ;; The ensure-initialized! pattern guarantees we only init once even if
   ;; multiple events fire.
 
-  ;; Sync registrations when scripts change
+  ;; Sync registrations when scripts change, and update debug-logging setting
   (.addListener js/chrome.storage.onChanged
                 (fn [changes area]
-                  (when (and (= area "local") (.-scripts changes))
-                    (log/info "Background" nil "Scripts changed, syncing registrations")
-                    ((^:async fn []
-                       (js-await (ensure-initialized! dispatch!))
-                       (js-await (registration/sync-registrations!)))))))
+                  (when (= area "local")
+                    (when (.-scripts changes)
+                      (log/debug "Background" "Scripts changed, syncing registrations")
+                      ((^:async fn []
+                         (js-await (ensure-initialized! dispatch!))
+                         (js-await (registration/sync-registrations!)))))
+                    (when (aget changes "settings/debug-logging")
+                      (let [change (aget changes "settings/debug-logging")
+                            enabled (boolean (.-newValue change))]
+                        (log/set-debug-enabled! enabled))))))
 
   (.addListener js/chrome.runtime.onInstalled
                 (fn [details]
-                  (log/info "Background" nil "onInstalled:" (.-reason details))
+                  (log/info "Background" "onInstalled:" (.-reason details))
                   (ensure-initialized! dispatch!)))
 
   (.addListener js/chrome.runtime.onStartup
                 (fn []
-                  (log/info "Background" nil "onStartup")
+                  (log/info "Background" "onStartup")
                   (ensure-initialized! dispatch!)))
 
   ;; Start initialization immediately for service worker wake scenarios
   (ensure-initialized! dispatch!)
 
-  (log/info "Background" nil "Listeners registered"))
+  (log/info "Background" "Listeners registered"))
 
 ;; ============================================================
 ;; Uniflow Dispatch - placed here after all helpers
@@ -759,13 +764,22 @@
          (try
            (js-await (test-logger/init-test-mode!))
            (js-await (storage/init!))
+           ;; Load debug logging setting and apply it
+           (js-await (js/Promise.
+                      (fn [res]
+                        (js/chrome.storage.local.get
+                         #js ["settings/debug-logging"]
+                         (fn [result]
+                           (let [enabled (boolean (aget result "settings/debug-logging"))]
+                             (log/set-debug-enabled! enabled)
+                             (res true)))))))
            (js-await (registration/sync-registrations!))
-           (log/info "Background" nil "Initialization complete")
+           (log/info "Background" "Initialization complete")
            (js-await (test-logger/log-event! "EXTENSION_STARTED"
                                              {:version (.-version (.getManifest js/chrome.runtime))}))
            (resolve true)
            (catch :default err
-             (log/error "Background" nil "Initialization failed:" err)
+             (log/error "Background" "Initialization failed:" err)
              (dispatch! [[:init/ax.clear-promise]])
              (reject err))))))
 
@@ -921,10 +935,10 @@
                                           {:tab-id tab-id
                                            :port port}))
         (js-await (connect-tab! dispatch! tab-id port))
-        (log/info "Background" "AutoConnect" "Successfully connected REPL to tab:" tab-id)
+        (log/info "Background:AutoConnect" "Successfully connected REPL to tab:" tab-id)
         {:success true}
         (catch :default err
-          (log/warn "Background" "AutoConnect" "Failed to connect REPL:" (.-message err))
+          (log/warn "Background:AutoConnect" "Failed to connect REPL:" (.-message err))
           {:success false :error (.-message err)})))
 
     :nav/fx.process-navigation

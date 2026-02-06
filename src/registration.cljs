@@ -112,7 +112,7 @@
   (when (seq registrations)
     (js-await (js/chrome.scripting.registerContentScripts
                (clj->js registrations)))
-    (log/info "Registration" "Chrome" "Content scripts registered successfully")))
+    (log/info "Registration:Chrome" "Content scripts registered successfully")))
 
 ;; ============================================================
 ;; Firefox API wrappers
@@ -124,9 +124,9 @@
   (when-let [reg @!firefox-registration]
     (try
       (js-await (.unregister reg))
-      (log/info "Registration" "Firefox" "Unregistered")
+      (log/info "Registration:Firefox" "Unregistered")
       (catch :default err
-        (log/warn "Registration" "Firefox" "Unregister failed:" err)))
+        (log/warn "Registration:Firefox" "Unregister failed:" err)))
     (reset! !firefox-registration nil)))
 
 (defn ^:async register-firefox!
@@ -138,7 +138,7 @@
                          #js {:matches (clj->js patterns)
                               :js #js [#js {:file "userscript-loader.js"}]
                               :runAt "document_start"}))]
-      (log/info "Registration" "Firefox" "Registered for patterns:" patterns)
+      (log/info "Registration:Firefox" "Registered for patterns:" patterns)
       (reset! !firefox-registration reg)
       reg)))
 
@@ -173,16 +173,16 @@
       ;; No early scripts - unregister if exists
       (empty? target-patterns)
       (when existing
-        (log/info "Registration" "Chrome" "No early scripts, unregistering")
+        (log/info "Registration:Chrome" "No early scripts, unregistering")
         (js-await (unregister-scripts! [registration-id])))
 
       ;; Registration exists - check if patterns changed
       existing
       (let [current-patterns (vec (.-matches existing))]
         (when (not= (set current-patterns) (set target-patterns))
-          (log/info "Registration" "Chrome" "Patterns changed, updating")
-          (log/info "Registration" nil "Old:" current-patterns)
-          (log/info "Registration" nil "New:" target-patterns)
+          (log/info "Registration:Chrome" "Patterns changed, updating")
+          (log/info "Registration" "Old:" current-patterns)
+          (log/info "Registration" "New:" target-patterns)
           ;; Must unregister before re-registering with same ID
           (js-await (unregister-scripts! [registration-id]))
           (js-await (register-scripts! [(build-registration target-patterns)]))))
@@ -190,7 +190,7 @@
       ;; No registration exists - create one
       :else
       (do
-        (log/info "Registration" "Chrome" "Creating registration for patterns:" target-patterns)
+        (log/info "Registration:Chrome" "Creating registration for patterns:" target-patterns)
         (js-await (register-scripts! [(build-registration target-patterns)]))))))
 
 (defn ^:async sync-firefox-registrations!
@@ -204,9 +204,9 @@
     ;; Register if we have patterns
     (if (seq target-patterns)
       (do
-        (log/info "Registration" "Firefox" "Registering for patterns:" target-patterns)
+        (log/info "Registration:Firefox" "Registering for patterns:" target-patterns)
         (js-await (register-firefox! target-patterns)))
-      (log/info "Registration" "Firefox" "No early scripts, skipping registration"))))
+      (log/info "Registration:Firefox" "No early scripts, skipping registration"))))
 
 (defn ^:async sync-registrations!
   "Sync content script registrations with storage state.
@@ -223,9 +223,9 @@
       (js-await (sync-chrome-registrations!))
 
       :else
-      (log/info "Registration" nil "No dynamic registration API available (Safari?)"))
+      (log/info "Registration" "No dynamic registration API available (Safari?)"))
     (catch :default err
-      (log/error "Registration" nil "Sync failed:" err))))
+      (log/error "Registration" "Sync failed:" err))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing

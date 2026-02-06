@@ -32,6 +32,7 @@
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
          :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
+         :settings/debug-logging false ; Enable verbose debug logging (default off)
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
@@ -278,6 +279,19 @@
     :popup/fx.save-fs-sync-setting
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
+
+    :popup/fx.load-debug-logging-setting
+    (js/chrome.storage.local.get
+     #js ["settings/debug-logging"]
+     (fn [result]
+       (let [enabled (if (some? (aget result "settings/debug-logging"))
+                       (aget result "settings/debug-logging")
+                       false)]
+         (dispatch [[:db/ax.assoc :settings/debug-logging enabled]]))))
+
+    :popup/fx.save-debug-logging-setting
+    (let [[enabled] args]
+      (js/chrome.storage.local.set (clj->js {"settings/debug-logging" enabled})))
 
     :popup/fx.load-default-ports-setting
     (js/chrome.storage.local.get
@@ -638,7 +652,7 @@
         [:div.no-scripts-hint
          "Scripts that won't auto-run for this page appear here."]])]))
 
-(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled] :as state}]
+(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled debug-logging] :as state}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -669,6 +683,16 @@
      [:p.description.warning
       "Allow connected REPLs to create, modify, and delete userscripts. "
       "Remember to disable when done editing from the REPL."]]]
+   [:div.settings-section
+    [:h3.settings-section-title "Diagnostics"]
+    [:div.setting
+     [:label.checkbox-label
+      [:input#debug-logging {:type "checkbox"
+                             :checked debug-logging
+                             :on-change #(dispatch! [[:popup/ax.toggle-debug-logging]])}]
+      "Enable debug logging"]
+     [:p.description
+      "Show verbose Epupp logs in browser console (for troubleshooting)."]]]
    [:div.settings-section
     [:h3.settings-section-title "Default REPL Ports"]
     [:p.section-description
@@ -857,7 +881,7 @@
             [popup-ui @!state]))
 
 (defn init! []
-  (log/info "Popup" nil "Init!")
+  (log/info "Popup" "Init!")
   ;; Install global error handlers for test mode
   (test-logger/install-global-error-handlers! "popup" js/window)
   (add-watch !state :popup/render (fn [_ _ _ _] (render!)))
@@ -957,10 +981,11 @@
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-fs-sync-setting]
+              [:popup/ax.load-debug-logging-setting]
               [:popup/ax.load-connections]]))
 
 ;; Start the app when DOM is ready
-(log/info "Popup" nil "Script loaded, readyState:" js/document.readyState)
+(log/info "Popup" "Script loaded, readyState:" js/document.readyState)
 (if (= "loading" js/document.readyState)
   (js/document.addEventListener "DOMContentLoaded" init!)
   (init!))

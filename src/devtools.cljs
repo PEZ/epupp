@@ -7,4 +7,4 @@
  "icons/icon-32.png"
  "panel.html"
  (fn [_panel]
-   (log/info "DevTools" nil "Panel created")))
+   (log/info "DevTools" "Panel created")))

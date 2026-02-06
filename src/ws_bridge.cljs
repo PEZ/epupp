@@ -2,6 +2,17 @@
   "WebSocket bridge wrapper for page context.
    Runs in MAIN world and communicates with content script bridge via postMessage.")
 
+(defn- bridge-log
+  "Send log messages via postMessage to content_bridge for routing through log namespace."
+  [level & args]
+  (.postMessage js/window
+                #js {:source "epupp-page"
+                     :type "log"
+                     :level level
+                     :subsystem "WsBridge"
+                     :messages (to-array args)}
+                "*"))
+
 ;; Centralized state with namespaced keys
 (def !state (atom {:bridge/ready? false
                    :ws/message-handler nil}))
@@ -12,15 +23,15 @@
       (when (and msg
                  (= "epupp-bridge" (.-source msg))
                  (= "bridge-ready" (.-type msg)))
-        (js/console.log "[Epupp:WsBridge] Bridge is ready")
+        (bridge-log :debug "Bridge is ready")
         (swap! !state assoc :bridge/ready? true)))))
 
 (defn bridged-websocket [url]
-  (js/console.log "[Epupp:WsBridge] Creating bridged WebSocket for:" url)
+  (bridge-log :debug "Creating bridged WebSocket for:" url)
 
   ;; Clean up any existing message handler from previous connection
   (when-let [old-handler (:ws/message-handler @!state)]
-    (js/console.log "[Epupp:WsBridge] Removing old message handler")
+    (bridge-log :debug "Removing old message handler")
     (.removeEventListener js/window "message" old-handler)
     (swap! !state assoc :ws/message-handler nil))
 
@@ -49,11 +60,10 @@
             (when (= (.-source event) js/window)
               (let [msg (.-data event)]
                 (when (and msg (= "epupp-bridge" (.-source msg)))
-                  (js/console.log "[Epupp:WsBridge] Received message type:" (.-type msg))
                   (case (.-type msg)
                     "ws-open"
                     (do
-                      (js/console.log "[Epupp:WsBridge] WebSocket OPEN")
+                      (bridge-log :debug "WebSocket OPEN")
                       (set! (.-readyState ws-obj) 1) ; OPEN
                       (when-let [onopen (.-onopen ws-obj)]
                         (onopen)))
@@ -64,16 +74,15 @@
 
                     "ws-error"
                     (do
-                      (js/console.log "[Epupp:WsBridge] WebSocket ERROR")
+                      (bridge-log :error "WebSocket ERROR")
                       (set! (.-readyState ws-obj) 3) ; CLOSED
                       (when-let [onerror (.-onerror ws-obj)]
                         (onerror (js/Error. (or (.-error msg) "WebSocket error")))))
 
                     "ws-close"
                     (do
-                      (js/console.log "[Epupp:WsBridge] WebSocket CLOSED - updating readyState to 3")
+                      (bridge-log :debug "WebSocket CLOSED")
                       (set! (.-readyState ws-obj) 3) ; CLOSED
-                      (js/console.log "[Epupp:WsBridge] window.ws_nrepl.readyState is now:" (.-readyState js/window.ws_nrepl))
                       (when-let [onclose (.-onclose ws-obj)]
                         (onclose)))
 
@@ -120,7 +129,7 @@
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInWSBridge
   (set! js/window.__browserJackInWSBridge true)
-  (js/console.log "[Epupp:WsBridge] Installing WebSocket bridge")
+  (bridge-log :debug "Installing WebSocket bridge")
 
   ;; Wait for bridge ready signal
   (.addEventListener js/window "message" handle-bridge-ready)
@@ -133,7 +142,7 @@
         (fn [url protocols]
           (if (and (string? url) (.includes url "/_nrepl"))
             (do
-              (js/console.log "[Epupp:WsBridge] Intercepting nREPL WebSocket:" url)
+              (bridge-log :debug "Intercepting nREPL WebSocket:" url)
               (let [ws (bridged-websocket url)]
             ;; Store reference for Scittle's usage
                 (set! (.-ws_nrepl js/window) ws)
@@ -146,4 +155,4 @@
   (set! (.-CLOSING js/WebSocket) 2)
   (set! (.-CLOSED js/WebSocket) 3)
 
-  (js/console.log "[Epupp:WsBridge] WebSocket bridge installed"))
+  (bridge-log :debug "WebSocket bridge installed"))

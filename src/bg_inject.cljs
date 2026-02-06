@@ -31,18 +31,18 @@
   [tab-id file]
   (js/Promise.
    (fn [resolve reject]
-     (log/info "Background" "Inject" "Injecting" file "into tab" tab-id)
+     (log/debug "Background:Inject" "Injecting" file "into tab" tab-id)
      (js/chrome.scripting.executeScript
       #js {:target #js {:tabId tab-id}
            :files #js [file]}
       (fn [results]
-        (log/info "Background" "Inject" "executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
+        (log/debug "Background:Inject" "executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
         (if js/chrome.runtime.lastError
           (do
-            (log/error "Background" "Inject" "Error:" (.-message js/chrome.runtime.lastError))
+            (log/error "Background:Inject" "Error:" (.-message js/chrome.runtime.lastError))
             (reject (js/Error. (.-message js/chrome.runtime.lastError))))
           (do
-            (log/info "Background" "Inject" "Success, results:" (js/JSON.stringify results))
+            (log/debug "Background:Inject" "Success, results:" (js/JSON.stringify results))
             (resolve true))))))))
 
 ;; ============================================================
@@ -161,7 +161,7 @@
                       ;; Success - bridge responded
                       (and response (.-ready response))
                       (do
-                        (log/info "Background" "Bridge" "Content bridge ready for tab:" tab-id)
+                        (log/debug "Background:Bridge" "Content bridge ready for tab:" tab-id)
                         (resolve true))
 
                       ;; Timeout
@@ -246,5 +246,5 @@
         ;; duplicate script injection check which would skip if already injected
         (js-await (execute-in-page tab-id trigger-scittle-fn)))
       (catch :default err
-        (log/error "Background" "Inject" "Userscript injection error:" err)
+        (log/error "Background:Inject" "Userscript injection error:" err)
         (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_ERROR" {:error (.-message err)}))))))

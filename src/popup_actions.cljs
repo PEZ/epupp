@@ -114,6 +114,14 @@
       {:uf/db (assoc state :settings/fs-repl-sync-enabled new-value)
        :uf/fxs [[:popup/fx.save-fs-sync-setting new-value]]})
 
+    :popup/ax.load-debug-logging-setting
+    {:uf/fxs [[:popup/fx.load-debug-logging-setting]]}
+
+    :popup/ax.toggle-debug-logging
+    (let [new-value (not (:settings/debug-logging state))]
+      {:uf/db (assoc state :settings/debug-logging new-value)
+       :uf/fxs [[:popup/fx.save-debug-logging-setting new-value]]})
+
     :popup/ax.toggle-section
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})

@@ -95,7 +95,7 @@
                    (js/chrome.storage.local.remove
                     (clj->js remove-keys)
                     (fn [] (resolve nil)))))))
-    (log/info "Storage" nil "Loaded" (count scripts) "scripts")
+    (log/debug "Storage" "Loaded" (count scripts) "scripts")
     @!db))
 
 (defn ^:async init!
@@ -132,7 +132,7 @@
                              (vec (.-newValue origins-change))
                              [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
-       (log/info "Storage" nil "Updated from external change"))))
+       (log/debug "Storage" "Updated from external change"))))
   (js-await (load!))
   (js-await (sync-builtin-scripts!))
   @!db)
@@ -442,7 +442,7 @@
     (when (seq stale-ids)
       (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
       (js-await (persist!))
-      (log/info "Storage" nil "Removed stale built-ins" stale-ids))
+      (log/debug "Storage" "Removed stale built-ins" stale-ids))
     (doseq [bundled bundled-builtins]
       (try
         (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))
@@ -451,9 +451,9 @@
               existing (get-script (:script/id bundled))]
           (js-await (save-script! desired))
           (when (builtin-update-needed? existing desired)
-            (log/info "Storage" nil "Synced built-in" (:script/id bundled))))
+            (log/debug "Storage" "Synced built-in" (:script/id bundled))))
         (catch :default err
-          (log/error "Storage" nil "Failed to sync built-in" (:script/id bundled) ":" err))))))
+          (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err))))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing
