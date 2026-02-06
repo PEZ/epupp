@@ -41,7 +41,9 @@
     {:uf/fxs [[:popup/fx.check-status (:ports/ws state)]]}
 
     :popup/ax.load-saved-ports
-    {:uf/fxs [[:popup/fx.load-saved-ports]]}
+    {:uf/fxs [[:popup/fx.load-saved-ports
+               (:settings/default-nrepl-port state)
+               (:settings/default-ws-port state)]]}
 
     :popup/ax.load-scripts
     {:uf/fxs [[:popup/fx.load-scripts]]}
@@ -196,16 +198,17 @@
     (let [[banner-id] args
           banners (or (:ui/system-banners state) [])
           target-banner (some #(when (= (:id %) banner-id) %) banners)]
-      (if (and target-banner (:leaving target-banner))
-        ;; Step 2: After animation, remove the banner
-        {:uf/db (assoc state :ui/system-banners (filterv #(not= (:id %) banner-id) banners))}
-        ;; Step 1: Mark as leaving, defer actual removal
-        {:uf/db (assoc state :ui/system-banners
-                       (mapv #(if (= (:id %) banner-id)
-                                (assoc % :leaving true)
-                                %)
-                             banners))
-         :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner banner-id]] 250]]}))
+      (when target-banner
+        (if (:leaving target-banner)
+          ;; Step 2: After animation, remove the banner
+          {:uf/db (assoc state :ui/system-banners (filterv #(not= (:id %) banner-id) banners))}
+          ;; Step 1: Mark as leaving, defer actual removal
+          {:uf/db (assoc state :ui/system-banners
+                         (mapv #(if (= (:id %) banner-id)
+                                  (assoc % :leaving true)
+                                  %)
+                               banners))
+           :uf/fxs [[:uf/fx.defer-dispatch [[:popup/ax.clear-system-banner banner-id]] 250]]})))
 
     :popup/ax.track-bulk-name
     (let [[bulk-id script-name] args]

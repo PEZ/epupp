@@ -260,6 +260,16 @@
     (-> (expect (count banners))
         (.toBe 2))))
 
+(defn- test-clear-system-banner-no-op-when-banner-not-found []
+  (let [state {:ui/system-banners [{:id "msg-other" :type "info" :message "Other"}]}
+        result (popup-actions/handle-action state uf-data
+                                            [:popup/ax.clear-system-banner "msg-nonexistent"])]
+    ;; Should be undefined (no-op) - prevents infinite loop when banner was already removed
+    (-> (expect result) (.toBeUndefined))
+    ;; State should be unchanged
+    (-> (expect (count (:ui/system-banners state)))
+        (.toBe 1))))
+
 ;; ============================================================
 ;; Test Suite
 ;; ============================================================
@@ -290,7 +300,8 @@
                         (test "schedules removal after 250ms animation delay" test-clear-system-banner-schedules-removal-after-animation)
                         (test "with category replaces existing banner in same category" test-show-system-banner-with-category-replaces-existing)
                         (test "with category does not replace banner in different category" test-show-system-banner-with-category-does-not-replace-different)
-                        (test "without category appends normally" test-show-system-banner-without-category-appends-normally)))))
+                        (test "without category appends normally" test-show-system-banner-without-category-appends-normally)
+                        (test "no-op when clearing non-existent banner" test-clear-system-banner-no-op-when-banner-not-found)))))
 
 ;; ============================================================
 ;; Modified Scripts Tracking Tests (2.4)

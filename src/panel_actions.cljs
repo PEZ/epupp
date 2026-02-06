@@ -354,16 +354,17 @@
     (let [[banner-id] args
           banners (or (:panel/system-banners state) [])
           target-banner (some #(when (= (:id %) banner-id) %) banners)]
-      (if (and target-banner (:leaving target-banner))
-        ;; Step 2: After animation, remove the banner
-        {:uf/db (assoc state :panel/system-banners (filterv #(not= (:id %) banner-id) banners))}
-        ;; Step 1: Mark as leaving, defer actual removal
-        {:uf/db (assoc state :panel/system-banners
-                       (mapv #(if (= (:id %) banner-id)
-                                (assoc % :leaving true)
-                                %)
-                             banners))
-         :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 250]]}))
+      (when target-banner
+        (if (:leaving target-banner)
+          ;; Step 2: After animation, remove the banner
+          {:uf/db (assoc state :panel/system-banners (filterv #(not= (:id %) banner-id) banners))}
+          ;; Step 1: Mark as leaving, defer actual removal
+          {:uf/db (assoc state :panel/system-banners
+                         (mapv #(if (= (:id %) banner-id)
+                                  (assoc % :leaving true)
+                                  %)
+                               banners))
+           :uf/fxs [[:uf/fx.defer-dispatch [[:editor/ax.clear-system-banner banner-id]] 250]]})))
     :editor/ax.set-needs-refresh
     {:uf/db (assoc state :panel/needs-refresh? true)}
 
