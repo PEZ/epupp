@@ -791,15 +791,12 @@
     btn-container))
 
 (defn- render-button-into-container!
-  "Render install button into container with error handling.
-   Returns true if Replicant render succeeded."
+  "Render install button into container with error handling."
   [container block-data]
   (try
     (r/render container (render-install-button block-data (:icon-url @!state)))
-    true
     (catch :default e
-      (js/console.error "[Web Userscript Installer] Replicant render error:" e)
-      false)))
+      (js/console.error "[Web Userscript Installer] Replicant render error:" e))))
 
 (def ^:private format-specs
   "Specs for attaching buttons to different code block formats."
@@ -827,14 +824,7 @@
           (let [btn-container (create-button-container! tag script-name (:id block-data))
                 parent (.-parentElement element)]
             (.insertBefore parent btn-container element)
-            (when-not (render-button-into-container! btn-container block-data)
-              ;; Fallback for :pre format only
-              (when (= format :pre)
-                (let [btn (js/document.createElement "button")]
-                  (set! (.-textContent btn) "Install")
-                  (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
-                  (.addEventListener btn "click" (fn [] (handle-event nil [:db/assoc :modal {:visible? true :mode :confirm :block-id (:id block-data)}])))
-                  (.appendChild btn-container btn))))))))))
+            (render-button-into-container! btn-container block-data)))))))
 
 (defn attach-button-to-block!
   "Attach install button to a code block based on format."
