@@ -217,7 +217,7 @@
                  :mode nil  ;; :confirm or :error
                  :block-id nil
                  :error-message nil}
-         :scan-generation 0
+         :pending-retry-timeout nil
          :request-id 0
          :button-containers {}
          :ui-container nil
@@ -926,26 +926,28 @@
 
 (defn scan-with-retry!
   "Scan for code blocks, retry with backoff if no blocks found.
-   Uses generation counter to cancel stale retry chains."
-  ([] (scan-with-retry! (:scan-generation @!state) 0))
-  ([generation retry-index]
-   (when (= generation (:scan-generation @!state))
-     (-> (scan-code-blocks!)
-         (.then (fn [_]
-                  (when (= generation (:scan-generation @!state))
-                    (let [block-count (count (:blocks @!state))]
-                      (when (and (zero? block-count)
-                                 (< retry-index (count retry-delays)))
-                        (let [delay (nth retry-delays retry-index)]
-                          (js/setTimeout #(scan-with-retry! generation (inc retry-index)) delay)))))))
-         (.catch (fn [error]
-                   (js/console.error "[Web Userscript Installer] Scan error:" error)))))))
+   Pending retries are cancelled by rescan! via clearTimeout."
+  ([] (scan-with-retry! 0))
+  ([retry-index]
+   (-> (scan-code-blocks!)
+       (.then (fn [_]
+                (when (and (zero? (count (:blocks @!state)))
+                           (< retry-index (count retry-delays)))
+                  (let [delay (nth retry-delays retry-index)
+                        timeout-id (js/setTimeout
+                                    #(scan-with-retry! (inc retry-index))
+                                    delay)]
+                    (dispatch! [[:db/assoc :pending-retry-timeout timeout-id]])))))
+       (.catch (fn [error]
+                 (js/console.error "[Web Userscript Installer] Scan error:" error))))))
 
 (defn rescan!
   "Reset DOM-tied state and re-scan for code blocks.
-   Safe to call repeatedly - cancels any in-flight retry chains via generation counter."
+   Safe to call repeatedly - cancels any pending retry timeout."
   []
-  (dispatch! [[:db/update :scan-generation inc]
+  (when-let [timeout-id (:pending-retry-timeout @!state)]
+    (js/clearTimeout timeout-id))
+  (dispatch! [[:db/assoc :pending-retry-timeout nil]
               [:db/assoc :blocks []]
               [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]
               [:db/assoc :button-containers {}]])
@@ -978,14 +980,12 @@
         (.catch (fn [_]))))
 
   ;; Fetch installed scripts for button state awareness
-  (let [gen (:scan-generation @!state)]
-    (-> (fetch-installed-scripts!+)
-        (.then (fn [installed-scripts]
-                 (when (= gen (:scan-generation @!state))
-                   (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
-                   (update-existing-blocks-with-installed-scripts!+ installed-scripts))))
-        (.catch (fn [error]
-                  (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error)))))
+  (-> (fetch-installed-scripts!+)
+      (.then (fn [installed-scripts]
+               (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
+               (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
+      (.catch (fn [error]
+                (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
 
   ;; SPA navigation listener (once)
   (when-not (:nav-registered? @!state)
