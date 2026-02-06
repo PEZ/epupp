@@ -934,7 +934,7 @@
 (defn rescan!
   "Reset DOM-tied state and re-scan for code blocks.
    Safe to call repeatedly - cancels any pending retry timeout."
-  []
+  [!state]
   (when-let [timeout-id (:pending-retry-timeout @!state)]
     (js/clearTimeout timeout-id))
   (dispatch! [[:db/assoc :pending-retry-timeout nil]
@@ -960,8 +960,8 @@
 
     ;; Initial scan
     (if (= js/document.readyState "loading")
-      (.addEventListener js/document "DOMContentLoaded" rescan!)
-      (rescan!))
+      (.addEventListener js/document "DOMContentLoaded" (partial rescan! !db))
+      (rescan! !db))
 
     ;; Fetch icon URL (once)
     (when-not (:icon-url state)
@@ -992,7 +992,7 @@
                                    (when-let [tid @!nav-timeout]
                                      (js/clearTimeout tid))
                                    (reset! !nav-timeout
-                                           (js/setTimeout rescan! 300)))))))))
+                                           (js/setTimeout (partial rescan! !db) 300)))))))))
 
     (js/console.log "[Web Userscript Installer] Ready")))
 
