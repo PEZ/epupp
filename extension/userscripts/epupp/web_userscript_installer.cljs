@@ -393,7 +393,7 @@
         modal-title (if is-update? "Update Userscript" "Install Userscript")
         confirm-text (if is-update? "Update" "Install")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/overlay-click]}}
+     {:on {:click [:block/dismiss-modal]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
       (modal-header {:action-title modal-title :icon-url icon-url})
@@ -431,7 +431,7 @@
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-cancel"
-         :on {:click [:block/cancel-install]}}
+         :on {:click [:block/dismiss-modal]}}
         "Cancel"]
        [:button.epupp-btn.epupp-btn--primary
         {:id "epupp-confirm"
@@ -441,7 +441,7 @@
 (defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/close-error]}}
+     {:on {:click [:block/dismiss-modal]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
       (modal-header {:action-title title :error? true :icon-url icon-url})
@@ -450,7 +450,7 @@
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-close-error"
-         :on {:click [:block/close-error]}}
+         :on {:click [:block/dismiss-modal]}}
         "Close"]]]]))
 
 (defn render-app [state]
@@ -485,13 +485,7 @@
       (let [[block-id] args]
         {:state (assoc state :modal {:visible? true :mode :confirm :block-id block-id})})
 
-      :block/overlay-click
-      {:state (assoc state :modal {:visible? false :mode nil :block-id nil})}
-
-      :block/cancel-install
-      {:state (assoc state :modal {:visible? false :mode nil :block-id nil})}
-
-      :block/close-error
+      :block/dismiss-modal
       {:state (assoc state :modal {:visible? false :mode nil :block-id nil :error-message nil})}
 
       ;; -- Installation lifecycle --
@@ -502,10 +496,6 @@
                     (update-block-status block-id :installing))
          :effects [[:fx/save-script block-id code]]})
 
-      :block/save-succeeded
-      (let [[block-id] args]
-        {:state (update-block-status state block-id :installed)})
-
       :block/save-failed
       (let [[block-id error-msg] args]
         {:state (-> state
@@ -515,30 +505,11 @@
                                    :block-id block-id
                                    :error-message error-msg}))})
 
-      ;; -- Init transitions --
-      :init/icon-loaded
-      (let [[url] args]
-        {:state (assoc state :icon-url url)})
-
-      :init/scripts-loaded
-      (let [[installed-scripts] args]
-        {:state (assoc state :installed-scripts installed-scripts)})
-
-      :init/block-status-update
+      :block/update-status
       (let [[block-id new-status] args]
         {:state (update-block-status state block-id new-status)})
 
-      :init/ui-container-set
-      (let [[container] args]
-        {:state (assoc state :ui-container container)})
-
-      :init/ui-setup-complete
-      {:state (assoc state :ui-setup? true)}
-
-      :init/nav-registered
-      {:state (assoc state :nav-registered? true)}
-
-      ;; -- Scan transitions --
+      ;; -- Compound state transitions --
       :scan/rescan
       {:state (-> state
                   (update :scan-generation inc)
@@ -546,13 +517,18 @@
                          :modal {:visible? false :mode nil :block-id nil :error-message nil}
                          :button-containers {}))}
 
-      :scan/block-detected
-      (let [[block-data] args]
-        {:state (update state :blocks conj block-data)})
+      ;; -- Generic state transitions --
+      :db/assoc
+      (let [[k v] args]
+        {:state (assoc state k v)})
 
-      :scan/register-button-container
-      (let [[block-id btn-container] args]
-        {:state (update-in state [:button-containers] assoc block-id btn-container)})
+      :db/update
+      (let [[k f & f-args] args]
+        {:state (apply update state k f f-args)})
+
+      :db/update-in
+      (let [[path f & f-args] args]
+        {:state (apply update-in state path f f-args)})
 
       nil)))
 
@@ -577,7 +553,7 @@
                               5000)
             (.then (fn [msg]
                      (if (.-success msg)
-                       (dispatch! [[:block/save-succeeded block-id]])
+                       (dispatch! [[:block/update-status block-id :installed]])
                        (let [error-msg (or (.-error msg) "Installation failed")]
                          (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
                          (dispatch! [[:block/save-failed block-id error-msg]])))))
@@ -616,11 +592,10 @@
         (.stopPropagation e))
 
       ;; All state/effect actions route through Uniflow dispatch
-      (:block/show-confirm :block/overlay-click :block/cancel-install
-                           :block/close-error :block/confirm-install
-                           :init/icon-loaded :init/scripts-loaded :init/block-status-update
-                           :init/ui-container-set :init/ui-setup-complete :init/nav-registered
-                           :scan/rescan :scan/block-detected :scan/register-button-container)
+      (:block/show-confirm :block/dismiss-modal :block/confirm-install
+                           :block/update-status
+                           :db/assoc :db/update :db/update-in
+                           :scan/rescan)
       (dispatch! [action])
 
       ;; Default
@@ -807,21 +782,21 @@
                         (set! (.-id el) "epupp-block-installer")
                         (.appendChild js/document.body el)
                         el))]
-    (dispatch! [[:init/ui-container-set container]]))
+    (dispatch! [[:db/assoc :ui-container container]]))
 
   ;; Set up Replicant dispatcher (idempotent)
   (r/set-dispatch! handle-event)
 
   ;; One-time setup: ESC handler and state watch (guarded by state flag)
   (when-not (:ui-setup? @!state)
-    (dispatch! [[:init/ui-setup-complete]])
+    (dispatch! [[:db/assoc :ui-setup? true]])
 
     ;; Dismiss modal on ESC key
     (.addEventListener js/document "keydown"
                        (fn [e]
                          (when (and (= (.-key e) "Escape")
                                     (get-in @!state [:modal :visible?]))
-                           (dispatch! [[:block/cancel-install]]))))
+                           (dispatch! [[:block/dismiss-modal]]))))
 
     ;; Re-render on state changes
     (add-watch !state ::render (fn [_ _ _ _] (render-ui!))))
@@ -844,7 +819,7 @@
   (let [btn-container (js/document.createElement tag-name)]
     (set! (.-className btn-container) "epupp-btn-container")
     (.setAttribute btn-container "data-epupp-script" script-name)
-    (dispatch! [[:scan/register-button-container block-id btn-container]])
+    (dispatch! [[:db/update-in [:button-containers] assoc block-id btn-container]])
     btn-container))
 
 (defn- render-button-into-container!
@@ -913,7 +888,7 @@
                            :format (:format block-info)
                            :status (:install-state state-info)}
                           state-info)]
-    (dispatch! [[:scan/block-detected block-data]])
+    (dispatch! [[:db/update :blocks conj block-data]])
     (attach-button-to-block! block-info block-data)))
 
 (defn- process-code-block!+
@@ -958,7 +933,7 @@
                 (-> (fetch-script-code!+ script-name)
                     (.then (fn [existing-code]
                              (let [state-info (determine-button-state script-name page-code installed-scripts existing-code)]
-                               (dispatch! [[:init/block-status-update (:id block) (:install-state state-info)]]))))
+                               (dispatch! [[:block/update-status (:id block) (:install-state state-info)]]))))
                     (.catch (fn [e]
                               (js/console.error "[Web Userscript Installer] Error updating block" script-name e))))
                 (js/Promise.resolve nil))))))
@@ -1028,7 +1003,7 @@
   (when-not (:icon-url @!state)
     (-> (fetch-icon-url!+)
         (.then (fn [url]
-                 (dispatch! [[:init/icon-loaded url]])))
+                 (dispatch! [[:db/assoc :icon-url url]])))
         (.catch (fn [_]))))
 
   ;; Fetch installed scripts for button state awareness
@@ -1036,14 +1011,14 @@
     (-> (fetch-installed-scripts!+)
         (.then (fn [installed-scripts]
                  (when (= gen (:scan-generation @!state))
-                   (dispatch! [[:init/scripts-loaded installed-scripts]])
+                   (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
                    (update-existing-blocks-with-installed-scripts!+ installed-scripts))))
         (.catch (fn [error]
                   (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error)))))
 
   ;; SPA navigation listener (once)
   (when-not (:nav-registered? @!state)
-    (dispatch! [[:init/nav-registered]])
+    (dispatch! [[:db/assoc :nav-registered? true]])
     (when js/window.navigation
       (let [!nav-timeout (atom nil)
             !last-url (atom js/window.location.href)]
