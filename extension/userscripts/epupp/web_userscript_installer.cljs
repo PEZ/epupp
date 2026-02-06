@@ -743,7 +743,7 @@
 ")
       (.appendChild js/document.head style-el))))
 
-(defn setup-ui! []
+(defn setup-ui! [!db]
   ;; Reuse existing UI container or create new one
   (let [container (or (js/document.getElementById "epupp-block-installer")
                       (let [el (js/document.createElement "div")]
@@ -756,21 +756,21 @@
   (r/set-dispatch! handle-event)
 
   ;; One-time setup: ESC handler and state watch (guarded by state flag)
-  (when-not (:ui-setup? @!state)
+  (when-not (:ui-setup? @!db)
     (dispatch! [[:db/assoc :ui-setup? true]])
 
     ;; Dismiss modal on ESC key
     (.addEventListener js/document "keydown"
                        (fn [e]
                          (when (and (= (.-key e) "Escape")
-                                    (get-in @!state [:modal :visible?]))
+                                    (get-in @!db [:modal :visible?]))
                            (dispatch! [[:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]]))))
 
     ;; Re-render on state changes
-    (add-watch !state ::render (fn [_k _r _o n] (render-ui! n))))
+    (add-watch !db ::render (fn [_k _r _o n] (render-ui! n))))
 
   ;; Initial render
-  (render-ui! @!state))
+  (render-ui! @!db))
 
 ;; ============================================================
 ;; Scanning & Initialization
@@ -953,7 +953,7 @@
               [:db/assoc :button-containers {}]])
   (scan-with-retry!))
 
-(defn init! []
+(defn init! [!db]
   (js/console.log "[Web Userscript Installer] Initializing...")
 
   ;; Debug marker (idempotent)
@@ -965,7 +965,7 @@
         (.appendChild js/document.body marker))))
 
   (ensure-installer-css!)
-  (setup-ui!)
+  (setup-ui! !db)
 
   ;; Initial scan
   (if (= js/document.readyState "loading")
@@ -973,7 +973,7 @@
     (rescan!))
 
   ;; Fetch icon URL (once)
-  (when-not (:icon-url @!state)
+  (when-not (:icon-url @!db)
     (-> (fetch-icon-url!+)
         (.then (fn [url]
                  (dispatch! [[:db/assoc :icon-url url]])))
@@ -988,7 +988,7 @@
                 (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
 
   ;; SPA navigation listener (once)
-  (when-not (:nav-registered? @!state)
+  (when-not (:nav-registered? @!db)
     (dispatch! [[:db/assoc :nav-registered? true]])
     (when js/window.navigation
       (let [!nav-timeout (atom nil)
@@ -1005,4 +1005,4 @@
 
   (js/console.log "[Web Userscript Installer] Ready"))
 
-(init!)
+(init! !state)
