@@ -495,7 +495,6 @@ button#connect:active {
   background: var(--color-bg-accent);
   color: var(--color-fg-accent);
   border-radius: 4px;
-  border: 1px solid var(--color-border);
 }
 
 .section-header:hover {

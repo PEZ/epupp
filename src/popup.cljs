@@ -169,7 +169,8 @@
           nil)))
 
     :popup/fx.load-saved-ports
-    (let [tab (js-await (get-active-tab))
+    (let [[nrepl-port ws-port] args
+          tab (js-await (get-active-tab))
           key (storage-key tab)]
       (js/chrome.storage.local.get
        #js [key]
@@ -185,10 +186,9 @@
                (when (seq actions)
                  (dispatch actions)))
              ;; No per-hostname ports - fall back to default settings
-             (let [state @!state
-                   actions [[:db/ax.assoc
-                             :ports/nrepl (:settings/default-nrepl-port state)
-                             :ports/ws (:settings/default-ws-port state)]]]
+             (let [actions [[:db/ax.assoc
+                             :ports/nrepl nrepl-port
+                             :ports/ws ws-port]]]
                (dispatch actions)))))))
 
     :popup/fx.load-scripts
@@ -656,6 +656,17 @@
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
+    [:p.section-description
+     "Default ports (for hostnames without saved ports)."]
+    [:div.port-row
+     [port-input {:id "default-nrepl-port"
+                  :label "nREPL:"
+                  :value (:settings/default-nrepl-port state)
+                  :on-change #(dispatch! [[:popup/ax.set-default-nrepl-port %]])}]
+     [port-input {:id "default-ws-port"
+                  :label "WebSocket:"
+                  :value (:settings/default-ws-port state)
+                  :on-change #(dispatch! [[:popup/ax.set-default-ws-port %]])}]]
     [:div.setting
      [:label.checkbox-label
       [:input#auto-reconnect-repl {:type "checkbox"
@@ -693,19 +704,6 @@
       "Enable debug logging"]
      [:p.description
       "Show verbose Epupp logs in browser console (for troubleshooting)."]]]
-   [:div.settings-section
-    [:h3.settings-section-title "Default REPL Ports"]
-    [:p.section-description
-     "Pre-fill port inputs for hostnames without saved ports."]
-    [:div.port-row
-     [port-input {:id "default-nrepl-port"
-                  :label "nREPL:"
-                  :value (:settings/default-nrepl-port state)
-                  :on-change #(dispatch! [[:popup/ax.set-default-nrepl-port %]])}]
-     [port-input {:id "default-ws-port"
-                  :label "WebSocket:"
-                  :value (:settings/default-ws-port state)
-                  :on-change #(dispatch! [[:popup/ax.set-default-ws-port %]])}]]]
    [:div.settings-section
     [:h3.settings-section-title "Export / Import Scripts"]
     [:p.section-description
@@ -839,8 +837,7 @@
                               (filterv #(script-utils/get-matching-pattern current-url %)))
         other-scripts (->> list
                            (filterv #(not (script-utils/get-matching-pattern current-url %))))
-        ;; Settings section height: base + form/buttons
-        settings-max-height 650] ; REPL settings + default ports + export/import + headers
+        settings-max-height 700]
     [:div
      [view-elements/app-header
       {:elements/wrapper-class "popup-header-wrapper"
