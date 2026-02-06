@@ -954,55 +954,56 @@
   (scan-with-retry!))
 
 (defn init! [!db]
-  (js/console.log "[Web Userscript Installer] Initializing...")
+  (let [state @!db]
+    (js/console.log "[Web Userscript Installer] Initializing...")
 
-  ;; Debug marker (idempotent)
-  (when-not (js/document.getElementById "epupp-installer-debug")
-    (let [marker (js/document.createElement "div")]
-      (set! (.-id marker) "epupp-installer-debug")
-      (set! (.. marker -style -display) "none")
-      (when js/document.body
-        (.appendChild js/document.body marker))))
+    ;; Debug marker (idempotent)
+    (when-not (js/document.getElementById "epupp-installer-debug")
+      (let [marker (js/document.createElement "div")]
+        (set! (.-id marker) "epupp-installer-debug")
+        (set! (.. marker -style -display) "none")
+        (when js/document.body
+          (.appendChild js/document.body marker))))
 
-  (ensure-installer-css!)
-  (setup-ui! !db)
+    (ensure-installer-css!)
+    (setup-ui! !db)
 
-  ;; Initial scan
-  (if (= js/document.readyState "loading")
-    (.addEventListener js/document "DOMContentLoaded" rescan!)
-    (rescan!))
+    ;; Initial scan
+    (if (= js/document.readyState "loading")
+      (.addEventListener js/document "DOMContentLoaded" rescan!)
+      (rescan!))
 
-  ;; Fetch icon URL (once)
-  (when-not (:icon-url @!db)
-    (-> (fetch-icon-url!+)
-        (.then (fn [url]
-                 (dispatch! [[:db/assoc :icon-url url]])))
-        (.catch (fn [_]))))
+    ;; Fetch icon URL (once)
+    (when-not (:icon-url state)
+      (-> (fetch-icon-url!+)
+          (.then (fn [url]
+                   (dispatch! [[:db/assoc :icon-url url]])))
+          (.catch (fn [_]))))
 
-  ;; Fetch installed scripts for button state awareness
-  (-> (fetch-installed-scripts!+)
-      (.then (fn [installed-scripts]
-               (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
-               (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
-      (.catch (fn [error]
-                (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
+    ;; Fetch installed scripts for button state awareness
+    (-> (fetch-installed-scripts!+)
+        (.then (fn [installed-scripts]
+                 (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
+                 (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
+        (.catch (fn [error]
+                  (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
 
-  ;; SPA navigation listener (once)
-  (when-not (:nav-registered? @!db)
-    (dispatch! [[:db/assoc :nav-registered? true]])
-    (when js/window.navigation
-      (let [!nav-timeout (atom nil)
-            !last-url (atom js/window.location.href)]
-        (.addEventListener js/window.navigation "navigate"
-                           (fn [evt]
-                             (let [new-url (.-url (.-destination evt))]
-                               (when (not= new-url @!last-url)
-                                 (reset! !last-url new-url)
-                                 (when-let [tid @!nav-timeout]
-                                   (js/clearTimeout tid))
-                                 (reset! !nav-timeout
-                                         (js/setTimeout rescan! 300)))))))))
+    ;; SPA navigation listener (once)
+    (when-not (:nav-registered? state)
+      (dispatch! [[:db/assoc :nav-registered? true]])
+      (when js/window.navigation
+        (let [!nav-timeout (atom nil)
+              !last-url (atom js/window.location.href)]
+          (.addEventListener js/window.navigation "navigate"
+                             (fn [evt]
+                               (let [new-url (.-url (.-destination evt))]
+                                 (when (not= new-url @!last-url)
+                                   (reset! !last-url new-url)
+                                   (when-let [tid @!nav-timeout]
+                                     (js/clearTimeout tid))
+                                   (reset! !nav-timeout
+                                           (js/setTimeout rescan! 300)))))))))
 
-  (js/console.log "[Web Userscript Installer] Ready"))
+    (js/console.log "[Web Userscript Installer] Ready")))
 
 (init! !state)
