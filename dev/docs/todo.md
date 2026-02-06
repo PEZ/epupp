@@ -71,6 +71,6 @@
 * [ ] `mv!`, wrong delete count, when some are rejected
 * [ ] Gist installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?
 * [x] BUG: Gist installer fails to install when manifest does not declare `:epupp/auto-run-match`
-* [ ] Add setting for default repl ports
+* [x] Add setting for default repl ports
 * [ ] Make popup show when a script is injected
 * [ ] Run scripts on SPA page navigation
