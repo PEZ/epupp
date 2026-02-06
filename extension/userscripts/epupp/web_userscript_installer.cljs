@@ -358,7 +358,7 @@
         status-class (str "is-" (name status))]
     [:button.epupp-install-btn
      {:class status-class
-      :on {:click [:block/show-confirm id]}
+      :on {:click [:db/assoc :modal {:visible? true :mode :confirm :block-id id}]}
       :data-e2e-install-state (name status)
       :data-e2e-script-name (get-in block [:manifest :script-name])
       :disabled (not clickable?)
@@ -393,7 +393,7 @@
         modal-title (if is-update? "Update Userscript" "Install Userscript")
         confirm-text (if is-update? "Update" "Install")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/dismiss-modal]}}
+     {:on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
       (modal-header {:action-title modal-title :icon-url icon-url})
@@ -431,17 +431,19 @@
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-cancel"
-         :on {:click [:block/dismiss-modal]}}
+         :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
         "Cancel"]
        [:button.epupp-btn.epupp-btn--primary
         {:id "epupp-confirm"
-         :on {:click [:block/confirm-install id code]}}
+         :on {:click [[:db/assoc :modal {:visible? false :mode nil :block-id nil}]
+                      [:block/update-status id :installing]
+                      [:block/save-script id code]]}}
         confirm-text]]]]))
 
 (defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
     [:div.epupp-modal-overlay
-     {:on {:click [:block/dismiss-modal]}}
+     {:on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
       (modal-header {:action-title title :error? true :icon-url icon-url})
@@ -450,7 +452,7 @@
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-close-error"
-         :on {:click [:block/dismiss-modal]}}
+         :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
         "Close"]]]]))
 
 (defn render-app [state]
@@ -480,44 +482,14 @@
   [state action]
   (let [[action-type & args] action]
     (case action-type
-      ;; -- Modal actions --
-      :block/show-confirm
-      (let [[block-id] args]
-        {:state (assoc state :modal {:visible? true :mode :confirm :block-id block-id})})
-
-      :block/dismiss-modal
-      {:state (assoc state :modal {:visible? false :mode nil :block-id nil :error-message nil})}
-
-      ;; -- Installation lifecycle --
-      :block/confirm-install
-      (let [[block-id code] args]
-        {:state (-> state
-                    (assoc :modal {:visible? false :mode nil :block-id nil})
-                    (update-block-status block-id :installing))
-         :effects [[:fx/save-script block-id code]]})
-
-      :block/save-failed
-      (let [[block-id error-msg] args]
-        {:state (-> state
-                    (update-block-status block-id :error error-msg)
-                    (assoc :modal {:visible? true
-                                   :mode :error
-                                   :block-id block-id
-                                   :error-message error-msg}))})
-
       :block/update-status
-      (let [[block-id new-status] args]
-        {:state (update-block-status state block-id new-status)})
+      (let [[block-id new-status error-msg] args]
+        {:state (update-block-status state block-id new-status error-msg)})
 
-      ;; -- Compound state transitions --
-      :scan/rescan
-      {:state (-> state
-                  (update :scan-generation inc)
-                  (assoc :blocks []
-                         :modal {:visible? false :mode nil :block-id nil :error-message nil}
-                         :button-containers {}))}
+      :block/save-script
+      (let [[block-id code] args]
+        {:effects [[:fx/save-script block-id code]]})
 
-      ;; -- Generic state transitions --
       :db/assoc
       (let [[k v] args]
         {:state (assoc state k v)})
@@ -544,7 +516,14 @@
     (case effect-type
       :fx/save-script
       (let [[block-id code] args
-            page-url js/window.location.href]
+            page-url js/window.location.href
+            handle-save-error (fn [error-msg]
+                                (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
+                                (dispatch! [[:block/update-status block-id :error error-msg]
+                                            [:db/assoc :modal {:visible? true
+                                                               :mode :error
+                                                               :block-id block-id
+                                                               :error-message error-msg}]]))]
         (-> (send-and-receive "save-script"
                               {:code code
                                :scriptSource page-url
@@ -554,13 +533,9 @@
             (.then (fn [msg]
                      (if (.-success msg)
                        (dispatch! [[:block/update-status block-id :installed]])
-                       (let [error-msg (or (.-error msg) "Installation failed")]
-                         (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
-                         (dispatch! [[:block/save-failed block-id error-msg]])))))
+                       (handle-save-error (or (.-error msg) "Installation failed")))))
             (.catch (fn [error]
-                      (let [error-msg (or (.-message error) "Installation failed")]
-                        (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
-                        (dispatch! [[:block/save-failed block-id error-msg]]))))))
+                      (handle-save-error (or (.-message error) "Installation failed"))))))
 
       (js/console.warn "[Web Installer] Unknown effect:" (pr-str effect-type)))))
 
@@ -580,26 +555,20 @@
 ;; ============================================================
 
 (defn handle-event
-  "Replicant dispatch bridge - translates Replicant events to Uniflow actions.
-   DOM-dependent actions are handled directly;
-   all other actions route through dispatch!."
+  "Replicant dispatch bridge.
+   Single actions (keyword-first) are routed individually.
+   Batch actions (vector-of-vectors) are dispatched together."
   [replicant-data action]
-  (let [[action-type & _args] action]
-    (case action-type
-      ;; DOM events can't be pure - handle directly
+  (if (keyword? (first action))
+    ;; Single action
+    (case (first action)
       :block/modal-click
       (when-let [e (:replicant/dom-event replicant-data)]
         (.stopPropagation e))
-
-      ;; All state/effect actions route through Uniflow dispatch
-      (:block/show-confirm :block/dismiss-modal :block/confirm-install
-                           :block/update-status
-                           :db/assoc :db/update :db/update-in
-                           :scan/rescan)
-      (dispatch! [action])
-
-      ;; Default
-      (js/console.warn "[Block Installer] Unknown action:" (pr-str action-type)))))
+      ;; All other single actions route through dispatch
+      (dispatch! [action]))
+    ;; Batch of actions
+    (dispatch! action)))
 
 ;; ============================================================
 ;; Rendering & Setup
@@ -796,7 +765,7 @@
                        (fn [e]
                          (when (and (= (.-key e) "Escape")
                                     (get-in @!state [:modal :visible?]))
-                           (dispatch! [[:block/dismiss-modal]]))))
+                           (dispatch! [[:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]]))))
 
     ;; Re-render on state changes
     (add-watch !state ::render (fn [_ _ _ _] (render-ui!))))
@@ -865,7 +834,7 @@
                 (let [btn (js/document.createElement "button")]
                   (set! (.-textContent btn) "Install")
                   (set! (.-className btn) "epupp-install-btn epupp-btn-install-state")
-                  (.addEventListener btn "click" (fn [] (handle-event nil [:block/show-confirm (:id block-data)])))
+                  (.addEventListener btn "click" (fn [] (handle-event nil [:db/assoc :modal {:visible? true :mode :confirm :block-id (:id block-data)}])))
                   (.appendChild btn-container btn))))))))))
 
 (defn attach-button-to-block!
@@ -977,7 +946,10 @@
   "Reset DOM-tied state and re-scan for code blocks.
    Safe to call repeatedly - cancels any in-flight retry chains via generation counter."
   []
-  (dispatch! [[:scan/rescan]])
+  (dispatch! [[:db/update :scan-generation inc]
+              [:db/assoc :blocks []]
+              [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]
+              [:db/assoc :button-containers {}]])
   (scan-with-retry!))
 
 (defn init! []
