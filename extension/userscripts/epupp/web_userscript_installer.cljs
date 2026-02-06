@@ -647,9 +647,7 @@
     (let [style-el (js/document.createElement "style")]
       (set! (.-id style-el) "epupp-wui-styles")
       (set! (.-textContent style-el)
-            "/* Epupp Web Userscript Installer Styles */
-
-/* Button base and states */
+            "
 .epupp-install-btn {
   padding: 4px 8px;
   display: inline-flex;
@@ -698,7 +696,6 @@
   cursor: default;
 }
 
-/* Modal overlay and box */
 .epupp-modal-overlay {
   position: fixed;
   top: 0;
@@ -754,7 +751,6 @@
   color: #d97706;
 }
 
-/* Modal actions */
 .epupp-modal__actions {
   display: flex;
   gap: 8px;
@@ -767,7 +763,6 @@
   margin-bottom: 16px;
 }
 
-/* Buttons */
 .epupp-btn {
   padding: 6px 16px;
   border-radius: 6px;
@@ -785,19 +780,16 @@
   border: 1px solid rgba(27,31,36,0.15);
 }
 
-/* Container margin */
 .epupp-btn-container {
   margin-left: 8px;
   vertical-align: middle;
 }
 
-/* Icon */
 .epupp-install-btn .epupp-icon {
   flex-shrink: 0;
   margin: -1px 0;
 }
 
-/* Modal header */
 .epupp-modal__header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e1e4e8; }
 .epupp-modal__brand { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .epupp-modal__icon { width: 32px; height: 32px; }
