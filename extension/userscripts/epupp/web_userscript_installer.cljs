@@ -574,9 +574,8 @@
 ;; Rendering & Setup
 ;; ============================================================
 
-(defn render-ui! []
-  (let [state @!state
-        icon-url (:icon-url state)]
+(defn render-ui! [state]
+  (let [icon-url (:icon-url state)]
     (when-let [container (:ui-container state)]
       (r/render container (render-app state)))
     ;; Also update buttons in their inline containers
@@ -768,10 +767,10 @@
                            (dispatch! [[:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]]))))
 
     ;; Re-render on state changes
-    (add-watch !state ::render (fn [_ _ _ _] (render-ui!))))
+    (add-watch !state ::render (fn [_k _r _o n] (render-ui! n))))
 
   ;; Initial render
-  (render-ui!))
+  (render-ui! @!state))
 
 ;; ============================================================
 ;; Scanning & Initialization
