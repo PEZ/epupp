@@ -583,6 +583,11 @@ button#connect:active {
   gap: 4px;
 }
 
+.empty-state {
+  max-height: 38px;
+  overflow: hidden;
+}
+
 .connected-tab-item {
   display: flex;
   align-items: center;
