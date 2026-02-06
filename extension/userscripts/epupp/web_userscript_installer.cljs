@@ -5,8 +5,16 @@
 
 ;; Epupp Web Userscript Installer
 ;;
-;; This userscript scans code blocks for Epupp userscript manifests,
-;; adds Install buttons, which installs the script into the extension.
+;; Architecture: Mini-Uniflow (actions decide, effects execute)
+;;
+;; Layer 1 - Pure Domain: normalization, manifest parsing, state helpers
+;; Layer 2 - Pure UI: Replicant hiccup components (pure functions of their args)
+;; Layer 3 - Action Handler: pure state transitions + effect declarations
+;; Layer 4 - Effect Handler & Dispatch: side effect execution, dispatch loop
+;; Layer 5 - Orchestration: Replicant bridge, rendering, scanning, initialization
+;;
+;; All state lives in a single atom. State transitions flow through dispatch!.
+;; Components are pure functions. Side effects are declared as data.
 
 (ns epupp.web-userscript-installer
   (:require [clojure.edn :as edn]
@@ -14,7 +22,7 @@
             [replicant.dom :as r]))
 
 ;; ============================================================
-;; Script name normalization (mirrors script-utils logic)
+;; Pure Domain - Script Normalization & Manifest Parsing
 ;; ============================================================
 
 (def valid-run-at-values
@@ -34,14 +42,10 @@
         (str/replace #"[^a-z0-9_/]" "")
         (str ".cljs"))))
 
-;; ============================================================
-;; Manifest parsing
-;;
 ;; SYNC WARNING: This parser must stay in sync with src/manifest_parser.cljs
 ;; Key behaviors that must match:
 ;; - auto-run-match is OPTIONAL (nil means manual-only script)
 ;; - auto-run-match preserves vector/string as-is
-;; ============================================================
 
 (defn- get-first-form
   "Read the first form from code text. Returns map or nil."
@@ -52,13 +56,6 @@
     (catch :default e
       (js/console.error "[Web Userscript Installer] Parse error:" e)
       nil)))
-
-(defn has-manifest?
-  "Check if the first form is a map with :epupp/script-name"
-  [code-text]
-  (when code-text
-    (when-let [m (get-first-form code-text)]
-      (get m :epupp/script-name))))
 
 (defn extract-manifest
   "Extract manifest from the first form (must be a data map)."
@@ -82,7 +79,7 @@
                                (not (contains? valid-run-at-values raw-run-at)))}))))
 
 ;; ============================================================
-;; DOM helpers - Multi-format code block detection
+;; DOM Helpers - Code Block Detection
 ;; ============================================================
 
 ;; Format types:
@@ -177,7 +174,7 @@
 
 (defn- detect-all-code-blocks
   "Detect all code blocks on page. Returns seq of {:element :format :code-text}.
-   More specific formats listed first for priority. Global dedup prevents duplicates."
+   More specific formats listed first for priority."
   []
   (concat (detect-github-tables)
           (detect-github-repo-files)
@@ -209,7 +206,7 @@
          .-parentElement)))
 
 ;; ============================================================
-;; State management
+;; Pure Domain - State Shape & Helpers
 ;; ============================================================
 
 (defonce !state
@@ -219,9 +216,13 @@
          :modal {:visible? false
                  :mode nil  ;; :confirm or :error
                  :block-id nil
-                 :error-message nil}}))
-
-(defonce !scan-generation (atom 0))
+                 :error-message nil}
+         :scan-generation 0
+         :request-id 0
+         :button-containers {}
+         :ui-container nil
+         :ui-setup? false
+         :nav-registered? false}))
 
 (def retry-delays [100 1000 3000])
 
@@ -257,19 +258,20 @@
      :existing-script nil}))
 
 ;; ============================================================
-;; Extension communication
+;; Extension Communication
 ;; ============================================================
 
-(defonce ^:private !request-id (atom 0))
-
 (defn- next-request-id []
-  (swap! !request-id inc))
+  (get (swap! !state update :request-id inc) :request-id))
 
 (defn- send-and-receive
-  "Helper: send message to bridge and return promise of response."
-  [msg-type payload response-type]
-  (let [req-id (next-request-id)]
-    (js/Promise.
+  "Helper: send message to bridge and return promise of response.
+   Optional timeout-ms (default 2000) controls how long to wait for a response."
+  ([msg-type payload response-type]
+   (send-and-receive msg-type payload response-type 2000))
+  ([msg-type payload response-type timeout-ms]
+   (let [req-id (next-request-id)]
+     (js/Promise.
       (fn [resolve reject]
         (let [timeout-id (atom nil)
               handler (fn handler [e]
@@ -286,13 +288,13 @@
           (.addEventListener js/window "message" handler)
           (reset! timeout-id
                   (js/setTimeout
-                    (fn []
-                      (.removeEventListener js/window "message" handler)
-                      (reject (js/Error. (str "Timeout waiting for " response-type))))
-                    2000))
+                   (fn []
+                     (.removeEventListener js/window "message" handler)
+                     (reject (js/Error. (str "Timeout waiting for " response-type))))
+                   timeout-ms))
           (.postMessage js/window
-            (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
-            "*"))))))
+                        (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
+                        "*")))))))
 
 (defn fetch-icon-url!+
   "Fetch the Epupp icon URL from the extension. Returns promise of URL string."
@@ -321,49 +323,16 @@
                (when (.-success msg)
                  (.-code msg))))))
 
-(defn send-save-request!
-  "Send save-script request to extension via postMessage.
-   Sends the code directly (no URL fetch) with the page URL as source."
-  [code callback]
-  (let [page-url js/window.location.href
-        request-id (str "save-" (.now js/Date) "-" (.random js/Math))
-        timeout-id (atom nil)
-        listener (fn listener [event]
-                   (let [data (.-data event)]
-                     (when (and (= (aget data "source") "epupp-bridge")
-                                (= (aget data "type") "save-script-response")
-                                (= (aget data "requestId") request-id))
-                       (when-let [tid @timeout-id]
-                         (js/clearTimeout tid))
-                       (.removeEventListener js/window "message" listener)
-                       (callback #js {:success (aget data "success")
-                                      :error (aget data "error")}))))]
-    (.addEventListener js/window "message" listener)
-    ;; Add timeout for debugging
-    (reset! timeout-id
-            (js/setTimeout
-              (fn []
-                (js/console.error "[Web Userscript Installer] Save request timed out after 5s")
-                (.removeEventListener js/window "message" listener)
-                (callback #js {:success false :error "Timeout waiting for save response"}))
-              5000))
-    (.postMessage js/window
-                  #js {:source "epupp-userscript"
-                       :type "save-script"
-                       :requestId request-id
-                       :code code
-                       :scriptSource page-url
-                       :force true}
-                  "*")))
+
 
 ;; ============================================================
-;; UI Components (Replicant hiccup)
+;; Pure UI - Replicant Components
 ;; ============================================================
 
 (defn epupp-icon
-  "Epupp icon - loads from extension URL when available, falls back to inline SVG."
-  []
-  (when-let [icon-url (:icon-url @!state)]
+  "Epupp icon - renders extension icon when URL is available."
+  [icon-url]
+  (when icon-url
     [:img.epupp-icon {:src icon-url
                       :width 20
                       :height 20
@@ -384,7 +353,7 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status] :as block}]
+(defn render-install-button [{:keys [id status] :as block} icon-url]
   (let [clickable? (#{:install :update} status)
         status-class (str "is-" (name status))]
     [:button.epupp-install-btn
@@ -394,7 +363,7 @@
       :data-e2e-script-name (get-in block [:manifest :script-name])
       :disabled (not clickable?)
       :title (button-tooltip block)}
-     (epupp-icon)
+     (epupp-icon icon-url)
      (case status
        :install "Install"
        :update "Update"
@@ -405,19 +374,18 @@
 
 (defn- modal-header
   "Branded modal header with Epupp icon, title, tagline, and action title."
-  [{:keys [action-title error?]}]
-  (let [icon-url (:icon-url @!state)]
-    [:div.epupp-modal__header
-     [:div.epupp-modal__brand
-      (when icon-url
-        [:img.epupp-modal__icon {:src icon-url :alt "Epupp"}])
-      [:span.epupp-modal__title
-       "Epupp"
-       [:span.epupp-modal__tagline "Live Tamper your Web"]]]
-     [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
-      action-title]]))
+  [{:keys [action-title error? icon-url]}]
+  [:div.epupp-modal__header
+   [:div.epupp-modal__brand
+    (when icon-url
+      [:img.epupp-modal__icon {:src icon-url :alt "Epupp"}])
+    [:span.epupp-modal__title
+     "Epupp"
+     [:span.epupp-modal__tagline "Live Tamper your Web"]]]
+   [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
+    action-title]])
 
-(defn render-modal [{:keys [id manifest code status]}]
+(defn render-modal [{:keys [id manifest code status]} icon-url]
   (let [{:keys [script-name raw-script-name name-normalized?
                 auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
         page-url js/window.location.href
@@ -428,7 +396,7 @@
      {:on {:click [:block/overlay-click]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
-      (modal-header {:action-title modal-title})
+      (modal-header {:action-title modal-title :icon-url icon-url})
       ;; Property table
       [:table.epupp-modal__table
        [:tbody
@@ -470,13 +438,13 @@
          :on {:click [:block/confirm-install id code]}}
         confirm-text]]]]))
 
-(defn render-error-dialog [{:keys [error-message is-update?]}]
+(defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
     [:div.epupp-modal-overlay
      {:on {:click [:block/close-error]}}
      [:div.epupp-modal
       {:on {:click [:block/modal-click]}}
-      (modal-header {:action-title title :error? true})
+      (modal-header {:action-title title :error? true :icon-url icon-url})
       [:p
        (or error-message "An unknown error occurred.")]
       [:div.epupp-modal__actions
@@ -486,7 +454,7 @@
         "Close"]]]]))
 
 (defn render-app [state]
-  (let [{:keys [modal]} state
+  (let [{:keys [modal icon-url]} state
         {:keys [visible? mode block-id error-message]} modal]
     [:div#epupp-block-installer-ui
      (when visible?
@@ -495,81 +463,182 @@
          (let [current-block (find-block-by-id state block-id)
                is-update? (= (:status current-block) :update)]
            (render-error-dialog {:error-message error-message
-                                 :is-update? is-update?}))
+                                 :is-update? is-update?
+                                 :icon-url icon-url}))
 
          :confirm
          (when-let [current-block (find-block-by-id state block-id)]
-           (render-modal current-block))
-
-         ;; Default (backward compatibility)
-         (when-let [current-block (find-block-by-id state block-id)]
-           (render-modal current-block))))]))
+           (render-modal current-block icon-url))))]))
 
 ;; ============================================================
-;; Event handling
+;; Action Handler (pure state transitions)
 ;; ============================================================
 
-(defn- handle-confirm-install!
-  "Handle the confirm-install action: close modal, set installing state, send save request."
-  [block-id code]
-  (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
-  (swap! !state update-block-status block-id :installing)
-  (send-save-request!
-   code
-   (fn [response]
-     (if (.-success response)
-       (swap! !state update-block-status block-id :installed)
-       (let [error-msg (or (.-error response) "Installation failed")]
-         (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
-         (swap! !state update-block-status block-id :error error-msg)
-         (swap! !state assoc :modal {:visible? true
-                                     :mode :error
-                                     :block-id block-id
-                                     :error-message error-msg}))))))
-
-(defn handle-event [replicant-data action]
+(defn handle-action
+  "Pure action handler - NO side effects, NO atom reads.
+   Takes [state action], returns {:state new-state :effects [...]} or nil."
+  [state action]
   (let [[action-type & args] action]
     (case action-type
+      ;; -- Modal actions --
       :block/show-confirm
       (let [[block-id] args]
-        (swap! !state assoc :modal {:visible? true :mode :confirm :block-id block-id}))
+        {:state (assoc state :modal {:visible? true :mode :confirm :block-id block-id})})
 
       :block/overlay-click
-      (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
+      {:state (assoc state :modal {:visible? false :mode nil :block-id nil})}
 
+      :block/cancel-install
+      {:state (assoc state :modal {:visible? false :mode nil :block-id nil})}
+
+      :block/close-error
+      {:state (assoc state :modal {:visible? false :mode nil :block-id nil :error-message nil})}
+
+      ;; -- Installation lifecycle --
+      :block/confirm-install
+      (let [[block-id code] args]
+        {:state (-> state
+                    (assoc :modal {:visible? false :mode nil :block-id nil})
+                    (update-block-status block-id :installing))
+         :effects [[:fx/save-script block-id code]]})
+
+      :block/save-succeeded
+      (let [[block-id] args]
+        {:state (update-block-status state block-id :installed)})
+
+      :block/save-failed
+      (let [[block-id error-msg] args]
+        {:state (-> state
+                    (update-block-status block-id :error error-msg)
+                    (assoc :modal {:visible? true
+                                   :mode :error
+                                   :block-id block-id
+                                   :error-message error-msg}))})
+
+      ;; -- Init transitions --
+      :init/icon-loaded
+      (let [[url] args]
+        {:state (assoc state :icon-url url)})
+
+      :init/scripts-loaded
+      (let [[installed-scripts] args]
+        {:state (assoc state :installed-scripts installed-scripts)})
+
+      :init/block-status-update
+      (let [[block-id new-status] args]
+        {:state (update-block-status state block-id new-status)})
+
+      :init/ui-container-set
+      (let [[container] args]
+        {:state (assoc state :ui-container container)})
+
+      :init/ui-setup-complete
+      {:state (assoc state :ui-setup? true)}
+
+      :init/nav-registered
+      {:state (assoc state :nav-registered? true)}
+
+      ;; -- Scan transitions --
+      :scan/rescan
+      {:state (-> state
+                  (update :scan-generation inc)
+                  (assoc :blocks []
+                         :modal {:visible? false :mode nil :block-id nil :error-message nil}
+                         :button-containers {}))}
+
+      :scan/block-detected
+      (let [[block-data] args]
+        {:state (update state :blocks conj block-data)})
+
+      :scan/register-button-container
+      (let [[block-id btn-container] args]
+        {:state (update-in state [:button-containers] assoc block-id btn-container)})
+
+      nil)))
+
+;; ============================================================
+;; Effect Handler & Dispatch Loop
+;; ============================================================
+
+(defn perform-effect!
+  "Effect executor - ALL side effects happen here.
+   Receives dispatch! as first arg for async callbacks."
+  [dispatch! effect]
+  (let [[effect-type & args] effect]
+    (case effect-type
+      :fx/save-script
+      (let [[block-id code] args
+            page-url js/window.location.href]
+        (-> (send-and-receive "save-script"
+                              {:code code
+                               :scriptSource page-url
+                               :force true}
+                              "save-script-response"
+                              5000)
+            (.then (fn [msg]
+                     (if (.-success msg)
+                       (dispatch! [[:block/save-succeeded block-id]])
+                       (let [error-msg (or (.-error msg) "Installation failed")]
+                         (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
+                         (dispatch! [[:block/save-failed block-id error-msg]])))))
+            (.catch (fn [error]
+                      (let [error-msg (or (.-message error) "Installation failed")]
+                        (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
+                        (dispatch! [[:block/save-failed block-id error-msg]]))))))
+
+      (js/console.warn "[Web Installer] Unknown effect:" (pr-str effect-type)))))
+
+(defn dispatch!
+  "Uniflow dispatch loop: for each action, call handle-action, apply state, execute effects."
+  [actions]
+  (doseq [action actions]
+    (when-let [result (handle-action @!state action)]
+      (when-let [new-state (:state result)]
+        (reset! !state new-state))
+      (when-let [effects (:effects result)]
+        (doseq [effect effects]
+          (perform-effect! dispatch! effect))))))
+
+;; ============================================================
+;; Replicant Bridge
+;; ============================================================
+
+(defn handle-event
+  "Replicant dispatch bridge - translates Replicant events to Uniflow actions.
+   DOM-dependent actions are handled directly;
+   all other actions route through dispatch!."
+  [replicant-data action]
+  (let [[action-type & _args] action]
+    (case action-type
+      ;; DOM events can't be pure - handle directly
       :block/modal-click
-      ;; Stop propagation to prevent overlay-click from firing
       (when-let [e (:replicant/dom-event replicant-data)]
         (.stopPropagation e))
 
-      :block/cancel-install
-      (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
-
-      :block/close-error
-      (swap! !state assoc :modal {:visible? false :mode nil :block-id nil :error-message nil})
-
-      :block/confirm-install
-      (let [[block-id code] args]
-        (handle-confirm-install! block-id code))
+      ;; All state/effect actions route through Uniflow dispatch
+      (:block/show-confirm :block/overlay-click :block/cancel-install
+                           :block/close-error :block/confirm-install
+                           :init/icon-loaded :init/scripts-loaded :init/block-status-update
+                           :init/ui-container-set :init/ui-setup-complete :init/nav-registered
+                           :scan/rescan :scan/block-detected :scan/register-button-container)
+      (dispatch! [action])
 
       ;; Default
       (js/console.warn "[Block Installer] Unknown action:" (pr-str action-type)))))
 
 ;; ============================================================
-;; Rendering setup
+;; Rendering & Setup
 ;; ============================================================
 
-(defonce !button-containers (atom {}))
-(defonce !ui-container (atom nil))
-
 (defn render-ui! []
-  (let [state @!state]
-    (when-let [container @!ui-container]
-      (r/render container (render-app state))))
-  ;; Also update buttons in their inline containers
-  (doseq [[block-id btn-container] @!button-containers]
-    (when-let [block (find-block-by-id @!state block-id)]
-      (r/render btn-container (render-install-button block)))))
+  (let [state @!state
+        icon-url (:icon-url state)]
+    (when-let [container (:ui-container state)]
+      (r/render container (render-app state)))
+    ;; Also update buttons in their inline containers
+    (doseq [[block-id btn-container] (:button-containers state)]
+      (when-let [block (find-block-by-id state block-id)]
+        (r/render btn-container (render-install-button block icon-url))))))
 
 (defn ensure-installer-css!
   "Inject installer CSS into document.head (idempotent - no-op if already exists)."
@@ -746,21 +815,21 @@
                         (set! (.-id el) "epupp-block-installer")
                         (.appendChild js/document.body el)
                         el))]
-    (reset! !ui-container container))
+    (dispatch! [[:init/ui-container-set container]]))
 
   ;; Set up Replicant dispatcher (idempotent)
   (r/set-dispatch! handle-event)
 
-  ;; One-time setup: ESC handler and state watch (guarded by window flag)
-  (when-not (.-__epuppWebInstallerUISetup js/window)
-    (set! (.-__epuppWebInstallerUISetup js/window) true)
+  ;; One-time setup: ESC handler and state watch (guarded by state flag)
+  (when-not (:ui-setup? @!state)
+    (dispatch! [[:init/ui-setup-complete]])
 
     ;; Dismiss modal on ESC key
     (.addEventListener js/document "keydown"
                        (fn [e]
                          (when (and (= (.-key e) "Escape")
                                     (get-in @!state [:modal :visible?]))
-                           (swap! !state assoc :modal {:visible? false :mode nil :block-id nil}))))
+                           (dispatch! [[:block/cancel-install]]))))
 
     ;; Re-render on state changes
     (add-watch !state ::render (fn [_ _ _ _] (render-ui!))))
@@ -769,7 +838,7 @@
   (render-ui!))
 
 ;; ============================================================
-;; Gist scanning and initialization
+;; Scanning & Initialization
 ;; ============================================================
 
 (defn- script-button-exists?
@@ -783,7 +852,7 @@
   (let [btn-container (js/document.createElement tag-name)]
     (set! (.-className btn-container) "epupp-btn-container")
     (.setAttribute btn-container "data-epupp-script" script-name)
-    (swap! !button-containers assoc block-id btn-container)
+    (dispatch! [[:scan/register-button-container block-id btn-container]])
     btn-container))
 
 (defn- render-button-into-container!
@@ -791,7 +860,7 @@
    Returns true if Replicant render succeeded."
   [container block-data]
   (try
-    (r/render container (render-install-button block-data))
+    (r/render container (render-install-button block-data (:icon-url @!state)))
     true
     (catch :default e
       (js/console.error "[Web Userscript Installer] Replicant render error:" e)
@@ -852,7 +921,7 @@
                            :format (:format block-info)
                            :status (:install-state state-info)}
                           state-info)]
-    (swap! !state update :blocks conj block-data)
+    (dispatch! [[:scan/block-detected block-data]])
     (attach-button-to-block! block-info block-data)))
 
 (defn- process-code-block!+
@@ -897,7 +966,7 @@
                 (-> (fetch-script-code!+ script-name)
                     (.then (fn [existing-code]
                              (let [state-info (determine-button-state script-name page-code installed-scripts existing-code)]
-                               (swap! !state update-block-status (:id block) (:install-state state-info)))))
+                               (dispatch! [[:init/block-status-update (:id block) (:install-state state-info)]]))))
                     (.catch (fn [e]
                               (js/console.error "[Web Userscript Installer] Error updating block" script-name e))))
                 (js/Promise.resolve nil))))))
@@ -923,12 +992,12 @@
 (defn scan-with-retry!
   "Scan for code blocks, retry with backoff if no blocks found.
    Uses generation counter to cancel stale retry chains."
-  ([] (scan-with-retry! @!scan-generation 0))
+  ([] (scan-with-retry! (:scan-generation @!state) 0))
   ([generation retry-index]
-   (when (= generation @!scan-generation)
+   (when (= generation (:scan-generation @!state))
      (-> (scan-code-blocks!)
          (.then (fn [_]
-                  (when (= generation @!scan-generation)
+                  (when (= generation (:scan-generation @!state))
                     (let [block-count (count (:blocks @!state))]
                       (when (and (zero? block-count)
                                  (< retry-index (count retry-delays)))
@@ -941,9 +1010,7 @@
   "Reset DOM-tied state and re-scan for code blocks.
    Safe to call repeatedly - cancels any in-flight retry chains via generation counter."
   []
-  (swap! !scan-generation inc)
-  (swap! !state assoc :blocks [] :modal {:visible? false :mode nil :block-id nil :error-message nil})
-  (reset! !button-containers {})
+  (dispatch! [[:scan/rescan]])
   (scan-with-retry!))
 
 (defn init! []
@@ -969,22 +1036,22 @@
   (when-not (:icon-url @!state)
     (-> (fetch-icon-url!+)
         (.then (fn [url]
-                 (swap! !state assoc :icon-url url)))
+                 (dispatch! [[:init/icon-loaded url]])))
         (.catch (fn [_]))))
 
   ;; Fetch installed scripts for button state awareness
-  (let [gen @!scan-generation]
+  (let [gen (:scan-generation @!state)]
     (-> (fetch-installed-scripts!+)
         (.then (fn [installed-scripts]
-                 (when (= gen @!scan-generation)
-                   (swap! !state assoc :installed-scripts installed-scripts)
+                 (when (= gen (:scan-generation @!state))
+                   (dispatch! [[:init/scripts-loaded installed-scripts]])
                    (update-existing-blocks-with-installed-scripts!+ installed-scripts))))
         (.catch (fn [error]
                   (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error)))))
 
   ;; SPA navigation listener (once)
-  (when-not (.-__epuppWebInstallerNavRegistered js/window)
-    (set! (.-__epuppWebInstallerNavRegistered js/window) true)
+  (when-not (:nav-registered? @!state)
+    (dispatch! [[:init/nav-registered]])
     (when js/window.navigation
       (let [!nav-timeout (atom nil)
             !last-url (atom js/window.location.href)]
