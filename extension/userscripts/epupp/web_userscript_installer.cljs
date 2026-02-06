@@ -221,6 +221,8 @@
                  :block-id nil
                  :error-message nil}}))
 
+(defonce !scan-generation (atom 0))
+
 (def retry-delays [100 1000 3000])
 
 (defn find-block-by-id [state block-id]
@@ -331,7 +333,6 @@
                      (when (and (= (aget data "source") "epupp-bridge")
                                 (= (aget data "type") "save-script-response")
                                 (= (aget data "requestId") request-id))
-                       (js/console.log "[Web Userscript Installer] Received save response" (aget data "success"))
                        (when-let [tid @timeout-id]
                          (js/clearTimeout tid))
                        (.removeEventListener js/window "message" listener)
@@ -346,7 +347,6 @@
                 (.removeEventListener js/window "message" listener)
                 (callback #js {:success false :error "Timeout waiting for save response"}))
               5000))
-    (js/console.log "[Web Userscript Installer] Sending save request" request-id)
     (.postMessage js/window
                   #js {:source "epupp-userscript"
                        :type "save-script"
@@ -512,17 +512,13 @@
 (defn- handle-confirm-install!
   "Handle the confirm-install action: close modal, set installing state, send save request."
   [block-id code]
-  (js/console.log "[Web Userscript Installer] Confirming install for block:" block-id)
   (swap! !state assoc :modal {:visible? false :mode nil :block-id nil})
   (swap! !state update-block-status block-id :installing)
   (send-save-request!
    code
    (fn [response]
-     (js/console.log "[Web Userscript Installer] Save response:" (.-success response) (.-error response))
      (if (.-success response)
-       (do
-         (js/console.log "[Web Userscript Installer] Save successful, updating to :installed")
-         (swap! !state update-block-status block-id :installed))
+       (swap! !state update-block-status block-id :installed)
        (let [error-msg (or (.-error response) "Installation failed")]
          (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
          (swap! !state update-block-status block-id :error error-msg)
@@ -744,24 +740,30 @@
       (.appendChild js/document.head style-el))))
 
 (defn setup-ui! []
-  ;; Create main UI container for modal
-  (let [container (js/document.createElement "div")]
-    (set! (.-id container) "epupp-block-installer")
-    (.appendChild js/document.body container)
+  ;; Reuse existing UI container or create new one
+  (let [container (or (js/document.getElementById "epupp-block-installer")
+                      (let [el (js/document.createElement "div")]
+                        (set! (.-id el) "epupp-block-installer")
+                        (.appendChild js/document.body el)
+                        el))]
     (reset! !ui-container container))
 
-  ;; Set up Replicant dispatcher (once)
+  ;; Set up Replicant dispatcher (idempotent)
   (r/set-dispatch! handle-event)
 
-  ;; Dismiss modal on ESC key
-  (.addEventListener js/document "keydown"
-                     (fn [e]
-                       (when (and (= (.-key e) "Escape")
-                                  (get-in @!state [:modal :visible?]))
-                         (swap! !state assoc :modal {:visible? false :mode nil :block-id nil}))))
+  ;; One-time setup: ESC handler and state watch (guarded by window flag)
+  (when-not (.-__epuppWebInstallerUISetup js/window)
+    (set! (.-__epuppWebInstallerUISetup js/window) true)
 
-  ;; Re-render on state changes
-  (add-watch !state ::render (fn [_ _ _ _] (render-ui!)))
+    ;; Dismiss modal on ESC key
+    (.addEventListener js/document "keydown"
+                       (fn [e]
+                         (when (and (= (.-key e) "Escape")
+                                    (get-in @!state [:modal :visible?]))
+                           (swap! !state assoc :modal {:visible? false :mode nil :block-id nil}))))
+
+    ;; Re-render on state changes
+    (add-watch !state ::render (fn [_ _ _ _] (render-ui!))))
 
   ;; Initial render
   (render-ui!))
@@ -844,16 +846,13 @@
   [block-info block-id manifest code-text existing-code installed-scripts]
   (let [script-name (:script-name manifest)
         state-info (determine-button-state script-name code-text installed-scripts existing-code)
-        _ (js/console.log "[Web Userscript Installer] State info:" (pr-str state-info))
         block-data (merge {:id block-id
                            :manifest manifest
                            :code code-text
                            :format (:format block-info)
                            :status (:install-state state-info)}
                           state-info)]
-    (js/console.log "[Web Userscript Installer] Processing block:" script-name "existing-code:" (some? existing-code))
     (swap! !state update :blocks conj block-data)
-    (js/console.log "[Web Userscript Installer] About to attach button for" script-name)
     (attach-button-to-block! block-info block-data)))
 
 (defn- process-code-block!+
@@ -872,9 +871,7 @@
               block-id (if (and existing-id (pos? (count existing-id)))
                          existing-id
                          (str "block-" (.randomUUID js/crypto)))]
-          (js/console.log "[Web Userscript Installer] Found installable script:" script-name)
           (.setAttribute element "data-epupp-processed" "true")
-          (js/console.log "[Web Userscript Installer] Block ID:" block-id "format:" (:format block-info))
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
           (-> (if (get installed-scripts script-name)
@@ -891,7 +888,6 @@
    Returns promise that resolves when all updates are complete."
   [installed-scripts]
   (let [blocks (:blocks @!state)]
-    (js/console.log "[Web Userscript Installer] Updating" (count blocks) "blocks with" (count (keys installed-scripts)) "installed scripts")
     (-> (js/Promise.all
          (to-array
           (for [block blocks]
@@ -901,13 +897,10 @@
                 (-> (fetch-script-code!+ script-name)
                     (.then (fn [existing-code]
                              (let [state-info (determine-button-state script-name page-code installed-scripts existing-code)]
-                               (swap! !state update-block-status (:id block) (:install-state state-info))
-                               (js/console.log "[Web Userscript Installer] Updated block" script-name "to" (:install-state state-info)))))
+                               (swap! !state update-block-status (:id block) (:install-state state-info)))))
                     (.catch (fn [e]
                               (js/console.error "[Web Userscript Installer] Error updating block" script-name e))))
                 (js/Promise.resolve nil))))))
-        (.then (fn [_]
-                 (js/console.log "[Web Userscript Installer] Finished updating block states")))
         (.catch (fn [error]
                   (js/console.error "[Web Userscript Installer] Error updating blocks:" error))))))
 
@@ -922,67 +915,88 @@
     (-> (js/Promise.all
          (to-array (map #(process-code-block!+ % installed-scripts) unprocessed)))
         (.then (fn [_]
-                 (js/console.log "[Web Userscript Installer] Scan complete")
                  (when-let [marker (js/document.getElementById "epupp-installer-debug")]
                    (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))))
         (.catch (fn [error]
-                  (js/console.error "[Web Userscript Installer] Scan error:" error)
-                  (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-                    (set! (.-textContent marker) (str "Scan ERROR: " (.-message error)))))))))
+                  (js/console.error "[Web Userscript Installer] Scan error:" error))))))
 
 (defn scan-with-retry!
-  "Scan for code blocks, retry with backoff if no blocks found"
-  ([] (scan-with-retry! 0))
-  ([retry-index]
-   (-> (scan-code-blocks!)
-       (.then (fn [_]
-                (let [block-count (count (:blocks @!state))]
-                  (if (and (zero? block-count)
-                           (< retry-index (count retry-delays)))
-                    (let [delay (nth retry-delays retry-index)]
-                      (js/console.log "[Web Userscript Installer] No blocks found, retrying in" delay "ms (attempt" (inc retry-index) "of" (count retry-delays) ")")
-                      (js/setTimeout #(scan-with-retry! (inc retry-index)) delay))
-                    (js/console.log "[Web Userscript Installer] Scan complete, found" block-count "blocks")))))
-       (.catch (fn [error]
-                 (js/console.error "[Web Userscript Installer] Scan error:" error))))))
+  "Scan for code blocks, retry with backoff if no blocks found.
+   Uses generation counter to cancel stale retry chains."
+  ([] (scan-with-retry! @!scan-generation 0))
+  ([generation retry-index]
+   (when (= generation @!scan-generation)
+     (-> (scan-code-blocks!)
+         (.then (fn [_]
+                  (when (= generation @!scan-generation)
+                    (let [block-count (count (:blocks @!state))]
+                      (if (and (zero? block-count)
+                               (< retry-index (count retry-delays)))
+                        (let [delay (nth retry-delays retry-index)]
+                          (js/setTimeout #(scan-with-retry! generation (inc retry-index)) delay)))))))
+         (.catch (fn [error]
+                   (js/console.error "[Web Userscript Installer] Scan error:" error)))))))
+
+(defn rescan!
+  "Reset DOM-tied state and re-scan for code blocks.
+   Safe to call repeatedly - cancels any in-flight retry chains via generation counter."
+  []
+  (swap! !scan-generation inc)
+  (swap! !state assoc :blocks [] :modal {:visible? false :mode nil :block-id nil :error-message nil})
+  (reset! !button-containers {})
+  (scan-with-retry!))
 
 (defn init! []
-  (js/console.log "[Web Userscript Installer] Initializing with Replicant...")
+  (js/console.log "[Web Userscript Installer] Initializing...")
 
-  ;; Debug marker - invisible element to confirm script ran
-  (let [marker (js/document.createElement "div")]
-    (set! (.-id marker) "epupp-installer-debug")
-    (set! (.-textContent marker) "Installer script executed")
-    (set! (.. marker -style -display) "none")
-    (when js/document.body
-      (.appendChild js/document.body marker)))
+  ;; Debug marker (idempotent)
+  (when-not (js/document.getElementById "epupp-installer-debug")
+    (let [marker (js/document.createElement "div")]
+      (set! (.-id marker) "epupp-installer-debug")
+      (set! (.. marker -style -display) "none")
+      (when js/document.body
+        (.appendChild js/document.body marker))))
 
   (ensure-installer-css!)
   (setup-ui!)
 
-  ;; Scan immediately (with empty installed-scripts)
+  ;; Initial scan
   (if (= js/document.readyState "loading")
-    (.addEventListener js/document "DOMContentLoaded" scan-with-retry!)
-    (scan-with-retry!))
+    (.addEventListener js/document "DOMContentLoaded" rescan!)
+    (rescan!))
 
-  ;; Fetch icon URL from extension (for single-source icon updates)
-  (-> (fetch-icon-url!+)
-      (.then (fn [url]
-               (js/console.log "[Web Userscript Installer] Got icon URL:" url)
-               (swap! !state assoc :icon-url url)))
-      (.catch (fn [error]
-                (js/console.warn "[Web Userscript Installer] Could not fetch icon URL, using fallback:" error))))
+  ;; Fetch icon URL (once)
+  (when-not (:icon-url @!state)
+    (-> (fetch-icon-url!+)
+        (.then (fn [url]
+                 (swap! !state assoc :icon-url url)))
+        (.catch (fn [_]))))
 
-  ;; Fetch installed scripts in background for state awareness
-  ;; This will update button states when info arrives
-  (-> (fetch-installed-scripts!+)
-      (.then (fn [installed-scripts]
-               (js/console.log "[Web Userscript Installer] Fetched" (count (keys installed-scripts)) "installed scripts")
-               (swap! !state assoc :installed-scripts installed-scripts)
-               ;; Update existing blocks with installed script info
-               (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
-      (.catch (fn [error]
-                (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
+  ;; Fetch installed scripts for button state awareness
+  (let [gen @!scan-generation]
+    (-> (fetch-installed-scripts!+)
+        (.then (fn [installed-scripts]
+                 (when (= gen @!scan-generation)
+                   (swap! !state assoc :installed-scripts installed-scripts)
+                   (update-existing-blocks-with-installed-scripts!+ installed-scripts))))
+        (.catch (fn [error]
+                  (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error)))))
+
+  ;; SPA navigation listener (once)
+  (when-not (.-__epuppWebInstallerNavRegistered js/window)
+    (set! (.-__epuppWebInstallerNavRegistered js/window) true)
+    (when js/window.navigation
+      (let [!nav-timeout (atom nil)
+            !last-url (atom js/window.location.href)]
+        (.addEventListener js/window.navigation "navigate"
+                           (fn [evt]
+                             (let [new-url (.-url (.-destination evt))]
+                               (when (not= new-url @!last-url)
+                                 (reset! !last-url new-url)
+                                 (when-let [tid @!nav-timeout]
+                                   (js/clearTimeout tid))
+                                 (reset! !nav-timeout
+                                         (js/setTimeout rescan! 300)))))))))
 
   (js/console.log "[Web Userscript Installer] Ready"))
 

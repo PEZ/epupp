@@ -55,7 +55,7 @@
 * [x] Rename `:epupp/require` to something else. It conflicts with Clojure `require` semantics (renamed to `:epupp/inject`)
 * [ ] Consider making `https://example.com/*` also match `https://example.com/` and `https://example.com`
 * [x] Enforce no user provided userscripts use epupp namespaces/directories
-* [ ] Get logging under control
+* [x] Get logging under control
 * [x] Add auto-run or some such to manifest? Or make no match pattern mean, not intended for auto-run...
 * [x] BUG: Scripts not run from the popup play button.
 * [x] Chase down Uniflow violations in panel and popup
@@ -69,8 +69,8 @@
 * [ ] Fix `epupp/` prefix error messages to not call it namespace
 * [ ] Protect `epupp/` files from being deleted
 * [ ] `mv!`, wrong delete count, when some are rejected
-* [ ] Gist installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?
+* [ ] Web installer fails to install with miss-spelled `:epupp/` keys in the manifest. Should it?
 * [x] BUG: Gist installer fails to install when manifest does not declare `:epupp/auto-run-match`
 * [x] Add setting for default repl ports
-* [ ] Make popup show when a script is injected
-* [ ] Run scripts on SPA page navigation
+* [~] Make popup show when a script is injected
+* [x] Run scripts on SPA page navigation

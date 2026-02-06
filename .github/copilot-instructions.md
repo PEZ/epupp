@@ -204,8 +204,8 @@ Use `--` to separate task options from Playwright options.
 
 ### AI Development Workflow (Local - VS Code with Human)
 
-**Before starting work:**
-1. **Verify watchers are running** - check watcher task output for compilation/test status
+**Before starting any implementation work:**
+1. **Verify watchers are running** - check watcher task output for compilation/test status, if the watchers are not running, STOP and ask the user to start them.
 2. **Check problem report** - review any existing lint errors
 3. **Verify REPLs** - use `clojure_list_sessions` to confirm available sessions:
    - `bb` - Babashka REPL for scripting and automation
