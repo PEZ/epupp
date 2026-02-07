@@ -1,1 +1,1 @@
-{:source-paths ["test-data/tampers" "src" "test-data" "extensuon/userscripts"]}
+{:source-paths ["test-data/tampers" "src" "test-data" "extension/userscripts"]}
