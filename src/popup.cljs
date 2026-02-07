@@ -25,7 +25,8 @@
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
                                  :other-scripts false     ; expanded by default
-                                 :settings true}          ; collapsed by default
+                                 :settings true           ; collapsed by default
+                                 :dev-tools false}        ; expanded by default (dev only)
          :browser/brave? false
          :scripts/list []         ; All userscripts (source of truth)
          :scripts/current-url nil ; Current tab URL for matching
@@ -41,6 +42,7 @@
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
          :sponsor/status false
          :sponsor/checked-at nil
+         :dev/sponsor-username "PEZ"
          :repl/connections []         ; Source of truth for connections
          ;; Shadow lists for rendering with animation state
          ;; Shape: [{:item <original> :ui/entering? bool :ui/leaving? bool}]
@@ -432,7 +434,8 @@
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
 
     :popup/fx.check-sponsor
-    (js/chrome.tabs.create #js {:url "https://github.com/sponsors/PEZ" :active true})
+    (let [username (or (:dev/sponsor-username @!state) "PEZ")]
+      (js/chrome.tabs.create #js {:url (str "https://github.com/sponsors/" username) :active true}))
 
     :popup/fx.load-sponsor-status
     (js/chrome.storage.local.get
@@ -443,6 +446,34 @@
          (dispatch [[:db/ax.assoc
                      :sponsor/status status
                      :sponsor/checked-at checked-at]]))))
+
+    :popup/fx.set-dev-sponsor-username
+    (let [[username] args
+          match-pattern (str "https://github.com/sponsors/" username "*")]
+      ;; Persist dev username
+      (js/chrome.storage.local.set
+       (js-obj "dev/sponsor-username" username))
+      ;; Update sponsor script match in storage
+      (let [scripts (:storage/scripts @storage/!db)
+            updated (mapv (fn [s]
+                            (if (= (:script/id s) "epupp-builtin-sponsor-check")
+                              (assoc s :script/match [match-pattern])
+                              s))
+                          scripts)]
+        (swap! storage/!db assoc :storage/scripts updated)
+        (storage/persist!)))
+
+    :popup/fx.reset-sponsor-status
+    (js/chrome.storage.local.remove
+     #js ["sponsorStatus" "sponsorCheckedAt"])
+
+    :popup/fx.load-dev-sponsor-username
+    (js/chrome.storage.local.get
+     #js ["dev/sponsor-username"]
+     (fn [result]
+       (let [username (aget result "dev/sponsor-username")]
+         (when username
+           (dispatch [[:db/ax.assoc :dev/sponsor-username username]])))))
 
     :popup/fx.log-system-banner
     ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
@@ -628,19 +659,32 @@
              "Check your script patterns in DevTools → Epupp panel."))]])]))
 
 ;; =============================================================================
-;; Dev Log Button (only shown in dev/test mode)
+;; Dev Tools Section (only shown in dev/test mode)
 ;; =============================================================================
 
-(defn dev-log-button
-  "Button to dump all test events to console. Only shown in dev/test mode.
-   Playwright can capture console output via page.on('console')."
-  []
-  [:div.dev-log-section
-   [view-elements/action-button
-    {:button/variant :secondary
-     :button/class "dev-log-btn"
-     :button/on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
-    "Dump Dev Log"]])
+(defn dev-tools-section
+  "Dev tools: sponsor username, reset sponsor status, dump dev log.
+   Only visible in dev/test builds."
+  [{:dev/keys [sponsor-username]}]
+  [:div.dev-tools-content
+   [:div.setting
+    [:label {:for "dev-sponsor-username"} "Sponsor Username"]
+    [:input {:type "text"
+             :id "dev-sponsor-username"
+             :value (or sponsor-username "PEZ")
+             :on-change (fn [e]
+                          (dispatch! [[:popup/ax.set-dev-sponsor-username
+                                       (.. e -target -value)]]))}]]
+   [:div.dev-tools-buttons
+    [view-elements/action-button
+     {:button/variant :secondary
+      :button/on-click #(dispatch! [[:popup/ax.reset-sponsor-status]])}
+     "Reset Sponsor Status"]
+    [view-elements/action-button
+     {:button/variant :secondary
+      :button/class "dev-log-btn"
+      :button/on-click #(dispatch! [[:popup/ax.dump-dev-log]])}
+     "Dump Dev Log"]]])
 
 ;; ============================================================
 ;; Settings Components
@@ -888,7 +932,10 @@
                            :max-height (str settings-max-height "px")}
       [settings-content state]]
      (when (or (.-dev config) (.-test config))
-       [dev-log-button])
+       [collapsible-section {:id :dev-tools
+                             :title "Dev Tools"
+                             :expanded? (not (:dev-tools sections-collapsed))}
+        [dev-tools-section state]])
      [view-elements/app-footer {:elements/wrapper-class "popup-footer"}]]))
 
 (defn render! []
@@ -1009,7 +1056,8 @@
               [:popup/ax.load-fs-sync-setting]
               [:popup/ax.load-debug-logging-setting]
               [:popup/ax.load-connections]
-              [:popup/ax.load-sponsor-status]]))
+              [:popup/ax.load-sponsor-status]
+              [:popup/ax.load-dev-sponsor-username]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" "Script loaded, readyState:" js/document.readyState)

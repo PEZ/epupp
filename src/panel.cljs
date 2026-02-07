@@ -303,7 +303,11 @@
              (dispatch [[:editor/ax.set-tab-connected connected?]]))))))
 
     :editor/fx.check-sponsor
-    (js/chrome.tabs.create #js {:url "https://github.com/sponsors/PEZ" :active true})
+    (js/chrome.storage.local.get
+     #js ["dev/sponsor-username"]
+     (fn [result]
+       (let [username (or (aget result "dev/sponsor-username") "PEZ")]
+         (js/chrome.tabs.create #js {:url (str "https://github.com/sponsors/" username) :active true}))))
 
     :editor/fx.load-sponsor-status
     (js/chrome.storage.local.get

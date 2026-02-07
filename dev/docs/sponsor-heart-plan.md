@@ -438,35 +438,65 @@ The script must be:
 - [ ] Verified by e2e tests (not applicable - documentation only)
 - [ ] Verified by PEZ
 
-### Chunk 12: Dev-mode Sponsor Match Override
+### Chunk 12: Dev Tools UI for Sponsor Testing
 
-**Files:** `src/storage.cljs`, `src/background.cljs`
+**Files:** `src/storage.cljs`, `src/background.cljs`, `src/popup.cljs`, `src/popup_actions.cljs`, `src/panel.cljs`, `extension/popup.css`
 
-In dev/test builds, the sponsor userscript should auto-run on ANY GitHub sponsor page
-(not just PEZ's), so the developer can test detection against pages where they are an
-actual sponsor (e.g., `github.com/sponsors/jeaye`) or have just sponsored
-(`github.com/sponsors/borkdude?success=true`).
+Replaces the previous `!dev-mode?` / `:dev-match` mechanism (which never actually worked
+because `save-script!` re-parses the manifest and overwrites the match from
+`build-bundled-script`).
 
-- [x] Add `!dev-mode?` atom to `src/storage.cljs`
-- [x] Add `:dev-match` field to sponsor builtin entry in `bundled-builtins`
-- [x] Update `init!` to accept `{:keys [dev?]}` option map and store the flag
-- [x] Update `build-bundled-script` to use `:dev-match` when in dev mode
-- [x] Update `src/background.cljs` to pass `{:dev? (.-dev config)}` to `storage/init!`
-- [ ] Verified by unit tests (417 passing)
-- [ ] Verified by e2e tests (119 passing)
+- [x] Remove `!dev-mode?` atom from `src/storage.cljs`
+- [x] Remove `:dev-match` field from `bundled-builtins` catalog
+- [x] Simplify `init!` to take no args (removed `:dev?` parameter)
+- [x] Simplify `build-bundled-script` - remove dev-match logic
+- [x] Update `src/background.cljs` - `storage/init!` called with no args
+- [x] Add `apply-dev-sponsor-override!` to `storage.cljs` - reads dev username from
+      storage and overrides sponsor script match after `sync-builtin-scripts!`
+- [x] `sync-builtin-scripts!` calls `apply-dev-sponsor-override!` at the end
+- [x] Clear `dev/sponsor-username` from storage in `onInstalled` handler
+- [x] Add Dev Tools collapsible section in popup (dev/test builds only)
+- [x] Add sponsor username text input (default: PEZ)
+- [x] Add Reset Sponsor Status button
+- [x] Move Dump Dev Log button into Dev Tools section
+- [x] Popup heart click uses dev username from state
+- [x] Panel heart click reads dev username from storage
+- [x] Add popup actions: `set-dev-sponsor-username`, `reset-sponsor-status`, `load-dev-sponsor-username`
+- [x] Add popup effects for all three actions
+- [x] Add CSS for dev-tools-content, input, and buttons layout
+- [x] Verified by unit tests (305 passing)
+- [x] Verified by e2e tests (121 passing)
 - [ ] Verified by PEZ
 
 **Design:**
-- Production match: `"https://github.com/sponsors/PEZ*"` (from userscript manifest)
-- Dev match: `["https://github.com/sponsors/*"]` (from `:dev-match` in builtin catalog)
-- The `!dev-mode?` flag is set once during `init!` and read by `build-bundled-script`
-- The `onChanged` listener that calls `sync-builtin-scripts!` automatically picks up the
-  flag since it reads from the module-level atom
 
-**To activate dev-mode:** After `bb build:dev`, reload the extension in Chrome
-(`chrome://extensions` > Epupp reload button). The match pattern in the popup script list
-should show `https://github.com/sponsors/*` instead of `https://github.com/sponsors/PEZ*`.
-Then navigate to any GitHub sponsors page to test detection.
+A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containing:
+1. Sponsor Username text input (persisted to `chrome.storage.local` as `dev/sponsor-username`)
+2. Reset Sponsor Status button (clears `sponsorStatus` and `sponsorCheckedAt`)
+3. Dump Dev Log button (moved from standalone rendering)
+
+**Username override flow:**
+1. User changes username in Dev Tools input
+2. Popup effect persists to chrome.storage.local AND directly updates the sponsor
+   script's `:script/match` in `storage/!db` + `persist!`
+3. Heart click opens `https://github.com/sponsors/{username}` (popup reads from
+   `!state`, panel reads from storage)
+4. On extension reinstall/update (`onInstalled`), dev username is cleared from
+   storage, reverting to "PEZ"
+5. On service worker wake, `sync-builtin-scripts!` writes the manifest match,
+   then `apply-dev-sponsor-override!` re-applies the stored dev username override
+
+**Reset on install/update (not every wake):**
+- `onInstalled` fires on extension install, update, and Chrome update
+- Reloading via chrome://extensions counts as "update"
+- Service worker hibernation/wake does NOT clear the dev username
+- This means the username persists across popup reopens and SW hibernation,
+  but resets when a new build is loaded
+
+**Key insight:** The previous `!dev-mode?` / `:dev-match` approach was broken because
+`save-script!` always re-parses the manifest and uses the manifest's `auto-run-match`
+as the source of truth. The new approach applies the override AFTER `save-script!`
+completes, bypassing the manifest-is-source-of-truth logic.
 
 ### Chunk 13: Userscript Idempotency
 

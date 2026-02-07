@@ -958,3 +958,28 @@ button#connect:active {
   padding: 1px 4px;
   border-radius: 3px;
 }
+
+/* ============================================================
+   Dev Tools Section
+   ============================================================ */
+
+.dev-tools-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.dev-tools-content .setting input[type="text"] {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.dev-tools-buttons {
+  display: flex;
+  gap: 8px;
+}

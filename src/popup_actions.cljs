@@ -324,6 +324,18 @@
     (let [[brave?] args]
       {:uf/db (assoc state :browser/brave? brave?)})
 
+    :popup/ax.set-dev-sponsor-username
+    (let [[username] args]
+      {:uf/db (assoc state :dev/sponsor-username username)
+       :uf/fxs [[:popup/fx.set-dev-sponsor-username username]]})
+
+    :popup/ax.reset-sponsor-status
+    {:uf/db (assoc state :sponsor/status false :sponsor/checked-at nil)
+     :uf/fxs [[:popup/fx.reset-sponsor-status]]}
+
+    :popup/ax.load-dev-sponsor-username
+    {:uf/fxs [[:popup/fx.load-dev-sponsor-username]]}
+
     :popup/ax.check-sponsor
     {:uf/fxs [[:popup/fx.check-sponsor]]}
 

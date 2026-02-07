@@ -743,6 +743,8 @@
   (.addListener js/chrome.runtime.onInstalled
                 (fn [details]
                   (log/info "Background" "onInstalled:" (.-reason details))
+                  ;; Reset dev sponsor username on install/update so it defaults back to PEZ
+                  (js/chrome.storage.local.remove #js ["dev/sponsor-username"])
                   (ensure-initialized! dispatch!)))
 
   (.addListener js/chrome.runtime.onStartup
@@ -773,7 +775,7 @@
       ((^:async fn []
          (try
            (js-await (test-logger/init-test-mode!))
-           (js-await (storage/init! {:dev? (boolean (.-dev config))}))
+           (js-await (storage/init!))
            ;; Load debug logging setting and apply it
            (js-await (js/Promise.
                       (fn [res]
