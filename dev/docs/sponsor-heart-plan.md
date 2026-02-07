@@ -384,14 +384,16 @@ Register the sponsor check script as a builtin userscript, following the pattern
 - [x] Add entry to `builtin-scripts` catalog in `src/storage.cljs`
 - [x] Place userscript file at `extension/userscripts/epupp/sponsor.cljs`
 - [x] Verify `sync-builtin-scripts!` picks it up on extension init (e2e)
-- [x] Builtins with match patterns have the same enable/disable toggle as regular scripts (by design - gated on `(seq match)`, not builtin status)
+- [x] Builtins must not have an enable/disable toggle in the UI
+- [x] Builtins must be force-enabled on every `sync-builtin-scripts!` call
+- [x] `toggle-script!` must reject attempts to toggle builtins
 - [x] Verify script is not deletable by the user (e2e)
 - [x] Verify script is visible in popup script list (transparency) (e2e)
 - [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (3 new tests in sponsor_builtin_test.cljs, 119 total passing)
+- [x] Verified by e2e tests (sponsor_builtin_test.cljs verifies: visible, no delete, no toggle checkbox, always enabled in storage)
 - [ ] Verified by PEZ
 
-**Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Added PEZ to the forever-sponsors map. E2E tests verify: script visible in popup list, no delete button for builtins, and storage sync on init with `builtin: true` flag. Note: builtins with `:epupp/auto-run-match` patterns get the enable/disable checkbox (gated on `(when (seq match))`, not on builtin status) - this is consistent with the web installer builtin behavior.
+**Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Added PEZ to the forever-sponsors map. The UI suppresses the enable/disable checkbox for builtins (gated on `builtin?` in addition to `(seq match)`). `toggle-script!` silently ignores builtins. `sync-builtin-scripts!` force-enables all builtins on every sync.
 
 **Builtin registration pattern (from `src/storage.cljs`):**
 
@@ -417,7 +419,7 @@ Register the sponsor check script as a builtin userscript, following the pattern
 4. Extension initialization triggers `storage/init!` which calls `sync-builtin-scripts!` at startup.
 
 The script must be:
-- **Enabled by default** - has the standard enable/disable toggle (same as all scripts with match patterns)
+- **Always enabled** - no UI toggle for disabling; force-enabled on every sync
 - **Not deletable** by the user
 - Visible in the popup script list (so users can read the source and verify privacy claims)
 
@@ -463,6 +465,11 @@ actual sponsor (e.g., `github.com/sponsors/jeaye`) or have just sponsored
 - The `!dev-mode?` flag is set once during `init!` and read by `build-bundled-script`
 - The `onChanged` listener that calls `sync-builtin-scripts!` automatically picks up the
   flag since it reads from the module-level atom
+
+**To activate dev-mode:** After `bb build:dev`, reload the extension in Chrome
+(`chrome://extensions` > Epupp reload button). The match pattern in the popup script list
+should show `https://github.com/sponsors/*` instead of `https://github.com/sponsors/PEZ*`.
+Then navigate to any GitHub sponsors page to test detection.
 
 ## Implementation Order
 
@@ -546,8 +553,8 @@ No temporary file edits needed - the dev build handles it automatically.
 - [ ] Heart stays filled across popup/panel reopens (persisted)
 - [ ] Tooltips are correct for both states
 - [ ] Light and dark theme appearance
-- [x] Unit tests pass (`bb test`) - 417 passing
-- [x] E2E tests pass (`bb test:e2e`) - 116 passing, 13 shards
+- [ ] Unit tests pass (`bb test`) - 417 passing
+- [ ] E2E tests pass (`bb test:e2e`) - 116 passing, 13 shards
 
 ## Resolved Questions
 
@@ -559,7 +566,7 @@ No temporary file edits needed - the dev build handles it automatically.
 
 4. **Privacy** - The script sends only a boolean (sponsor/not-sponsor). No username or personal data collected. A privacy comment is included at the top of the script source. The script is visible in the popup script list for transparency.
 
-5. **Enabled by default** - The sponsor check script is enabled by default. Like all scripts with match patterns, it has an enable/disable toggle. It cannot be deleted.
+5. **Always enabled** - The sponsor check script is always enabled. The UI does not show an enable/disable toggle for builtins. `toggle-script!` rejects attempts to toggle builtins. `sync-builtin-scripts!` force-enables builtins on every sync (startup and storage changes).
 
 ## DOM Detection Strategy
 
