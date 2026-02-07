@@ -392,8 +392,6 @@ Register the sponsor check script as a builtin userscript, following the pattern
 - [ ] Verified by e2e tests (sponsor_builtin_test.cljs verifies: visible, no delete, no toggle checkbox, always enabled in storage)
 - [ ] Verified by PEZ
 
-**Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Added PEZ to the forever-sponsors map. The UI suppresses the enable/disable checkbox for builtins (gated on `builtin?` in addition to `(seq match)`). `toggle-script!` silently ignores builtins. `sync-builtin-scripts!` force-enables all builtins on every sync.
-
 **Builtin registration pattern (from `src/storage.cljs`):**
 
 1. Add entry to the `builtin-scripts` catalog (around line 32-35):
@@ -565,7 +563,7 @@ No temporary file edits needed - the dev build handles it automatically.
 
 4. **Privacy** - The script sends only a boolean (sponsor/not-sponsor). No username or personal data collected. A privacy comment is included at the top of the script source. The script is visible in the popup script list for transparency.
 
-5. **Always enabled** - The sponsor check script is always enabled. The UI does not show an enable/disable toggle for builtins. `toggle-script!` rejects attempts to toggle builtins. `sync-builtin-scripts!` force-enables builtins on every sync (startup and storage changes).
+5. **Always enabled** - The sponsor check script is always enabled. The UI does not show an enable/disable toggle for the sponsor script. `toggle-script!` rejects attempts to toggle the sponsor script. `sync-builtin-scripts!` force-enables the sponsor script on every sync (startup and storage changes). Note: this behavior is specific to the sponsor script, not all builtins - the web installer builtin retains its normal toggle.
 
 ## DOM Detection Strategy
 
