@@ -483,21 +483,6 @@ Then navigate to any GitHub sponsors page to test detection.
 11. **Chunk 11** - Documentation (after all implementation is complete)
 12. **Chunk 12** - Dev-mode match override (after builtin registration works)
 
-## Execution Workflow
-
-0. Load todo list with: initial test run, all 11 chunks
-1. Delegate to `epupp-testrunner` to verify green unit and e2e test slate
-2. For each chunk (in implementation order):
-   - a. Understand the work and delegate to `epupp-doer` with instructions:
-     - Tests are green when starting (no need to verify)
-     - Before handing off completed work, delegate to `epupp-testrunner` to verify leaving the slate as green as entered
-     - Hand off work with a brief summary of what was done and any deviations from the plan
-   - b. On handoff: check off relevant checkboxes in this plan document
-   - c. Note any deviations or problems in the chunk's section of this document
-   - d. Succinctly summarize the current state of the work to PEZ
-   - e. Do not wait for PEZ to verify - continue with next chunk
-3. Summarize the completed work to PEZ
-
 ## Testing Strategy
 
 ### Unit Tests

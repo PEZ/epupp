@@ -40,10 +40,11 @@
 ;; ============================================================
 
 (defn toggle-script-in-list
-  "Toggle enabled state for a script."
+  "Toggle enabled state for a script. Always-enabled scripts cannot be toggled."
   [scripts script-id]
   (mapv (fn [s]
-          (if (= (:script/id s) script-id)
+          (if (and (= (:script/id s) script-id)
+                   (not (:script/always-enabled? s)))
             (assoc s :script/enabled (not (:script/enabled s)))
             s))
         scripts))

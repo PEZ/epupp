@@ -183,9 +183,9 @@
                 :script/builtin? true}
         js-script (script-utils/script->js script)
         keys (js/Object.keys js-script)]
-    ;; Core fields + runAt + match for early loader
+    ;; Core fields + runAt + match + alwaysEnabled for early loader
     (-> (expect (.-length keys))
-        (.toBe 8))
+        (.toBe 9))
     (-> (expect (.includes keys "id"))
         (.toBe true))
     (-> (expect (.includes keys "code"))
@@ -215,6 +215,8 @@
     (-> (expect (aget js-script "inject"))
         (.toBeUndefined))
     (-> (expect (.-builtin js-script))
+        (.toBe true))
+    (-> (expect (.includes keys "alwaysEnabled"))
         (.toBe true))))
 
 ;; ============================================================

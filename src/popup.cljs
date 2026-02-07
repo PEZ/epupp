@@ -514,7 +514,7 @@
     ;; Fallback for unexpected types
     :else (str pattern)))
 
-(defn script-item [{:script/keys [name match enabled description run-at]
+(defn script-item [{:script/keys [name match enabled description run-at always-enabled?]
                     script-id :script/id
                     :as script}
                    current-url
@@ -578,7 +578,7 @@
            nil])]]
       ;; Row 2: Pattern (single row, CSS truncated)
       [:div.script-row-pattern
-       (when (seq match)
+       (when (and (seq match) (not always-enabled?))
          [:input.pattern-checkbox {:type "checkbox"
                                    :checked enabled
                                    :title (if enabled "Auto-run enabled" "Auto-run disabled")

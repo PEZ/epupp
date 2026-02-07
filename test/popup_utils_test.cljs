@@ -77,6 +77,12 @@
     (-> (expect (:script/enabled (second result)))
         (.toBe false))))
 
+(defn- test-does-not-toggle-always-enabled-script []
+  (let [scripts [{:script/id "s1" :script/enabled true :script/always-enabled? true}]
+        result (popup-utils/toggle-script-in-list scripts "s1")]
+    (-> (expect (:script/enabled (first result)))
+        (.toBe true))))
+
 ;; remove-script-from-list tests
 
 (defn- test-removes-script-by-id []
@@ -189,7 +195,8 @@
           (fn []
             (test "enables a disabled script" test-enables-a-disabled-script)
             (test "disables an enabled script" test-disables-an-enabled-script)
-            (test "does not modify other scripts" test-does-not-modify-other-scripts)))
+            (test "does not modify other scripts" test-does-not-modify-other-scripts)
+            (test "does not toggle always-enabled script" test-does-not-toggle-always-enabled-script)))
 
 ;; ============================================================
 ;; remove-script-from-list tests

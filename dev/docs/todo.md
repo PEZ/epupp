@@ -74,3 +74,5 @@
 * [x] Add setting for default repl ports
 * [~] Make popup show when a script is injected
 * [x] Run scripts on SPA page navigation
+* [ ] Sort built-in scripts last
+* [ ] Dev doc for web installer

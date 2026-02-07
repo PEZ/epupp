@@ -95,7 +95,8 @@
                               :script/modified (.-modified s)
                               :script/run-at (normalize-run-at (.-runAt s))
                               :script/inject (js-arr->vec (.-inject s))
-                              :script/builtin? (boolean (.-builtin s))}
+                              :script/builtin? (boolean (.-builtin s))
+                              :script/always-enabled? (boolean (.-alwaysEnabled s))}
                       manifest (when (and extract-manifest (:script/code script))
                                  (try (extract-manifest (:script/code script))
                                       (catch :default _ nil)))]
@@ -113,6 +114,7 @@
        :created (:script/created script)
        :modified (:script/modified script)
        :builtin (:script/builtin? script)
+       :alwaysEnabled (:script/always-enabled? script)
        :runAt (:script/run-at script)
        :match (clj->js (or (:script/match script) []))})
 

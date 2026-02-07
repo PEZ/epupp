@@ -40,6 +40,7 @@
    {:script/id "epupp-builtin-sponsor-check"
     :path "userscripts/epupp/sponsor.cljs"
     :name "epupp/sponsor.cljs"
+    :always-enabled? true
     :dev-match ["https://github.com/sponsors/*"]}])
 
 (defn bundled-builtin-ids
@@ -263,6 +264,8 @@
         ;; All new scripts (user and built-in) default to disabled
         default-enabled false
         new-enabled (cond
+                      ;; Always-enabled scripts cannot be disabled
+                      (:script/always-enabled? script) true
                       ;; No auto-run = disabled (manual-only script)
                       (not has-auto-run?) false
                       ;; Existing script → preserve enabled state
@@ -322,15 +325,17 @@
   (persist!))
 
 (defn toggle-script!
-  "Toggle a script's enabled state"
+  "Toggle a script's enabled state. Always-enabled scripts cannot be toggled."
   [script-id]
-  (swap! !db update :storage/scripts
-         (fn [scripts]
-           (mapv #(if (= (:script/id %) script-id)
-                    (update % :script/enabled not)
-                    %)
-                 scripts)))
-  (persist!))
+  (let [script (get-script script-id)]
+    (when-not (:script/always-enabled? script)
+      (swap! !db update :storage/scripts
+             (fn [scripts]
+               (mapv #(if (= (:script/id %) script-id)
+                        (update % :script/enabled not)
+                        %)
+                     scripts)))
+      (persist!))))
 
 (defn rename-script!
   "Rename a script (update display name only, ID remains stable)"
@@ -442,7 +447,8 @@
       (some? match) (assoc :script/match match)
       (some? run-at) (assoc :script/run-at run-at)
       manifest-description (assoc :script/description manifest-description)
-      (seq inject) (assoc :script/inject inject))))
+      (seq inject) (assoc :script/inject inject)
+      (:always-enabled? bundled) (assoc :script/always-enabled? true))))
 
 (defn builtin-update-needed?
   "Check whether a built-in script needs to be updated from bundled code."

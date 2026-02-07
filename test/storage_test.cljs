@@ -54,16 +54,19 @@
 
 (defn determine-enabled-state
   "Determine the enabled state for a script based on:
-   1. Whether it has auto-run patterns
-   2. Whether it's a new or existing script
-   3. Whether it's a built-in script
+   1. Whether it's always-enabled (e.g. sponsor script)
+   2. Whether it has auto-run patterns
+   3. Whether it's a new or existing script
 
    Logic:
+   - Always-enabled → always true
    - No auto-run patterns → always false (manual-only)
    - Has patterns + existing → preserve existing enabled state
    - Has patterns + new → always false (all new scripts start disabled)"
-  [{:keys [has-auto-run? existing-enabled is-new?]}]
+  [{:keys [has-auto-run? existing-enabled is-new? always-enabled?]}]
   (cond
+    ;; Always-enabled scripts cannot be disabled
+    always-enabled? true
     ;; No auto-run = disabled (manual-only)
     (not has-auto-run?) false
     ;; Existing script with auto-run = preserve
@@ -234,6 +237,30 @@
 
 ;; Built-in reconciliation tests
 
+(defn- test-always-enabled-new-script-starts-enabled []
+  (-> (expect (determine-enabled-state
+               {:has-auto-run? true
+                :existing-enabled nil
+                :is-new? true
+                :always-enabled? true}))
+      (.toBe true)))
+
+(defn- test-always-enabled-overrides-existing-disabled []
+  (-> (expect (determine-enabled-state
+               {:has-auto-run? true
+                :existing-enabled false
+                :is-new? false
+                :always-enabled? true}))
+      (.toBe true)))
+
+(defn- test-always-enabled-stays-enabled-even-without-auto-run []
+  (-> (expect (determine-enabled-state
+               {:has-auto-run? false
+                :existing-enabled false
+                :is-new? false
+                :always-enabled? true}))
+      (.toBe true)))
+
 (defn- test-removes-stale-builtins []
   (let [bundled-ids (set ["builtin-1"])
         scripts [{:script/id "builtin-1" :script/builtin? true}
@@ -315,7 +342,10 @@
             (test "existing script with auto-run → preserves enabled state" test-existing-with-auto-run-preserves-enabled)
             (test "new user script with auto-run → starts disabled" test-new-user-script-starts-disabled)
             (test "new built-in with auto-run → starts disabled" test-new-builtin-starts-disabled)
-            (test "auto-run → manual transition resets enabled" test-auto-run-to-manual-resets-enabled)))
+            (test "auto-run → manual transition resets enabled" test-auto-run-to-manual-resets-enabled)
+            (test "always-enabled new script starts enabled" test-always-enabled-new-script-starts-enabled)
+            (test "always-enabled overrides existing disabled" test-always-enabled-overrides-existing-disabled)
+            (test "always-enabled stays enabled even without auto-run" test-always-enabled-stays-enabled-even-without-auto-run)))
 
 (describe "built-in reconciliation"
           (fn []
@@ -585,6 +615,30 @@
     (-> (expect (:script/match result))
         (.toEqual []))))
 
+(defn- test-build-bundled-always-enabled-propagated []
+  (let [bundled {:script/id "builtin-sponsor"
+                 :path "userscripts/sponsor.cljs"
+                 :name "sponsor.cljs"
+                 :always-enabled? true}
+        code "{:epupp/script-name \"sponsor.cljs\"
+ :epupp/auto-run-match \"https://github.com/sponsors/PEZ*\"}
+
+(ns epupp.sponsor)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/always-enabled? result))
+        (.toBe true))))
+
+(defn- test-build-bundled-without-always-enabled []
+  (let [bundled {:script/id "builtin-normal"
+                 :path "userscripts/normal.cljs"
+                 :name "normal.cljs"}
+        code "{:epupp/script-name \"normal.cljs\"}
+
+(ns normal)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (contains? result :script/always-enabled?))
+        (.toBe false))))
+
 (describe "Built-in script building from manifest"
           (fn []
             (test "complete manifest with all fields" test-build-bundled-complete-manifest-all-fields)
@@ -596,7 +650,9 @@
             (test "invalid run-at defaults to document-idle" test-build-bundled-invalid-run-at-defaults-to-document-idle)
             (test "uses fallback name when no manifest" test-build-bundled-uses-fallback-name-when-no-manifest)
             (test "manifest with string match" test-build-bundled-manifest-with-string-match)
-            (test "manifest with empty match array" test-build-bundled-manifest-with-empty-match-array)))
+            (test "manifest with empty match array" test-build-bundled-manifest-with-empty-match-array)
+            (test "always-enabled? propagated from catalog" test-build-bundled-always-enabled-propagated)
+            (test "without always-enabled? omits the key" test-build-bundled-without-always-enabled)))
 
 ;; ============================================================
 ;; Source metadata tests (Batch A)
