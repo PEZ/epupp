@@ -2,7 +2,7 @@
 description: 'Transforms loose prompts into expert-crafted, context-rich prompts'
 tools: ['read/problems', 'read/readFile', 'read/getTaskOutput', 'search', 'web', 'agent', 'betterthantomorrow.calva-backseat-driver/clojure-eval', 'betterthantomorrow.calva-backseat-driver/list-sessions', 'betterthantomorrow.calva-backseat-driver/clojure-symbol', 'betterthantomorrow.calva-backseat-driver/clojuredocs', 'betterthantomorrow.calva-backseat-driver/calva-output', 'betterthantomorrow.joyride/joyride-eval', 'betterthantomorrow.joyride/human-intelligence', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'todo']
 name: epupp-elaborator
-model: Claude Sonnet 4.5 (copilot)
+model: Auto (copilot)
 ---
 
 # Elaborator Agent
