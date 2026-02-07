@@ -14,7 +14,7 @@
 ;; ============================================================
 
 ;; Forward declaration for function defined later
-(declare sync-builtin-scripts! apply-dev-sponsor-override!)
+(declare sync-builtin-scripts!)
 
 (def ^:private current-schema-version 1)
 
@@ -478,8 +478,7 @@
           (when (builtin-update-needed? existing desired)
             (log/debug "Storage" "Synced built-in" (:script/id bundled))))
         (catch :default err
-          (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err)))))
-  (js-await (apply-dev-sponsor-override!)))
+          (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err))))))
 
 ;; ============================================================
 ;; Sponsor status
@@ -505,31 +504,7 @@
 ;; Debug: Expose for console testing
 ;; ============================================================
 
-(defn ^:async apply-dev-sponsor-override!
-  "Override the sponsor script's match for dev testing.
-   When username is provided, uses it directly. Otherwise reads dev/sponsor-username from storage.
-   Called after sync-builtin-scripts! to apply dev overrides that save-script! would discard.
-   No-op when no dev username is set or when username is default PEZ."
-  ([] (apply-dev-sponsor-override! nil))
-  ([username]
-   (let [username (or username
-                      (let [result (js-await (js/Promise.
-                                             (fn [resolve]
-                                               (js/chrome.storage.local.get
-                                                #js ["dev/sponsor-username"]
-                                                (fn [r] (resolve r))))))]
-                        (aget result "dev/sponsor-username")))]
-     (when (and (string? username) (seq username) (not= username "PEZ"))
-       (let [match-pattern (str "https://github.com/sponsors/" username "*")]
-         (swap! !db update :storage/scripts
-                (fn [scripts]
-                  (mapv (fn [s]
-                          (if (= (:script/id s) "epupp-builtin-sponsor-check")
-                            (assoc s :script/match [match-pattern])
-                            s))
-                        scripts)))
-         (js-await (persist!))
-         (log/debug "Storage" "Applied dev sponsor override:" match-pattern))))))
+
 
 (set! js/globalThis.storage
       #js {:db !db

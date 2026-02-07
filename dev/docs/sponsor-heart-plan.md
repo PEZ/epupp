@@ -464,20 +464,20 @@ because `save-script!` re-parses the manifest and overwrites the match from
 - [x] Add popup actions: `set-dev-sponsor-username`, `reset-sponsor-status`, `load-dev-sponsor-username`
 - [x] Add popup effects for all three actions
 - [x] Add CSS for dev-tools-content, input, and buttons layout
-- [x] Verified by unit tests (305 passing)
-- [x] Verified by e2e tests (121 passing)
-- [ ] Fix: stop trying to override script match in storage (it gets overwritten
+- [x] Verified by unit tests (423 passing)
+- [x] Verified by e2e tests (126 passing, including 5 new Dev Tools tests)
+- [x] Fix: stop trying to override script match in storage (it gets overwritten
       by manifest-is-source-of-truth on every re-parse). Instead, use display-only
       approach: popup/panel show the dev username in the UI but never mutate the
       stored match. See "Revised design" below.
-- [ ] Remove `apply-dev-sponsor-override!` from storage.cljs (dead code now)
-- [ ] Remove `sync-builtin-scripts!` call to `apply-dev-sponsor-override!`
-- [ ] Remove `handle-apply-dev-sponsor-override` from background.cljs
-- [ ] Remove `"apply-dev-sponsor-override"` message case from background.cljs
-- [ ] Simplify popup effect `set-dev-sponsor-username` to only persist to
+- [x] Remove `apply-dev-sponsor-override!` from storage.cljs (dead code now)
+- [x] Remove `sync-builtin-scripts!` call to `apply-dev-sponsor-override!`
+- [x] Remove `handle-apply-dev-sponsor-override` from background.cljs
+- [x] Remove `"apply-dev-sponsor-override"` message case from background.cljs
+- [x] Simplify popup effect `set-dev-sponsor-username` to only persist to
       chrome.storage.local (no message to background)
-- [ ] E2E tests for Dev Tools UI (new test file)
-- [ ] Check plan doc checkbox items
+- [x] E2E tests for Dev Tools UI (new test file: e2e/dev_tools_test.cljs, 5 tests)
+- [x] Check plan doc checkbox items
 - [ ] Verified by PEZ
 
 **Design:**

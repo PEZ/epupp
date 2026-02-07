@@ -282,10 +282,14 @@ Full pipeline: `nREPL client -> browser-nrepl -> extension -> Scittle -> page`
 
 ### 1. page.evaluate() on Extension Pages
 
-Returns `undefined` for `chrome-extension://` pages. Workarounds:
-- Use `e2e/set-storage` runtime message to set storage values (preferred for test setup)
-- Create data through UI (Panel save workflow)
-- Use log-powered assertions
+`page.evaluate()` cannot access `chrome.storage.local` (or other Chrome extension APIs) from popup/panel pages - calls return `undefined` silently. This applies to both reading and writing storage.
+
+Workarounds:
+- **Reading storage**: Use `send-runtime-message` with `"e2e/get-storage"` to read values through the background worker, which has full API access
+- **Writing storage**: Use `send-runtime-message` with `"e2e/set-storage"` to set values through the background worker
+- **Mocking extension APIs**: `chrome.tabs.create` and similar APIs are frozen objects in extension contexts and cannot be reassigned or mocked via `Object.defineProperty`. Verify behavior indirectly (e.g., check that the correct value was stored rather than intercepting the API call)
+- Create data through UI interactions when possible
+- Use log-powered assertions for side effects that can't be observed directly
 
 ### 2. Tab URL Detection
 
