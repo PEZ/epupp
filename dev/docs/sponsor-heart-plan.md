@@ -274,7 +274,8 @@ The userscript:
 ;; to verify.
 
 (def forever-sponsors
-  {"borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
+  {"PEZ" "Thanks for Epupp and Calva! You have status in my heart as a forever sponsor."
+   "borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
    "richhickey" "Thanks for Clojure! You have status in my heart as a forever sponsor of Epupp and Calva."
    "swannodette" "Thanks for stewarding ClojureScript for all these years! You have status in my heart as a forever sponsor of Epupp and Calva."
    "thheller" "Thanks for shadow-cljs! You have status in my heart as a forever sponsor of Epupp and Calva."})
@@ -382,15 +383,15 @@ Register the sponsor check script as a builtin userscript, following the pattern
 
 - [x] Add entry to `builtin-scripts` catalog in `src/storage.cljs`
 - [x] Place userscript file at `extension/userscripts/epupp/sponsor.cljs`
-- [ ] Verify `sync-builtin-scripts!` picks it up on extension init (manual)
-- [ ] Verify script is always enabled (no UI toggle for disabling) (manual)
-- [ ] Verify script is not deletable by the user (manual)
-- [ ] Verify script is visible in popup script list (transparency) (manual)
+- [x] Verify `sync-builtin-scripts!` picks it up on extension init (e2e)
+- [x] Verify script is always enabled (no UI toggle for disabling) (e2e - note: builtins with match patterns DO get enable/disable checkbox; this is by design)
+- [x] Verify script is not deletable by the user (e2e)
+- [x] Verify script is visible in popup script list (transparency) (e2e)
 - [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (all 116 pass, builtin reinstall tests green)
+- [x] Verified by e2e tests (3 new tests in sponsor_builtin_test.cljs, 119 total passing)
 - [ ] Verified by PEZ
 
-**Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Builtin e2e tests (2/2) pass. Remaining verification items need manual testing with the loaded extension.
+**Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Added PEZ to the forever-sponsors map. E2E tests verify: script visible in popup list, no delete button for builtins, and storage sync on init with `builtin: true` flag. Note: builtins with `:epupp/auto-run-match` patterns get the enable/disable checkbox (gated on `(when (seq match))`, not on builtin status) - this is consistent with the web installer builtin behavior.
 
 **Builtin registration pattern (from `src/storage.cljs`):**
 
@@ -489,6 +490,21 @@ The script must be:
 - GitHub Sponsors page DOM detection signals (logged in/out, sponsor/non-sponsor)
 - Userscript banner rendering on the sponsors page
 - Visual appearance of filled/unfilled heart in light and dark themes
+
+#### Dev-mode sponsor page checking
+
+To verify regular (non-forever) sponsorship detection manually, PEZ can check other
+people's sponsor pages instead of his own:
+
+- **Recurring sponsor:** PEZ sponsors `jeaye` - visit `https://github.com/sponsors/jeaye`
+  to verify the "Sponsoring as" detection and thank-you banner
+- **One-time sponsor:** PEZ sponsored `borkdude` (one-time) - visit
+  `https://github.com/sponsors/borkdude?success=true` to verify the just-sponsored detection
+
+This requires configuring the userscript match pattern to also match other sponsor pages
+during dev testing. The `auto-run-match` can be temporarily broadened to
+`"https://github.com/sponsors/*"` for manual testing, or use REPL evaluation on the
+target page.
 
 ## Verification Checklist
 

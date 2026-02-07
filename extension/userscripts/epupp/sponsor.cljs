@@ -11,7 +11,8 @@
 ;; to verify.
 
 (def forever-sponsors
-  {"borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
+  {"PEZ" "Thanks for Epupp and Calva! You have status in my heart as a forever sponsor."
+   "borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
    "richhickey" "Thanks for Clojure! You have status in my heart as a forever sponsor of Epupp and Calva."
    "swannodette" "Thanks for stewarding ClojureScript for all these years! You have status in my heart as a forever sponsor of Epupp and Calva."
    "thheller" "Thanks for shadow-cljs! You have status in my heart as a forever sponsor of Epupp and Calva."})
