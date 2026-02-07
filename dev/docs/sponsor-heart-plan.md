@@ -253,10 +253,10 @@ Handler:
 - [x] Implement `send-sponsor-status!` helper (one-way `true` signal)
 - [x] Add SPA navigation listener using `window.navigation` API pattern
 - [x] Verified by unit tests (not applicable - userscript runs in page context)
-- [ ] Verified by e2e tests (web installer e2e tests can be inspiration)
+- [x] Verified by e2e tests (all 116 pass with new builtin)
 - [ ] Verified by PEZ
 
-**Implementation notes:** Initial file creation had a garbled manifest (missing opening `{`, duplicate ns form) - fixed manually. File now matches the plan.
+**Implementation notes:** Initial file creation had a garbled manifest (missing opening `{`, duplicate ns form) - fixed manually. File now matches the plan. E2E test script count assertions across 5 test files needed incrementing by 1 to account for the new builtin (was counting 1 builtin, now 2).
 
 The userscript:
 
@@ -382,12 +382,12 @@ Register the sponsor check script as a builtin userscript, following the pattern
 
 - [x] Add entry to `builtin-scripts` catalog in `src/storage.cljs`
 - [x] Place userscript file at `extension/userscripts/epupp/sponsor.cljs`
-- [ ] Verify `sync-builtin-scripts!` picks it up on extension init
-- [ ] Verify script is always enabled (no UI toggle for disabling)
-- [ ] Verify script is not deletable by the user
-- [ ] Verify script is visible in popup script list (transparency)
+- [ ] Verify `sync-builtin-scripts!` picks it up on extension init (manual)
+- [ ] Verify script is always enabled (no UI toggle for disabling) (manual)
+- [ ] Verify script is not deletable by the user (manual)
+- [ ] Verify script is visible in popup script list (transparency) (manual)
 - [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests
+- [x] Verified by e2e tests (all 116 pass, builtin reinstall tests green)
 - [ ] Verified by PEZ
 
 **Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Builtin e2e tests (2/2) pass. Remaining verification items need manual testing with the loaded extension.
@@ -424,19 +424,19 @@ The script must be:
 
 **Location:** `dev/docs/`
 
-- [ ] Create `dev/docs/architecture/sponsor-heart.md` describing the feature for future maintainers:
+- [x] Create `dev/docs/architecture/sponsor-heart.md` describing the feature for future maintainers:
   - Feature overview and UX flow
   - Architecture: message flow, storage keys, expiry mechanism
   - Builtin userscript: detection logic, forever-sponsors map, one-way signal principle
   - DOM signals and robustness considerations
   - How to add/remove forever sponsors
-- [ ] Link the new doc from `dev/docs/architecture.md` (components/features list)
-- [ ] Link from `dev/docs/architecture/components.md` (if it lists features by file)
-- [ ] Link from `dev/docs/architecture/message-protocol.md` (new `sponsor-status` message type)
-- [ ] Link from `dev/docs/architecture/state-management.md` (new storage keys)
-- [ ] Archive this plan to `dev/docs/archive/sponsor-heart-plan.md`
-- [ ] Verified by unit tests (not applicable - documentation only)
-- [ ] Verified by e2e tests (not applicable - documentation only)
+- [x] Link the new doc from `dev/docs/architecture.md` (components/features list)
+- [x] Link from `dev/docs/architecture/components.md` (if it lists features by file)
+- [x] Link from `dev/docs/architecture/message-protocol.md` (new `sponsor-status` message type)
+- [x] Link from `dev/docs/architecture/state-management.md` (new storage keys)
+- [ ] Archive this plan to `dev/docs/archive/sponsor-heart-plan.md` (after PEZ verification)
+- [x] Verified by unit tests (not applicable - documentation only)
+- [x] Verified by e2e tests (not applicable - documentation only)
 - [ ] Verified by PEZ
 
 ## Implementation Order
@@ -505,8 +505,8 @@ The script must be:
 - [ ] Heart stays filled across popup/panel reopens (persisted)
 - [ ] Tooltips are correct for both states
 - [ ] Light and dark theme appearance
-- [ ] Unit tests pass (`bb test`)
-- [ ] E2E tests pass (`bb test:e2e`)
+- [x] Unit tests pass (`bb test`) - 417 passing
+- [x] E2E tests pass (`bb test:e2e`) - 116 passing, 13 shards
 
 ## Resolved Questions
 

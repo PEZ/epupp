@@ -48,8 +48,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; 3 scripts: built-in + A + B
-        (js-await (wait-for-script-count popup 3))
+        ;; 4 scripts: 2 built-in + A + B
+        (js-await (wait-for-script-count popup 4))
         ;; Click inspect on script A to edit it
         (let [script-item (.locator popup ".script-item:has-text(\"script_a.cljs\")")
               inspect-btn (.locator script-item "button.script-inspect")]
@@ -67,8 +67,8 @@
             name-hint (.locator save-section ".property-row:has(th:text('Name')) .field-hint")]
         ;; Wait for script A to load (use polling)
         (js-await (-> (expect name-field) (.toContainText "script_a.cljs")))
-        ;; Wait for scripts-list to be loaded (3 scripts: built-in + A + B)
-        (js-await (wait-for-scripts-loaded panel 3))
+        ;; Wait for scripts-list to be loaded (4 scripts: 2 built-in + A + B)
+        (js-await (wait-for-scripts-loaded panel 4))
         ;; Change name to script B's name (causing conflict)
         (let [conflict-code (panel-save-helpers/code-with-manifest {:name "script_b.cljs"
                                                                     :match "*://example.com/*"
@@ -124,8 +124,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; 3 scripts: built-in + original + target
-        (js-await (wait-for-script-count popup 3))
+        ;; 4 scripts: 2 built-in + original + target
+        (js-await (wait-for-script-count popup 4))
         (let [script-item (.locator popup ".script-item:has-text(\"original_script.cljs\")")
               inspect-btn (.locator script-item "button.script-inspect")]
           (js-await (.click inspect-btn))
@@ -157,8 +157,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; 3 scripts remain: built-in + original + target (overwrite replaces target, original stays)
-        (js-await (wait-for-script-count popup 3))
+        ;; 4 scripts remain: 2 built-in + original + target (overwrite replaces target, original stays)
+        (js-await (wait-for-script-count popup 4))
         ;; Both script names still exist
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"target_script.cljs\")"))
                       (.toBeVisible)))
@@ -208,8 +208,8 @@
             name-field (.locator save-section ".property-row:has(th:text('Name')) .property-value")]
         ;; Wait for user script to load (polling)
         (js-await (-> (expect name-field) (.toContainText "user_script.cljs")))
-        ;; Wait for scripts-list to be loaded (2 scripts: built-in + user)
-        (js-await (wait-for-scripts-loaded panel 2))
+        ;; Wait for scripts-list to be loaded (3 scripts: 2 built-in + user)
+        (js-await (wait-for-scripts-loaded panel 3))
         ;; Use reserved epupp/ prefix - cannot create scripts with this prefix
         (let [builtin-name-code (panel-save-helpers/code-with-manifest
                                  {:name "epupp/web_userscript_installer.cljs"

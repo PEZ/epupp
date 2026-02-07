@@ -68,8 +68,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Still 2 scripts total (built-in + our script)
-        (js-await (wait-for-script-count popup 2))
+        ;; Still 3 scripts total (2 built-in + our script)
+        (js-await (wait-for-script-count popup 3))
         ;; Inspect again for next phase
         (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
               inspect-btn (.locator script-item "button.script-inspect")]
@@ -109,8 +109,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Now 3 scripts: built-in + original + new
-        (js-await (wait-for-script-count popup 3))
+        ;; Now 4 scripts: 2 built-in + original + new
+        (js-await (wait-for-script-count popup 4))
         ;; Both user scripts visible
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
                       (.toBeVisible)))

@@ -49,7 +49,7 @@
       ;; === PHASE 2: Enable the script (defaults to disabled for auto-run) ===
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (wait-for-popup-ready popup))
-        (js-await (wait-for-script-count popup 2)) ;; built-in + our script
+        (js-await (wait-for-script-count popup 3)) ;; 2 built-in + our script
         ;; Find and enable the script
         (let [script-item (.locator popup ".script-item:has-text(\"document_start_timing_test.cljs\")")
               checkbox (.locator script-item "input[type='checkbox']")]

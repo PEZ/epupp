@@ -86,8 +86,8 @@
       ;; === PHASE 3: Verify scripts, test enable/disable ===
       ;; Names are normalized: "Script One" -> "script_one.cljs"
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; 3 scripts: built-in Web Userscript Installer + 2 user scripts
-        (js-await (wait-for-script-count popup 3))
+        ;; 4 scripts: 2 built-in + 2 user scripts
+        (js-await (wait-for-script-count popup 4))
 
         ;; Verify script action buttons exist (inspect, run, delete)
         (let [item (.locator popup ".script-item:has-text(\"script_one.cljs\")")]
@@ -110,9 +110,9 @@
         (let [item (.locator popup ".script-item:has-text(\"script_two.cljs\")")
               delete-btn (.locator item "button.script-delete")]
           (js-await (.click delete-btn))
-          ;; 2 remaining: built-in Web Userscript Installer + script_one.cljs
+          ;; 3 remaining: 2 built-in + script_one.cljs
           (js-await (-> (expect (.locator popup ".script-item"))
-                        (.toHaveCount 2 #js {:timeout 2000}))))
+                        (.toHaveCount 3 #js {:timeout 2000}))))
 
         (js-await (.close popup)))
 
