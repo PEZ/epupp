@@ -11,7 +11,8 @@ isolated. The architecture coordinates through message passing.
 - Popup: UI state, connection status, settings, and script list derived from
   storage.
 - Panel: editor state, evaluation results, and per-hostname persistence.
-- Storage: source of truth for userscripts and user-managed origins.
+- Storage: source of truth for userscripts, user-managed origins, and
+  sponsor status (`:sponsor/status`, `:sponsor/checked-at` with 90-day expiry).
 
 ## Data Ownership and Sync
 

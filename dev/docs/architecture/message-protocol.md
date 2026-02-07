@@ -23,8 +23,7 @@ Via `window.postMessage` with source identifiers.
 
 | Type | Payload | Purpose |
 |------|---------|---------|
-| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin |
-
+| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin || `sponsor-status` | `{sponsor}` | Report sponsor detection (one-way `true` signal) |
 **Content Bridge → Page** (`source: "epupp-bridge"`):
 
 | Type | Payload | Purpose |
@@ -55,6 +54,7 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `ping` | - | Keepalive (every 5s) |
 | `load-manifest` | `{manifest}` | Forward library injection request |
 | `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin |
+| `sponsor-status` | `{sponsor}` | Sponsor detection (fire-and-forget via `send-message-safe!`) |
 
 **Background → Content Bridge**:
 

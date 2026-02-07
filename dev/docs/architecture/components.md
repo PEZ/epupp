@@ -29,8 +29,14 @@ This document is a map of where the architecture lives in code.
 | `scittle_libs.cljs` | Shared | Resolve Scittle library URLs and dependency lists |
 | `event_handler.cljs` | Shared | Uniflow event system |
 | `icons.cljc` | Shared | SVG icon components |
-| `view_elements.cljs` | Shared | Shared Hiccup components (buttons, status, empty states) |
+| `view_elements.cljs` | Shared | Shared Hiccup components (buttons, status, empty states, sponsor heart) |
 | `test_logger.cljs` | Shared | Test instrumentation and error capture |
+
+### Builtin Userscripts
+
+| File | Purpose |
+|------|---------|
+| `extension/userscripts/epupp/sponsor.cljs` | Sponsor detection on GitHub Sponsors page ([details](sponsor-heart.md)) |
 
 ## Styling
 

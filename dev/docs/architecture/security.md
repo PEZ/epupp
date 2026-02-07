@@ -21,6 +21,7 @@ The content bridge ([content_bridge.cljs](../../../src/content_bridge.cljs)) is 
 | `epupp-page` | `ws-connect` | Background | WebSocket relay for REPL |
 | `epupp-page` | `ws-send` | Background | WebSocket relay for REPL |
 | `epupp-userscript` | `install-userscript` | Background | Script installation (with origin validation) |
+| `epupp-userscript` | `sponsor-status` | Background | Sponsor detection (fire-and-forget, boolean only) |
 
 **Any message type not in this whitelist is silently dropped.** This prevents userscripts from spoofing popup/panel messages like `evaluate-script`.
 

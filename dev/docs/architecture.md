@@ -71,6 +71,7 @@ flowchart TB
 | Trust boundaries + CSP strategy | [architecture/security.md](architecture/security.md) |
 | Build pipeline + configuration injection | [architecture/build-pipeline.md](architecture/build-pipeline.md) |
 | CSS architecture + design tokens | [architecture/css-architecture.md](architecture/css-architecture.md) |
+| Sponsor heart icon feature | [architecture/sponsor-heart.md](architecture/sponsor-heart.md) |
 
 ## Related
 
