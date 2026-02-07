@@ -468,6 +468,74 @@ actual sponsor (e.g., `github.com/sponsors/jeaye`) or have just sponsored
 should show `https://github.com/sponsors/*` instead of `https://github.com/sponsors/PEZ*`.
 Then navigate to any GitHub sponsors page to test detection.
 
+### Chunk 13: Userscript Idempotency
+
+**File:** `extension/userscripts/epupp/sponsor.cljs`
+
+**Investigation (REPL on live github.com/sponsors/PEZ, logged-out state):**
+
+Three confirmed idempotency issues, ranked by severity:
+
+#### Issue A: Banner duplication (HIGH)
+
+`detect-and-act!` inserts a new DOM banner every time it runs, without checking
+whether one already exists. Observed: 5 identical "Log in to GitHub to update your
+Epupp sponsor status." messages stacked on the page.
+
+Two separate insertion paths are affected:
+1. `insert-banner!` - used by forever-sponsor, just-sponsored, not-sponsoring, and
+   sponsoring branches. Inserts via `insertBefore` on `.container-lg.p-responsive`.
+2. Not-logged-in branch - uses `insertAdjacentElement` on `login-flash`, completely
+   independent of `insert-banner!`. Any fix that only guards `insert-banner!` will
+   miss this path.
+
+#### Issue B: SPA navigation listener stacking (HIGH)
+
+The `window.navigation` listener registration at the bottom of the file has NO guard
+against re-registration. The web installer solves this with `defonce !state` +
+`(when-not (:nav-registered? state))` - the sponsor script has no equivalent.
+
+Each full page load (via `webNavigation.onCompleted`) re-injects the script via
+`process-navigation!` -> `bg-inject/execute-scripts!`, adding another listener.
+Result: N page loads = N listeners = N calls to `detect-and-act!` per SPA navigation =
+exponential banner accumulation.
+
+`window.navigation` API confirmed present on the GitHub sponsors page.
+
+#### Issue C: Redundant storage writes (LOW)
+
+`send-sponsor-status!` triggers `postMessage` -> content bridge -> background ->
+`storage/persist!` with no deduplication. Each call writes `{:sponsor/status true,
+:sponsor/checked-at <now>}` and triggers `storage.onChanged` events, which fire UI
+re-renders in popup/panel. Functionally harmless (writing `true` over `true`), but
+wasteful.
+
+#### Not issues
+
+- **DOM mutation interference:** Our banner texts don't contain "Sponsoring as" or
+  "Become a sponsor", so detection logic won't be confused by our own insertions.
+- **Timing/race conditions:** `detect-and-act!` takes ~0.2ms. The 300ms debounce
+  in the SPA nav listener is adequate.
+
+**Fix plan:**
+
+- [ ] Add `data-epupp-sponsor-banner` attribute to ALL inserted elements (both
+      `insert-banner!` and the not-logged-in branch)
+- [ ] At the start of `detect-and-act!`, remove any existing elements with that marker
+      before proceeding
+- [ ] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
+      atom, check before adding listener) - following the web installer's pattern
+- [ ] Verified by manual testing (PEZ)
+
+**Design notes:**
+- A single `data-epupp-sponsor-banner` attribute on all inserted elements is sufficient.
+  `detect-and-act!` starts by calling `(.querySelectorAll js/document "[data-epupp-sponsor-banner]")`
+  and removing any matches before proceeding.
+- The `defonce` guards the SPA listener from stacking across re-injections. Scittle
+  supports `defonce`, so this works without additional machinery.
+- `send-sponsor-status!` deduplication is deferred - functionally harmless and the
+  added complexity isn't warranted at this stage.
+
 ## Implementation Order
 
 1. **Chunk 1** - Heart icon (foundation)
@@ -482,6 +550,22 @@ Then navigate to any GitHub sponsors page to test detection.
 10. **Chunk 9** - Userscript logic (depends on 7, 8, 10)
 11. **Chunk 11** - Documentation (after all implementation is complete)
 12. **Chunk 12** - Dev-mode match override (after builtin registration works)
+13. **Chunk 13** - Userscript idempotency (fix duplicate banner bug)
+
+## Execution Workflow
+
+0. Load todo list with: initial test run, all 11 chunks
+1. Delegate to `epupp-testrunner` to verify green unit and e2e test slate
+2. For each chunk (in implementation order):
+   - a. Understand the work and delegate to `epupp-doer` with instructions:
+     - Tests are green when starting (no need to verify)
+     - Before handing off completed work, delegate to `epupp-testrunner` to verify leaving the slate as green as entered
+     - Hand off work with a brief summary of what was done and any deviations from the plan
+   - b. On handoff: check off relevant checkboxes in this plan document
+   - c. Note any deviations or problems in the chunk's section of this document
+   - d. Succinctly summarize the current state of the work to PEZ
+   - e. Do not wait for PEZ to verify - continue with next chunk
+3. Summarize the completed work to PEZ
 
 ## Testing Strategy
 

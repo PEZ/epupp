@@ -76,3 +76,4 @@
 * [x] Run scripts on SPA page navigation
 * [ ] Sort built-in scripts last
 * [ ] Dev doc for web installer
+* [ ] Clean up sponsor.cljs
