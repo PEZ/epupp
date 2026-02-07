@@ -453,8 +453,9 @@
       (js/chrome.storage.local.set
        (js-obj "dev/sponsor-username" username))
       ;; Ask background (which has loaded storage/!db) to apply the override
+      ;; Pass username in payload to avoid race with storage.local.set
       (js/chrome.runtime.sendMessage
-       #js {:type "apply-dev-sponsor-override"}
+       #js {:type "apply-dev-sponsor-override" :username username}
        (fn [response]
          (when (and response (not (.-success response)))
            (js/console.error "Failed to apply dev sponsor override:" (.-error response))))))

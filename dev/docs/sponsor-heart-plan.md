@@ -466,9 +466,18 @@ because `save-script!` re-parses the manifest and overwrites the match from
 - [x] Add CSS for dev-tools-content, input, and buttons layout
 - [x] Verified by unit tests (305 passing)
 - [x] Verified by e2e tests (121 passing)
-- [ ] Fix: race condition - popup sends `apply-dev-sponsor-override` before
-      `chrome.storage.local.set` completes, so background reads stale username.
-      Fix: pass username in the message payload instead of reading from storage.
+- [ ] Fix: stop trying to override script match in storage (it gets overwritten
+      by manifest-is-source-of-truth on every re-parse). Instead, use display-only
+      approach: popup/panel show the dev username in the UI but never mutate the
+      stored match. See "Revised design" below.
+- [ ] Remove `apply-dev-sponsor-override!` from storage.cljs (dead code now)
+- [ ] Remove `sync-builtin-scripts!` call to `apply-dev-sponsor-override!`
+- [ ] Remove `handle-apply-dev-sponsor-override` from background.cljs
+- [ ] Remove `"apply-dev-sponsor-override"` message case from background.cljs
+- [ ] Simplify popup effect `set-dev-sponsor-username` to only persist to
+      chrome.storage.local (no message to background)
+- [ ] E2E tests for Dev Tools UI (new test file)
+- [ ] Check plan doc checkbox items
 - [ ] Verified by PEZ
 
 **Design:**
@@ -478,21 +487,34 @@ A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containi
 2. Reset Sponsor Status button (clears `sponsorStatus` and `sponsorCheckedAt`)
 3. Dump Dev Log button (moved from standalone rendering)
 
-**Username override flow:**
+**Revised design - display-only username override:**
+
+The sponsor script's `:script/match` in storage always reflects the manifest
+(`"https://github.com/sponsors/PEZ*"`). Attempting to override it in storage fails
+because `parse-scripts` (via `derive-script-fields`) re-extracts match from the
+manifest code on every storage change event, wiping the override.
+
+Instead of fighting the manifest-is-source-of-truth design, the dev username is
+used at the **consumption points only**:
+
+1. **Heart button URL** - popup reads `:dev/sponsor-username` from `!state`, panel
+   reads `dev/sponsor-username` from `chrome.storage.local`. Both construct the
+   sponsor URL dynamically. Already implemented.
+2. **Popup script list display** - the auto-run-match shown in the popup for the
+   sponsor script stays as `PEZ*` (matching what the manifest says). This is correct
+   - it shows the actual match pattern. The dev username only controls where the
+   heart button navigates.
+3. **Sponsor script execution** - when the user clicks the heart (which now points
+   to the correct dev username's page), the sponsor script runs on that page and
+   correctly detects sponsor status. The script's auto-run-match doesn't need to
+   change because manual execution works on any sponsor page.
+
+**Username flow (simplified):**
 1. User changes username in Dev Tools input
-2. Popup effect persists `dev/sponsor-username` to chrome.storage.local and sends
-   `apply-dev-sponsor-override` message to background with username in payload
-3. Background calls `apply-dev-sponsor-override!` with the username from the
-   message (not from storage), updates the sponsor script's `:script/match`
-   in `storage/!db` and calls `persist!`
-4. Popup's `onChanged` listener detects the scripts storage change and reloads
-   the script list, showing the updated match
-5. Heart click opens `https://github.com/sponsors/{username}` (popup reads from
-   `!state`, panel reads from storage)
-6. On extension reinstall/update (`onInstalled`), dev username is cleared from
-   storage, reverting to "PEZ"
-7. On service worker wake, `sync-builtin-scripts!` writes the manifest match,
-   then `apply-dev-sponsor-override!` re-applies the stored dev username override
+2. Popup action updates `!state` with new username
+3. Popup effect persists `dev/sponsor-username` to chrome.storage.local
+4. Heart click opens `https://github.com/sponsors/{dev-username}`
+5. No background messaging, no storage match override, no re-parse conflicts
 
 **Reset on install/update (not every wake):**
 - `onInstalled` fires on extension install, update, and Chrome update
@@ -501,10 +523,24 @@ A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containi
 - This means the username persists across popup reopens and SW hibernation,
   but resets when a new build is loaded
 
-**Key insight:** The previous `!dev-mode?` / `:dev-match` approach was broken because
-`save-script!` always re-parses the manifest and uses the manifest's `auto-run-match`
-as the source of truth. The new approach applies the override AFTER `save-script!`
-completes, bypassing the manifest-is-source-of-truth logic.
+**Lessons learned:**
+1. The manifest is the source of truth for script match patterns. Any attempt to
+   override match in storage gets wiped by `derive-script-fields` on the next
+   `parse-scripts` call (which happens on every `onChanged` event).
+2. The previous `apply-dev-sponsor-override!` approach (overriding after
+   `sync-builtin-scripts!`) appeared to work momentarily but was immediately
+   undone by the `onChanged` listener in `init!` which re-parses scripts.
+3. When a value is derived from source code, override at the consumption point,
+   not the storage layer.
+
+**E2E test plan:**
+
+New test file `e2e/dev_tools_test.cljs` covering:
+- Dev Tools section visible only in dev builds
+- Sponsor username input persists value to chrome.storage.local
+- Heart button URL reflects dev username (not hardcoded PEZ)
+- Reset Sponsor Status clears sponsorStatus and sponsorCheckedAt from storage
+- Dev username survives popup close/reopen (persisted)
 
 ### Chunk 13: Userscript Idempotency & Sponsor Page Guard
 
