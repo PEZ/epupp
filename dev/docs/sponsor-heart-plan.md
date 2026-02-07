@@ -525,7 +525,8 @@ wasteful.
       before proceeding
 - [ ] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
       atom, check before adding listener) - following the web installer's pattern
-- [ ] Verified by manual testing (PEZ)
+- [ ] Verified by e2e tests
+- [ ] Verified by PEZ
 
 **Design notes:**
 - A single `data-epupp-sponsor-banner` attribute on all inserted elements is sufficient.
@@ -535,6 +536,166 @@ wasteful.
   supports `defonce`, so this works without additional machinery.
 - `send-sponsor-status!` deduplication is deferred - functionally harmless and the
   added complexity isn't warranted at this stage.
+
+### Chunk 14: Branded Epupp Banner on Sponsors Page
+
+**File:** `extension/userscripts/epupp/sponsor.cljs`
+
+Replace the current ad-hoc banner insertion with a single branded Epupp banner rendered
+at the top of the page, immediately after GitHub's main navigation bar.
+
+**Layout:**
+
+```
++----------------------------------------------------------------------+
+| [Epupp logo SVG] Epupp - Live Tamper your Web    [sponsor message]   |
++----------------------------------------------------------------------+
+```
+
+- Left side: Epupp logo (inline SVG from `icons.cljc`), name "Epupp", tagline
+  "Live Tamper your Web"
+- Right side: the context-dependent sponsor message (thank-you, encouragement,
+  log-in prompt, or forever-sponsor message)
+- Single banner element replaces all current insertion points (`insert-banner!` and
+  the not-logged-in `insertAdjacentElement` path)
+
+**Placement:**
+
+Insert as first child of `<main>`, before any GitHub flash banners. Verified DOM
+structure via REPL:
+
+```
+<header.HeaderMktg> (GitHub top nav bar)
+<div.stale-session-flash> (hidden, between header and main)
+<main>
+  [EPUPP BANNER HERE]
+  <div.flash.flash-warn.flash-full> ("must be logged in" - logged out only)
+  <div.container-lg.p-responsive> (main content)
+```
+
+**Styling:**
+
+Use GitHub's `flash flash-warn flash-full` classes for the outer container to match
+the visual weight and background of the existing login message banner (white background,
+yellow border `rgba(212, 167, 44, 0.4)`, `padding: 20px 16px`). Add flexbox layout
+inside for left/right alignment:
+
+```css
+/* Inherits from GitHub's .flash.flash-warn.flash-full:
+   background: white, border: 1px solid rgba(212,167,44,0.4), padding: 20px 16px */
+
+.epupp-sponsor-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.epupp-sponsor-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.epupp-sponsor-brand-name {
+  font-weight: 600;
+  color: #24292f;
+}
+
+.epupp-sponsor-brand-tagline {
+  font-size: 12px;
+  color: #656d76;
+  margin-left: 4px;
+}
+
+.epupp-sponsor-message {
+  text-align: right;
+}
+```
+
+**Icon approach:**
+
+Fetch the Epupp icon URL from the extension via the content bridge, following the same
+pattern as the web installer script. The content bridge already handles `"get-icon-url"`
+messages (resolves `chrome.runtime.getURL "icons/icon.svg"` directly, no background
+round-trip). The sponsor script needs a lightweight `send-and-receive` helper for this
+one async call.
+
+Pattern from the web installer (`send-and-receive` in
+`extension/userscripts/epupp/web_userscript_installer.cljs`, line 271):
+- Posts `{:source "epupp-page" :type "get-icon-url" :requestId id}` to `window`
+- Listens for `{:source "epupp-bridge" :type "get-icon-url-response" :requestId id}`
+- Content bridge handles it at `src/content_bridge.cljs` line 240
+
+The sponsor script can use a simplified version (single-use, no general-purpose
+infrastructure needed). The icon URL is fetched once at script init and stored in
+a `defonce` atom so it survives re-injections.
+
+```clojure
+(defonce !icon-url (atom nil))
+
+(defn fetch-icon-url!+ []
+  (js/Promise.
+   (fn [resolve reject]
+     (let [req-id (str "sponsor-" (js/Date.now))
+           timeout-id (atom nil)
+           handler (fn handler [e]
+                     (when (= (.-source e) js/window)
+                       (let [msg (.-data e)]
+                         (when (and msg
+                                    (= "epupp-bridge" (.-source msg))
+                                    (= "get-icon-url-response" (.-type msg))
+                                    (= req-id (.-requestId msg)))
+                           (when-let [tid @timeout-id]
+                             (js/clearTimeout tid))
+                           (.removeEventListener js/window "message" handler)
+                           (resolve (.-url msg))))))]
+       (.addEventListener js/window "message" handler)
+       (reset! timeout-id
+               (js/setTimeout
+                (fn []
+                  (.removeEventListener js/window "message" handler)
+                  (resolve nil)) ;; graceful fallback: no icon
+                2000))
+       (.postMessage js/window
+                     #js {:source "epupp-page"
+                          :type "get-icon-url"
+                          :requestId req-id}
+                     "*")))))
+```
+
+The banner renders with `<img>` when the URL is available, or without the icon on
+timeout (graceful degradation).
+
+**Relationship to Chunk 13:**
+
+This chunk SUPERSEDES the `insert-banner!` and not-logged-in insertion paths entirely.
+Instead of fixing two separate insertion mechanisms with marker attributes, there is now
+one unified banner element. The `data-epupp-sponsor-banner` marker from Chunk 13 applies
+to this single banner. The SPA listener guard (`defonce`) from Chunk 13 is still needed.
+
+Implementation order: Chunk 14 should be done TOGETHER with Chunk 13, since both modify
+the same functions and the banner rendering replaces the code that Chunk 13 would patch.
+
+- [ ] Add `fetch-icon-url!+` helper (simplified `send-and-receive` for icon URL)
+- [ ] Store icon URL in `defonce !icon-url` atom (survives re-injections)
+- [ ] Create `render-banner!` function that builds the complete branded banner DOM element
+- [ ] Replace `insert-banner!` and not-logged-in branch with calls to `render-banner!`
+- [ ] Add `data-epupp-sponsor-banner` attribute to the banner (from Chunk 13)
+- [ ] Render `<img>` with fetched icon URL (graceful fallback: omit if unavailable)
+- [ ] Apply `flash flash-warn flash-full` classes to outer element
+- [ ] Insert as first child of `<main>`
+- [ ] Pass message text from each detection branch to `render-banner!`
+- [ ] Verified by e2e tests
+- [ ] Verified by PEZ
+
+**Design notes:**
+- The forever-sponsor branch passes the personalized message as the right-side text
+- The just-sponsored and sponsoring branches pass "Thanks for sponsoring me! [heart]"
+- The not-sponsoring branch passes the encouragement message
+- The not-logged-in branch passes "Log in to GitHub to update your Epupp sponsor status"
+- The unknown branch still does nothing (no banner rendered)
+- Since there is now only ONE insertion point and ONE banner element, the idempotency
+  fix from Chunk 13 (remove existing banner before inserting) becomes trivially simple
 
 ## Implementation Order
 
@@ -550,7 +711,7 @@ wasteful.
 10. **Chunk 9** - Userscript logic (depends on 7, 8, 10)
 11. **Chunk 11** - Documentation (after all implementation is complete)
 12. **Chunk 12** - Dev-mode match override (after builtin registration works)
-13. **Chunk 13** - Userscript idempotency (fix duplicate banner bug)
+13. **Chunk 13 + 14** - Userscript idempotency + branded banner (together, same functions)
 
 ## Execution Workflow
 
