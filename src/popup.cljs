@@ -448,20 +448,16 @@
                      :sponsor/checked-at checked-at]]))))
 
     :popup/fx.set-dev-sponsor-username
-    (let [[username] args
-          match-pattern (str "https://github.com/sponsors/" username "*")]
+    (let [[username] args]
       ;; Persist dev username
       (js/chrome.storage.local.set
        (js-obj "dev/sponsor-username" username))
-      ;; Update sponsor script match in storage
-      (let [scripts (:storage/scripts @storage/!db)
-            updated (mapv (fn [s]
-                            (if (= (:script/id s) "epupp-builtin-sponsor-check")
-                              (assoc s :script/match [match-pattern])
-                              s))
-                          scripts)]
-        (swap! storage/!db assoc :storage/scripts updated)
-        (storage/persist!)))
+      ;; Ask background (which has loaded storage/!db) to apply the override
+      (js/chrome.runtime.sendMessage
+       #js {:type "apply-dev-sponsor-override"}
+       (fn [response]
+         (when (and response (not (.-success response)))
+           (js/console.error "Failed to apply dev sponsor override:" (.-error response))))))
 
     :popup/fx.reset-sponsor-status
     (js/chrome.storage.local.remove

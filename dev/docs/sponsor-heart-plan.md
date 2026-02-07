@@ -466,6 +466,9 @@ because `save-script!` re-parses the manifest and overwrites the match from
 - [x] Add CSS for dev-tools-content, input, and buttons layout
 - [x] Verified by unit tests (305 passing)
 - [x] Verified by e2e tests (121 passing)
+- [ ] Fix: race condition - popup sends `apply-dev-sponsor-override` before
+      `chrome.storage.local.set` completes, so background reads stale username.
+      Fix: pass username in the message payload instead of reading from storage.
 - [ ] Verified by PEZ
 
 **Design:**
@@ -477,13 +480,18 @@ A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containi
 
 **Username override flow:**
 1. User changes username in Dev Tools input
-2. Popup effect persists to chrome.storage.local AND directly updates the sponsor
-   script's `:script/match` in `storage/!db` + `persist!`
-3. Heart click opens `https://github.com/sponsors/{username}` (popup reads from
+2. Popup effect persists `dev/sponsor-username` to chrome.storage.local and sends
+   `apply-dev-sponsor-override` message to background with username in payload
+3. Background calls `apply-dev-sponsor-override!` with the username from the
+   message (not from storage), updates the sponsor script's `:script/match`
+   in `storage/!db` and calls `persist!`
+4. Popup's `onChanged` listener detects the scripts storage change and reloads
+   the script list, showing the updated match
+5. Heart click opens `https://github.com/sponsors/{username}` (popup reads from
    `!state`, panel reads from storage)
-4. On extension reinstall/update (`onInstalled`), dev username is cleared from
+6. On extension reinstall/update (`onInstalled`), dev username is cleared from
    storage, reverting to "PEZ"
-5. On service worker wake, `sync-builtin-scripts!` writes the manifest match,
+7. On service worker wake, `sync-builtin-scripts!` writes the manifest match,
    then `apply-dev-sponsor-override!` re-applies the stored dev username override
 
 **Reset on install/update (not every wake):**
@@ -498,7 +506,7 @@ A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containi
 as the source of truth. The new approach applies the override AFTER `save-script!`
 completes, bypassing the manifest-is-source-of-truth logic.
 
-### Chunk 13: Userscript Idempotency
+### Chunk 13: Userscript Idempotency & Sponsor Page Guard
 
 **File:** `extension/userscripts/epupp/sponsor.cljs`
 
@@ -540,6 +548,24 @@ exponential banner accumulation.
 re-renders in popup/panel. Functionally harmless (writing `true` over `true`), but
 wasteful.
 
+#### Issue D: No sponsor page guard (MEDIUM)
+
+The script can be run manually (via the play button in the popup) on ANY GitHub
+sponsors page, not just the configured username's page. When run on another user's
+sponsor page (e.g., `github.com/sponsors/someoneelse`) where the logged-in user
+happens to be sponsoring that person, `detect-and-act!` detects the "Sponsoring as"
+signal and sends `sponsor-status: true` back to Epupp - even though this says
+nothing about sponsoring the Epupp author.
+
+The script should verify that the current page URL matches the expected sponsor
+username before executing. The expected username is encoded in the script's
+`:epupp/auto-run-match` pattern (e.g., `https://github.com/sponsors/PEZ*`).
+The script should extract the username from the URL path and compare it against
+the match pattern's username. If they don't match, the script should do nothing.
+
+Note: For auto-run execution this is redundant (the match pattern already filters),
+but for manual execution it's a necessary guard.
+
 #### Not issues
 
 - **DOM mutation interference:** Our banner texts don't contain "Sponsoring as" or
@@ -555,6 +581,9 @@ wasteful.
       before proceeding
 - [ ] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
       atom, check before adding listener) - following the web installer's pattern
+- [ ] Add sponsor page guard: extract expected username from the script's match
+      pattern (or hardcode "PEZ" and let Dev Tools override handle it), compare
+      against URL path (`/sponsors/{username}`). Skip `detect-and-act!` if mismatch.
 - [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 

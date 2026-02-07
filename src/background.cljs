@@ -587,6 +587,12 @@
      (send-response #js {:success true})))
   true)
 
+(defn- handle-apply-dev-sponsor-override [send-response]
+  ((^:async fn []
+     (js-await (storage/apply-dev-sponsor-override!))
+     (send-response #js {:success true})))
+  true)
+
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)
   false)
@@ -648,6 +654,7 @@
                       "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
                       "inject-libs" (handle-inject-libs message dispatch! send-response)
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)
+                      "apply-dev-sponsor-override" (handle-apply-dev-sponsor-override send-response)
                       "sponsor-status" (handle-sponsor-status message send-response)
                       (handle-unknown-message msg-type))))))
 
