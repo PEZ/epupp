@@ -114,14 +114,20 @@ Note: `grantedOrigins` storage key exists for potential future use but is curren
 **Script IDs are immutable.** Renaming a script updates `:script/name` but
 preserves `:script/id` for stable identity.
 
-**Namespace Reservation:** The `epupp/` prefix is reserved for system scripts. User scripts cannot begin with `epupp/` to prevent conflicts with built-in functionality. This validation occurs at save time in the panel and via the FS API.
-
-### Storage Access Pattern
-
-`chrome.storage.local` is key-value blob storage - no queries, read-modify-write only. Our pattern:
-
-1. **In-memory atom** mirrors storage for fast access and Clojure sequence operations
-2. **Persist on mutation** - after `swap!`, write the whole blob back
+**Namespace Reservation:** The `epupp/` prefix is reserved for system scripts. User scripts cannot begin with `epupp/` to prevent conflicts with built-in functionalit(defn- detect-textarea-elements
+  "Find generic textarea elements, return array of {:element :format :code-text}.
+   Excludes textareas inside .file containers with .file-actions (GitHub gist edit)."
+  []
+  (->> (.querySelectorAll js/document "textarea")
+       js/Array.from
+       (filter (fn [el]
+                 (let [file-div (.closest el ".file")]
+                   (or (not file-div)
+                       (not (.querySelector file-div ".file-actions"))))))
+       (map (fn [el]
+              {:element el
+               :format :textarea
+               :code-text (get-textarea-text el)})))) after `swap!`, write the whole blob back
 3. **Listen for external changes** - popup, DevTools panel, and background worker share storage; use `chrome.storage.onChanged` to keep atoms in sync
 
 ### Data Integrity Invariants
@@ -179,12 +185,15 @@ Userscript Installer script. The installer extracts code directly from DOM
 elements and sends a `save-script` request through the content bridge. The
 background validates the manifest and saves the script with source provenance.
 
-The installer's auto-run patterns come from two sources:
-- Manifest patterns in the installer script
-- User-added patterns in popup settings ("Web Installer Sites")
+### Web Userscript Installer Test Pages
 
-Users can extend the installer to work on any code-hosting site by adding glob
-patterns like `https://git.example.com/*`.
+**Manual testing:**
+- GitLab snippet: https://gitlab.com/-/snippets/4922251
+- GitHub gist: https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e
+- GitHub repo file: (need example with manifest)
+- GitLab repo file: https://gitlab.com/pappapez/userscripts-test/-/blob/main/pez/gitlab_repo_test_us.cljs
+
+**E2E mock page:** `test-data/pages/mock-gist.html`
 
 ## Injection Timing
 

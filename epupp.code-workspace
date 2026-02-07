@@ -35,7 +35,8 @@
 				"replSessionFilePatterns": {
 					"primary": [
 						"test-data/tampers/*.clj*",
-						"test-data/tampers/*.edn"
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
 					]
 				}
 			},
@@ -49,7 +50,8 @@
 				"replSessionFilePatterns": {
 					"primary": [
 						"test-data/tampers/*.clj*",
-						"test-data/tampers/*.edn"
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
 					]
 				}
 			},
@@ -63,7 +65,8 @@
 				"replSessionFilePatterns": {
 					"primary": [
 						"test-data/tampers/*.clj*",
-						"test-data/tampers/*.edn"
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
 					]
 				}
 			},
@@ -77,7 +80,10 @@
 				"replSessionFilePatterns": {
 					"primary": [
 						"epupp/*.clj*",
-						"epupp/*.edn"
+						"epupp/*.edn",
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
 					]
 				}
 			}
