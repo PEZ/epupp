@@ -421,3 +421,30 @@ kbd {
   color: var(--color-text-delete-hover);
 }
 
+/* ============================================================
+   Sponsor Heart
+   ============================================================ */
+
+.sponsor-heart {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.sponsor-heart-icon {
+  color: var(--color-text-muted);
+  transition: color var(--transition-duration);
+}
+
+.sponsor-heart-filled {
+  color: #e91e63;
+}
+
+.sponsor-heart:hover .sponsor-heart-icon {
+  color: #e91e63;
+}
+

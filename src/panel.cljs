@@ -32,7 +32,9 @@
          :panel/system-banners []        ; System banners [{:id :type :message :leaving} ...]
          :panel/system-bulk-names {}     ; bulk-id -> [script-name ...]
          :panel/scripts-list []          ; bulk-id -> [script-name ...]
-         :panel/tab-connected? false}))  ; Is the inspected tab connected to REPL?
+         :panel/tab-connected? false     ; Is the inspected tab connected to REPL?
+         :sponsor/status false
+         :sponsor/checked-at nil}))
 
 ;; ============================================================
 ;; Panel State Persistence (per hostname)
@@ -299,6 +301,19 @@
                  tab-id-str (str inspected-tab-id)
                  connected? (boolean (some #(= tab-id-str (str (:tab-id %))) connections))]
              (dispatch [[:editor/ax.set-tab-connected connected?]]))))))
+
+    :editor/fx.check-sponsor
+    (js/chrome.tabs.create #js {:url "https://github.com/sponsors/PEZ" :active true})
+
+    :editor/fx.load-sponsor-status
+    (js/chrome.storage.local.get
+     #js ["sponsorStatus" "sponsorCheckedAt"]
+     (fn [result]
+       (let [status (boolean (.-sponsorStatus result))
+             checked-at (.-sponsorCheckedAt result)]
+         (dispatch [[:db/ax.assoc
+                     :sponsor/status status
+                     :sponsor/checked-at checked-at]]))))
 
     :uf/unhandled-fx))
 
@@ -681,12 +696,15 @@
 
 
 
-(defn panel-header [{:panel/keys [needs-refresh? system-banners tab-connected?]}]
+(defn panel-header [{:panel/keys [needs-refresh? system-banners tab-connected?]
+                     :as state}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/icon [icons/epupp-logo {:size 28 :connected? tab-connected?}]
     :elements/status "Ready"
+    :elements/sponsor-status (storage/sponsor-active? state)
+    :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])
     :elements/permanent-banner (when needs-refresh? [refresh-banner])
     :elements/temporary-banner (when (seq system-banners)
                                  [view-elements/system-banners system-banners])}])
@@ -772,6 +790,8 @@
                                    (perform-effect! dispatch! [:editor/fx.load-connections])
                                    ;; Load scripts list for conflict detection
                                    (perform-effect! dispatch! [:editor/fx.load-scripts-list])
+                                   ;; Load sponsor status
+                                   (perform-effect! dispatch! [:editor/fx.load-sponsor-status])
                                    ;; Check if there's a script to edit (from popup)
                                    (dispatch! [[:editor/ax.check-editing-script]])
                                    ;; Listen for page navigation to clear stale results
@@ -794,7 +814,16 @@
          (dispatch! [[:editor/ax.update-scripts-list parsed]])))
      ;; Check for script to edit when popup sets editingScript
      (when (.-editingScript changes)
-       (dispatch! [[:editor/ax.check-editing-script]])))))
+       (dispatch! [[:editor/ax.check-editing-script]]))
+     ;; Listen for sponsor status changes
+     (let [status-change (.-sponsorStatus changes)
+           checked-change (.-sponsorCheckedAt changes)]
+       (when (or status-change checked-change)
+         (dispatch! (cond-> []
+                      status-change
+                      (conj [:db/ax.assoc :sponsor/status (boolean (.-newValue status-change))])
+                      checked-change
+                      (conj [:db/ax.assoc :sponsor/checked-at (.-newValue checked-change)]))))))))
 
 ;; Listen for messages from background
 (js/chrome.runtime.onMessage.addListener

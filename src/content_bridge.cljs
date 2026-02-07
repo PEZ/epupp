@@ -13,6 +13,7 @@
 ;; - epupp-page source: ws-connect, ws-send (WebSocket relay for REPL)
 ;; - epupp-page source: load-manifest (library injection for REPL)
 ;; - epupp-userscript source: install-userscript (with origin validation in background)
+;; - epupp-userscript source: sponsor-status (persists sponsor flag to storage)
 ;; ============================================================
 
 (ns content-bridge
@@ -296,6 +297,12 @@
                   (log/debug "Bridge" "Extension context invalidated")
                   (stop-keepalive!)
                   (set-connected! false)))))
+
+          "sponsor-status"
+          (do
+            (log/debug "Bridge" "Forwarding sponsor-status to background")
+            (send-message-safe!
+             #js {:type "sponsor-status"}))
 
           nil)))))
 

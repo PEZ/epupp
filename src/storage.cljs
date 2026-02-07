@@ -23,7 +23,9 @@
    Synced via persist! and onChanged listener."
   (atom {:storage/schema-version current-schema-version
          :storage/scripts []
-         :storage/granted-origins []}))
+         :storage/granted-origins []
+         :sponsor/status false
+         :sponsor/checked-at nil}))
 
 ;; ============================================================
 ;; Built-in catalog
@@ -32,7 +34,10 @@
 (def ^:private bundled-builtins
   [{:script/id "epupp-builtin-web-userscript-installer"
     :path "userscripts/epupp/web_userscript_installer.cljs"
-    :name "epupp/web_userscript_installer.cljs"}])
+    :name "epupp/web_userscript_installer.cljs"}
+   {:script/id "epupp-builtin-sponsor-check"
+    :path "userscripts/epupp/sponsor.cljs"
+    :name "epupp/sponsor.cljs"}])
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
@@ -68,25 +73,32 @@
 (defn ^:async persist!
   "Write current !db state to chrome.storage.local"
   []
-  (let [{:storage/keys [scripts granted-origins schema-version]} @!db]
+  (let [db @!db
+        {:storage/keys [scripts granted-origins schema-version]} db]
     (js-await (js/Promise.
                (fn [resolve]
                  (js/chrome.storage.local.set
                   #js {:schemaVersion schema-version
                        :scripts (clj->js (mapv script-utils/script->js scripts))
-                       :grantedOrigins (clj->js granted-origins)}
+                       :grantedOrigins (clj->js granted-origins)
+                       :sponsorStatus (:sponsor/status db)
+                       :sponsorCheckedAt (:sponsor/checked-at db)}
                   (fn [] (resolve nil))))))))
 
 (defn ^:async load!
   "Load scripts from chrome.storage.local into !db atom.
    Returns a promise that resolves when loaded."
   []
-  (let [result (js-await (js/chrome.storage.local.get #js ["schemaVersion" "scripts" "grantedOrigins" "granted-origins"]))
+  (let [result (js-await (js/chrome.storage.local.get #js ["schemaVersion" "scripts" "grantedOrigins" "granted-origins" "sponsorStatus" "sponsorCheckedAt"]))
         {:storage/keys [schema-version scripts granted-origins remove-keys migrated?]}
-        (normalize-storage-result result)]
+        (normalize-storage-result result)
+        sponsor-status (boolean (.-sponsorStatus result))
+        sponsor-checked-at (.-sponsorCheckedAt result)]
     (reset! !db {:storage/schema-version schema-version
                  :storage/scripts scripts
-                 :storage/granted-origins granted-origins})
+                 :storage/granted-origins granted-origins
+                 :sponsor/status sponsor-status
+                 :sponsor/checked-at sponsor-checked-at})
     (when migrated?
       (js-await (persist!)))
     (when (seq remove-keys)
@@ -132,6 +144,10 @@
                              (vec (.-newValue origins-change))
                              [])]
            (swap! !db assoc :storage/granted-origins new-origins)))
+       (when-let [sponsor-change (.-sponsorStatus changes)]
+         (swap! !db assoc :sponsor/status (boolean (.-newValue sponsor-change))))
+       (when-let [checked-change (.-sponsorCheckedAt changes)]
+         (swap! !db assoc :sponsor/checked-at (.-newValue checked-change)))
        (log/debug "Storage" "Updated from external change"))))
   (js-await (load!))
   (js-await (sync-builtin-scripts!))
@@ -454,6 +470,26 @@
             (log/debug "Storage" "Synced built-in" (:script/id bundled))))
         (catch :default err
           (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err))))))
+
+;; ============================================================
+;; Sponsor status
+;; ============================================================
+
+(def ^:private sponsor-expiry-ms
+  "3 months in milliseconds (approximately 90 days)."
+  (* 90 24 60 60 1000))
+
+(defn sponsor-active?
+  "Returns true when sponsor status is true and was checked within the last 3 months.
+   Arity-2 accepts a custom 'now' timestamp for testing."
+  ([db] (sponsor-active? db (.now js/Date)))
+  ([db now]
+   (let [status (:sponsor/status db)
+         checked-at (:sponsor/checked-at db)]
+     (boolean
+      (and status
+           (some? checked-at)
+           (< (- now checked-at) sponsor-expiry-ms))))))
 
 ;; ============================================================
 ;; Debug: Expose for console testing

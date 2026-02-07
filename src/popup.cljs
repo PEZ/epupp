@@ -9,6 +9,7 @@
             [popup-utils :as popup-utils]
             [popup-actions :as popup-actions]
             [log :as log]
+            [storage :as storage]
             [view-elements :as view-elements]
             [test-logger :as test-logger]
             [clojure.string :as str]))
@@ -38,6 +39,8 @@
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
+         :sponsor/status false
+         :sponsor/checked-at nil
          :repl/connections []         ; Source of truth for connections
          ;; Shadow lists for rendering with animation state
          ;; Shape: [{:item <original> :ui/entering? bool :ui/leaving? bool}]
@@ -427,6 +430,19 @@
           numeric-tab-id (js/parseInt tab-id 10)]
       (js/chrome.runtime.sendMessage
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
+
+    :popup/fx.check-sponsor
+    (js/chrome.tabs.create #js {:url "https://github.com/sponsors/PEZ" :active true})
+
+    :popup/fx.load-sponsor-status
+    (js/chrome.storage.local.get
+     #js ["sponsorStatus" "sponsorCheckedAt"]
+     (fn [result]
+       (let [status (boolean (.-sponsorStatus result))
+             checked-at (.-sponsorCheckedAt result)]
+         (dispatch [[:db/ax.assoc
+                     :sponsor/status status
+                     :sponsor/checked-at checked-at]]))))
 
     :popup/fx.log-system-banner
     ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
@@ -843,6 +859,8 @@
       {:elements/wrapper-class "popup-header-wrapper"
        :elements/header-class "popup-header"
        :elements/icon [icons/epupp-logo {:size 28 :connected? (current-tab-connected? state)}]
+       :elements/sponsor-status (storage/sponsor-active? state)
+       :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])
        :elements/temporary-banner (when-let [banners (seq (:ui/system-banners state))]
                                     [view-elements/system-banners banners])}]
 
@@ -969,7 +987,18 @@
                  changed-names (concat added modified)]
              (when (seq changed-names)
                (dispatch! [[:popup/ax.mark-scripts-modified (vec changed-names)]]))))))))
-
+  ;; Listen for sponsor status changes
+  (js/chrome.storage.onChanged.addListener
+   (fn [changes area]
+     (when (= area "local")
+       (let [status-change (.-sponsorStatus changes)
+             checked-change (.-sponsorCheckedAt changes)]
+         (when (or status-change checked-change)
+           (dispatch! (cond-> []
+                        status-change
+                        (conj [:db/ax.assoc :sponsor/status (boolean (.-newValue status-change))])
+                        checked-change
+                        (conj [:db/ax.assoc :sponsor/checked-at (.-newValue checked-change)]))))))))
   (dispatch! [[:popup/ax.load-default-ports-setting]
               [:popup/ax.load-saved-ports]
               [:popup/ax.check-status]
@@ -979,7 +1008,8 @@
               [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-fs-sync-setting]
               [:popup/ax.load-debug-logging-setting]
-              [:popup/ax.load-connections]]))
+              [:popup/ax.load-connections]
+              [:popup/ax.load-sponsor-status]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" "Script loaded, readyState:" js/document.readyState)

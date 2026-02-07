@@ -324,4 +324,10 @@
     (let [[brave?] args]
       {:uf/db (assoc state :browser/brave? brave?)})
 
+    :popup/ax.check-sponsor
+    {:uf/fxs [[:popup/fx.check-sponsor]]}
+
+    :popup/ax.load-sponsor-status
+    {:uf/fxs [[:popup/fx.load-sponsor-status]]}
+
     :uf/unhandled-ax))

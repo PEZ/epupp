@@ -10,8 +10,11 @@
    - :elements/icon: hiccup for the icon (default: icon-32.png image)
    - :elements/status: optional status text (panel shows 'Ready')
    - :elements/permanent-banner: optional banner element to show above header (e.g., extension update)
-   - :elements/temporary-banner: optional banner element to show below header (e.g., FS sync feedback)"
-  [{:elements/keys [wrapper-class header-class icon status permanent-banner temporary-banner]}]
+   - :elements/temporary-banner: optional banner element to show below header (e.g., FS sync feedback)
+   - :elements/sponsor-status: boolean indicating sponsor status
+   - :elements/on-sponsor-click: click handler for sponsor heart button"
+  [{:elements/keys [wrapper-class header-class icon status permanent-banner temporary-banner
+                    sponsor-status on-sponsor-click]}]
   [:div {:class (str "app-header-wrapper " wrapper-class)}
    (when permanent-banner permanent-banner)
    [:div {:class (str "app-header " header-class)}
@@ -19,7 +22,16 @@
      (or icon [:img {:src "icons/icon-32.png" :alt ""}])
      [:span.app-header-title-text
       "Epupp"
-      [:span.tagline "Live Tamper your Web"]]]
+      [:span.tagline "Live Tamper your Web"]]
+     [:button.sponsor-heart
+      {:on-click on-sponsor-click
+       :title (if sponsor-status
+                "Thank you for sponsoring!"
+                "Click to update sponsor status")}
+      [icons/heart {:size 14
+                    :filled? sponsor-status
+                    :class (str "sponsor-heart-icon"
+                                (when sponsor-status " sponsor-heart-filled"))}]]]
     (when status
       [:div.app-header-status status])]
    (when temporary-banner temporary-banner)])

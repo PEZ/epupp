@@ -398,4 +398,10 @@
     (let [[scripts] args]
       {:uf/db (assoc state :panel/scripts-list (or scripts []))})
 
+    :editor/ax.check-sponsor
+    {:uf/fxs [[:editor/fx.check-sponsor]]}
+
+    :editor/ax.load-sponsor-status
+    {:uf/fxs [[:editor/fx.load-sponsor-status]]}
+
     :uf/unhandled-ax))
