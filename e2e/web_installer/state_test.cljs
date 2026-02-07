@@ -17,7 +17,8 @@
       (let [page (js-await (h/navigate-to-mock-gist context))]
         ;; Wait for install buttons - expect 8 total:
         ;; 2 original pre blocks + 1 GitHub table + 1 GitLab snippet + 1 GitHub repo
-        ;; + 3 from Batch C: nested code pre, syntax highlighted pre, textarea
+        ;; + 3 from Batch C: nested code pre, syntax highlighted pre, generic textarea
+        ;; (gist edit textarea is skipped - inside .js-code-editor)
         (let [install-buttons (h/get-install-button page "install")]
           (js-await (-> (expect install-buttons)
                         (.toHaveCount 8 #js {:timeout 2000})))

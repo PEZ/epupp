@@ -230,7 +230,30 @@
     </div>
   </div>
 
-  <!-- Textarea element -->
+  <!-- GitHub gist edit mode textarea (has .js-code-editor matching real GitHub DOM) -->
+  <div class="file js-code-editor" id="github-gist-edit-textarea">
+    <div class="file-header d-flex">
+      <div class="d-flex">
+        <div class="input-group gist-filename-input pr-2">
+          <input type="text" class="form-control js-gist-filename" value="gist_edit_script.cljs" placeholder="Filename including extension...">
+        </div>
+        <div class="gist-file-actions pr-2 ml-auto">
+          <select class="form-select select-sm"><option>Spaces</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <textarea rows="10" cols="80">{:epupp/script-name "gist_edit_script.cljs"
+ :epupp/auto-run-match "*://gist-edit-test.example.com/*"
+ :epupp/description "Test gist edit textarea placement"}
+
+(ns gist-edit-script)
+
+(js/console.log "Gist edit script works!")</textarea>
+    </div>
+  </div>
+
+  <!-- Generic textarea element (no .file-actions - generic placement) -->
   <div class="file" id="textarea-element">
     <div class="file-header">
       <span class="gist-blob-name">textarea_script.cljs</span>

@@ -125,6 +125,26 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_github_gist_edit_skipped []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Setup installer
+      (let [popup (js-await (h/setup-installer!+ context ext-id))]
+        (js-await (.close popup)))
+
+      ;; Navigate to mock gist page
+      (let [page (js-await (h/navigate-to-mock-gist context))]
+        ;; Verify NO install button appears for gist edit textarea
+        ;; (code editor textareas are skipped)
+        (js-await (h/assert-no-install-button page "#github-gist-edit-textarea" "install" 2000))
+        (js/console.log "Confirmed: gist edit textarea correctly skipped (no install button)")
+
+        (js-await (.close page)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Web Installer: format detection"
            (fn []
              (test "Web Installer: detects GitHub-style table code blocks"
@@ -134,4 +154,7 @@
                    test_gitlab_button_placement)
 
              (test "Web Installer: places GitHub repo buttons in ButtonGroup"
-                   test_github_repo_button_placement)))
+                   test_github_repo_button_placement)
+
+             (test "Web Installer: skips gist edit textareas (code editor)"
+                   test_github_gist_edit_skipped)))

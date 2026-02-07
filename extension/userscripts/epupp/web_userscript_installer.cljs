@@ -118,13 +118,14 @@
 
 (defn- detect-pre-elements
   "Find generic pre elements, return array of {:element :format :code-text}.
-   Excludes pre elements that are inside .file-holder (GitLab-specific containers)."
+   Excludes pre elements inside .file-holder (GitLab snippets) or
+   .CodeMirror (code editor line fragments, e.g. GitHub gist edit mode)."
   []
   (->> (.querySelectorAll js/document "pre")
        js/Array.from
        (filter (fn [el]
-                 ;; Exclude if inside .file-holder (GitLab snippet)
-                 (not (.closest el ".file-holder"))))
+                 (and (not (.closest el ".file-holder"))
+                      (not (.closest el ".CodeMirror")))))
        (map (fn [el]
               {:element el
                :format :pre
@@ -136,10 +137,13 @@
   (aget textarea-element "value"))
 
 (defn- detect-textarea-elements
-  "Find textarea elements, return array of {:element :format :code-text}"
+  "Find textarea elements, return array of {:element :format :code-text}.
+   Excludes textareas inside code editors (.js-code-editor) such as GitHub gist edit mode."
   []
   (->> (.querySelectorAll js/document "textarea")
        js/Array.from
+       (filter (fn [el]
+                 (not (.closest el ".js-code-editor"))))
        (map (fn [el]
               {:element el
                :format :textarea
