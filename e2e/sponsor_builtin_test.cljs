@@ -2,7 +2,7 @@
   "E2E tests for built-in sponsor script presence and behavior in popup."
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              wait-for-popup-ready get-script-item
+                              get-script-item
                               send-runtime-message assert-no-errors!]]))
 
 (def ^:private builtin-id "epupp-builtin-sponsor-check")

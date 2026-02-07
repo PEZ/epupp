@@ -31,13 +31,16 @@
 ;; Built-in catalog
 ;; ============================================================
 
+(def ^:private !dev-mode? (atom false))
+
 (def ^:private bundled-builtins
   [{:script/id "epupp-builtin-web-userscript-installer"
     :path "userscripts/epupp/web_userscript_installer.cljs"
     :name "epupp/web_userscript_installer.cljs"}
    {:script/id "epupp-builtin-sponsor-check"
     :path "userscripts/epupp/sponsor.cljs"
-    :name "epupp/sponsor.cljs"}])
+    :name "epupp/sponsor.cljs"
+    :dev-match ["https://github.com/sponsors/*"]}])
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
@@ -113,8 +116,11 @@
 (defn ^:async init!
   "Initialize storage: load existing data and set up onChanged listener.
    Returns a promise that resolves when storage is loaded.
-   Call this once from background worker on startup."
-  []
+   Call this once from background worker on startup.
+   Options:
+   - :dev? - when true, enables dev-mode overrides (e.g., broader match patterns for builtins)"
+  [{:keys [dev?] :or {dev? false}}]
+  (reset! !dev-mode? (boolean dev?))
   ;; Listen for changes from other contexts (popup, devtools panel)
   (js/chrome.storage.onChanged.addListener
    (fn [changes area]
@@ -425,7 +431,9 @@
                  :else [])
         manifest-match (when manifest (normalize-auto-run-match (get manifest "auto-run-match")))
         has-auto-run-key? (when manifest (manifest-has-auto-run-key? manifest))
-        match (when manifest (if has-auto-run-key? (or manifest-match []) []))]
+        match (if (and @!dev-mode? (:dev-match bundled))
+                (:dev-match bundled)
+                (when manifest (if has-auto-run-key? (or manifest-match []) [])))]
     (cond-> {:script/id (:script/id bundled)
              :script/code code
              :script/builtin? true

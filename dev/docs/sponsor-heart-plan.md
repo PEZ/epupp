@@ -96,22 +96,22 @@ Verified via REPL on live GitHub Sponsors pages:
 
 - [x] Add `:elements/sponsor-status` option (boolean) to `app-header`
 - [x] Add `:elements/on-sponsor-click` option (click handler) to `app-header`
-- [x] Render heart icon to the right of the title text, inside `.app-header-title`
+- [x] ~~Render heart icon to the right of the title text, inside `.app-header-title`~~ Render heart in the header status position (right side), replacing the regular status text
+- [x] Remove `:elements/status` option - the heart replaces the old status area
 - [x] Apply appropriate tooltip based on status ("Thank you for sponsoring!" / "Click to update sponsor status")
 - [x] Verified by unit tests (if applicable)
 - [x] Verified by e2e tests
 - [ ] Verified by PEZ
 
-**Implementation notes:** Matches the conceptual rendering from the plan exactly.
-
-Conceptual addition to `app-header`:
+**Implementation notes:** Heart button is a direct child of `.app-header`, positioned to the right via `justify-content: space-between`. The `:elements/status` option (used by panel for "Ready" text) has been removed - the heart is the status now.
 
 ```clojure
-[:div.app-header-title
- (or icon [:img {:src "icons/icon-32.png" :alt ""}])
- [:span.app-header-title-text
-  "Epupp"
-  [:span.tagline "Live Tamper your Web"]]
+[:div {:class (str "app-header " header-class)}
+ [:div.app-header-title
+  (or icon [:img {:src "icons/icon-32.png" :alt ""}])
+  [:span.app-header-title-text
+   "Epupp"
+   [:span.tagline "Live Tamper your Web"]]]
  [:button.sponsor-heart
   {:on-click on-sponsor-click
    :title (if sponsor-status
@@ -145,7 +145,7 @@ Conceptual addition to `app-header`:
   padding: 2px;
   display: flex;
   align-items: center;
-  margin-left: auto; /* push to right */
+  /* Positioned to right by header's justify-content: space-between */
 }
 
 .sponsor-heart-icon {
@@ -384,7 +384,7 @@ Register the sponsor check script as a builtin userscript, following the pattern
 - [x] Add entry to `builtin-scripts` catalog in `src/storage.cljs`
 - [x] Place userscript file at `extension/userscripts/epupp/sponsor.cljs`
 - [x] Verify `sync-builtin-scripts!` picks it up on extension init (e2e)
-- [x] Verify script is always enabled (no UI toggle for disabling) (e2e - note: builtins with match patterns DO get enable/disable checkbox; this is by design)
+- [x] Builtins with match patterns have the same enable/disable toggle as regular scripts (by design - gated on `(seq match)`, not builtin status)
 - [x] Verify script is not deletable by the user (e2e)
 - [x] Verify script is visible in popup script list (transparency) (e2e)
 - [x] Verified by unit tests (if applicable)
@@ -417,7 +417,7 @@ Register the sponsor check script as a builtin userscript, following the pattern
 4. Extension initialization triggers `storage/init!` which calls `sync-builtin-scripts!` at startup.
 
 The script must be:
-- **Always enabled** - no UI toggle for disabling it
+- **Enabled by default** - has the standard enable/disable toggle (same as all scripts with match patterns)
 - **Not deletable** by the user
 - Visible in the popup script list (so users can read the source and verify privacy claims)
 
@@ -435,10 +435,34 @@ The script must be:
 - [x] Link from `dev/docs/architecture/components.md` (if it lists features by file)
 - [x] Link from `dev/docs/architecture/message-protocol.md` (new `sponsor-status` message type)
 - [x] Link from `dev/docs/architecture/state-management.md` (new storage keys)
-- [ ] Archive this plan to `dev/docs/archive/sponsor-heart-plan.md` (after PEZ verification)
 - [x] Verified by unit tests (not applicable - documentation only)
 - [x] Verified by e2e tests (not applicable - documentation only)
 - [ ] Verified by PEZ
+
+### Chunk 12: Dev-mode Sponsor Match Override
+
+**Files:** `src/storage.cljs`, `src/background.cljs`
+
+In dev/test builds, the sponsor userscript should auto-run on ANY GitHub sponsor page
+(not just PEZ's), so the developer can test detection against pages where they are an
+actual sponsor (e.g., `github.com/sponsors/jeaye`) or have just sponsored
+(`github.com/sponsors/borkdude?success=true`).
+
+- [x] Add `!dev-mode?` atom to `src/storage.cljs`
+- [x] Add `:dev-match` field to sponsor builtin entry in `bundled-builtins`
+- [x] Update `init!` to accept `{:keys [dev?]}` option map and store the flag
+- [x] Update `build-bundled-script` to use `:dev-match` when in dev mode
+- [x] Update `src/background.cljs` to pass `{:dev? (.-dev config)}` to `storage/init!`
+- [x] Verified by unit tests (417 passing)
+- [x] Verified by e2e tests (119 passing)
+- [ ] Verified by PEZ
+
+**Design:**
+- Production match: `"https://github.com/sponsors/PEZ*"` (from userscript manifest)
+- Dev match: `["https://github.com/sponsors/*"]` (from `:dev-match` in builtin catalog)
+- The `!dev-mode?` flag is set once during `init!` and read by `build-bundled-script`
+- The `onChanged` listener that calls `sync-builtin-scripts!` automatically picks up the
+  flag since it reads from the module-level atom
 
 ## Implementation Order
 
@@ -453,6 +477,7 @@ The script must be:
 9. **Chunk 10** - Builtin script registration (depends on understanding builtin pattern)
 10. **Chunk 9** - Userscript logic (depends on 7, 8, 10)
 11. **Chunk 11** - Documentation (after all implementation is complete)
+12. **Chunk 12** - Dev-mode match override (after builtin registration works)
 
 ## Execution Workflow
 
@@ -493,18 +518,18 @@ The script must be:
 
 #### Dev-mode sponsor page checking
 
-To verify regular (non-forever) sponsorship detection manually, PEZ can check other
-people's sponsor pages instead of his own:
+In dev builds (`config/dev.edn` with `:dev true`), the sponsor userscript automatically
+matches ALL GitHub sponsor pages (`https://github.com/sponsors/*`) instead of just PEZ's.
+This is implemented via the `:dev-match` override in Chunk 12.
+
+To verify regular (non-forever) sponsorship detection manually:
 
 - **Recurring sponsor:** PEZ sponsors `jeaye` - visit `https://github.com/sponsors/jeaye`
   to verify the "Sponsoring as" detection and thank-you banner
-- **One-time sponsor:** PEZ sponsored `borkdude` (one-time) - visit
-  `https://github.com/sponsors/borkdude?success=true` to verify the just-sponsored detection
+- **One-time sponsor:** Visit `https://github.com/sponsors/borkdude?success=true` to
+  verify the just-sponsored detection
 
-This requires configuring the userscript match pattern to also match other sponsor pages
-during dev testing. The `auto-run-match` can be temporarily broadened to
-`"https://github.com/sponsors/*"` for manual testing, or use REPL evaluation on the
-target page.
+No temporary file edits needed - the dev build handles it automatically.
 
 ## Verification Checklist
 
@@ -534,7 +559,7 @@ target page.
 
 4. **Privacy** - The script sends only a boolean (sponsor/not-sponsor). No username or personal data collected. A privacy comment is included at the top of the script source. The script is visible in the popup script list for transparency.
 
-5. **Always enabled** - The sponsor check script is enabled by default with no UI for disabling or deleting it.
+5. **Enabled by default** - The sponsor check script is enabled by default. Like all scripts with match patterns, it has an enable/disable toggle. It cannot be deleted.
 
 ## DOM Detection Strategy
 

@@ -702,7 +702,6 @@
    {:elements/wrapper-class "panel-header-wrapper"
     :elements/header-class "panel-header"
     :elements/icon [icons/epupp-logo {:size 28 :connected? tab-connected?}]
-    :elements/status "Ready"
     :elements/sponsor-status (storage/sponsor-active? state)
     :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])
     :elements/permanent-banner (when needs-refresh? [refresh-banner])

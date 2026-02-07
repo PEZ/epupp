@@ -29,7 +29,6 @@
             eval-btn (.locator panel "button.btn-eval")
             clear-btn (.locator panel "button.btn-clear")
             results (.locator panel ".results-area")
-            status (.locator panel ".app-header-status")
             save-btn (.locator panel "button.btn-save")
             ;; Property table selectors
             save-section (.locator panel ".save-script-section")
@@ -46,44 +45,41 @@
         (js-await (-> (expect eval-btn) (.toBeVisible)))
         (js-await (-> (expect clear-btn) (.toBeVisible)))
 
-        ;; 2. Status shows Ready (mock returns hasScittle: true)
-        (js-await (-> (expect status) (.toContainText "Ready")))
-
-        ;; 3. Enter and evaluate code
+        ;; 2. Enter and evaluate code
         (js-await (.fill textarea "(+ 1 2 3)"))
         (js-await (.click eval-btn))
         ;; Playwright auto-waits for assertion condition
         (js-await (-> (expect results) (.toContainText "(+ 1 2 3)")))
 
-        ;; 4. Clear results
+        ;; 3. Clear results
         (js-await (.click clear-btn))
         ;; Playwright auto-waits for the negative assertion too
         (js-await (-> (expect results) (.not.toContainText "(+ 1 2 3)")))
 
         ;; === SAVE WORKFLOW (Manifest-Driven) ===
 
-        ;; 5. Without manifest, save section shows guidance message
+        ;; 4. Without manifest, save section shows guidance message
         (js-await (-> (expect (.locator save-section ".no-manifest-message")) (.toBeVisible)))
         (js-await (-> (expect save-btn) (.toBeDisabled)))
 
-        ;; 6. Add code with manifest - metadata displays should appear
+        ;; 5. Add code with manifest - metadata displays should appear
         (let [test-code (code-with-manifest {:name "Test Userscript"
                                              :match "*://test.example.com/*"
                                              :code "(println \"My userscript\")"})]
           (js-await (.fill textarea test-code)))
 
-        ;; 7. Verify manifest-driven displays show correct values
+        ;; 6. Verify manifest-driven displays show correct values
         (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs")))
         (js-await (-> (expect match-field) (.toContainText "*://test.example.com/*")))
 
-        ;; 8. Save button should now be enabled
+        ;; 7. Save button should now be enabled
         (js-await (-> (expect save-btn) (.toBeEnabled)))
 
-        ;; 9. Save and verify (first save = Created since it's a new script)
+        ;; 8. Save and verify (first save = Created since it's a new script)
         (js-await (.click save-btn))
         (js-await (fixtures/wait-for-save-status panel "Created"))
 
-        ;; 10. Name field still shows normalized name after save
+        ;; 9. Name field still shows normalized name after save
         (js-await (-> (expect name-field) (.toContainText "test_userscript.cljs")))
 
         ;; Assert no errors before closing

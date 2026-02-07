@@ -773,7 +773,7 @@
       ((^:async fn []
          (try
            (js-await (test-logger/init-test-mode!))
-           (js-await (storage/init!))
+           (js-await (storage/init! {:dev? (boolean (.-dev config))}))
            ;; Load debug logging setting and apply it
            (js-await (js/Promise.
                       (fn [res]
