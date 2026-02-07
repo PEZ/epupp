@@ -70,8 +70,8 @@ Verified via REPL on live GitHub Sponsors pages:
 
 - [x] Check what the current `heart` icon looks like and decide approach (`:filled?` prop or separate `heart-filled` component)
 - [x] Add filled heart SVG path(s) to `src/icons.cljc` ;PEZ: I think we already have the heart icon. Maybe make it take a `:filled?` option?
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (if applicable)
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Existing `heart` function modified to accept `:filled?` option. When true, renders solid heart path; when false/absent, renders original outline. No breaking changes.
@@ -84,8 +84,8 @@ Verified via REPL on live GitHub Sponsors pages:
 - [x] Add `:sponsor/checked-at` key (timestamp ms) to storage schema
 - [x] Add helper function to derive effective sponsor status: `true` only when `:sponsor/status` is `true` AND `:sponsor/checked-at` is less than 3 months ago
 - [x] Storage module already handles `chrome.storage.onChanged` and syncs to `!db` atom - verify these keys flow through
-- [x] Verified by unit tests
-- [x] Verified by e2e tests (if applicable)
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Pure function `sponsor-active?` takes db map (and optional `now` for testability). 7 unit tests added covering active, expired, missing, and boundary cases. 90-day expiry (strict `<`).
@@ -99,8 +99,8 @@ Verified via REPL on live GitHub Sponsors pages:
 - [x] ~~Render heart icon to the right of the title text, inside `.app-header-title`~~ Render heart in the header status position (right side), replacing the regular status text
 - [x] Remove `:elements/status` option - the heart replaces the old status area
 - [x] Apply appropriate tooltip based on status ("Thank you for sponsoring!" / "Click to update sponsor status")
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Heart button is a direct child of `.app-header`, positioned to the right via `justify-content: space-between`. The `:elements/status` option (used by panel for "Ready" text) has been removed - the heart is the status now.
@@ -131,8 +131,8 @@ Verified via REPL on live GitHub Sponsors pages:
 - [x] Add `.sponsor-heart-icon` default color and transition
 - [x] Add `.sponsor-heart-filled` filled color (#e91e63)
 - [x] Add `.sponsor-heart:hover` effect
-- [x] Verified by unit tests (not applicable - CSS only)
-- [x] Verified by e2e tests
+- [ ] Verified by unit tests (not applicable - CSS only)
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Added to `extension/components.css`. Used `var(--transition-duration)` instead of hardcoded `0.2s` to stay consistent with the design system.
@@ -170,8 +170,8 @@ Verified via REPL on live GitHub Sponsors pages:
 - [x] Add action `:popup/ax.check-sponsor` that triggers the sponsor tab effect
 - [x] Add effect `:popup/fx.check-sponsor` that opens `https://github.com/sponsors/PEZ` via `chrome.tabs.create`
 - [x] Pass sponsor status and click handler to `app-header`
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Plan didn't detail how sponsor status loads into popup's own state. Added `:popup/ax.load-sponsor-status` / `:popup/fx.load-sponsor-status` action/effect pair following existing settings-loading pattern, plus a `chrome.storage.onChanged` listener for reactive updates.
@@ -197,8 +197,8 @@ Same pattern as popup:
 - [x] Read `:sponsor/status` from storage state in panel
 - [x] Add action/effect for opening sponsors tab
 - [x] Pass sponsor status and click handler to `app-header`
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
 - [ ] Verified by PEZ
 
 **Implementation notes:** Same pattern as popup, adapted to `editor/*` namespace convention. Added `:editor/ax.check-sponsor`, `:editor/ax.load-sponsor-status` actions and corresponding effects, plus `chrome.storage.onChanged` listener.
@@ -209,9 +209,9 @@ Same pattern as popup:
 
 - [x] Add `"sponsor-status"` to the userscript message whitelist
 - [x] Content bridge forwards it to background via `chrome.runtime.sendMessage`
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (if applicable)
-- [ ] Verified by PEZ (if applicable)
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
+- [ ] Verified by PEZ
 
 **Implementation notes:** Used `send-message-safe!` (fire-and-forget) since the userscript doesn't need a response relayed back.
 
@@ -222,9 +222,9 @@ Same pattern as popup:
 - [x] Add `"sponsor-status"` case to `onMessage` dispatch table
 - [x] Implement `handle-sponsor-status` handler that persists to storage
 - [x] Handler only receives `true` (the userscript never sends `false`)
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (if applicable)
-- [ ] Verified by PEZ (if applicable)
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests
+- [ ] Verified by PEZ
 
 **Implementation notes:** Handler updates `storage/!db` directly and calls `storage/persist!`, then responds with `{:success true}`.
 
@@ -252,8 +252,8 @@ Handler:
 - [x] Implement `insert-banner!` helper for DOM banner insertion
 - [x] Implement `send-sponsor-status!` helper (one-way `true` signal)
 - [x] Add SPA navigation listener using `window.navigation` API pattern
-- [x] Verified by unit tests (not applicable - userscript runs in page context)
-- [x] Verified by e2e tests (all 116 pass with new builtin)
+- [ ] Verified by unit tests (not applicable - userscript runs in page context)
+- [ ] Verified by e2e tests (all 116 pass with new builtin)
 - [ ] Verified by PEZ
 
 **Implementation notes:** Initial file creation had a garbled manifest (missing opening `{`, duplicate ns form) - fixed manually. File now matches the plan. E2E test script count assertions across 5 test files needed incrementing by 1 to account for the new builtin (was counting 1 builtin, now 2).
@@ -383,14 +383,13 @@ Register the sponsor check script as a builtin userscript, following the pattern
 
 - [x] Add entry to `builtin-scripts` catalog in `src/storage.cljs`
 - [x] Place userscript file at `extension/userscripts/epupp/sponsor.cljs`
-- [x] Verify `sync-builtin-scripts!` picks it up on extension init (e2e)
-- [x] Builtins must not have an enable/disable toggle in the UI
-- [x] Builtins must be force-enabled on every `sync-builtin-scripts!` call
-- [x] `toggle-script!` must reject attempts to toggle builtins
-- [x] Verify script is not deletable by the user (e2e)
-- [x] Verify script is visible in popup script list (transparency) (e2e)
-- [x] Verified by unit tests (if applicable)
-- [x] Verified by e2e tests (sponsor_builtin_test.cljs verifies: visible, no delete, no toggle checkbox, always enabled in storage)
+- [ ] Verify `sync-builtin-scripts!` picks it up on extension init (e2e)
+- [ ] The `epupp/sponsors.cljs` script must not have an enable/disable toggle in the UI
+- [ ] The `epupp/sponsors.cljs` script must be force-enabled on every `sync-builtin-scripts!` call
+- [x] Verify `epupp/sponsors.cljs` is not deletable by the user (e2e)
+- [x] Verify `epupp/sponsors.cljs` is visible in popup script list (transparency) (e2e)
+- [ ] Verified by unit tests
+- [ ] Verified by e2e tests (sponsor_builtin_test.cljs verifies: visible, no delete, no toggle checkbox, always enabled in storage)
 - [ ] Verified by PEZ
 
 **Implementation notes:** Used `epupp-builtin-sponsor-check` as the ID (following existing naming convention) rather than bare `sponsor-check` from the plan. Added PEZ to the forever-sponsors map. The UI suppresses the enable/disable checkbox for builtins (gated on `builtin?` in addition to `(seq match)`). `toggle-script!` silently ignores builtins. `sync-builtin-scripts!` force-enables all builtins on every sync.
@@ -437,8 +436,8 @@ The script must be:
 - [x] Link from `dev/docs/architecture/components.md` (if it lists features by file)
 - [x] Link from `dev/docs/architecture/message-protocol.md` (new `sponsor-status` message type)
 - [x] Link from `dev/docs/architecture/state-management.md` (new storage keys)
-- [x] Verified by unit tests (not applicable - documentation only)
-- [x] Verified by e2e tests (not applicable - documentation only)
+- [ ] Verified by unit tests (not applicable - documentation only)
+- [ ] Verified by e2e tests (not applicable - documentation only)
 - [ ] Verified by PEZ
 
 ### Chunk 12: Dev-mode Sponsor Match Override
@@ -455,8 +454,8 @@ actual sponsor (e.g., `github.com/sponsors/jeaye`) or have just sponsored
 - [x] Update `init!` to accept `{:keys [dev?]}` option map and store the flag
 - [x] Update `build-bundled-script` to use `:dev-match` when in dev mode
 - [x] Update `src/background.cljs` to pass `{:dev? (.-dev config)}` to `storage/init!`
-- [x] Verified by unit tests (417 passing)
-- [x] Verified by e2e tests (119 passing)
+- [ ] Verified by unit tests (417 passing)
+- [ ] Verified by e2e tests (119 passing)
 - [ ] Verified by PEZ
 
 **Design:**
@@ -496,7 +495,7 @@ Then navigate to any GitHub sponsors page to test detection.
      - Before handing off completed work, delegate to `epupp-testrunner` to verify leaving the slate as green as entered
      - Hand off work with a brief summary of what was done and any deviations from the plan
    - b. On handoff: check off relevant checkboxes in this plan document
-   - c. Note any deviations or problems in the chunk's section
+   - c. Note any deviations or problems in the chunk's section of this document
    - d. Succinctly summarize the current state of the work to PEZ
    - e. Do not wait for PEZ to verify - continue with next chunk
 3. Summarize the completed work to PEZ
