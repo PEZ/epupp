@@ -11,80 +11,63 @@
 ;; to verify.
 
 ;; ============================================================
-;; Icon URL (fetched once, survives re-injections)
+;; Extension communication
 ;; ============================================================
 
 (defonce !icon-url (atom nil))
 (defonce !sponsored-username (atom nil))
 
+(defn- send-and-receive
+  "Send a message to the content bridge and return a promise of the response.
+   Resolves with the response message object, or nil on timeout."
+  [msg-type response-type]
+  (js/Promise.
+   (fn [resolve _reject]
+     (let [req-id (str "sponsor-" (js/Date.now) "-" (js/Math.random))
+           timeout-id (atom nil)
+           handler (fn handler [e]
+                     (when (= (.-source e) js/window)
+                       (let [msg (.-data e)]
+                         (when (and msg
+                                    (= "epupp-bridge" (.-source msg))
+                                    (= response-type (.-type msg))
+                                    (= req-id (.-requestId msg)))
+                           (when-let [tid @timeout-id]
+                             (js/clearTimeout tid))
+                           (.removeEventListener js/window "message" handler)
+                           (resolve msg)))))]
+       (.addEventListener js/window "message" handler)
+       (reset! timeout-id
+               (js/setTimeout
+                (fn []
+                  (.removeEventListener js/window "message" handler)
+                  (resolve nil))
+                2000))
+       (.postMessage js/window
+                     #js {:source "epupp-page"
+                          :type msg-type
+                          :requestId req-id}
+                     "*")))))
+
 (defn fetch-icon-url!+
   "Fetch the Epupp icon URL from the extension via content bridge.
    Returns a Promise that resolves with the URL string or nil on timeout."
   []
-  (js/Promise.
-   (fn [resolve _reject]
-     (let [req-id (str "sponsor-" (js/Date.now))
-           timeout-id (atom nil)
-           handler (fn handler [e]
-                     (when (= (.-source e) js/window)
-                       (let [msg (.-data e)]
-                         (when (and msg
-                                    (= "epupp-bridge" (.-source msg))
-                                    (= "get-icon-url-response" (.-type msg))
-                                    (= req-id (.-requestId msg)))
-                           (when-let [tid @timeout-id]
-                             (js/clearTimeout tid))
-                           (.removeEventListener js/window "message" handler)
-                           (resolve (.-url msg))))))]
-       (.addEventListener js/window "message" handler)
-       (reset! timeout-id
-               (js/setTimeout
-                (fn []
-                  (.removeEventListener js/window "message" handler)
-                  (resolve nil))
-                2000))
-       (.postMessage js/window
-                     #js {:source "epupp-page"
-                          :type "get-icon-url"
-                          :requestId req-id}
-                     "*")))))
+  (-> (send-and-receive "get-icon-url" "get-icon-url-response")
+      (.then (fn [msg] (when msg (.-url msg))))))
+
 (defn fetch-sponsored-username!+
   "Fetch the expected sponsor username from the extension via content bridge.
    Returns a Promise that resolves with the username string or nil on timeout."
   []
-  (js/Promise.
-   (fn [resolve _reject]
-     (let [req-id (str "sponsor-user-" (js/Date.now))
-           timeout-id (atom nil)
-           handler (fn handler [e]
-                     (when (= (.-source e) js/window)
-                       (let [msg (.-data e)]
-                         (when (and msg
-                                    (= "epupp-bridge" (.-source msg))
-                                    (= "get-sponsored-username-response" (.-type msg))
-                                    (= req-id (.-requestId msg)))
-                           (when-let [tid @timeout-id]
-                             (js/clearTimeout tid))
-                           (.removeEventListener js/window "message" handler)
-                           (resolve (.-username msg))))))]
-       (.addEventListener js/window "message" handler)
-       (reset! timeout-id
-               (js/setTimeout
-                (fn []
-                  (.removeEventListener js/window "message" handler)
-                  (resolve nil))
-                2000))
-       (.postMessage js/window
-                     #js {:source "epupp-page"
-                          :type "get-sponsored-username"
-                          :requestId req-id}
-                     "*")))))
+  (-> (send-and-receive "get-sponsored-username" "get-sponsored-username-response")
+      (.then (fn [msg] (when msg (.-username msg))))))
 ;; ============================================================
 ;; Forever sponsors
 ;; ============================================================
 
 (def ^:private forever-sponsors
-  {;"PEZ" "Thanks to myself for Epupp, Calva, Joyride, and Backseat Driver!"
+  {"PEZ" "Thanks to myself for Epupp, Calva, Joyride, and Backseat Driver!"
    "borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
    "richhickey" "Thanks for Clojure! You have status in my heart as a forever sponsor of Epupp and Calva."
    "swannodette" "Thanks for stewarding ClojureScript for all these years! You have status in my heart as a forever sponsor of Epupp and Calva."
