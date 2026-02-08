@@ -326,7 +326,7 @@
 
     :popup/ax.set-dev-sponsor-username
     (let [[username] args]
-      {:uf/db (assoc state :dev/sponsor-username username)
+      {:uf/db (assoc state :sponsor/sponsored-username username)
        :uf/fxs [[:popup/fx.set-dev-sponsor-username username]]})
 
     :popup/ax.reset-sponsor-status

@@ -42,7 +42,7 @@
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
          :sponsor/status false
          :sponsor/checked-at nil
-         :dev/sponsor-username "PEZ"
+         :sponsor/sponsored-username "PEZ"
          :repl/connections []         ; Source of truth for connections
          ;; Shadow lists for rendering with animation state
          ;; Shape: [{:item <original> :ui/entering? bool :ui/leaving? bool}]
@@ -434,7 +434,7 @@
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
 
     :popup/fx.check-sponsor
-    (let [username (or (:dev/sponsor-username @!state) "PEZ")]
+    (let [username (or (:sponsor/sponsored-username @!state) "PEZ")]
       (js/chrome.tabs.create #js {:url (str "https://github.com/sponsors/" username) :active true}))
 
     :popup/fx.load-sponsor-status
@@ -450,7 +450,7 @@
     :popup/fx.set-dev-sponsor-username
     (let [[username] args]
       (js/chrome.storage.local.set
-       (js-obj "dev/sponsor-username" username)))
+       (js-obj "sponsor/sponsored-username" username)))
 
     :popup/fx.reset-sponsor-status
     (js/chrome.storage.local.remove
@@ -458,11 +458,11 @@
 
     :popup/fx.load-dev-sponsor-username
     (js/chrome.storage.local.get
-     #js ["dev/sponsor-username"]
+     #js ["sponsor/sponsored-username"]
      (fn [result]
-       (let [username (aget result "dev/sponsor-username")]
+       (let [username (aget result "sponsor/sponsored-username")]
          (when username
-           (dispatch [[:db/ax.assoc :dev/sponsor-username username]])))))
+           (dispatch [[:db/ax.assoc :sponsor/sponsored-username username]])))))
 
     :popup/fx.log-system-banner
     ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)

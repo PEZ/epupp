@@ -88,7 +88,7 @@
         ;; Verify the stored value via background worker message
         ;; (chrome.tabs.create is frozen and cannot be mocked)
         (let [result (js-await (send-runtime-message popup "e2e/get-storage"
-                                                     #js {:key "dev/sponsor-username"}))]
+                                                     #js {:key "sponsor/sponsored-username"}))]
           (js-await (-> (expect (.-value result)) (.toBe "richhickey"))))
 
         (js-await (assert-no-errors! popup)))

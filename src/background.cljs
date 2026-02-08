@@ -757,8 +757,8 @@
                       (let [change (aget changes "settings/debug-logging")
                             enabled (boolean (.-newValue change))]
                         (log/set-debug-enabled! enabled)))
-                    (when (aget changes "dev/sponsor-username")
-                      (let [change (aget changes "dev/sponsor-username")
+                    (when (aget changes "sponsor/sponsored-username")
+                      (let [change (aget changes "sponsor/sponsored-username")
                             new-username (or (.-newValue change) "PEZ")]
                         ((^:async fn []
                            (js-await (ensure-initialized! dispatch!))
@@ -768,7 +768,7 @@
                 (fn [details]
                   (log/info "Background" "onInstalled:" (.-reason details))
                   ;; Reset dev sponsor username on install/update so it defaults back to PEZ
-                  (js/chrome.storage.local.remove #js ["dev/sponsor-username"])
+                  (js/chrome.storage.local.remove #js ["sponsor/sponsored-username"])
                   (ensure-initialized! dispatch!)))
 
   (.addListener js/chrome.runtime.onStartup

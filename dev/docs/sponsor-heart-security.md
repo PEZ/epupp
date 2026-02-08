@@ -6,7 +6,7 @@
 
 The sponsor heart feature adds a clickable heart icon to the popup and panel headers. Clicking it opens `github.com/sponsors/PEZ`, where a builtin userscript detects sponsor status via DOM signals and sends the result back to the extension. The heart fills when sponsor status is confirmed, with a 3-month expiry for re-verification.
 
-**Current state:** All implementation chunks (1-14) are complete. 423 unit tests and 127 E2E tests pass. A dev build (v0.0.7.742) exists. PEZ has not yet manually verified.
+**Current state:** 423 unit tests and 127 E2E tests pass. A dev build (v0.0.7.742) exists. PEZ has not yet manually verified. The code is pretty messy with abandoned development paths not reverted.
 
 ## Security Vulnerability
 
@@ -25,7 +25,7 @@ window.postMessage({source: "epupp-userscript", type: "sponsor-status"})
 
 **D1 - Message spoofing:** Any page-level code (console, userscript, malicious JS) can post `{source: "epupp-userscript", type: "sponsor-status"}` and the background will persist `{:sponsor/status true}`. The content bridge forwards without verification.
 
-**D2 - Wrong page detection:** The sponsor script can be run manually (play button in popup) on any GitHub sponsors page. If the user happens to sponsor that person, `detect-and-act!` detects "Sponsoring as" and sends `sponsor-status: true` - even though it says nothing about sponsoring PEZ.
+**D2 - Wrong page detection:** The sponsor script can be run manually (play button in popup) on any GitHub sponsors page. If the user happens to sponsor that person, `detect-and-act!` detects "Sponsoring as" and sends `sponsor-status: true` - even though it says nothing about sponsoring PEZ (or the current sponsored person, as set in the dev-only UI).
 
 ### Why this matters
 
@@ -54,7 +54,7 @@ Fix:
 
 - Pass `sender` to `handle-sponsor-status`
 - Extract `sender.tab.url`
-- Load expected username: read `dev/sponsor-username` from `chrome.storage.local` (dev override from Chunk 12), default to `"PEZ"`
+- Load expected username: read `sponsor/sponsored-username` from `chrome.storage.local`, default to `"PEZ"`
 - Verify URL matches `https://github.com/sponsors/{username}*`
 - If mismatch: respond `{:success false :error "URL mismatch"}`, do NOT persist
 - If match: persist as before
@@ -62,8 +62,8 @@ Fix:
 ```clojure
 (defn- ^:async handle-sponsor-status [_message sender send-response]
   (let [tab-url (when (.-tab sender) (.. sender -tab -url))
-        storage (js-await (js/chrome.storage.local.get "dev/sponsor-username"))
-        username (or (.-dev/sponsor-username storage) "PEZ")
+        storage (js-await (js/chrome.storage.local.get "sponsor/sponsored-username"))
+        username (or (.-sponsor/sponsored-username storage) "PEZ")
         expected-prefix (str "https://github.com/sponsors/" username)]
     (if (and tab-url (.startsWith tab-url expected-prefix))
       (do (swap! storage/!db assoc
@@ -119,7 +119,7 @@ Page JS (attacker-controlled)
 
 - [ ] Pass `sender` to `handle-sponsor-status` in dispatch (`src/background.cljs` line 669)
 - [ ] Add URL verification logic to `handle-sponsor-status` (`src/background.cljs` line 581)
-- [ ] Add expected-username lookup (`dev/sponsor-username` from storage, default `"PEZ"`)
+- [ ] Add expected-username lookup (`sponsor/sponsored-username` from storage, default `"PEZ"`)
 - [ ] Add script-side URL guard in `extension/userscripts/epupp/sponsor.cljs` (UX)
 - [ ] Unit test: `handle-sponsor-status` rejects when tab URL is wrong
 - [ ] Unit test: `handle-sponsor-status` accepts when tab URL matches

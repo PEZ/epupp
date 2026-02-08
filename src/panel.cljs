@@ -304,9 +304,9 @@
 
     :editor/fx.check-sponsor
     (js/chrome.storage.local.get
-     #js ["dev/sponsor-username"]
+     #js ["sponsor/sponsored-username"]
      (fn [result]
-       (let [username (or (aget result "dev/sponsor-username") "PEZ")]
+       (let [username (or (aget result "sponsor/sponsored-username") "PEZ")]
          (js/chrome.tabs.create #js {:url (str "https://github.com/sponsors/" username) :active true}))))
 
     :editor/fx.load-sponsor-status
