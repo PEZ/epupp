@@ -80,3 +80,4 @@
 * [x] Make sponsor link in footer use sponsor-heart status
 * [x] Add CalvaTV to footer
 * [ ] Add Joyride mention in README
+* [ ] Make the banner truly system wide and shared.
