@@ -107,15 +107,6 @@
   margin-left: 4px;
 }
 
-.app-header-status {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.app-header-status.connected {
-  color: var(--success);
-}
-
 /* Footer container - applied to both .popup-footer and .panel-footer */
 .app-footer {
   display: flex;

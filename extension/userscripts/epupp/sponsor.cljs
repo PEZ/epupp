@@ -52,7 +52,7 @@
 ;; Forever sponsors
 ;; ============================================================
 
-(def forever-sponsors
+(def ^:private forever-sponsors
   {"PEZ" "Thanks to myself for Epupp, Calva, Joyride, and Backseat Driver!"
    "borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
    "richhickey" "Thanks for Clojure! You have status in my heart as a forever sponsor of Epupp and Calva."
@@ -63,7 +63,7 @@
 ;; Messaging
 ;; ============================================================
 
-(defn send-sponsor-status! []
+(defn- send-sponsor-status! []
   (js/window.postMessage
    #js {:source "epupp-userscript"
         :type "sponsor-status"
@@ -76,37 +76,38 @@
 
 (def ^:private banner-styles
   "<style>
+  .epupp-sponsor-banner {
+    background-image: linear-gradient(color-mix(in srgb, var(--bgColor-attention-muted) 75%, transparent), color-mix(in srgb, var(--bgColor-attention-muted) 75%, transparent)) !important;
+  }
   .epupp-sponsor-banner-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    max-width: 1012px;
+    flex-wrap: wrap;
     margin: 0 auto;
-    padding: 0 16px;
+
   }
   .epupp-sponsor-brand {
     display: flex;
     align-items: center;
     gap: 8px;
+    font-size: 16px;
   }
   .epupp-sponsor-brand img {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
   }
   .epupp-sponsor-brand-name {
     font-weight: 600;
-    color: #24292f;
   }
   .epupp-sponsor-brand-tagline {
-    font-size: 12px;
-    color: #656d76;
-    margin-left: 4px;
+    font-style: italic;
   }
   .epupp-sponsor-message {
     text-align: right;
     flex-shrink: 0;
   }
-  </style>")
+</style>")
 
 (defn- remove-existing-banner!
   "Remove any previously inserted Epupp sponsor banner."
@@ -125,7 +126,7 @@
             icon-html (if icon-url
                         (str "<img src=\"" icon-url "\" alt=\"Epupp\" />")
                         "")]
-        (.add (.-classList banner) "flash" "flash-warn" "flash-full")
+        (.add (.-classList banner) "flash" "flash-warn" "flash-full" "epupp-sponsor-banner")
         (.setAttribute banner "data-epupp-sponsor-banner" "true")
         (set! (.-innerHTML banner)
               (str banner-styles
