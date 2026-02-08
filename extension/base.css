@@ -225,15 +225,15 @@
 }
 
 .creator-menu {
-  position: absolute;
-  bottom: 0;
+  position: fixed;
+  bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 8px 0;
+  padding: 0;
   min-width: 240px;
   z-index: 100;
   text-align: left;
@@ -265,7 +265,7 @@
   color: var(--text-primary);
 }
 
-.creator-menu-item {
+.creator-menu .creator-menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -280,17 +280,10 @@
   width: 100%;
 }
 
-.creator-menu-item:hover {
+.creator-menu .creator-menu-item:hover {
   background: var(--color-bg-btn-hover);
   color: var(--text-primary);
   text-decoration: none;
-}
-
-.menu-cta {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: 10px;
 }
 
 /* Buttons */

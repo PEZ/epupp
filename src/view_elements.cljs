@@ -42,20 +42,19 @@
       :title "Close"}
      [icons/close {:size 14}]]]
    [:a.creator-menu-item {:href "https://github.com/PEZ" :target "_blank"}
-    [icons/github {:size 14}] [:span "@PEZ"] [:span.menu-cta "Please follow"]]
+    [icons/github {:size 14}] [:span "@PEZ"]]
    [:button.creator-menu-item
     {:on-click on-sponsor-click}
     [icons/heart {:size 14 :filled? sponsor-status
                   :class (str "sponsor-heart-icon"
                               (when sponsor-status " sponsor-heart-filled"))}]
-    [:span "Sponsor"]
-    [:span.menu-cta (if sponsor-status "Thank you!" "Please sponsor")]]
+    [:span "Sponsor"]]
    [:a.creator-menu-item {:href "https://www.youtube.com/CalvaTV" :target "_blank"}
-    [icons/youtube {:size 14}] [:span "CalvaTV"] [:span.menu-cta "Please subscribe"]]
+    [icons/youtube {:size 14}] [:span "CalvaTV"]]
    [:a.creator-menu-item {:href "https://www.linkedin.com/in/cospaia/" :target "_blank"}
-    [icons/linkedin {:size 14}] [:span "LinkedIn"] [:span.menu-cta "Please follow"]]
+    [icons/linkedin {:size 14}] [:span "LinkedIn"]]
    [:a.creator-menu-item {:href "https://x.com/pappapez" :target "_blank"}
-    [icons/twitter-x {:size 14}] [:span "@pappapez"] [:span.menu-cta "Please follow"]]])
+    [icons/twitter-x {:size 14}] [:span "@pappapez"]]])
 
 (defn app-footer
   "Common footer component for both popup and panel.
