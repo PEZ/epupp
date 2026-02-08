@@ -440,10 +440,10 @@ kbd {
 }
 
 .sponsor-heart-filled {
-  color: #e91e63;
+  color: var(--color-sponsor-heart);
 }
 
 .sponsor-heart:hover .sponsor-heart-icon {
-  color: #e91e63;
+  color: var(--color-sponsor-heart);
 }
 

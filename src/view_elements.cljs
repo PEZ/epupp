@@ -61,28 +61,27 @@
          :title "Clojure"}
      [:img {:src "images/clojure.png" :alt "Clojure"}]]]
    [:div.footer-credits
-    [:span "Created by "
-     [:a {:href "https://github.com/PEZ"
-          :target "_blank"
-          :title "https://github.com/PEZ"}
-      "Peter Strömberg"]
-     " a.k.a. PEZ"]
     [:span.iconed-link
      [icons/github {:size 14}]
      [:a {:href "https://github.com/PEZ/browser-jack-in"
           :target "_blank"
           :title "https://github.com/PEZ/browser-jack-in"}
       "Open Source"]]
+    [:span "Created by "
+     [:a {:href "https://github.com/PEZ"
+          :target "_blank"
+          :title "https://github.com/PEZ"}
+      "Peter Strömberg"]
+     " a.k.a. PEZ"]
     [:button.footer-sponsor-heart
      {:on-click on-sponsor-click
-      :title (if sponsor-status
-               "Thank you for sponsoring!"
+      :title (when-not sponsor-status
                "Click to update sponsor status")}
      [icons/heart {:size 14
                    :filled? sponsor-status
                    :class (str "sponsor-heart-icon"
                                (when sponsor-status " sponsor-heart-filled"))}]
-     (if sponsor-status "Sponsor!" "Sponsor")]]])
+     (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]])
 
 ;; ============================================================
 ;; Shared UI Components
