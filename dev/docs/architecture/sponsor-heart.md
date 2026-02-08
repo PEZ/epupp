@@ -23,11 +23,14 @@ sponsoring!" (filled).
 Heart click (popup/panel)
   -> chrome.tabs.create sponsors URL (using sponsor/sponsored-username or "PEZ")
   -> builtin userscript auto-runs on page
+  -> background sets pending-check flag for tab (before script execution)
   -> DOM inspection for login + sponsor state
+  -> script-side URL guard: verify pathname matches expected username
   -> branded banner rendered at top of <main>
   -> if sponsor: window.postMessage (source: "epupp-userscript", type: "sponsor-status")
   -> content bridge whitelists and forwards via chrome.runtime.sendMessage
-  -> background handler persists to chrome.storage.local
+  -> background: consume pending-check + verify sender.tab.url
+  -> if valid: persist to chrome.storage.local
   -> storage.onChanged fires in popup/panel
   -> UI re-renders filled heart
 ```
@@ -83,7 +86,8 @@ Idempotency is handled via a `data-epupp-sponsor-banner` marker attribute.
 
 The Epupp icon URL is fetched from the extension via the content bridge
 (`get-icon-url` message) and cached in a `defonce !icon-url` atom that survives
-re-injections.
+re-injections. Both `fetch-icon-url!+` and `fetch-sponsored-username!+` use a
+shared `send-and-receive` helper for the window.postMessage/response pattern.
 
 ### Forever Sponsors
 
@@ -128,12 +132,22 @@ tab URL when the heart is clicked.
 
 ## Security
 
-**Status: NOT YET FIXED.** See `dev/docs/sponsor-heart-security.md` for the
-full analysis and fix design.
+The `sponsor-status` message is verified at the background trust boundary with
+two layers of protection:
 
-The `sponsor-status` message can currently be spoofed by any code in the page
-context. The planned fix adds background-side URL verification using
-`sender.tab.url` (Chrome API, not spoofable) and a script-side URL guard.
+1. **Pending check tracking** - The background sets a time-limited (30s),
+   one-shot pending flag before executing the sponsor script. Only auto-run
+   (navigation) and popup play button paths set this flag. Manual REPL eval
+   does not, so calling `(send-sponsor-status!)` from the REPL is rejected.
+
+2. **URL verification** - `sender.tab.url` (Chrome API, not spoofable) is
+   verified against `https://github.com/sponsors/{username}`.
+
+Both must pass for sponsor status to be persisted. The content bridge forwards
+blindly, which is correct - it is not a trust boundary.
+
+See [../archive/sponsor-heart-security.md](../archive/sponsor-heart-security.md)
+for the full vulnerability analysis and fix details.
 
 ## Key Files
 
@@ -147,7 +161,8 @@ context. The planned fix adds background-side URL verification using
 | `src/panel.cljs` | Panel wiring (same pattern as popup) |
 | `src/panel_actions.cljs` | Panel actions for sponsor check |
 | `src/content_bridge.cljs` | Whitelists `sponsor-status` message |
-| `src/background.cljs` | `handle-sponsor-status` handler, `update-sponsor-script-match!` |
-| `extension/userscripts/epupp/sponsor.cljs` | Builtin userscript with detection logic and branded banner |
+| `src/background.cljs` | `handle-sponsor-status` handler (with pending check + URL verification), `update-sponsor-script-match!` |
+| `src/background_utils.cljs` | `sponsor-url-matches?`, `sponsor-script-id` constant |
+| `extension/userscripts/epupp/sponsor.cljs` | Builtin userscript with detection logic, URL guard, and branded banner |
 | `extension/components.css` | `.sponsor-heart` button styles |
-| `dev/docs/sponsor-heart-security.md` | Security vulnerability analysis and fix plan |
+| `dev/docs/archive/sponsor-heart-security.md` | Security vulnerability analysis and fix details |
