@@ -584,23 +584,27 @@ exponential banner accumulation.
 re-renders in popup/panel. Functionally harmless (writing `true` over `true`), but
 wasteful.
 
-#### Issue D: No sponsor page guard (MEDIUM)
+#### Issue D: Sponsor status message spoofing (CRITICAL - SECURITY)
 
-The script can be run manually (via the play button in the popup) on ANY GitHub
-sponsors page, not just the configured username's page. When run on another user's
-sponsor page (e.g., `github.com/sponsors/someoneelse`) where the logged-in user
-happens to be sponsoring that person, `detect-and-act!` detects the "Sponsoring as"
-signal and sends `sponsor-status: true` back to Epupp - even though this says
-nothing about sponsoring the Epupp author.
+Two related vulnerabilities allow false sponsor status to be persisted:
 
-The script should verify that the current page URL matches the expected sponsor
-username before executing. The expected username is encoded in the script's
-`:epupp/auto-run-match` pattern (e.g., `https://github.com/sponsors/PEZ*`).
-The script should extract the username from the URL path and compare it against
-the match pattern's username. If they don't match, the script should do nothing.
+**D1: Message spoofing from any page context.** The `sponsor-status` message
+travels via `window.postMessage` through the content bridge to the background.
+Any code running in the page context - a userscript, the browser console, or
+even malicious page JavaScript - can post the same message and gain sponsor
+status. The background's `handle-sponsor-status` blindly trusts the message
+and persists `{:sponsor/status true}` without any verification. This is the
+primary security concern.
 
-Note: For auto-run execution this is redundant (the match pattern already filters),
-but for manual execution it's a necessary guard.
+**D2: Wrong sponsor page detection.** The script can be run manually (via the
+play button in the popup) on ANY GitHub sponsors page, not just the configured
+username's page. When run on another user's sponsor page (e.g.,
+`github.com/sponsors/someoneelse`) where the logged-in user happens to be
+sponsoring that person, `detect-and-act!` detects the "Sponsoring as" signal
+and sends `sponsor-status: true` - even though this says nothing about
+sponsoring the Epupp author.
+
+Both vulnerabilities are addressed in **Chunk 15** below.
 
 #### Not issues
 
@@ -617,7 +621,8 @@ but for manual execution it's a necessary guard.
       before proceeding
 - [x] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
       atom, check before adding listener) - following the web installer's pattern
-- [x] Add sponsor page guard: deferred - auto-run-match handles filtering, script cannot access its own match pattern at runtime in Scittle. Guard functions were written but removed as they could not reliably verify the target username without runtime manifest access.
+- [ ] Add sponsor page guard
+- [ ] Fix sponsor status message spoofing (see Chunk 15)
 - [x] Verified by e2e tests (127 passing)
 - [ ] Verified by PEZ
 
@@ -790,6 +795,99 @@ the same functions and the banner rendering replaces the code that Chunk 13 woul
 - Since there is now only ONE insertion point and ONE banner element, the idempotency
   fix from Chunk 13 (remove existing banner before inserting) becomes trivially simple
 
+### Chunk 15: Sponsor Status Message Verification (Security)
+
+**Files:** `src/background.cljs`, `extension/userscripts/epupp/sponsor.cljs`
+
+**Problem:** The `sponsor-status` message can be spoofed by any code running in
+the page context. See Chunk 13 Issue D for the full analysis.
+
+**Root cause:** The background's `handle-sponsor-status` blindly trusts the
+`sponsor-status` message and persists sponsor status without verifying the
+sender's context. The trust boundary is in the wrong place - it's at the page
+level (where everything is attacker-controlled) instead of at the background
+level (where Chrome's messaging API provides verified sender metadata).
+
+**Solution: Background-side URL verification.**
+
+The background already has access to `sender.tab` in the `onMessage` handler
+(see `add-on-message-handler` at line 612). The `tab-id` is extracted but not
+currently passed to `handle-sponsor-status`. The fix:
+
+1. **Pass `sender` to `handle-sponsor-status`** - The dispatch line at line 669
+   currently reads: `"sponsor-status" (handle-sponsor-status message send-response)`.
+   Change to pass `sender` so the handler can verify the tab URL.
+
+2. **Verify tab URL in `handle-sponsor-status`** - Before persisting sponsor
+   status, check that `sender.tab.url` matches the expected sponsor page URL
+   pattern: `https://github.com/sponsors/{expected-username}*`. If it does not
+   match, respond with `{:success false :error "URL mismatch"}` and do NOT
+   persist.
+
+3. **Determine expected username** - Read `dev/sponsor-username` from
+   `chrome.storage.local` (dev mode override). If not set, default to `"PEZ"`.
+   This reuses the existing dev tools mechanism from Chunk 12.
+
+4. **Script-side guard (UX, not security)** - In `sponsor.cljs`, check
+   `window.location.pathname` before running detection. If the path does not
+   start with `/sponsors/{expected-username}`, skip `detect-and-act!` entirely
+   and do not render a banner. This prevents confusing banners when the script
+   is manually run on the wrong page. For auto-run, the match pattern already
+   filters, so this is redundant but harmless.
+
+   The expected username for the script-side guard: extract it from the script's
+   own `auto-run-match` URL in the manifest (which is at the top of the file as
+   a map literal). Parse it from the persistent data held by the script itself.
+   Since `auto-run-match` is rewritten by `update-sponsor-script-match!`
+   (Chunk 12), the guard stays in sync with dev tools overrides automatically.
+
+   Alternatively, hardcode `"PEZ"` in production and accept that the dev tools
+   override only affects auto-run matching, not the manual-run guard. This is
+   simpler and acceptable since dev mode users understand they are testing.
+
+**Message flow after fix:**
+
+```
+Page JS (attacker-controlled)
+  -> window.postMessage({type: "sponsor-status"})
+  -> content bridge (isolated world, forwards blindly)
+  -> chrome.runtime.sendMessage({type: "sponsor-status"})
+  -> background: handle-sponsor-status
+     1. Extract sender.tab.url
+     2. Load expected username (dev override or "PEZ")
+     3. Verify URL matches https://github.com/sponsors/{username}*
+     4. If match: persist sponsor status, respond success
+     5. If no match: respond error, do NOT persist
+```
+
+**Why this works:**
+- `sender.tab.url` is provided by Chrome's extension API, not by the page.
+  It cannot be spoofed by page-level code.
+- Even if a malicious script posts `sponsor-status` from `evil.com`, the
+  background sees `sender.tab.url = "https://evil.com/..."` and rejects it.
+- Even if someone opens a different user's GitHub sponsors page and posts
+  the message, the background verifies the username in the URL path.
+
+**Checklist:**
+- [ ] Pass `sender` to `handle-sponsor-status` in dispatch (background.cljs)
+- [ ] Add URL verification to `handle-sponsor-status` (background.cljs)
+- [ ] Add expected-username lookup (dev/sponsor-username or "PEZ" default)
+- [ ] Add script-side URL guard in sponsor.cljs (UX)
+- [ ] Unit test: `handle-sponsor-status` rejects when tab URL is wrong
+- [ ] Unit test: `handle-sponsor-status` accepts when tab URL matches
+- [ ] E2E test: sponsor status not granted from non-matching page
+- [ ] Verified by PEZ
+
+**Design notes:**
+- The content bridge does NOT need hardening. Its job is to forward messages,
+  and the security boundary belongs in the background where Chrome provides
+  verified sender metadata. Adding URL checks to the content bridge would be
+  defense-in-depth but is not required for security.
+- `sender.tab.url` requires the `tabs` permission or `activeTab`. Verify
+  that the extension manifest includes the necessary permissions.
+- The script-side guard is purely UX - it prevents confusing banners but
+  provides zero security benefit since page code controls the script environment.
+
 ## Implementation Order
 
 1. **Chunk 1** - Heart icon (foundation)
@@ -805,6 +903,7 @@ the same functions and the banner rendering replaces the code that Chunk 13 woul
 11. **Chunk 11** - Documentation (after all implementation is complete)
 12. **Chunk 12** - Dev-mode match override (after builtin registration works)
 13. **Chunk 13 + 14** - Userscript idempotency + branded banner (together, same functions)
+14. **Chunk 15** - Sponsor status message verification (security, depends on 8, 12)
 
 ## Execution Workflow
 
