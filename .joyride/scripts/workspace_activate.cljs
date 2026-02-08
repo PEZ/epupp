@@ -35,7 +35,9 @@
                  (.-languageId doc)
                  "document opened:"
                  (.-fileName doc)))))
-  (scittle-repl/start!+))
+
+  (p/let [_ (vscode/commands.executeCommand "workbench.action.tasks.build")]
+    (scittle-repl/start!+)))
 
 (when (= (joyride/invoked-script) joyride/*file*)
-  #_(my-main))
+  (my-main))
