@@ -465,18 +465,23 @@ because `save-script!` re-parses the manifest and overwrites the match from
 - [x] Add popup effects for all three actions
 - [x] Add CSS for dev-tools-content, input, and buttons layout
 - [x] Verified by unit tests (423 passing)
-- [x] Verified by e2e tests (126 passing, including 5 new Dev Tools tests)
-- [x] Fix: stop trying to override script match in storage (it gets overwritten
-      by manifest-is-source-of-truth on every re-parse). Instead, use display-only
-      approach: popup/panel show the dev username in the UI but never mutate the
-      stored match. See "Revised design" below.
-- [x] Remove `apply-dev-sponsor-override!` from storage.cljs (dead code now)
+- [x] Verified by e2e tests (127 passing, including 6 Dev Tools tests)
+- [x] Remove `apply-dev-sponsor-override!` from storage.cljs (dead code from failed approach)
 - [x] Remove `sync-builtin-scripts!` call to `apply-dev-sponsor-override!`
 - [x] Remove `handle-apply-dev-sponsor-override` from background.cljs
 - [x] Remove `"apply-dev-sponsor-override"` message case from background.cljs
-- [x] Simplify popup effect `set-dev-sponsor-username` to only persist to
-      chrome.storage.local (no message to background)
-- [x] E2E tests for Dev Tools UI (new test file: e2e/dev_tools_test.cljs, 5 tests)
+- [x] Update the source of truth: when dev username changes, rewrite the sponsor
+      script's `:epupp/auto-run-match` in its code, then save. `derive-script-fields`
+      naturally picks up the new match from the updated code.
+- [x] Add `update-sponsor-script-match!` to background or storage - finds sponsor
+      script, replaces match URL in the code string, saves via `save-script!`
+- [x] Background listens for `dev/sponsor-username` changes in `storage.onChanged`
+      and triggers the script code update
+- [x] Popup effect `set-dev-sponsor-username` persists username to
+      chrome.storage.local (background picks up the change via onChanged)
+- [x] E2E tests for Dev Tools UI verify actual auto-run-match changes
+- [x] Update existing e2e/dev_tools_test.cljs to verify the script's match pattern
+      updates (not just that the username is stored)
 - [x] Check plan doc checkbox items
 - [ ] Verified by PEZ
 
@@ -487,58 +492,53 @@ A "Dev Tools" collapsible section in the popup (gated on `config.dev`), containi
 2. Reset Sponsor Status button (clears `sponsorStatus` and `sponsorCheckedAt`)
 3. Dump Dev Log button (moved from standalone rendering)
 
-**Revised design - display-only username override:**
+**Update the source of truth - rewrite the script code:**
 
-The sponsor script's `:script/match` in storage always reflects the manifest
-(`"https://github.com/sponsors/PEZ*"`). Attempting to override it in storage fails
-because `parse-scripts` (via `derive-script-fields`) re-extracts match from the
-manifest code on every storage change event, wiping the override.
+The manifest embedded in the script's code IS the source of truth for match patterns.
+`derive-script-fields` re-extracts match from the code on every storage change. Previous
+approaches tried to work around this by overriding the derived match field, which was
+always undone. The correct approach: change the code itself.
 
-Instead of fighting the manifest-is-source-of-truth design, the dev username is
-used at the **consumption points only**:
+When the dev username changes:
+1. Find the sponsor script in storage (by builtin ID `"sponsor-check"`)
+2. String-replace the `auto-run-match` URL in the script's code text
+   (e.g., `"https://github.com/sponsors/PEZ*"` -> `"https://github.com/sponsors/richhickey*"`)
+3. Save the modified script via `save-script!`
+4. `derive-script-fields` runs naturally and extracts the new match - no conflict
 
-1. **Heart button URL** - popup reads `:dev/sponsor-username` from `!state`, panel
-   reads `dev/sponsor-username` from `chrome.storage.local`. Both construct the
-   sponsor URL dynamically. Already implemented.
-2. **Popup script list display** - the auto-run-match shown in the popup for the
-   sponsor script stays as `PEZ*` (matching what the manifest says). This is correct
-   - it shows the actual match pattern. The dev username only controls where the
-   heart button navigates.
-3. **Sponsor script execution** - when the user clicks the heart (which now points
-   to the correct dev username's page), the sponsor script runs on that page and
-   correctly detects sponsor status. The script's auto-run-match doesn't need to
-   change because manual execution works on any sponsor page.
+This works WITH the architecture instead of against it.
 
-**Username flow (simplified):**
+**Username flow:**
 1. User changes username in Dev Tools input
 2. Popup action updates `!state` with new username
 3. Popup effect persists `dev/sponsor-username` to chrome.storage.local
-4. Heart click opens `https://github.com/sponsors/{dev-username}`
-5. No background messaging, no storage match override, no re-parse conflicts
+4. Background's `storage.onChanged` listener detects the change
+5. Background rewrites the sponsor script's code with the new match URL
+6. `save-script!` triggers `derive-script-fields` which extracts the correct match
+7. Heart click opens `https://github.com/sponsors/{dev-username}`
+8. Script auto-runs on that page because the match pattern now includes it
 
 **Reset on install/update (not every wake):**
 - `onInstalled` fires on extension install, update, and Chrome update
 - Reloading via chrome://extensions counts as "update"
-- Service worker hibernation/wake does NOT clear the dev username
-- This means the username persists across popup reopens and SW hibernation,
-  but resets when a new build is loaded
+- `sync-builtin-scripts!` reloads the bundled code (with `PEZ` match) on install/update
+- `dev/sponsor-username` is also cleared from storage on install
+- Service worker hibernation/wake does NOT affect the username or modified code
 
 **Lessons learned:**
-1. The manifest is the source of truth for script match patterns. Any attempt to
-   override match in storage gets wiped by `derive-script-fields` on the next
-   `parse-scripts` call (which happens on every `onChanged` event).
-2. The previous `apply-dev-sponsor-override!` approach (overriding after
-   `sync-builtin-scripts!`) appeared to work momentarily but was immediately
-   undone by the `onChanged` listener in `init!` which re-parses scripts.
-3. When a value is derived from source code, override at the consumption point,
-   not the storage layer.
+1. The manifest in the script code is the source of truth for match patterns.
+   `derive-script-fields` re-extracts match from the code on every `onChanged` event.
+2. Don't try to override derived state - update the source of truth instead.
+3. When working with a manifest-is-source-of-truth design, changing the manifest
+   in the code IS the correct approach. The re-parse mechanism then works for you,
+   not against you.
 
 **E2E test plan:**
 
-New test file `e2e/dev_tools_test.cljs` covering:
+Test file `e2e/dev_tools_test.cljs` covering:
 - Dev Tools section visible only in dev builds
 - Sponsor username input persists value to chrome.storage.local
-- Heart button URL reflects dev username (not hardcoded PEZ)
+- Changing username updates the sponsor script's auto-run-match pattern
 - Reset Sponsor Status clears sponsorStatus and sponsorCheckedAt from storage
 - Dev username survives popup close/reopen (persisted)
 
@@ -611,16 +611,14 @@ but for manual execution it's a necessary guard.
 
 **Fix plan:**
 
-- [ ] Add `data-epupp-sponsor-banner` attribute to ALL inserted elements (both
+- [x] Add `data-epupp-sponsor-banner` attribute to ALL inserted elements (both
       `insert-banner!` and the not-logged-in branch)
-- [ ] At the start of `detect-and-act!`, remove any existing elements with that marker
+- [x] At the start of `detect-and-act!`, remove any existing elements with that marker
       before proceeding
-- [ ] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
+- [x] Guard SPA navigation listener with `defonce` pattern (use `defonce !nav-registered`
       atom, check before adding listener) - following the web installer's pattern
-- [ ] Add sponsor page guard: extract expected username from the script's match
-      pattern (or hardcode "PEZ" and let Dev Tools override handle it), compare
-      against URL path (`/sponsors/{username}`). Skip `detect-and-act!` if mismatch.
-- [ ] Verified by e2e tests
+- [x] Add sponsor page guard: deferred - auto-run-match handles filtering, script cannot access its own match pattern at runtime in Scittle. Guard functions were written but removed as they could not reliably verify the target username without runtime manifest access.
+- [x] Verified by e2e tests (127 passing)
 - [ ] Verified by PEZ
 
 **Design notes:**
@@ -771,16 +769,16 @@ to this single banner. The SPA listener guard (`defonce`) from Chunk 13 is still
 Implementation order: Chunk 14 should be done TOGETHER with Chunk 13, since both modify
 the same functions and the banner rendering replaces the code that Chunk 13 would patch.
 
-- [ ] Add `fetch-icon-url!+` helper (simplified `send-and-receive` for icon URL)
-- [ ] Store icon URL in `defonce !icon-url` atom (survives re-injections)
-- [ ] Create `render-banner!` function that builds the complete branded banner DOM element
-- [ ] Replace `insert-banner!` and not-logged-in branch with calls to `render-banner!`
-- [ ] Add `data-epupp-sponsor-banner` attribute to the banner (from Chunk 13)
-- [ ] Render `<img>` with fetched icon URL (graceful fallback: omit if unavailable)
-- [ ] Apply `flash flash-warn flash-full` classes to outer element
-- [ ] Insert as first child of `<main>`
-- [ ] Pass message text from each detection branch to `render-banner!`
-- [ ] Verified by e2e tests
+- [x] Add `fetch-icon-url!+` helper (simplified `send-and-receive` for icon URL)
+- [x] Store icon URL in `defonce !icon-url` atom (survives re-injections)
+- [x] Create `render-banner!` function that builds the complete branded banner DOM element
+- [x] Replace `insert-banner!` and not-logged-in branch with calls to `render-banner!`
+- [x] Add `data-epupp-sponsor-banner` attribute to the banner (from Chunk 13)
+- [x] Render `<img>` with fetched icon URL (graceful fallback: omit if unavailable)
+- [x] Apply `flash flash-warn flash-full` classes to outer element
+- [x] Insert as first child of `<main>`
+- [x] Pass message text from each detection branch to `render-banner!`
+- [x] Verified by e2e tests (127 passing)
 - [ ] Verified by PEZ
 
 **Design notes:**

@@ -589,6 +589,22 @@
 
 
 
+(defn- ^:async update-sponsor-script-match!
+  "Rewrite the sponsor script's auto-run-match URL to use the given username.
+   This updates the source of truth (the code itself), so derive-script-fields
+   naturally picks up the new match pattern on save."
+  [username]
+  (let [sponsor-script (storage/get-script "epupp-builtin-sponsor-check")]
+    (when sponsor-script
+      (let [old-code (:script/code sponsor-script)
+            new-code (.replace old-code
+                               (js/RegExp. "https://github\\.com/sponsors/[^\"*]+" "g")
+                               (str "https://github.com/sponsors/" username))
+            updated (assoc sponsor-script :script/code new-code)]
+        (when (not= old-code new-code)
+          (js-await (storage/save-script! updated))
+          (log/info "Background" "Updated sponsor script match to:" username))))))
+
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)
   false)
@@ -740,7 +756,13 @@
                     (when (aget changes "settings/debug-logging")
                       (let [change (aget changes "settings/debug-logging")
                             enabled (boolean (.-newValue change))]
-                        (log/set-debug-enabled! enabled))))))
+                        (log/set-debug-enabled! enabled)))
+                    (when (aget changes "dev/sponsor-username")
+                      (let [change (aget changes "dev/sponsor-username")
+                            new-username (or (.-newValue change) "PEZ")]
+                        ((^:async fn []
+                           (js-await (ensure-initialized! dispatch!))
+                           (js-await (update-sponsor-script-match! new-username)))))))))
 
   (.addListener js/chrome.runtime.onInstalled
                 (fn [details]

@@ -152,6 +152,40 @@
         (js-await (.close context))))))
 
 ;; =============================================================================
+;; Dev Username Updates Sponsor Script Match
+;; =============================================================================
+
+(defn- ^:async test_dev_username_updates_script_match []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Set sponsor username to "richhickey"
+        (let [username-input (.locator popup "#dev-sponsor-username")]
+          (js-await (.fill username-input "richhickey"))
+          (js-await (.dispatchEvent username-input "change")))
+
+        ;; Poll storage until the background has updated the sponsor script's match
+        (js-await (-> (.poll expect
+                             (fn []
+                               (-> (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"})
+                                   (.then (fn [result]
+                                            (let [scripts (or (.-value result) #js [])
+                                                  sponsor (.find scripts (fn [s] (= "epupp-builtin-sponsor-check" (.-id s))))]
+                                              (when sponsor
+                                                (let [match (.-match sponsor)]
+                                                  (when (and match (pos? (.-length match)))
+                                                    (aget match 0)))))))))
+                             #js {:timeout 3000})
+                      (.toBe "https://github.com/sponsors/richhickey*")))
+
+        (js-await (assert-no-errors! popup)))
+      (finally
+        (js-await (.close context))))))
+
+;; =============================================================================
 ;; Test Registration
 ;; =============================================================================
 
@@ -170,4 +204,7 @@
                    test_reset_sponsor_status_clears_storage)
 
              (test "Dev Tools: dev log button is visible and clickable"
-                   test_dev_log_button_visible_and_clickable)))
+                   test_dev_log_button_visible_and_clickable)
+
+             (test "Dev Tools: dev username updates sponsor script match"
+                   test_dev_username_updates_script_match)))
