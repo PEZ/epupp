@@ -618,7 +618,9 @@
   (let [;; Filter and sort shadow items by matching URL
         matching-shadow (->> scripts-shadow
                              (filterv #(script-utils/get-matching-pattern current-url (:item %)))
-                             (sort-by #(:script/name (:item %)) (fn [a b] (compare (str/lower-case (or a "")) (str/lower-case (or b ""))))))
+                             (sort-by (fn [{:keys [item]}]
+                                        [(if (script-utils/builtin-script? item) 1 0)
+                                         (str/lower-case (or (:script/name item) ""))])))
         ;; For checking if user has any scripts (use source list)
         user-scripts (filterv #(not (script-utils/builtin-script? %)) list)
         no-user-scripts? (empty? user-scripts)
@@ -684,7 +686,9 @@
   (let [;; Filter and sort shadow items by NOT matching URL
         other-shadow (->> scripts-shadow
                           (filterv #(not (script-utils/get-matching-pattern current-url (:item %))))
-                          (sort-by #(:script/name (:item %)) (fn [a b] (compare (str/lower-case (or a "")) (str/lower-case (or b ""))))))
+                          (sort-by (fn [{:keys [item]}]
+                                     [(if (script-utils/builtin-script? item) 1 0)
+                                      (str/lower-case (or (:script/name item) ""))])))
         modified-set (or recently-modified-scripts #{})]
     [:div.script-list
      (if (seq other-shadow)

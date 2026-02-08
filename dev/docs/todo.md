@@ -74,10 +74,9 @@
 * [x] Add setting for default repl ports
 * [~] Make popup show when a script is injected
 * [x] Run scripts on SPA page navigation
-* [ ] Sort built-in scripts last
+* [x] Sort built-in scripts last
 * [ ] Dev doc for web installer
-* [ ] Clean up sponsor.cljs
-* [ ] Render built-in scripts last
-* [ ] Make sponsor link in footer use sponsor-heart status
-* [ ] Add CalvaTV to footer
-* [ ] Add Joyride mention to footer
+* [x] Render built-in scripts last
+* [x] Make sponsor link in footer use sponsor-heart status
+* [x] Add CalvaTV to footer
+* [ ] Add Joyride mention in README
