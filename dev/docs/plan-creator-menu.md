@@ -51,7 +51,7 @@ Clicking it toggles a floating menu anchored above the bottom of the footer. The
 Source SVG path data for two new icons. Codicons do not include brand logos, so we use:
 
 - **`linkedin`** - from Simple Icons (LinkedIn brand mark, MIT license) - a custom SVG path
-- **`twitter-x`** - from Simple Icons (X brand mark, CC0 license) - a custom SVG path
+- **`twitter-x`** - from **Codicons** - a custom SVG path
 
 The existing `youtube` and `github` icons are already available.
 

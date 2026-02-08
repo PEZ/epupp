@@ -128,6 +128,12 @@
     (let [[section-id] args]
       {:uf/db (update-in state [:ui/sections-collapsed section-id] not)})
 
+    :popup/ax.toggle-creator-menu
+    {:uf/db (update state :ui/creator-menu-open? not)}
+
+    :popup/ax.close-creator-menu
+    {:uf/db (assoc state :ui/creator-menu-open? false)}
+
     :popup/ax.export-scripts
     {:uf/fxs [[:popup/fx.export-scripts]]}
 

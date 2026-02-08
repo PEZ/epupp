@@ -99,6 +99,12 @@
     (let [[desc] args]
       {:uf/db (assoc state :panel/script-description desc)})
 
+    :editor/ax.toggle-creator-menu
+    {:uf/db (update state :ui/creator-menu-open? not)}
+
+    :editor/ax.close-creator-menu
+    {:uf/db (assoc state :ui/creator-menu-open? false)}
+
     :editor/ax.update-scittle-status
     (let [[status] args]
       {:uf/db (assoc state :panel/scittle-status (or status :unknown))})

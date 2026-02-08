@@ -927,7 +927,10 @@
         [dev-tools-section state]])
      [view-elements/app-footer {:elements/wrapper-class "popup-footer"
                                 :elements/sponsor-status (storage/sponsor-active? state)
-                                :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])}]]))
+                                :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])
+                                :elements/creator-menu-open? (:ui/creator-menu-open? state)
+                                :elements/on-creator-trigger-click #(dispatch! [[:popup/ax.toggle-creator-menu]])
+                                :elements/on-creator-menu-close #(dispatch! [[:popup/ax.close-creator-menu]])}]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")

@@ -33,13 +33,41 @@
                                (when sponsor-status " sponsor-heart-filled"))}]]]
    (when temporary-banner temporary-banner)])
 
+(defn- creator-menu [{:elements/keys [on-sponsor-click sponsor-status on-creator-menu-close]}]
+  [:div.creator-menu
+   [:div.creator-menu-header
+    [:span "Peter Strömberg a.k.a. PEZ"]
+    [:button.creator-menu-close
+     {:on-click on-creator-menu-close
+      :title "Close"}
+     [icons/close {:size 14}]]]
+   [:a.creator-menu-item {:href "https://github.com/PEZ" :target "_blank"}
+    [icons/github {:size 14}] [:span "@PEZ"] [:span.menu-cta "Please follow"]]
+   [:button.creator-menu-item
+    {:on-click on-sponsor-click}
+    [icons/heart {:size 14 :filled? sponsor-status
+                  :class (str "sponsor-heart-icon"
+                              (when sponsor-status " sponsor-heart-filled"))}]
+    [:span "Sponsor"]
+    [:span.menu-cta (if sponsor-status "Thank you!" "Please sponsor")]]
+   [:a.creator-menu-item {:href "https://www.youtube.com/CalvaTV" :target "_blank"}
+    [icons/youtube {:size 14}] [:span "CalvaTV"] [:span.menu-cta "Please subscribe"]]
+   [:a.creator-menu-item {:href "https://www.linkedin.com/in/cospaia/" :target "_blank"}
+    [icons/linkedin {:size 14}] [:span "LinkedIn"] [:span.menu-cta "Please follow"]]
+   [:a.creator-menu-item {:href "https://x.com/pappapez" :target "_blank"}
+    [icons/twitter-x {:size 14}] [:span "@pappapez"] [:span.menu-cta "Please follow"]]])
+
 (defn app-footer
   "Common footer component for both popup and panel.
    Options:
    - :elements/wrapper-class: CSS class for view-specific styling
    - :elements/sponsor-status: boolean indicating sponsor status
-   - :elements/on-sponsor-click: click handler for sponsor heart action"
-  [{:elements/keys [wrapper-class sponsor-status on-sponsor-click]}]
+   - :elements/on-sponsor-click: click handler for sponsor heart action
+   - :elements/creator-menu-open?: boolean indicating if creator menu is visible
+   - :elements/on-creator-trigger-click: click handler for creator trigger
+   - :elements/on-creator-menu-close: click handler to close creator menu"
+  [{:elements/keys [wrapper-class sponsor-status on-sponsor-click
+                    creator-menu-open? on-creator-trigger-click on-creator-menu-close]}]
   [:div {:class (str "app-footer " wrapper-class)}
    [:div.footer-powered
     "Powered by "
@@ -67,11 +95,9 @@
           :target "_blank"
           :title "https://github.com/PEZ/browser-jack-in"}
       "Open Source"]]
-    [:span "Created by "
-     [:a {:href "https://github.com/PEZ"
-          :target "_blank"
-          :title "https://github.com/PEZ"}
-      "Peter Strömberg"]
+    [:span.creator-trigger {:on-click on-creator-trigger-click}
+     "Created by "
+     [:span.creator-link "Peter Strömberg"]
      " a.k.a. PEZ"]
     [:button.footer-sponsor-heart
      {:on-click on-sponsor-click
@@ -81,7 +107,13 @@
                    :filled? sponsor-status
                    :class (str "sponsor-heart-icon"
                                (when sponsor-status " sponsor-heart-filled"))}]
-     (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]])
+     (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]
+   (when creator-menu-open?
+     [:div
+      [:div.creator-menu-backdrop {:on-click on-creator-menu-close}]
+      [creator-menu {:elements/on-sponsor-click on-sponsor-click
+                     :elements/sponsor-status sponsor-status
+                     :elements/on-creator-menu-close on-creator-menu-close}]])])
 
 ;; ============================================================
 ;; Shared UI Components

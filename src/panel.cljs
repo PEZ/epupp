@@ -715,7 +715,10 @@
 (defn panel-footer [state]
   [view-elements/app-footer {:elements/wrapper-class "panel-footer"
                              :elements/sponsor-status (storage/sponsor-active? state)
-                             :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])}])
+                             :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])
+                             :elements/creator-menu-open? (:ui/creator-menu-open? state)
+                             :elements/on-creator-trigger-click #(dispatch! [[:editor/ax.toggle-creator-menu]])
+                             :elements/on-creator-menu-close #(dispatch! [[:editor/ax.close-creator-menu]])}])
 
 (defn panel-ui [state]
   [:div.panel-root {:data-e2e-connected (str (boolean (:panel/tab-connected? state)))}
