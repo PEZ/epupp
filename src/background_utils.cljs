@@ -105,3 +105,13 @@
     ;; No automatic connection
     :else
     {:decision "none"}))
+
+(defn sponsor-url-matches?
+  "Verify that a tab URL is on the expected GitHub sponsors page.
+   Returns true when tab-url starts with https://github.com/sponsors/{username}."
+  [tab-url username]
+  (boolean
+   (and (string? tab-url)
+        (string? username)
+        (not (empty? username))
+        (.startsWith tab-url (str "https://github.com/sponsors/" username)))))

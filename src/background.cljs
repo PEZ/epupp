@@ -578,13 +578,19 @@
     (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code libs (.-scriptId message)]])
     true))
 
-(defn- handle-sponsor-status [_message send-response]
+(defn- handle-sponsor-status [_message sender send-response]
   ((^:async fn []
-     (swap! storage/!db assoc
-            :sponsor/status true
-            :sponsor/checked-at (js/Date.now))
-     (js-await (storage/persist!))
-     (send-response #js {:success true})))
+     (let [tab-url (when (.-tab sender) (.. sender -tab -url))
+           storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
+           username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
+       (if (bg-utils/sponsor-url-matches? tab-url username)
+         (do (swap! storage/!db assoc
+                    :sponsor/status true
+                    :sponsor/checked-at (js/Date.now))
+             (js-await (storage/persist!))
+             (send-response #js {:success true}))
+         (send-response #js {:success false
+                             :error "URL mismatch"})))))
   true)
 
 
@@ -604,7 +610,12 @@
         (when (not= old-code new-code)
           (js-await (storage/save-script! updated))
           (log/info "Background" "Updated sponsor script match to:" username))))))
-
+(defn- handle-get-sponsored-username [_message send-response]
+  ((^:async fn []
+     (let [storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
+           username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
+       (send-response #js {:success true :username username}))))
+  true)
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)
   false)
@@ -666,7 +677,8 @@
                       "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
                       "inject-libs" (handle-inject-libs message dispatch! send-response)
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)
-                      "sponsor-status" (handle-sponsor-status message send-response)
+                      "sponsor-status" (handle-sponsor-status message sender send-response)
+                      "get-sponsored-username" (handle-get-sponsored-username message send-response)
                       (handle-unknown-message msg-type))))))
 
 (defn- ^:async activate!

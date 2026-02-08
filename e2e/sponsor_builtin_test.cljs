@@ -87,6 +87,24 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_sponsor_status_rejected_from_non_sponsor_page []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))
+            ;; Popup is not a tab, so sender.tab is undefined - URL check fails
+            response (js-await (send-runtime-message popup "sponsor-status" nil))]
+        (js-await (-> (expect (.-success response)) (.toBe false)))
+        (js-await (-> (expect (.-error response)) (.toBe "URL mismatch")))
+        ;; Verify sponsor status was NOT persisted
+        (let [storage (js-await (send-runtime-message popup "e2e/get-storage"
+                                                      #js {:key "sponsorStatus"}))]
+          (js-await (-> (expect (boolean (.-value storage))) (.toBeFalsy))))
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Sponsor builtin"
            (fn []
              (test "Sponsor script is visible in popup script list"
@@ -102,4 +120,7 @@
                    test_sponsor_script_has_no_toggle_checkbox)
 
              (test "Sponsor script is always enabled in storage"
-                   test_sponsor_script_always_enabled_in_storage)))
+                   test_sponsor_script_always_enabled_in_storage)
+
+             (test "Sponsor status rejected when message comes from non-sponsor page"
+                   test_sponsor_status_rejected_from_non_sponsor_page)))

@@ -15,6 +15,7 @@
 ;; ============================================================
 
 (defonce !icon-url (atom nil))
+(defonce !sponsored-username (atom nil))
 
 (defn fetch-icon-url!+
   "Fetch the Epupp icon URL from the extension via content bridge.
@@ -47,13 +48,43 @@
                           :type "get-icon-url"
                           :requestId req-id}
                      "*")))))
-
+(defn fetch-sponsored-username!+
+  "Fetch the expected sponsor username from the extension via content bridge.
+   Returns a Promise that resolves with the username string or nil on timeout."
+  []
+  (js/Promise.
+   (fn [resolve _reject]
+     (let [req-id (str "sponsor-user-" (js/Date.now))
+           timeout-id (atom nil)
+           handler (fn handler [e]
+                     (when (= (.-source e) js/window)
+                       (let [msg (.-data e)]
+                         (when (and msg
+                                    (= "epupp-bridge" (.-source msg))
+                                    (= "get-sponsored-username-response" (.-type msg))
+                                    (= req-id (.-requestId msg)))
+                           (when-let [tid @timeout-id]
+                             (js/clearTimeout tid))
+                           (.removeEventListener js/window "message" handler)
+                           (resolve (.-username msg))))))]
+       (.addEventListener js/window "message" handler)
+       (reset! timeout-id
+               (js/setTimeout
+                (fn []
+                  (.removeEventListener js/window "message" handler)
+                  (resolve nil))
+                2000))
+       (.postMessage js/window
+                     #js {:source "epupp-page"
+                          :type "get-sponsored-username"
+                          :requestId req-id}
+                     "*")))))
 ;; ============================================================
 ;; Forever sponsors
 ;; ============================================================
 
 (def ^:private forever-sponsors
-  {"PEZ" "Thanks to myself for Epupp, Calva, Joyride, and Backseat Driver!"
+  {;"PEZ" "Thanks to myself for Epupp, Calva, Joyride, and Backseat Driver!"
    "borkdude" "Thanks for SCI, Squint, Babashka, Scittle, Joyride, and all the things! You have status in my heart as a forever sponsor of Epupp and Calva."
    "richhickey" "Thanks for Clojure! You have status in my heart as a forever sponsor of Epupp and Calva."
    "swannodette" "Thanks for stewarding ClojureScript for all these years! You have status in my heart as a forever sponsor of Epupp and Calva."
@@ -147,44 +178,49 @@
 (def ^:private heart-span "<span style=\"color: #e91e63;\">&#9829;</span>")
 
 (defn detect-and-act! []
-  (let [params (js/URLSearchParams. (.-search js/window.location))
-        just-sponsored? (= "true" (.get params "success"))
-        user-login (.-content (js/document.querySelector "meta[name='user-login']"))
-        logged-in? (and (string? user-login) (not (empty? user-login)))
-        forever-message (when logged-in? (get forever-sponsors user-login))
-        h1 (js/document.querySelector "h1.f2")
-        h1-text (when h1 (.trim (.-textContent h1)))
-        body-text (.-textContent js/document.body)
-        has-sponsoring-as? (re-find #"Sponsoring as" body-text)]
-    (cond
-      ;; Forever sponsor - personalized thank-you, always send true
-      forever-message
-      (do
-        (render-banner! (str forever-message " " heart-span))
-        (send-sponsor-status!))
+  (let [expected-username @!sponsored-username
+        expected-path (when expected-username (str "/sponsors/" expected-username))]
+    ;; Only run detection when we know the expected username and we're on their page
+    (when (and expected-path
+               (.startsWith (.-pathname js/window.location) expected-path))
+      (let [params (js/URLSearchParams. (.-search js/window.location))
+            just-sponsored? (= "true" (.get params "success"))
+            user-login (.-content (js/document.querySelector "meta[name='user-login']"))
+            logged-in? (and (string? user-login) (not (empty? user-login)))
+            forever-message (when logged-in? (get forever-sponsors user-login))
+            h1 (js/document.querySelector "h1.f2")
+            h1-text (when h1 (.trim (.-textContent h1)))
+            body-text (.-textContent js/document.body)
+            has-sponsoring-as? (re-find #"Sponsoring as" body-text)]
+        (cond
+          ;; Forever sponsor - personalized thank-you, always send true
+          forever-message
+          (do
+            (render-banner! (str forever-message " " heart-span))
+            (send-sponsor-status!))
 
-      ;; Just completed a sponsorship (one-time or recurring confirmation)
-      just-sponsored?
-      (do
-        (render-banner! (str "Thanks for sponsoring me! " heart-span))
-        (send-sponsor-status!))
+          ;; Just completed a sponsorship (one-time or recurring confirmation)
+          just-sponsored?
+          (do
+            (render-banner! (str "Thanks for sponsoring me! " heart-span))
+            (send-sponsor-status!))
 
-      ;; Not logged in
-      (not logged-in?)
-      (render-banner! "Log in to GitHub to update your Epupp sponsor status")
+          ;; Not logged in
+          (not logged-in?)
+          (render-banner! "Log in to GitHub to update your Epupp sponsor status")
 
-      ;; Logged in, "Become a sponsor" heading present - not sponsoring
-      (and h1-text (re-find #"Become a sponsor" h1-text))
-      (render-banner! (str "Sponsor PEZ to light up your Epupp sponsor heart! " heart-span))
+          ;; Logged in, "Become a sponsor" heading present - not sponsoring
+          (and h1-text (re-find #"Become a sponsor" h1-text))
+          (render-banner! (str "Sponsor PEZ to light up your Epupp sponsor heart! " heart-span))
 
-      ;; Logged in, "Sponsoring as" present - confirmed recurring sponsor
-      has-sponsoring-as?
-      (do
-        (render-banner! (str "Thanks for sponsoring me! " heart-span))
-        (send-sponsor-status!))
+          ;; Logged in, "Sponsoring as" present - confirmed recurring sponsor
+          has-sponsoring-as?
+          (do
+            (render-banner! (str "Thanks for sponsoring me! " heart-span))
+            (send-sponsor-status!))
 
-      ;; Unknown state - do nothing (graceful degradation)
-      :else nil)))
+          ;; Unknown state - do nothing (graceful degradation)
+          :else nil)))))
 
 ;; ============================================================
 ;; SPA navigation guard (defonce prevents listener stacking)
@@ -208,8 +244,15 @@
                      (detect-and-act!)))))
         (.catch (fn [_] nil))))
 
-  ;; Run detection
-  (detect-and-act!)
+  ;; Fetch sponsored username once, then run detection
+  (if @!sponsored-username
+    (detect-and-act!)
+    (-> (fetch-sponsored-username!+)
+        (.then (fn [username]
+                 (when username
+                   (reset! !sponsored-username username))
+                 (detect-and-act!)))
+        (.catch (fn [_] (detect-and-act!)))))
 
   ;; Register SPA navigation listener (once)
   (when (and (not @!nav-registered) js/window.navigation)

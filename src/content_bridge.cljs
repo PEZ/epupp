@@ -246,6 +246,25 @@
                              :url (js/chrome.runtime.getURL "icons/icon.svg")}
                         "*")
 
+          "get-sponsored-username"
+          (do
+            (log/debug "Bridge" "Forwarding get-sponsored-username to background")
+            (try
+              (js/chrome.runtime.sendMessage
+               #js {:type "get-sponsored-username"}
+               (fn [response]
+                 (.postMessage js/window
+                               #js {:source "epupp-bridge"
+                                    :type "get-sponsored-username-response"
+                                    :requestId (.-requestId msg)
+                                    :username (.-username response)}
+                               "*")))
+              (catch :default e
+                (when (re-find #"Extension context invalidated" (.-message e))
+                  (log/debug "Bridge" "Extension context invalidated")
+                  (stop-keepalive!)
+                  (set-connected! false)))))
+
           nil))
 
       ;; Handle messages from userscripts (epupp-userscript)

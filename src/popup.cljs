@@ -654,13 +654,13 @@
 (defn dev-tools-section
   "Dev tools: sponsor username, reset sponsor status, dump dev log.
    Only visible in dev/test builds."
-  [{:dev/keys [sponsor-username]}]
+  [{:sponsor/keys [sponsored-username]}]
   [:div.dev-tools-content
    [:div.setting
     [:label {:for "dev-sponsor-username"} "Sponsor Username"]
     [:input {:type "text"
              :id "dev-sponsor-username"
-             :value (or sponsor-username "PEZ")
+             :value (or sponsored-username "PEZ")
              :on-change (fn [e]
                           (dispatch! [[:popup/ax.set-dev-sponsor-username
                                        (.. e -target -value)]]))}]]

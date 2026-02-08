@@ -6,6 +6,8 @@
 
 The sponsor heart feature adds a clickable heart icon to the popup and panel headers. Clicking it opens `github.com/sponsors/PEZ`, where a builtin userscript detects sponsor status via DOM signals and sends the result back to the extension. The heart fills when sponsor status is confirmed, with a 3-month expiry for re-verification.
 
+Feature description: [architecture/sponsor-heart.md](architecture/sponsor-heart.md)
+
 **Current state:** 423 unit tests and 127 E2E tests pass. A dev build (v0.0.7.742) exists. PEZ has not yet manually verified. The code is pretty messy with abandoned development paths not reverted.
 
 ## Security Vulnerability

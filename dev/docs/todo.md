@@ -77,3 +77,7 @@
 * [ ] Sort built-in scripts last
 * [ ] Dev doc for web installer
 * [ ] Clean up sponsor.cljs
+* [ ] Render built-in scripts last
+* [ ] Make sponsor link in footer use sponsor-heart status
+* [ ] Add CalvaTV to footer
+* [ ] Add Joyride mention to footer

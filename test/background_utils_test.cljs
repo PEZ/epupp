@@ -413,3 +413,40 @@
             (test "returns none when not in history" test-decide-auto-connection-returns-none-when-not-in-history)
             (test "returns none when no history port" test-decide-auto-connection-returns-none-when-no-history-port)
             (test "returns none when all settings disabled" test-decide-auto-connection-returns-none-when-all-disabled)))
+
+;; ============================================================
+;; sponsor-url-matches? Tests
+;; ============================================================
+
+(defn- test-sponsor-url-matches-returns-true-for-matching-url []
+  (-> (expect (bg/sponsor-url-matches? "https://github.com/sponsors/PEZ" "PEZ"))
+      (.toBe true)))
+
+(defn- test-sponsor-url-matches-returns-true-for-url-with-path-suffix []
+  (-> (expect (bg/sponsor-url-matches? "https://github.com/sponsors/PEZ?success=true" "PEZ"))
+      (.toBe true)))
+
+(defn- test-sponsor-url-matches-returns-false-for-wrong-username []
+  (-> (expect (bg/sponsor-url-matches? "https://github.com/sponsors/PEZ" "someone-else"))
+      (.toBe false)))
+
+(defn- test-sponsor-url-matches-returns-false-for-nil-tab-url []
+  (-> (expect (bg/sponsor-url-matches? nil "PEZ"))
+      (.toBe false)))
+
+(defn- test-sponsor-url-matches-returns-false-for-empty-username []
+  (-> (expect (bg/sponsor-url-matches? "https://github.com/sponsors/PEZ" ""))
+      (.toBe false)))
+
+(defn- test-sponsor-url-matches-returns-false-for-different-domain []
+  (-> (expect (bg/sponsor-url-matches? "https://gitlab.com/sponsors/PEZ" "PEZ"))
+      (.toBe false)))
+
+(describe "sponsor-url-matches?"
+          (fn []
+            (test "returns true for matching URL" test-sponsor-url-matches-returns-true-for-matching-url)
+            (test "returns true for URL with path suffix" test-sponsor-url-matches-returns-true-for-url-with-path-suffix)
+            (test "returns false for wrong username" test-sponsor-url-matches-returns-false-for-wrong-username)
+            (test "returns false for nil tab-url" test-sponsor-url-matches-returns-false-for-nil-tab-url)
+            (test "returns false for empty username" test-sponsor-url-matches-returns-false-for-empty-username)
+            (test "returns false for different domain" test-sponsor-url-matches-returns-false-for-different-domain)))
