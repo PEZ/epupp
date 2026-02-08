@@ -758,11 +758,11 @@
   (.addListener js/chrome.webNavigation.onCompleted
                 (fn [details]
                   ;; Only handle main frame (not iframes)
-                  ;; Skip extension pages, about:blank, etc.
+                  ;; Skip non-scriptable pages (extension pages, about:blank, etc.)
                   (let [url (.-url details)]
                     (when (and (zero? (.-frameId details))
-                               (or (.startsWith url "http://")
-                                   (.startsWith url "https://")))
+                               (:scriptable? (script-utils/check-page-scriptability
+                                              url (script-utils/detect-browser-type))))
                       ;; Dispatch navigation action (gather-then-decide pattern)
                       (dispatch! [[:nav/ax.handle-navigation (.-tabId details) url]])))))
 

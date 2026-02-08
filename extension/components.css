@@ -324,6 +324,16 @@ kbd {
 }
 
 /* ============================================================
+   Page Banner - persistent page-level status (e.g., unscriptable page)
+   Reuses banner base styles but without slide-in animation.
+   Positioned naturally via app-header's :elements/permanent-banner slot.
+   ============================================================ */
+
+.page-banner {
+  animation: none;
+}
+
+/* ============================================================
    Form Inputs
    ============================================================ */
 

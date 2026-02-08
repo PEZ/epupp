@@ -31,6 +31,7 @@
          :panel/selection nil       ; Current textarea selection {:start :end :text}
          :panel/system-banners []        ; System banners [{:id :type :message :leaving} ...]
          :panel/system-bulk-names {}     ; bulk-id -> [script-name ...]
+         :panel/page-banner nil          ; Page-level banner (e.g., unscriptable page)
          :panel/scripts-list []          ; bulk-id -> [script-name ...]
          :panel/tab-connected? false     ; Is the inspected tab connected to REPL?
          :sponsor/status false
@@ -700,7 +701,7 @@
 
 
 
-(defn panel-header [{:panel/keys [needs-refresh? system-banners tab-connected?]
+(defn panel-header [{:panel/keys [needs-refresh? system-banners tab-connected? page-banner]
                      :as state}]
   [view-elements/app-header
    {:elements/wrapper-class "panel-header-wrapper"
@@ -708,7 +709,13 @@
     :elements/icon [icons/epupp-logo {:size 28 :connected? tab-connected?}]
     :elements/sponsor-status (storage/sponsor-active? state)
     :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])
-    :elements/permanent-banner (when needs-refresh? [refresh-banner])
+    :elements/permanent-banner
+    (let [page-pb page-banner]
+      (cond
+        (and needs-refresh? page-pb)
+        [:<> [refresh-banner] [view-elements/page-banner page-pb]]
+        needs-refresh? [refresh-banner]
+        page-pb [view-elements/page-banner page-pb]))
     :elements/temporary-banner (when (seq system-banners)
                                  [view-elements/system-banners system-banners])}])
 
@@ -758,9 +765,27 @@
       (log/debug "Panel" "Extension updated or context invalidated")
       (dispatch! [[:editor/ax.set-needs-refresh]]))))
 
-(defn on-page-navigated [_url]
+(defn- update-page-banner!
+  "Update page banner based on URL scriptability."
+  [url]
+  (let [scriptability (script-utils/check-page-scriptability url (script-utils/detect-browser-type))]
+    (dispatch! [[:db/ax.assoc :panel/page-banner
+                 (when-not (:scriptable? scriptability)
+                   {:type "info" :message (:message scriptability)})]])))
+
+(defn- check-page-scriptability!
+  "Evaluate the inspected page URL and update page banner."
+  []
+  (js/chrome.devtools.inspectedWindow.eval
+   "window.location.href"
+   (fn [url _exception]
+     (update-page-banner! url))))
+
+(defn on-page-navigated [url]
   (log/debug "Panel" "Page navigated")
   (check-version!)
+  ;; Check scriptability of new page
+  (update-page-banner! url)
   ;; Reset state for the new page
   (dispatch! [[:editor/ax.reset-for-navigation]])
   (dispatch! [[:editor/ax.clear-results]
@@ -802,6 +827,8 @@
                                    (perform-effect! dispatch! [:editor/fx.load-sponsor-status])
                                    ;; Check if there's a script to edit (from popup)
                                    (dispatch! [[:editor/ax.check-editing-script]])
+                                   ;; Check page scriptability
+                                   (check-page-scriptability!)
                                    ;; Listen for page navigation to clear stale results
                                    (js/chrome.devtools.network.onNavigated.addListener on-page-navigated)
                                    ;; Check version when panel becomes visible

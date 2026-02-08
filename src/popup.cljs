@@ -39,7 +39,9 @@
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
+         :ui/page-banner nil           ; Page-level banner (e.g., unscriptable page)
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
+         :browser/type :chrome         ; Detected browser type
          :sponsor/status false
          :sponsor/checked-at nil
          :sponsor/sponsored-username "PEZ"
@@ -471,6 +473,16 @@
         (js/console.info "[Epupp:FS]" message (clj->js {:files bulk-names}))
         (js/console.info "[Epupp:FS]" message)))
 
+    :popup/fx.check-page-scriptability
+    (let [tab (js-await (get-active-tab))
+          url (.-url tab)
+          browser-type (script-utils/detect-browser-type)
+          scriptability (script-utils/check-page-scriptability url browser-type)]
+      (dispatch [[:db/ax.assoc
+                  :browser/type browser-type
+                  :ui/page-banner (when-not (:scriptable? scriptability)
+                                    {:type "info" :message (:message scriptability)})]]))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -898,6 +910,8 @@
        :elements/icon [icons/epupp-logo {:size 28 :connected? (current-tab-connected? state)}]
        :elements/sponsor-status (storage/sponsor-active? state)
        :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])
+       :elements/permanent-banner (when-let [pb (:ui/page-banner state)]
+                                    [view-elements/page-banner pb])
        :elements/temporary-banner (when-let [banners (seq (:ui/system-banners state))]
                                     [view-elements/system-banners banners])}]
 
@@ -1049,6 +1063,7 @@
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
+              [:popup/ax.check-page-scriptability]
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-fs-sync-setting]

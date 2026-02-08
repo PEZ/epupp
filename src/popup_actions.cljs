@@ -348,4 +348,7 @@
     :popup/ax.load-sponsor-status
     {:uf/fxs [[:popup/fx.load-sponsor-status]]}
 
+    :popup/ax.check-page-scriptability
+    {:uf/fxs [[:popup/fx.check-page-scriptability]]}
+
     :uf/unhandled-ax))

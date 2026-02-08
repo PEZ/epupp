@@ -229,3 +229,15 @@
      (for [banner banners]
        ^{:key (:id banner)}
        [system-banner banner])]))
+
+(defn page-banner
+  "Persistent banner for page-level status (e.g., unscriptable page).
+   Unlike system banners, does not auto-dismiss."
+  [{:keys [type message]}]
+  [:div {:class (str "page-banner "
+                     (case type
+                       "success" "fs-success-banner"
+                       "info" "fs-info-banner"
+                       "fs-error-banner"))
+         :data-e2e-page-banner type}
+   [:span message]])
