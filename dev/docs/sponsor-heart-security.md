@@ -84,17 +84,23 @@ Dispatch becomes:
 
 **Permission check:** `sender.tab.url` requires `tabs` permission or host permissions. Verify `manifest.json` includes what's needed. The extension likely already has broad host permissions for content script injection.
 
-#### 2. Script-side URL guard (UX, not security)
+#### 2. Script-side URL guard (DX and correctness)
 
 **File:** `extension/userscripts/epupp/sponsor.cljs`
 
-Before running `detect-and-act!`, check `window.location.pathname` starts with `/sponsors/{expected-username}`. This prevents confusing banners when running the script manually on the wrong sponsors page.
+Before running `detect-and-act!`, check `window.location.pathname` starts with `/sponsors/{expected-username}`. This ensures the script only detects and reports sponsor status for the configured username - both in auto-run and manual-run scenarios.
 
-The expected username can be extracted from the script's own `:epupp/auto-run-match` value in the manifest map at the top of the file. Since `update-sponsor-script-match!` (Chunk 12) rewrites this value, the guard stays in sync with dev overrides automatically.
+The script requests the expected username from the extension via a message, following the same pattern as `get-icon-url`. A new `get-sponsored-username` message type:
 
-Alternatively, hardcode `"PEZ"` and accept that the dev override only affects auto-run matching. This is simpler and acceptable since dev users understand the limitation.
+- Script posts `{source: "epupp-userscript", type: "get-sponsored-username", requestId: ...}`
+- Content bridge handles it by sending `{type: "get-sponsored-username"}` to the background
+- Background reads `sponsor/sponsored-username` from storage (default `"PEZ"`) and responds
+- Content bridge relays the response back to the page
+- Script stores the result in a `defonce` atom (survives re-injections, same as `!icon-url`)
 
-This guard provides zero security benefit (page code controls the script environment). It only prevents user confusion.
+This shares the same source of truth as the background verification.
+
+This guard is essential for the dev override to work end-to-end. Without it, changing `sponsor/sponsored-username` only affects auto-run matching but manual execution still detects sponsorship of the wrong person. The entire dev tools UI for sponsor testing depends on this guard working correctly.
 
 ### Message flow after fix
 
@@ -120,11 +126,20 @@ Page JS (attacker-controlled)
 - [ ] Pass `sender` to `handle-sponsor-status` in dispatch (`src/background.cljs` line 669)
 - [ ] Add URL verification logic to `handle-sponsor-status` (`src/background.cljs` line 581)
 - [ ] Add expected-username lookup (`sponsor/sponsored-username` from storage, default `"PEZ"`)
-- [ ] Add script-side URL guard in `extension/userscripts/epupp/sponsor.cljs` (UX)
+- [ ] Add script-side URL guard via `get-sponsored-username` message (`sponsor.cljs`, content bridge, background)
 - [ ] Unit test: `handle-sponsor-status` rejects when tab URL is wrong
 - [ ] Unit test: `handle-sponsor-status` accepts when tab URL matches
 - [ ] E2E test: sponsor status not granted from non-matching page
 - [ ] Verified by PEZ
+- [ ] Code cleanup pass across all sponsor-heart files:
+  - [ ] Review and remove dead code, abandoned implementation paths, and unused functions
+  - [ ] Remove stale comments referencing old approaches (e.g., references to removed `insert-banner!`, old detection strategies)
+  - [ ] Verify naming consistency (`sponsor/` namespace across storage keys, functions, and state)
+  - [ ] Check for orphaned requires/imports
+  - [ ] Ensure docstrings reflect current behavior, not implementation history
+  - [ ] Files to review: `src/background.cljs`, `src/storage.cljs`, `src/popup.cljs`, `src/popup_actions.cljs`, `src/panel.cljs`, `src/content_bridge.cljs`, `src/components.cljs`, `extension/userscripts/epupp/sponsor.cljs`
+  - [ ] Confirm all tests still pass after cleanup
+  - [ ] Verified by PEZ
 
 ## Other remaining work
 
