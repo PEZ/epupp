@@ -92,10 +92,10 @@
         ext-id (js-await (get-extension-id context))]
     (try
       (let [popup (js-await (create-popup-page context ext-id))
-            ;; Popup is not a tab, so sender.tab is undefined - URL check fails
+            ;; Popup is not a tab, and no pending check was set - rejected
             response (js-await (send-runtime-message popup "sponsor-status" nil))]
         (js-await (-> (expect (.-success response)) (.toBe false)))
-        (js-await (-> (expect (.-error response)) (.toBe "URL mismatch")))
+        (js-await (-> (expect (.-error response)) (.toBe "No pending sponsor check")))
         ;; Verify sponsor status was NOT persisted
         (let [storage (js-await (send-runtime-message popup "e2e/get-storage"
                                                       #js {:key "sponsorStatus"}))]

@@ -115,3 +115,5 @@
         (string? username)
         (not (empty? username))
         (.startsWith tab-url (str "https://github.com/sponsors/" username)))))
+
+(def sponsor-script-id "epupp-builtin-sponsor-check")

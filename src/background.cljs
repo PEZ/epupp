@@ -47,6 +47,19 @@
         (throw (js/Error. "Initialization promise missing"))))))
 
 ;; ============================================================
+;; Sponsor Check Tracking
+;; ============================================================
+
+(defn- set-sponsor-pending! [tab-id]
+  (swap! !state assoc-in [:sponsor/pending-checks tab-id] (js/Date.now)))
+
+(defn- consume-sponsor-pending! [tab-id]
+  (let [pending (get-in @!state [:sponsor/pending-checks tab-id])]
+    (swap! !state update :sponsor/pending-checks dissoc tab-id)
+    (when pending
+      (< (- (js/Date.now) pending) 30000))))
+
+;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
 ;; ============================================================
 ;; Injection functions extracted to bg-inject module
@@ -330,6 +343,8 @@
       (log/debug "Background:Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
       (log/debug "Background:Inject" "Executing" (count idle-scripts) "scripts")
       (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
+      (when (some #(= bg-utils/sponsor-script-id (:script/id %)) idle-scripts)
+        (set-sponsor-pending! tab-id))
       (try
         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
         (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
@@ -580,17 +595,20 @@
 
 (defn- handle-sponsor-status [_message sender send-response]
   ((^:async fn []
-     (let [tab-url (when (.-tab sender) (.. sender -tab -url))
+     (let [tab-id (when (.-tab sender) (.. sender -tab -id))
+           tab-url (when (.-tab sender) (.. sender -tab -url))
+           pending? (when tab-id (consume-sponsor-pending! tab-id))
            storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
            username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
-       (if (bg-utils/sponsor-url-matches? tab-url username)
+       (if (and pending?
+                (bg-utils/sponsor-url-matches? tab-url username))
          (do (swap! storage/!db assoc
                     :sponsor/status true
                     :sponsor/checked-at (js/Date.now))
              (js-await (storage/persist!))
              (send-response #js {:success true}))
          (send-response #js {:success false
-                             :error "URL mismatch"})))))
+                             :error (if pending? "URL mismatch" "No pending sponsor check")})))))
   true)
 
 
@@ -859,6 +877,8 @@
 
     :script/fx.evaluate
     (let [[tab-id script] args]
+      (when (= bg-utils/sponsor-script-id (:script/id script))
+        (set-sponsor-pending! tab-id))
       (try
         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
         (js-await (bg-inject/execute-scripts! tab-id [script]))
