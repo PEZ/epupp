@@ -42,17 +42,17 @@
       :title "Close"}
      [icons/close {:size 14}]]]
    [:a.creator-menu-item {:href "https://github.com/PEZ" :target "_blank"}
-    [icons/github {:size 14}] [:span "@PEZ"]]
+    [icons/github {:size 16}] [:span "@PEZ"]]
    [:button.creator-menu-item
     {:on-click on-sponsor-click}
     [icons/heart {:size 14 :filled? sponsor-status
                   :class (str "sponsor-heart-icon"
                               (when sponsor-status " sponsor-heart-filled"))}]
-    [:span "Sponsor"]]
+    [:span (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]
    [:a.creator-menu-item {:href "https://www.youtube.com/CalvaTV" :target "_blank"}
     [icons/youtube {:size 14}] [:span "CalvaTV"]]
    [:a.creator-menu-item {:href "https://www.linkedin.com/in/cospaia/" :target "_blank"}
-    [icons/linkedin {:size 14}] [:span "LinkedIn"]]
+    [icons/linkedin {:size 14 :class "icon-linkedin"}] [:span "Peter PEZ Strömberg"]]
    [:a.creator-menu-item {:href "https://x.com/pappapez" :target "_blank"}
     [icons/twitter-x {:size 14}] [:span "@pappapez"]]])
 
@@ -89,7 +89,7 @@
      [:img {:src "images/clojure.png" :alt "Clojure"}]]]
    [:div.footer-credits
     [:span.iconed-link
-     [icons/github {:size 14}]
+     [icons/github {:size 16}]
      [:a {:href "https://github.com/PEZ/browser-jack-in"
           :target "_blank"
           :title "https://github.com/PEZ/browser-jack-in"}
@@ -109,7 +109,6 @@
      (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]
    (when creator-menu-open?
      [:div
-      [:div.creator-menu-backdrop {:on-click on-creator-menu-close}]
       [creator-menu {:elements/on-sponsor-click on-sponsor-click
                      :elements/sponsor-status sponsor-status
                      :elements/on-creator-menu-close on-creator-menu-close}]])])

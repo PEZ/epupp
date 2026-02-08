@@ -575,7 +575,7 @@
        [:span.script-name
         (when builtin?
           [:span.builtin-indicator {:title "Built-in script"}
-           [icons/cube]])
+           [icons/package]])
         [:span.script-name-text {:title name} name]]
        [:div.script-actions
         [view-elements/action-button
