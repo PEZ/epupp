@@ -925,7 +925,9 @@
                              :title "Dev Tools"
                              :expanded? (not (:dev-tools sections-collapsed))}
         [dev-tools-section state]])
-     [view-elements/app-footer {:elements/wrapper-class "popup-footer"}]]))
+     [view-elements/app-footer {:elements/wrapper-class "popup-footer"
+                                :elements/sponsor-status (storage/sponsor-active? state)
+                                :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])}]]))
 
 (defn render! []
   (r/render (js/document.getElementById "app")

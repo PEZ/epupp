@@ -36,8 +36,10 @@
 (defn app-footer
   "Common footer component for both popup and panel.
    Options:
-   - :elements/wrapper-class: CSS class for view-specific styling"
-  [{:elements/keys [wrapper-class]}]
+   - :elements/wrapper-class: CSS class for view-specific styling
+   - :elements/sponsor-status: boolean indicating sponsor status
+   - :elements/on-sponsor-click: click handler for sponsor heart action"
+  [{:elements/keys [wrapper-class sponsor-status on-sponsor-click]}]
   [:div {:class (str "app-footer " wrapper-class)}
    [:div.footer-powered
     "Powered by "
@@ -71,12 +73,16 @@
           :target "_blank"
           :title "https://github.com/PEZ/browser-jack-in"}
       "Open Source"]]
-    [:span.iconed-link
-     [icons/heart {:size 14 :class "heart-icon"}]
-     [:a {:href "https://github.com/sponsors/PEZ"
-          :target "_blank"
-          :title "https://github.com/sponsors/PEZ"}
-      "Sponsor"]]]])
+    [:button.footer-sponsor-heart
+     {:on-click on-sponsor-click
+      :title (if sponsor-status
+               "Thank you for sponsoring!"
+               "Click to update sponsor status")}
+     [icons/heart {:size 14
+                   :filled? sponsor-status
+                   :class (str "sponsor-heart-icon"
+                               (when sponsor-status " sponsor-heart-filled"))}]
+     (if sponsor-status "Sponsor!" "Sponsor")]]])
 
 ;; ============================================================
 ;; Shared UI Components

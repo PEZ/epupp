@@ -117,7 +117,7 @@
         (js-await (wait-for-popup-ready popup))
 
         ;; Verify the heart shows as filled
-        (let [heart-icon (.locator popup ".sponsor-heart-filled")]
+        (let [heart-icon (.locator popup ".sponsor-heart .sponsor-heart-filled")]
           (js-await (-> (expect heart-icon) (.toBeVisible #js {:timeout 3000}))))
 
         ;; Click "Reset Sponsor Status" button
@@ -125,7 +125,7 @@
           (js-await (.click reset-btn)))
 
         ;; Verify the heart is no longer filled
-        (let [heart-icon (.locator popup ".sponsor-heart-filled")]
+        (let [heart-icon (.locator popup ".sponsor-heart .sponsor-heart-filled")]
           (js-await (-> (expect heart-icon) (.not.toBeVisible #js {:timeout 3000}))))
 
         (js-await (assert-no-errors! popup)))

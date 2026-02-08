@@ -712,8 +712,10 @@
     :elements/temporary-banner (when (seq system-banners)
                                  [view-elements/system-banners system-banners])}])
 
-(defn panel-footer []
-  [view-elements/app-footer {:elements/wrapper-class "panel-footer"}])
+(defn panel-footer [state]
+  [view-elements/app-footer {:elements/wrapper-class "panel-footer"
+                             :elements/sponsor-status (storage/sponsor-active? state)
+                             :elements/on-sponsor-click #(dispatch! [[:editor/ax.check-sponsor]])}])
 
 (defn panel-ui [state]
   [:div.panel-root {:data-e2e-connected (str (boolean (:panel/tab-connected? state)))}
@@ -728,7 +730,7 @@
     [save-script-section state]
     [code-input state]
     [results-area state]
-    [panel-footer]]])
+    [panel-footer state]]])
 
 ;; ============================================================
 ;; Init

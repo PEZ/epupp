@@ -181,6 +181,27 @@
   color: #e53935;
 }
 
+/* Footer sponsor heart button */
+.footer-sponsor-heart {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.footer-sponsor-heart:hover {
+  text-decoration: underline;
+}
+
+.footer-sponsor-heart:hover .sponsor-heart-icon {
+  color: #e91e63;
+}
+
 /* Buttons */
 .btn-untitled {
   padding: 6px 6px;
