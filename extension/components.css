@@ -243,46 +243,46 @@ kbd {
    System Banners - FS sync feedback and notifications
    ============================================================ */
 
-.fs-success-banner {
+.success-banner {
   padding: 8px 12px;
-  background: var(--color-bg-fs-success-banner);
-  border-bottom: 1px solid var(--color-border-fs-success-banner);
-  color: var(--color-text-fs-success-banner);
+  background: var(--color-bg-success-banner);
+  border-bottom: 1px solid var(--color-border-success-banner);
+  color: var(--color-text-success-banner);
   font-size: 12px;
   text-align: center;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
-.fs-success-banner strong {
-  color: var(--color-text-fs-success-banner-strong);
+.success-banner strong {
+  color: var(--color-text-success-banner-strong);
 }
 
-.fs-error-banner {
+.error-banner {
   padding: 8px 12px;
-  background: var(--color-bg-fs-error-banner);
-  border-bottom: 1px solid var(--color-border-fs-error-banner);
-  color: var(--color-text-fs-error-banner);
+  background: var(--color-bg-error-banner);
+  border-bottom: 1px solid var(--color-border-error-banner);
+  color: var(--color-text-error-banner);
   font-size: 12px;
   text-align: center;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
-.fs-error-banner strong {
-  color: var(--color-text-fs-error-banner-strong);
+.error-banner strong {
+  color: var(--color-text-error-banner-strong);
 }
 
-.fs-info-banner {
+.info-banner {
   padding: 8px 12px;
-  background: var(--color-bg-fs-info-banner);
-  border-bottom: 1px solid var(--color-border-fs-info-banner);
-  color: var(--color-text-fs-info-banner);
+  background: var(--color-bg-info-banner);
+  border-bottom: 1px solid var(--color-border-info-banner);
+  color: var(--color-text-info-banner);
   font-size: 12px;
   text-align: center;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
-.fs-info-banner strong {
-  color: var(--color-text-fs-info-banner-strong);
+.info-banner strong {
+  color: var(--color-text-info-banner-strong);
 }
 
 /* System banner favicon */
@@ -317,20 +317,10 @@ kbd {
   }
 }
 
-.fs-success-banner.leaving,
-.fs-error-banner.leaving,
-.fs-info-banner.leaving {
+.success-banner.leaving,
+.error-banner.leaving,
+.info-banner.leaving {
   animation: banner-slide-out var(--transition-duration) ease-in forwards;
-}
-
-/* ============================================================
-   Page Banner - persistent page-level status (e.g., unscriptable page)
-   Reuses banner base styles but without slide-in animation.
-   Positioned naturally via app-header's :elements/permanent-banner slot.
-   ============================================================ */
-
-.page-banner {
-  animation: none;
 }
 
 /* ============================================================

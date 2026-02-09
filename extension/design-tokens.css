@@ -51,27 +51,26 @@
   --color-bg-result-input: #ffffff;
   --color-bg-result-output: #ffffff;
 
-  /* Refresh banner (panel) */
-  --color-bg-refresh-banner: #fffbeb;
-  --color-border-refresh-banner: #fcd34d;
-  --color-text-refresh-banner: #b45309;
-  --color-text-refresh-banner-strong: #92400e;
+  /* Banners  */
+  --color-bg-success-banner: #ecfdf5;
+  --color-border-success-banner: #6ee7b7;
+  --color-text-success-banner: #047857;
+  --color-text-success-banner-strong: #065f46;
 
-  /* FS sync banners (success/error feedback) */
-  --color-bg-fs-success-banner: #ecfdf5;
-  --color-border-fs-success-banner: #6ee7b7;
-  --color-text-fs-success-banner: #047857;
-  --color-text-fs-success-banner-strong: #065f46;
+  --color-bg-info-banner: #eff6ff;
+  --color-border-info-banner: #93c5fd;
+  --color-text-info-banner: #2563eb;
+  --color-text-info-banner-strong: #1d4ed8;
 
-  --color-bg-fs-error-banner: #fef2f2;
-  --color-border-fs-error-banner: #fca5a5;
-  --color-text-fs-error-banner: #dc2626;
-  --color-text-fs-error-banner-strong: #b91c1c;
+  --color-bg-warning-banner: #fffbeb;
+  --color-border-warning-banner: #fcd34d;
+  --color-text-warning-banner: #b45309;
+  --color-text-warning-banner-strong: #92400e;
 
-  --color-bg-fs-info-banner: #eff6ff;
-  --color-border-fs-info-banner: #93c5fd;
-  --color-text-fs-info-banner: #2563eb;
-  --color-text-fs-info-banner-strong: #1d4ed8;
+  --color-bg-error-banner: #fef2f2;
+  --color-border-error-banner: #fca5a5;
+  --color-text-error-banner: #dc2626;
+  --color-text-error-banner-strong: #b91c1c;
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -150,27 +149,26 @@
     --color-bg-result-input: #1e1e1e;
     --color-bg-result-output: #1e1e1e;
 
-    /* Refresh banner (panel) */
-    --color-bg-refresh-banner: #3d3520;
-    --color-border-refresh-banner: #5c4d1f;
-    --color-text-refresh-banner: #f0c674;
-    --color-text-refresh-banner-strong: #ffd866;
+    /* Banners */
+    --color-bg-success-banner: #064e3b;
+    --color-border-success-banner: #059669;
+    --color-text-success-banner: #6ee7b7;
+    --color-text-success-banner-strong: #a7f3d0;
 
-    /* FS sync banners (success/error feedback) */
-    --color-bg-fs-success-banner: #064e3b;
-    --color-border-fs-success-banner: #059669;
-    --color-text-fs-success-banner: #6ee7b7;
-    --color-text-fs-success-banner-strong: #a7f3d0;
+    --color-bg-info-banner: #1e3a5f;
+    --color-border-info-banner: #3b82f6;
+    --color-text-info-banner: #93c5fd;
+    --color-text-info-banner-strong: #bfdbfe;
 
-    --color-bg-fs-error-banner: #450a0a;
-    --color-border-fs-error-banner: #dc2626;
-    --color-text-fs-error-banner: #fca5a5;
-    --color-text-fs-error-banner-strong: #fecaca;
+    --color-bg-warning-banner: #3d3520;
+    --color-border-warning-banner: #5c4d1f;
+    --color-text-warning-banner: #f0c674;
+    --color-text-warning-banner-strong: #ffd866;
 
-    --color-bg-fs-info-banner: #1e3a5f;
-    --color-border-fs-info-banner: #3b82f6;
-    --color-text-fs-info-banner: #93c5fd;
-    --color-text-fs-info-banner-strong: #bfdbfe;
+    --color-bg-error-banner: #450a0a;
+    --color-border-error-banner: #dc2626;
+    --color-text-error-banner: #fca5a5;
+    --color-text-error-banner-strong: #fecaca;
 
     --scrollbar-thumb: #5a5a5a;
     --scrollbar-thumb-hover: #6a6a6a;

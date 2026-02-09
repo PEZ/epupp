@@ -36,27 +36,6 @@ body {
   background: var(--color-bg-elevated);
 }
 
-/* Refresh banner */
-.refresh-banner {
-  padding: 8px 12px;
-  background: var(--color-bg-refresh-banner);
-  border-bottom: 1px solid var(--color-border-refresh-banner);
-  color: var(--color-text-refresh-banner);
-  font-size: 12px;
-  text-align: center;
-  animation: banner-slide-in var(--transition-duration) ease-out;
-}
-
-.refresh-banner strong {
-  color: var(--color-text-refresh-banner-strong);
-}
-
-.refresh-banner.leaving {
-  animation: banner-slide-out var(--transition-duration) ease-in forwards;
-}
-
-/* Banner animations and fs-*-banner styles consolidated in components.css */
-
 /* Main content area - scrollable container */
 .panel-content {
   display: flex;
@@ -64,7 +43,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Space for fixed header (approx 37px header + potential refresh banner) */
+  /* Space for fixed header  */
   padding-top: 45px;
 }
 
@@ -428,10 +407,10 @@ body {
   flex-basis: 100%;
   font-size: 11px;
   padding: 8px 10px;
-  background: var(--color-bg-refresh-banner);
-  border: 1px solid var(--color-border-refresh-banner);
+  background: var(--color-bg-warning-banner);
+  border: 1px solid var(--color-border-warning-banner);
   border-radius: var(--radius-sm);
-  color: var(--color-text-refresh-banner);
+  color: var(--color-text-warning-banner);
   display: flex;
   align-items: center;
   gap: 6px;

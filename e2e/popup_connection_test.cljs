@@ -84,7 +84,7 @@
                           (.toBeVisible #js {:timeout 500})))
             ;; Failed status should have error banner class
             (js-await (-> (expect banner)
-                          (.toHaveClass #"fs-error-banner"))))
+                          (.toHaveClass #"error-banner"))))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))

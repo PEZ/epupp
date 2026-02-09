@@ -15,7 +15,6 @@
   [{:elements/keys [wrapper-class header-class icon permanent-banner temporary-banner
                     sponsor-status on-sponsor-click]}]
   [:div {:class (str "app-header-wrapper " wrapper-class)}
-   (when permanent-banner permanent-banner)
    [:div {:class (str "app-header " header-class)}
     [:div.app-header-title
      (or icon [:img {:src "icons/icon-32.png" :alt ""}])
@@ -31,6 +30,7 @@
                    :filled? sponsor-status
                    :class (str "sponsor-heart-icon"
                                (when sponsor-status " sponsor-heart-filled"))}]]]
+   (when permanent-banner permanent-banner)
    (when temporary-banner temporary-banner)])
 
 (defn- creator-menu [{:elements/keys [on-sponsor-click sponsor-status on-creator-menu-close]}]
@@ -200,6 +200,14 @@
   (into [:div {:class (str "empty-state " class)}]
         children))
 
+(defn- banner-class [type]
+  (case type
+    "success" "success-banner"
+    "info" "info-banner"
+    "warning" "warning-banner"
+    "error" "error-banner"
+    "info-banner"))
+
 (defn system-banner
   "Single banner component for system messages.
    Options:
@@ -208,13 +216,9 @@
    - :favicon - optional favicon URL to display before message
    - :leaving - when true, applies leaving animation class"
   [{:keys [type message favicon leaving]}]
-  [:div {:class (str "system-banner "
-                     (case type
-                       "success" "fs-success-banner"
-                       "info" "fs-info-banner"
-                       "fs-error-banner")
-                     (when leaving " leaving"))
-         :data-e2e-banner-type type}
+  [:div.banner.system-banner {:class (str (banner-class type)
+                                          (when leaving " leaving"))
+                              :data-e2e-banner-type type}
    (when favicon
      [:img.system-banner-favicon {:src favicon :width 16 :height 16}])
    [:span message]])
@@ -234,10 +238,6 @@
   "Persistent banner for page-level status (e.g., unscriptable page).
    Unlike system banners, does not auto-dismiss."
   [{:keys [type message]}]
-  [:div {:class (str "page-banner "
-                     (case type
-                       "success" "fs-success-banner"
-                       "info" "fs-info-banner"
-                       "fs-error-banner"))
-         :data-e2e-page-banner type}
+  [:div.banner.page-banner {:class (banner-class type)
+                            :data-e2e-page-banner type}
    [:span message]])

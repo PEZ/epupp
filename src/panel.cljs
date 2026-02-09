@@ -694,7 +694,7 @@
           "Save Script"]]])]))
 
 (defn refresh-banner []
-  [:div.refresh-banner
+  [:div.banner.page-banner.warning-banner
    [:span "Extension updated - please "]
    [:strong "close and reopen DevTools"]
    [:span " to use the new version of this panel"]])

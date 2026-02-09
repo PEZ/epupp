@@ -150,9 +150,9 @@ Light/dark themes are handled via `prefers-color-scheme`:
 Feedback banners for FS sync operations and notifications:
 
 ```css
-.fs-success-banner      /* Green success message */
-.fs-error-banner        /* Red error message */
-.fs-info-banner         /* Blue info message */
+.success-banner      /* Green success message */
+.error-banner        /* Red error message */
+.info-banner         /* Blue info message */
 ```
 
 Banners support enter/leave animations:
