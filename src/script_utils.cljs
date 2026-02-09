@@ -398,11 +398,11 @@
 
     (some #(.startsWith url %) blocked-schemes)
     {:scriptable? false
-     :message (str "Cannot script " (first (.split url ":")) ": pages")}
+     :message (str "Unfortunatelly neither the REPL nor Userscripting works on " (first (.split url ":")) ": pages.")}
 
     (some #(.startsWith url %) (get blocked-domains-by-browser browser-type []))
     {:scriptable? false
-     :message "Extension stores cannot be scripted"}
+     :message "Unfortunatelly neither the REPL nor Userscripting works on Extension/Addon stores."}
 
     :else
     {:scriptable? true}))
