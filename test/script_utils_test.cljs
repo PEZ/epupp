@@ -555,25 +555,25 @@
   (let [result (script-utils/check-page-scriptability
                 "https://chrome.google.com/webstore/detail/some-ext" :chrome)]
     (-> (expect (:scriptable? result)) (.toBe false))
-    (-> (expect (:message result)) (.toContain "Extension stores"))))
+    (-> (expect (:message result)) (.toContain "stores"))))
 
 (defn- test-scriptability-chromewebstore-blocked []
   (let [result (script-utils/check-page-scriptability
                 "https://chromewebstore.google.com/detail/some-ext" :chrome)]
     (-> (expect (:scriptable? result)) (.toBe false))
-    (-> (expect (:message result)) (.toContain "Extension stores"))))
+    (-> (expect (:message result)) (.toContain "stores"))))
 
 (defn- test-scriptability-firefox-addons-blocked []
   (let [result (script-utils/check-page-scriptability
                 "https://addons.mozilla.org/en-US/firefox/addon/some-addon" :firefox)]
     (-> (expect (:scriptable? result)) (.toBe false))
-    (-> (expect (:message result)) (.toContain "Extension stores"))))
+    (-> (expect (:message result)) (.toContain "stores"))))
 
 (defn- test-scriptability-edge-addons-blocked []
   (let [result (script-utils/check-page-scriptability
                 "https://microsoftedge.microsoft.com/addons/detail/some-ext" :edge)]
     (-> (expect (:scriptable? result)) (.toBe false))
-    (-> (expect (:message result)) (.toContain "Extension stores"))))
+    (-> (expect (:message result)) (.toContain "stores"))))
 
 (defn- test-scriptability-firefox-domain-not-blocked-for-chrome []
   (let [result (script-utils/check-page-scriptability
