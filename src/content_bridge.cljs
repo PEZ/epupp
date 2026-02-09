@@ -1,26 +1,71 @@
-;; ============================================================
-;; Security: Message Forwarding Whitelist
-;; ============================================================
-;; The content bridge is the ONLY path from page scripts (MAIN world) to the
-;; background worker. Page scripts cannot call chrome.runtime.sendMessage directly.
-;;
-;; IMPORTANT: Only explicitly handled message types below are forwarded.
-;; Adding new forwarded messages effectively grants page scripts that capability.
-;; Before adding: consider if the background handler could be abused if called
-;; by arbitrary page code (e.g., pattern-approved, evaluate-script would be dangerous).
-;;
-;; Current whitelist:
-;; - epupp-page source: ws-connect, ws-send (WebSocket relay for REPL)
-;; - epupp-page source: load-manifest (library injection for REPL)
-;; - epupp-userscript source: install-userscript (with origin validation in background)
-;; - epupp-userscript source: sponsor-status (persists sponsor flag to storage)
-;; ============================================================
+;; Security: The message-registry below is the authoritative whitelist.
+;; Unregistered message types are silently dropped by the bridge.
+;; See the :msg/auth values for each message's security model.
 
 (ns content-bridge
   "Content script bridge for WebSocket connections.
    Runs in ISOLATED world, relays messages between page (MAIN) and background service worker."
   (:require [log :as log]
             [test-logger :as test-logger]))
+
+(def message-registry
+  ;; WebSocket relay - REPL connectivity
+  {"ws-connect"             {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/none
+                             :msg/response? false
+                             :msg/pre-forward (fn [msg]
+                                                (log/debug "Bridge" "Requesting connection to port:" (.-port msg))
+                                                (set-connected! true))}
+   "ws-send"                {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/connected
+                             :msg/response? false
+                             :msg/pre-forward (fn [_msg]
+                                                (connected?))}
+
+   ;; Script CRUD - read operations
+   "list-scripts"           {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/fs-sync
+                             :msg/response? true}
+   "get-script"             {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/fs-sync
+                             :msg/response? true}
+
+   ;; Script CRUD - write operations
+   "save-script"            {:msg/sources #{"epupp-page" "epupp-userscript"}
+                             :msg/auth :auth/fs-sync-or-token
+                             :msg/response? true}
+   "rename-script"          {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/fs-sync
+                             :msg/response? true}
+   "delete-script"          {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/fs-sync
+                             :msg/response? true}
+
+   ;; Web installer token flow (not yet implemented - depends on security audit remediation)
+   ;; Uncomment when background handler exists:
+   ;; "request-save-token"  {:msg/sources #{"epupp-page"} :msg/auth :auth/none :msg/response? true}
+
+   ;; Library injection
+   "load-manifest"          {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/none
+                             :msg/response? true
+                             :msg/response-type "manifest-response"}
+
+   ;; Sponsor system
+   "sponsor-status"         {:msg/sources #{"epupp-userscript"}
+                             :msg/auth :auth/challenge-response
+                             :msg/response? false
+                             :msg/pre-forward (fn [_msg]
+                                                (log/debug "Bridge" "Forwarding sponsor-status to background"))}
+   "get-sponsored-username" {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/none
+                             :msg/response? true}
+
+   ;; Userscript self-install
+   "install-userscript"     {:msg/sources #{"epupp-userscript"}
+                             :msg/auth :auth/origin-validated
+                             :msg/response? true
+                             :msg/response-type "install-response"}})
 
 (def !state (atom {:bridge/connected? false
                    :bridge/keepalive-interval nil}))
@@ -71,259 +116,75 @@
               (send-message-safe! #js {:type "ping"})))
           5000)))
 
+(defn- handle-context-invalidated! []
+  (log/debug "Bridge" "Extension context invalidated")
+  (stop-keepalive!)
+  (set-connected! false))
+
+(defn- forward-with-response
+  "Generic forwarder for messages that expect a response from background.
+   Sends the raw message to background, posts the response back to the page."
+  [msg]
+  (let [msg-type (.-type msg)
+        entry (get message-registry msg-type)]
+    (try
+      (js/chrome.runtime.sendMessage
+       msg
+       (fn [response]
+         (let [response-type (or (:msg/response-type entry)
+                                 (str msg-type "-response"))
+               base #js {:source "epupp-bridge"
+                         :type response-type}]
+           (when-let [rid (.-requestId msg)]
+             (set! (.-requestId base) rid))
+           (when response
+             (js/Object.assign base response))
+           (.postMessage js/window base "*"))))
+      (catch :default e
+        (when (re-find #"Extension context invalidated" (.-message e))
+          (handle-context-invalidated!))))))
+
+(defn- forward-fire-and-forget
+  "Generic forwarder for messages with no response. Uses send-message-safe!
+   which handles context invalidation."
+  [msg]
+  (send-message-safe! msg))
+
 (defn- handle-page-message [event]
   (when (same-window? event)
     (let [msg (.-data event)]
-      ;; Handle messages from WebSocket bridge (epupp-page)
-      (when (and msg (= "epupp-page" (.-source msg)))
-        (case (.-type msg)
-          "ws-connect"
-          (do
-            (log/debug "Bridge" "Requesting connection to port:" (.-port msg))
-            (set-connected! true)
-            (send-message-safe!
-             #js {:type "ws-connect"
-                  :port (.-port msg)}))
+      (when msg
+        (let [msg-type (.-type msg)
+              msg-source (.-source msg)
+              entry (get message-registry msg-type)]
+          ;; Registry-driven dispatch: check source is allowed
+          (when (and entry (contains? (:msg/sources entry) msg-source))
+            ;; Run pre-forward hook if present
+            (let [pre-forward (:msg/pre-forward entry)
+                  should-forward? (if pre-forward
+                                    (not (false? (pre-forward msg)))
+                                    true)]
+              (when should-forward?
+                (if (:msg/response? entry)
+                  (forward-with-response msg)
+                  (forward-fire-and-forget msg)))))
+          ;; Locally-handled messages (never reach background)
+          (when (= "epupp-page" msg-source)
+            (case msg-type
+              "log"
+              (let [level (.-level msg)
+                    subsystem (.-subsystem msg)
+                    messages (.-messages msg)]
+                (apply log/log level subsystem messages))
 
-          "ws-send"
-          (when (connected?)
-            (send-message-safe!
-             #js {:type "ws-send"
-                  :data (.-data msg)}))
-
-          "list-scripts"
-          (do
-            (log/debug "Bridge" "Forwarding list-scripts request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "list-scripts"
-                    :lsHidden (.-lsHidden msg)}
-               (fn [response]
-                 (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "list-scripts-response"
-                                    :requestId (.-requestId msg)
-                                    :success (.-success response)
-                                    :scripts (.-scripts response)}
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "save-script"
-          (do
-            (log/debug "Bridge" "Forwarding save-script request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "save-script"
-                    :code (.-code msg)
-                    :enabled (.-enabled msg)
-                    :force (.-force msg)
-                    :scriptSource (.-scriptSource msg)
-                    :bulkId (aget msg "bulk-id")
-                    :bulkIndex (aget msg "bulk-index")
-                    :bulkCount (aget msg "bulk-count")}
-               (fn [response]
-                 (.postMessage js/window
-                               (js/Object.assign
-                                #js {:source "epupp-bridge"
-                                     :type "save-script-response"
-                                     :requestId (.-requestId msg)}
-                                response)
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "rename-script"
-          (do
-            (log/debug "Bridge" "Forwarding rename-script request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "rename-script"
-                    :from (.-from msg)
-                    :to (.-to msg)
-                    :force (.-force msg)}
-               (fn [response]
-                 (.postMessage js/window
-                               (js/Object.assign
-                                #js {:source "epupp-bridge"
-                                     :type "rename-script-response"
-                                     :requestId (.-requestId msg)}
-                                response)
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "delete-script"
-          (do
-            (log/debug "Bridge" "Forwarding delete-script request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "delete-script"
-                    :name (.-name msg)
-                    :force (.-force msg)
-                    :bulkId (aget msg "bulk-id")
-                    :bulkIndex (aget msg "bulk-index")
-                    :bulkCount (aget msg "bulk-count")}
-               (fn [response]
-                 (.postMessage js/window
-                               (js/Object.assign
-                                #js {:source "epupp-bridge"
-                                     :type "delete-script-response"
-                                     :requestId (.-requestId msg)}
-                                response)
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "get-script"
-          (do
-            (log/debug "Bridge" "Forwarding get-script request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "get-script"
-                    :name (.-name msg)}
-               (fn [response]
-                 (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "get-script-response"
-                                    :requestId (.-requestId msg)
-                                    :success (.-success response)
-                                    :code (.-code response)
-                                    :error (.-error response)}
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "load-manifest"
-          (do
-            (log/debug "Bridge" "Forwarding manifest request to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "load-manifest"
-                    :manifest (.-manifest msg)}
-               (fn [response]
-                 (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "manifest-response"
-                                    :success (.-success response)
-                                    :error (.-error response)}
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "log"
-          ;; Level is already a keyword string (e.g., ":debug") from ws_bridge
-          ;; Messages is a JS array, which Squint treats as a sequence for apply
-          (let [level (.-level msg)
-                subsystem (.-subsystem msg)
-                messages (.-messages msg)]
-            (apply log/log level subsystem messages))
-
-          "get-icon-url"
-          ;; No forwarding needed - content bridge can resolve extension URLs directly
-          (.postMessage js/window
-                        #js {:source "epupp-bridge"
-                             :type "get-icon-url-response"
-                             :requestId (.-requestId msg)
-                             :url (js/chrome.runtime.getURL "icons/icon.svg")}
-                        "*")
-
-          "get-sponsored-username"
-          (do
-            (log/debug "Bridge" "Forwarding get-sponsored-username to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "get-sponsored-username"}
-               (fn [response]
-                 (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "get-sponsored-username-response"
-                                    :requestId (.-requestId msg)
-                                    :username (.-username response)}
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          nil))
-
-      ;; Handle messages from userscripts (epupp-userscript)
-      (when (and msg (= "epupp-userscript" (.-source msg)))
-        (case (.-type msg)
-          "install-userscript"
-          (do
-            (log/debug "Bridge" "Forwarding install request to background")
-            ;; This one needs callback, wrap in try/catch
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "install-userscript"
-                    :manifest (.-manifest msg)
-                    :scriptUrl (.-scriptUrl msg)}
-               (fn [response]
-                 ;; Send response back to page
-                 (.postMessage js/window
-                               #js {:source "epupp-bridge"
-                                    :type "install-response"
-                                    :success (.-success response)
-                                    :error (.-error response)}
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "save-script"
-          (do
-            (log/debug "Bridge" "Forwarding save-script request from userscript to background")
-            (try
-              (js/chrome.runtime.sendMessage
-               #js {:type "save-script"
-                    :code (.-code msg)
-                    :enabled (.-enabled msg)
-                    :force (.-force msg)
-                    :scriptSource (.-scriptSource msg)}
-               (fn [response]
-                 (.postMessage js/window
-                               (js/Object.assign
-                                #js {:source "epupp-bridge"
-                                     :type "save-script-response"
-                                     :requestId (.-requestId msg)}
-                                response)
-                               "*")))
-              (catch :default e
-                (when (re-find #"Extension context invalidated" (.-message e))
-                  (log/debug "Bridge" "Extension context invalidated")
-                  (stop-keepalive!)
-                  (set-connected! false)))))
-
-          "sponsor-status"
-          (do
-            (log/debug "Bridge" "Forwarding sponsor-status to background")
-            (send-message-safe!
-             #js {:type "sponsor-status"}))
-
-          nil)))))
+              "get-icon-url"
+              (.postMessage js/window
+                            #js {:source "epupp-bridge"
+                                 :type "get-icon-url-response"
+                                 :requestId (.-requestId msg)
+                                 :url (js/chrome.runtime.getURL "icons/icon.svg")}
+                            "*")
+              nil)))))))
 
 ;; Script injection helpers
 (defn- inject-script-tag!

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bridge Access Control Test Page</title>
+  <script>
+    // Message collector: tracks all bridge responses via DOM attributes on <html>.
+    // E2E tests post messages and assert on attribute presence/absence.
+    window.addEventListener('message', function(event) {
+      var msg = event.data;
+      if (msg && msg.source === 'epupp-bridge') {
+        if (msg.type === 'bridge-ready') {
+          document.documentElement.setAttribute('data-bridge-ready', 'true');
+        }
+        if (msg.requestId) {
+          var key = 'data-resp-' + msg.requestId;
+          var current = parseInt(document.documentElement.getAttribute(key) || '0');
+          document.documentElement.setAttribute(key, String(current + 1));
+        }
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="test-marker">ready</div>
+</body>
+</html>
