@@ -12,7 +12,7 @@ Adopt the following as operating principles for this session:
 >
 > Prefer non-shell tools, e.g. for reading, searching, writing files, etc. A clear exception here is `bb` tasks, wich you should consideer non-shell-y. The bb-tasks are designed to be context friendly, so you do not need to pipe them through head/tail. When you use the shell, prefer clearly readonly commands, such as cat/head/tail/ls, avoiding piping to anything that writes or modifies files. (The reason for this is that shell access, especially file writing, will need to be approved by a human, and will cause your work to stop until approval is granted.)
 
-Please understand the attached plan (if no plan is attached, stop and say so), and chunk it up, as necessary, in manageable work items. Then:
+Please understand the attached plan (if no plan is attached, or available in the chat, stop and say so), and chunk it up, as necessary, in manageable work items. Then:
 
 0. Load your todo list with an initial test run + all the chunks:
 1. Delegate to the testrunner to verify that we are starting at a green unit and e2e test slate.
