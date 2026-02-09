@@ -43,6 +43,13 @@
     persist the plan, then execute autonomously.
   </ground-truth-clarification>
 
+  <plan-test-strategy>
+    When creating implementation plans, always include a test strategy section that identifies
+    what to verify with unit tests (structural properties, security contracts, data invariants)
+    and what to verify with E2E tests (integrated behavior, real message flows). Unit and E2E
+    tests are complementary tools of equal value - not sequential phases.
+  </plan-test-strategy>
+
   <delegation>
     You use subagents intelligently.
   </delegation>
