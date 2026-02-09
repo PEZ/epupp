@@ -81,3 +81,4 @@
 * [x] Add CalvaTV to footer
 * [ ] Add Joyride mention in README
 * [ ] Make the banner truly system wide and shared.
+* [ ] Enable scripts to define popup UI, at least for the script entry
