@@ -396,15 +396,14 @@
 
         shards (doall
                 (for [idx (range n-shards)]
-                  (let [log-file (str shard-dir "/shard-" idx ".log")]
-                    (println (format "  Starting shard %d/%d..." (inc idx) n-shards))
-                    (let [{:keys [process writer]} (run-docker-shard idx n-shards log-file extra-args)]
-                      {:idx idx
-                       :process process
-                       :writer writer
-                       :log-file log-file
-                       :done? (atom false)
-                       :exit-code (atom nil)}))))
+                  (let [log-file (str shard-dir "/shard-" idx ".log")
+                        {:keys [process writer]} (run-docker-shard idx n-shards log-file extra-args)]
+                    {:idx idx
+                     :process process
+                     :writer writer
+                     :log-file log-file
+                     :done? (atom false)
+                     :exit-code (atom nil)})))
 
         ;; Poll for completion - report as they finish
         _ (loop []
@@ -442,27 +441,15 @@
 
     ;; Write combined shard output for tool consumption
     (spit e2e-output-file (str/join "\n" (map slurp log-files)))
-    (println (str "Full test output: " e2e-output-file))
 
-    (if (seq failed)
-      (do
-        (println (str "❌ " (count failed) " shard(s) failed:"))
-        (doseq [{:keys [idx log-file]} failed]
-          (println (str "  Shard " (inc idx) " - see " log-file)))
-        (println "\nFailed shard output:")
-        (doseq [{:keys [idx log-file]} failed]
-          (println (str "\n=== Shard " (inc idx) " ==="))
-          (println (slurp log-file)))
-        1)
-      (do
-        (println "✅ All shards passed!")
-        0))))
+    (println "Full test output:" e2e-output-file ", shards:" shard-dir)
+    (if (seq failed) 1 0)))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
 (def ^:private default-n-shards 13)
 
 (defn ^:export run-e2e!
-  "Run E2E tests in Docker. Parallel by default, --serial for detailed output.
+  "Run E2E tests in Docker. Parallel by default, --serial to disable this (but why would you?).
 
    Options:
      --shards N  Number of parallel shards (default: 13)
