@@ -27,6 +27,12 @@
          :sponsor/status false
          :sponsor/checked-at nil}))
 
+(def ^:private !syncing-builtins?
+  "Guard flag to prevent cascading re-syncs from onChanged during sync-builtin-scripts!.
+   Each save-script! triggers onChanged which checks for missing builtins - without this guard,
+   saving builtin 1 of 3 would trigger a re-sync because builtins 2-3 appear missing."
+  (atom false))
+
 ;; ============================================================
 ;; Built-in catalog
 ;; ============================================================
@@ -146,7 +152,9 @@
                                     new-scripts)]
            (swap! !db assoc :storage/scripts new-scripts)
            ;; Re-sync built-ins if missing or stale (e.g., by storage.clear())
-           (when (or missing-builtin? stale-builtin?)
+           ;; Skip during active sync to prevent cascading re-syncs
+           (when (and (not @!syncing-builtins?)
+                      (or missing-builtin? stale-builtin?))
              (sync-builtin-scripts!))))
        (when-let [schema-change (.-schemaVersion changes)]
          (when-let [new-version (.-newValue schema-change)]
@@ -468,27 +476,32 @@
 (defn ^:async sync-builtin-scripts!
   "Synchronize built-in scripts with bundled versions.
    Removes stale built-ins and updates bundled ones via save-script!.
-   Applies dev sponsor override after sync (if configured)."
+   Applies dev sponsor override after sync (if configured).
+   Uses !syncing-builtins? guard to prevent cascading re-syncs from onChanged."
   []
-  (js-await (load!))
-  (let [bundled-ids (set (bundled-builtin-ids))
-        scripts (get-scripts)
-        stale-ids (stale-builtin-ids scripts bundled-ids)]
-    (when (seq stale-ids)
-      (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
-      (js-await (persist!))
-      (log/debug "Storage" "Removed stale built-ins" stale-ids))
-    (doseq [bundled bundled-builtins]
-      (try
-        (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))
-              code (js-await (.text response))
-              desired (build-bundled-script bundled code)
-              existing (get-script (:script/id bundled))]
-          (js-await (save-script! desired))
-          (when (builtin-update-needed? existing desired)
-            (log/debug "Storage" "Synced built-in" (:script/id bundled))))
-        (catch :default err
-          (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err))))))
+  (reset! !syncing-builtins? true)
+  (try
+    (js-await (load!))
+    (let [bundled-ids (set (bundled-builtin-ids))
+          scripts (get-scripts)
+          stale-ids (stale-builtin-ids scripts bundled-ids)]
+      (when (seq stale-ids)
+        (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
+        (js-await (persist!))
+        (log/debug "Storage" "Removed stale built-ins" stale-ids))
+      (doseq [bundled bundled-builtins]
+        (try
+          (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))
+                code (js-await (.text response))
+                desired (build-bundled-script bundled code)
+                existing (get-script (:script/id bundled))]
+            (js-await (save-script! desired))
+            (when (builtin-update-needed? existing desired)
+              (log/debug "Storage" "Synced built-in" (:script/id bundled))))
+          (catch :default err
+            (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err)))))
+    (finally
+      (reset! !syncing-builtins? false))))
 
 ;; ============================================================
 ;; Sponsor status
