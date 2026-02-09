@@ -406,35 +406,3 @@
 
     :else
     {:scriptable? true}))
-
-(set! js/globalThis.scriptUtils
-      #js {:parse_scripts parse-scripts
-           :script__GT_js script->js
-           :pattern__GT_regex pattern->regex
-           :url_matches_pattern_QMARK_ url-matches-pattern?
-           :url_matches_any_pattern_QMARK_ url-matches-any-pattern?
-           :get_matching_pattern get-matching-pattern
-           :get_required_origins get-required-origins
-           :builtin_script_QMARK_ builtin-script?
-           :name_matches_builtin_QMARK_ name-matches-builtin?
-           :filter_visible_scripts filter-visible-scripts
-           :generate_script_id generate-script-id
-           :normalize_script_name normalize-script-name
-           :normalize_match_patterns normalize-match-patterns
-           :normalize_run_at normalize-run-at
-           :valid_run_at_values valid-run-at-values
-           :default_run_at default-run-at
-           :url_to_match_pattern url-to-match-pattern
-           :diff_scripts diff-scripts
-           :detect_browser_type detect-browser-type
-           :check_page_scriptability check-page-scriptability
-           :blocked_schemes blocked-schemes
-           :blocked_domains_by_browser blocked-domains-by-browser})
-
-
-
-;; ============================================================
-;; Script change detection
-;; ============================================================
-
-
