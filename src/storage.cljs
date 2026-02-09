@@ -33,7 +33,7 @@
 
 
 
-(def ^:private bundled-builtins
+(def ^:private base-builtins
   [{:script/id "epupp-builtin-web-userscript-installer"
     :path "userscripts/epupp/web_userscript_installer.cljs"
     :name "epupp/web_userscript_installer.cljs"}
@@ -41,6 +41,16 @@
     :path "userscripts/epupp/sponsor.cljs"
     :name "epupp/sponsor.cljs"
     :always-enabled? true}])
+
+(def ^:private security-probe-builtin
+  {:script/id "epupp-builtin-security-probe"
+   :path "userscripts/epupp/security_probe.cljs"
+   :name "epupp/security_probe.cljs"})
+
+(def ^:private bundled-builtins
+  (if (.-dev js/EXTENSION_CONFIG)
+    (conj base-builtins security-probe-builtin)
+    base-builtins))
 
 (defn bundled-builtin-ids
   "Return the list of bundled built-in script IDs."
