@@ -93,6 +93,9 @@
 		],
 		"chat.tools.terminal.autoApprove": {
 			"bb": true
+		},
+		"files.exclude": {
+			"extension/**/*.mjs": true
 		}
 	}
 }
