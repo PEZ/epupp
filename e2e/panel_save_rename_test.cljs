@@ -1,7 +1,7 @@
 (ns e2e.panel-save-rename-test
   "E2E tests for DevTools panel rename functionality."
   (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [launch-browser get-extension-id create-panel-page
+            [fixtures :refer [builtin-script-count launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count wait-for-edit-hint
                               assert-no-errors!]]
@@ -65,8 +65,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Only 3 scripts: 2 built-in + renamed
-        (js-await (wait-for-script-count popup 3))
+        ;; built-in + renamed
+        (js-await (wait-for-script-count popup (+ builtin-script-count 1)))
         ;; Renamed script visible
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"renamed_script.cljs\")"))
                       (.toBeVisible)))
@@ -121,8 +121,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; 4 scripts: 2 built-in + script1 + script2
-        (js-await (wait-for-script-count popup 4))
+        ;; built-in + script1 + script2
+        (js-await (wait-for-script-count popup (+ builtin-script-count 2)))
         (js-await (.close popup)))
 
       ;; === PHASE 4: Edit and rename first script ===
@@ -158,8 +158,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Still 4 scripts total (no duplicates)
-        (js-await (wait-for-script-count popup 4))
+        ;; Same total (no duplicates, built-in + script1 + script2)
+        (js-await (wait-for-script-count popup (+ builtin-script-count 2)))
         ;; Renamed script visible (use exact text match on .script-name)
         (js-await (-> (expect (.locator popup ".script-name" #js {:hasText "renamed_first_script.cljs"}))
                       (.toBeVisible)))
@@ -227,7 +227,7 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        (js-await (wait-for-script-count popup 3))
+        (js-await (wait-for-script-count popup (+ builtin-script-count 1)))
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"first_rename.cljs\")"))
                       (.toBeVisible)))
         (js-await (.close popup)))
@@ -263,8 +263,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; CRITICAL: Still only 3 scripts (no duplicates from multiple renames)
-        (js-await (wait-for-script-count popup 3))
+        ;; CRITICAL: Still same count (no duplicates from multiple renames)
+        (js-await (wait-for-script-count popup (+ builtin-script-count 1)))
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"second_rename.cljs\")"))
                       (.toBeVisible)))
         ;; Old names should not exist

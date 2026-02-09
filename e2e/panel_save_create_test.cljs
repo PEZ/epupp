@@ -1,7 +1,7 @@
 (ns e2e.panel-save-create-test
   "E2E tests for DevTools panel save create functionality."
   (:require ["@playwright/test" :refer [test expect]]
-            [fixtures :refer [launch-browser get-extension-id create-panel-page
+            [fixtures :refer [builtin-script-count launch-browser get-extension-id create-panel-page
                               clear-storage wait-for-panel-ready wait-for-popup-ready
                               wait-for-save-status wait-for-script-count wait-for-edit-hint
                               wait-for-property-value assert-no-errors!]]
@@ -68,8 +68,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Still 3 scripts total (2 built-in + our script)
-        (js-await (wait-for-script-count popup 3))
+        ;; Still same count (built-in + our script)
+        (js-await (wait-for-script-count popup (+ builtin-script-count 1)))
         ;; Inspect again for next phase
         (let [script-item (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")")
               inspect-btn (.locator script-item "button.script-inspect")]
@@ -109,8 +109,8 @@
             popup-url (str "chrome-extension://" ext-id "/popup.html")]
         (js-await (.goto popup popup-url #js {:timeout 1000}))
         (js-await (wait-for-popup-ready popup))
-        ;; Now 4 scripts: 2 built-in + original + new
-        (js-await (wait-for-script-count popup 4))
+        ;; built-in + original + new
+        (js-await (wait-for-script-count popup (+ builtin-script-count 2)))
         ;; Both user scripts visible
         (js-await (-> (expect (.locator popup ".script-item:has-text(\"my_cool_script.cljs\")"))
                       (.toBeVisible)))
