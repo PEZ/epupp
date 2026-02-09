@@ -565,6 +565,7 @@
                                 (filterv some?)
                                 (str/join "\n")))]
     [:div.script-item {:data-script-name name
+                       :data-e2e-script-id script-id
                        :class (str (when builtin? "script-item-builtin ")
                                    (when reveal-highlight? "script-item-reveal-highlight ")
                                    (when (and recently-modified? (not leaving?)) "script-item-fs-modified ")

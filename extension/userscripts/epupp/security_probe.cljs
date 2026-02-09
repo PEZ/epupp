@@ -1,8 +1,8 @@
 {:epupp/script-name "epupp/security_probe.cljs"
- :epupp/auto-run-match "*"
  :epupp/description "Dev/test: probes message registry access control"}
 
-(ns epupp.security-probe)
+(ns epupp.security-probe
+  (:require [clojure.string :as str]))
 
 ;; ============================================================
 ;; Message registry definition (mirrors content bridge registry)
@@ -58,7 +58,7 @@
 
 (defn- probe-message
   "Send a single probe message and return a promise resolving to
-   {:status ... :response ...}"
+   {:status ...} where status is 'responded', 'dropped', or 'no-response'."
   [source msg-type response-type timeout-ms]
   (js/Promise.
    (fn [resolve _reject]
@@ -74,8 +74,7 @@
                            (when-let [tid @timeout-id]
                              (js/clearTimeout tid))
                            (.removeEventListener js/window "message" handler)
-                           (resolve {:status "responded"
-                                     :response (js->clj msg :keywordize-keys true)})))))]
+                           (resolve {:status "responded"})))))]
        (if response-type
          (do
            (.addEventListener js/window "message" handler)
@@ -163,9 +162,19 @@
 ;; Output results
 ;; ============================================================
 
+(defn- format-summary
+  "Format results as a readable summary table."
+  [results]
+  (let [lines (atom [])]
+    (doseq [[source type-map] (sort results)]
+      (swap! lines conj (str "  " source ":"))
+      (doseq [[msg-type {:keys [status]}] (sort type-map)]
+        (swap! lines conj (str "    " msg-type " -> " status))))
+    (str/join "\n" @lines)))
+
 (defn- output-results! [results]
   (let [json-str (js/JSON.stringify (clj->js results) nil 2)]
-    (js/console.log "[epupp-security-probe]" json-str)
+    (js/console.log "[epupp-security-probe] Results:\n" (format-summary results))
     (.setAttribute js/document.body "data-security-probe" json-str)
     (.dispatchEvent js/document
                     (js/CustomEvent. "epupp-security-probe-complete"
