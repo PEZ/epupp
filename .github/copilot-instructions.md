@@ -75,6 +75,10 @@
     `docker run` commands. The Dockerfile uses `COPY . .` which invalidates layers when source
     files change - Docker caching is NOT a problem. If tests fail after code changes, the issue
     is in your code, not in Docker caching. Do not waste time with `--no-cache` rebuilds.
+
+    **E2E test output**: `bb test:e2e` writes full output to `.tmp/e2e-output.txt`. Read it with
+    `read_file` - never redirect bb output with shell operators (`>`, `2>&1`, `| tee`), as that
+    triggers approval dialogs and blocks your workflow.
   </bb-tasks>
 
   <babashka-utilities>
@@ -195,7 +199,7 @@ The Squint REPL is useful for testing code and pure functions interactively befo
 | Command | Purpose |
 |---------|--------|
 | `bb test` | Unit tests (fast, always run after changes) |
-| `bb test:e2e` | E2E tests in Docker, 6 parallel shards (~16s) |
+| `bb test:e2e` | E2E tests in Docker. Full output: `.tmp/e2e-output.txt` |
 | `bb squint-compile` | Check compilation without running tests |
 | `bb build:dev` | Dev build, when handing off to human for manual testing |
 

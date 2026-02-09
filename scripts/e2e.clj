@@ -23,14 +23,22 @@
 ;; Default Playwright retries for flakiness tolerance
 (def ^:private default-retries 2)
 
-;; E2E log file for subprocess output (timestamped to prevent conflicts)
-(def ^:private e2e-log-file
-  (str "/tmp/epupp-e2e-" (System/currentTimeMillis) ".log"))
+;; E2E output directory (project-local, gitignored)
+;; Agents can read output with read_file instead of shell redirection.
+(def ^:private e2e-tmp-dir ".tmp")
+(def ^:private e2e-output-file (str e2e-tmp-dir "/e2e-output.txt"))
+(def ^:private e2e-nrepl-log (str e2e-tmp-dir "/e2e-nrepl.log"))
+
+(defn- ensure-tmp-dir!
+  "Ensure the .tmp directory exists for test output files."
+  []
+  (fs/create-dirs e2e-tmp-dir))
 
 (defn- log-writer
-  "Create an appending writer to the E2E log file."
+  "Create an appending writer to the nREPL subprocess log file."
   []
-  (io/writer e2e-log-file :append true))
+  (ensure-tmp-dir!)
+  (io/writer e2e-nrepl-log :append true))
 
 (defn- wait-for-port
   "Wait for a port to become available, with timeout."
@@ -97,10 +105,10 @@
 
 (defn run-e2e-tests!
   "Run Playwright E2E tests with test server and two browser-nrepls.
-   Subprocess output goes to temp file for clean console output.
+   Subprocess output goes to .tmp/ for clean console output.
    Exits with Playwright's exit code without Babashka stack trace noise."
   [args]
-  (println (str "📝 E2E log file: " e2e-log-file))
+  (println (str "nREPL log: " e2e-nrepl-log))
   (with-test-server
     #(with-browser-nrepls
        (fn []
@@ -334,10 +342,11 @@
     (build-e2e!))
 
   ;; Run tests - stream output in real-time, also capture for summary
+  (ensure-tmp-dir!)
   (println "Running tests...")
   (when (seq extra-args)
     (println (str "  Extra Playwright args: " (str/join " " extra-args))))
-  (let [log-file "/tmp/epupp-e2e-serial.log"
+  (let [log-file e2e-output-file
         ;; Use tee to both display output in real-time and capture to file
         ;; pipefail ensures we get docker's exit code, not tee's (which always succeeds)
         docker-cmd (str "docker run --rm epupp-e2e " (str/join " " extra-args))
@@ -360,12 +369,13 @@
     (print-test-summary summary :failed-override failed-override)
     (when (nil? parsed-summary)
       (println "  (Warning: Could not parse Playwright summary from output)"))
+    (println (str "Full test output: " e2e-output-file))
     (if (zero? exit-code)
       (do
-        (println "✅ All tests passed!")
+        (println "All tests passed.")
         0)
       (do
-        (println "❌ Some tests failed!")
+        (println "Some tests failed.")
         exit-code))))
 
 (defn- run-e2e-parallel!
@@ -379,13 +389,14 @@
   (println (str "Running " n-shards " parallel shards..."))
   (when (seq extra-args)
     (println (str "  Extra Playwright args: " (str/join " " extra-args))))
-  (let [log-dir "/tmp/epupp-e2e-parallel"
-        _ (fs/create-dirs log-dir)
+  (ensure-tmp-dir!)
+  (let [shard-dir (str e2e-tmp-dir "/e2e-shards")
+        _ (do (fs/delete-tree shard-dir) (fs/create-dirs shard-dir))
         start-time (System/currentTimeMillis)
 
         shards (doall
                 (for [idx (range n-shards)]
-                  (let [log-file (str log-dir "/shard-" idx ".log")]
+                  (let [log-file (str shard-dir "/shard-" idx ".log")]
                     (println (format "  Starting shard %d/%d..." (inc idx) n-shards))
                     (let [{:keys [process writer]} (run-docker-shard idx n-shards log-file extra-args)]
                       {:idx idx
@@ -428,6 +439,10 @@
 
     ;; Always print test summary - use failed shard count as override when shards crashed
     (print-test-summary summary :failed-override (when (pos? failed-count) failed-count))
+
+    ;; Write combined shard output for tool consumption
+    (spit e2e-output-file (str/join "\n" (map slurp log-files)))
+    (println (str "Full test output: " e2e-output-file))
 
     (if (seq failed)
       (do

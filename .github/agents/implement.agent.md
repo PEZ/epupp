@@ -176,7 +176,7 @@ Edit plan for src/background.cljs:
 | Command | Purpose |
 |---------|---------|
 | bb test | Unit tests (~1s) |
-| bb test:e2e | E2E tests, parallel (~16s) |
+| bb test:e2e | E2E tests, parallel. Full output: `.tmp/e2e-output.txt` |
 | bb test:e2e --grep "pattern" | Targeted E2E with detailed output |
 | bb squint-compile | Check compilation without running tests |
 | bb build:dev | Build for manual testing |

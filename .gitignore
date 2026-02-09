@@ -17,3 +17,6 @@ dev/docs/working-backwards/
 .lsp/cache/
 test-results/
 playwright-report/
+
+# E2E test output (written by bb test:e2e)
+.tmp/
