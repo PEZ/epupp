@@ -258,6 +258,7 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
    * When tools do not suffice, use bb tasks
    * When bb tasks do not suffice, use Babashka utilities for file operations, HTTP server, etc.
 9. **Agent/prompt/instruction files are NOT fenced** - The `read_file` tool displays files with syntax highlighting fences (e.g., ``` chatagent), but this is just display formatting. These files are frontmatter-enriched markdown and should start with `---`, not backticks.
+10. **Avoid `sed`** - When reading files, prefer your tools! If you absolutely cannot use the tools and must use the shell, usee `cat/head/tail`, anything but`sed`. `sed`will be get stuck in approval. Pure reading commands will be auto-approved.
 
 ## Use `cat` over `sed`
 
