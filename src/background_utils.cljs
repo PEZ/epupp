@@ -117,3 +117,30 @@
         (.startsWith tab-url (str "https://github.com/sponsors/" username)))))
 
 (def sponsor-script-id "epupp-builtin-sponsor-check")
+
+;; ============================================================
+;; Web Installer Origin Whitelist
+;; ============================================================
+
+(def web-installer-allowed-origins
+  "Scheme + domain pairs where the web installer save message is allowed.
+   Validated against sender.tab.url in the background handler.
+   Uses string keys because Squint compiles sets to JS Set which uses
+   reference equality for objects - set-of-maps would never match."
+  #{"https://github.com"
+    "https://gist.github.com"
+    "https://gitlab.com"
+    "https://codeberg.org"
+    "http://localhost"
+    "http://127.0.0.1"})
+
+(defn web-installer-origin-allowed?
+  "Check if a message sender's tab URL is on a whitelisted origin.
+   Parses the sender's tab URL and checks scheme+hostname against the whitelist.
+   Returns false for null/undefined senders or unparseable URLs."
+  [sender]
+  (try
+    (let [url (js/URL. (.. sender -tab -url))
+          origin (str (.-protocol url) "//" (.-hostname url))]
+      (contains? web-installer-allowed-origins origin))
+    (catch :default _ false)))

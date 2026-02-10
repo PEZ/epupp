@@ -34,25 +34,6 @@
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
 ;; The :init/promise key ensures all operations wait for storage to load.
 
-(def web-installer-allowed-origins
-  "Scheme + domain pairs where the web installer save message is allowed.
-   Validated against sender.tab.url in the background handler.
-   Uses string keys because Squint compiles sets to JS Set which uses
-   reference equality for objects - set-of-maps would never match."
-  #{"https://github.com"
-    "https://gist.github.com"
-    "https://gitlab.com"
-    "https://codeberg.org"
-    "http://localhost"
-    "http://127.0.0.1"})
-
-(defn- web-installer-origin-allowed? [sender]
-  (try
-    (let [url (js/URL. (.. sender -tab -url))
-          origin (str (.-protocol url) "//" (.-hostname url))]
-      (contains? web-installer-allowed-origins origin))
-    (catch :default _ false)))
-
 (defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
    Safe to call multiple times - only initializes once per script lifetime."
@@ -391,23 +372,19 @@
 (defn- handle-save-script [message dispatch! send-response]
   ((^:async fn []
      (js-await (ensure-initialized! dispatch!))
-     (let [script-source (.-scriptSource message)
-           web-install? (and (string? script-source)
-                             (or (.startsWith script-source "http://")
-                                 (.startsWith script-source "https://")))]
-       (if (and (not web-install?)
-                (not (js-await (fs-repl-sync-enabled?))))
-         (do
-           (bg-icon/broadcast-system-banner! {:event-type "error"
-                                              :operation "save"
-                                              :error "FS REPL Sync is disabled in settings"})
-           (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-         (let [code (.-code message)
-               enabled (if (some? (.-enabled message)) (.-enabled message) true)
-               force? (.-force message)
-               bulk-id (.-bulkId message)
-               bulk-index (.-bulkIndex message)
-               bulk-count (.-bulkCount message)]
+     (if (not (js-await (fs-repl-sync-enabled?)))
+       (do
+         (bg-icon/broadcast-system-banner! {:event-type "error"
+                                            :operation "save"
+                                            :error "FS REPL Sync is disabled in settings"})
+         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
+       (let [code (.-code message)
+             script-source (.-scriptSource message)
+             enabled (if (some? (.-enabled message)) (.-enabled message) true)
+             force? (.-force message)
+             bulk-id (.-bulkId message)
+             bulk-index (.-bulkIndex message)
+             bulk-count (.-bulkCount message)]
          (try
            (let [manifest (manifest-parser/extract-manifest code)
                  raw-name (or (when manifest (aget manifest "raw-script-name"))
@@ -442,7 +419,7 @@
                               (some? bulk-count) (assoc :script/bulk-count bulk-count))]
                  (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
            (catch :default err
-             (send-response #js {:success false :error (str "Parse error: " (.-message err))}))))))))
+             (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
   true)
 
 (defn- handle-panel-save-script [message send-response]
@@ -666,7 +643,7 @@
     false))
 
 (defn- handle-web-installer-save-script [message sender _dispatch! send-response]
-  (if-not (web-installer-origin-allowed? sender)
+  (if-not (bg-utils/web-installer-origin-allowed? sender)
     (do (send-response #js {:success false :error "Domain not allowed for web installation"})
         false)
     (let [code (.-code message)

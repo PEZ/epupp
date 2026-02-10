@@ -73,3 +73,46 @@
                   test-unregistered-types-return-nil)
             (test "source filtering restricts access correctly"
                   test-source-filtering-restricts-access)))
+
+;; ============================================================
+;; Web Installer Message Registry Tests
+;; ============================================================
+
+(defn- test-check-script-exists-registry-entry []
+  (let [entry (get message-registry "check-script-exists")]
+    ;; Must be registered
+    (-> (expect entry) (.toBeTruthy))
+    ;; Only accessible from epupp-page
+    (-> (expect (contains? (:msg/sources entry) "epupp-page"))
+        (.toBe true))
+    (-> (expect (contains? (:msg/sources entry) "epupp-userscript"))
+        (.toBe false))
+    ;; No auth required (read-only check)
+    (-> (expect (:msg/auth entry))
+        (.toBe :auth/none))
+    ;; Response-bearing message
+    (-> (expect (:msg/response? entry))
+        (.toBe true))))
+
+(defn- test-web-installer-save-script-registry-entry []
+  (let [entry (get message-registry "web-installer-save-script")]
+    ;; Must be registered
+    (-> (expect entry) (.toBeTruthy))
+    ;; Only accessible from epupp-page
+    (-> (expect (contains? (:msg/sources entry) "epupp-page"))
+        (.toBe true))
+    (-> (expect (contains? (:msg/sources entry) "epupp-userscript"))
+        (.toBe false))
+    ;; Uses domain-whitelist auth
+    (-> (expect (:msg/auth entry))
+        (.toBe :auth/domain-whitelist))
+    ;; Response-bearing message
+    (-> (expect (:msg/response? entry))
+        (.toBe true))))
+
+(describe "web installer message registry"
+          (fn []
+            (test "check-script-exists has correct registry entry"
+                  test-check-script-exists-registry-entry)
+            (test "web-installer-save-script has correct registry entry"
+                  test-web-installer-save-script-registry-entry)))

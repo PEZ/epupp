@@ -30,6 +30,23 @@
 
 (def default-run-at "document-idle")
 
+(def installer-allowed-origins
+  "Matches the whitelist in background.cljs. Duplicated intentionally:
+   page-side is UI-only, background-side is the security enforcement."
+  #{"https://github.com"
+    "https://gist.github.com"
+    "https://gitlab.com"
+    "https://codeberg.org"
+    "http://localhost"
+    "http://127.0.0.1"})
+
+(defn- install-allowed? []
+  (try
+    (let [url (js/URL. js/window.location.href)
+          origin (str (.-protocol url) "//" (.-hostname url))]
+      (contains? installer-allowed-origins origin))
+    (catch :default _ false)))
+
 (defn normalize-script-name
   "Normalize a script name to a consistent format."
   [input-name]
@@ -215,7 +232,7 @@
 
 (defonce !state
   (atom {:blocks []
-         :installed-scripts {}
+         :install-allowed? false
          :icon-url nil
          :modal {:visible? false
                  :mode nil  ;; :confirm or :error
@@ -246,20 +263,6 @@
                          (not= new-status :error) (dissoc :error-message))
                        b))
                    blocks)))))
-
-(defn- determine-button-state
-  "Determine button state based on installed scripts.
-   Returns map with :install-state and :existing-script keys.
-   When existing-code is nil, assumes :update state for installed scripts."
-  [script-name page-code installed-scripts existing-code]
-  (if-let [existing-script (get installed-scripts script-name)]
-    (if (and existing-code (= page-code existing-code))
-      {:install-state :installed
-       :existing-script existing-script}
-      {:install-state :update
-       :existing-script existing-script})
-    {:install-state :install
-     :existing-script nil}))
 
 ;; ============================================================
 ;; Extension Communication
@@ -307,25 +310,17 @@
       (.then (fn [msg]
                (.-url msg)))))
 
-(defn fetch-installed-scripts!+
-  "Fetch installed scripts from extension. Returns promise of map (script-name -> script-data)."
-  []
-  (-> (send-and-receive "list-scripts" {} "list-scripts-response")
+(defn- check-script-status!+ [script-name code]
+  (-> (send-and-receive "check-script-exists"
+                        {:name script-name :code code}
+                        "check-script-exists-response")
       (.then (fn [msg]
                (if (.-success msg)
-                 (let [scripts (js->clj (.-scripts msg) :keywordize-keys true)]
-                   (into {} (map (fn [script]
-                                   [(:fs/name script) script])
-                                 scripts)))
-                 {})))))
-
-(defn fetch-script-code!+
-  "Fetch code for a specific script by name. Returns promise of code string or nil."
-  [script-name]
-  (-> (send-and-receive "get-script" {:name script-name} "get-script-response")
-      (.then (fn [msg]
-               (when (.-success msg)
-                 (.-code msg))))))
+                 (cond
+                   (not (.-exists msg)) :install
+                   (.-identical msg) :installed
+                   :else :update)
+                 :install)))))
 
 
 
@@ -357,24 +352,34 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status] :as block} icon-url]
-  (let [clickable? (#{:install :update} status)
+(defn render-install-button [{:keys [id status] :as block} icon-url install-allowed?]
+  (let [clickable? (and (#{:install :update} status) install-allowed?)
         status-class (str "is-" (name status))]
-    [:button.epupp-install-btn
-     {:class status-class
-      :on {:click [:db/assoc :modal {:visible? true :mode :confirm :block-id id}]}
-      :data-e2e-install-state (name status)
-      :data-e2e-script-name (get-in block [:manifest :script-name])
-      :disabled (not clickable?)
-      :title (button-tooltip block)}
-     (epupp-icon icon-url)
-     (case status
-       :install "Install"
-       :update "Update"
-       :installed "✓"
-       :installing "Installing..."
-       :error "Install Failed"
-       "Install")]))
+    (if (and (#{:install :update} status) (not install-allowed?))
+      ;; Non-whitelisted domain: show info instead of button
+      [:span.epupp-install-btn
+       {:class "is-unavailable"
+        :data-e2e-install-state "unavailable"
+        :data-e2e-script-name (get-in block [:manifest :script-name])
+        :title "Install not available on this domain. Copy the code and paste in the Epupp panel."}
+       (epupp-icon icon-url)
+       "Copy to install"]
+      ;; Normal button
+      [:button.epupp-install-btn
+       {:class status-class
+        :on {:click [:db/assoc :modal {:visible? true :mode :confirm :block-id id}]}
+        :data-e2e-install-state (name status)
+        :data-e2e-script-name (get-in block [:manifest :script-name])
+        :disabled (not clickable?)
+        :title (button-tooltip block)}
+       (epupp-icon icon-url)
+       (case status
+         :install "Install"
+         :update "Update"
+         :installed "✓"
+         :installing "Installing..."
+         :error "Install Failed"
+         "Install")])))
 
 (defn- modal-header
   "Branded modal header with Epupp icon, title, tagline, and action title."
@@ -389,7 +394,7 @@
    [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
     action-title]])
 
-(defn render-modal [{:keys [id manifest code status]} icon-url]
+(defn render-modal [{:keys [id manifest code status]} icon-url install-allowed?]
   (let [{:keys [script-name raw-script-name name-normalized?
                 auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
         page-url js/window.location.href
@@ -431,18 +436,19 @@
       [:p [:strong "Source:"]]
       [:p
        [:code {:style {:word-break "break-all"}} page-url]]
-      ;; Context message
       [:div.epupp-modal__actions
        [:button.epupp-btn.epupp-btn--secondary
         {:id "epupp-cancel"
          :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
         "Cancel"]
-       [:button.epupp-btn.epupp-btn--primary
-        {:id "epupp-confirm"
-         :on {:click [[:db/assoc :modal {:visible? false :mode nil :block-id nil}]
-                      [:block/update-status id :installing]
-                      [:block/save-script id code]]}}
-        confirm-text]]]]))
+       (if install-allowed?
+         [:button.epupp-btn.epupp-btn--primary
+          {:id "epupp-confirm"
+           :on {:click [[:db/assoc :modal {:visible? false :mode nil :block-id nil}]
+                        [:block/update-status id :installing]
+                        [:block/save-script id code]]}}
+          confirm-text]
+         [:p.epupp-modal__note "Copy the code block and paste it in the Epupp panel to install."])]]]))
 
 (defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
@@ -460,7 +466,7 @@
         "Close"]]]]))
 
 (defn render-app [state]
-  (let [{:keys [modal icon-url]} state
+  (let [{:keys [modal icon-url install-allowed?]} state
         {:keys [visible? mode block-id error-message]} modal]
     [:div#epupp-block-installer-ui
      (when visible?
@@ -474,7 +480,7 @@
 
          :confirm
          (when-let [current-block (find-block-by-id state block-id)]
-           (render-modal current-block icon-url))))]))
+           (render-modal current-block icon-url install-allowed?))))]))
 
 ;; ============================================================
 ;; Action Handler (pure state transitions)
@@ -520,7 +526,6 @@
     (case effect-type
       :fx/save-script
       (let [[block-id code] args
-            page-url js/window.location.href
             handle-save-error (fn [error-msg]
                                 (js/console.error "[Web Userscript Installer] Save failed:" error-msg)
                                 (dispatch! [[:block/update-status block-id :error error-msg]
@@ -528,11 +533,9 @@
                                                                :mode :error
                                                                :block-id block-id
                                                                :error-message error-msg}]]))]
-        (-> (send-and-receive "save-script"
-                              {:code code
-                               :scriptSource page-url
-                               :force true}
-                              "save-script-response"
+        (-> (send-and-receive "web-installer-save-script"
+                              {:code code}
+                              "web-installer-save-script-response"
                               5000)
             (.then (fn [msg]
                      (if (.-success msg)
@@ -585,7 +588,7 @@
     ;; Also update buttons in their inline containers
     (doseq [[block-id btn-container] (:button-containers state)]
       (when-let [block (find-block-by-id state block-id)]
-        (r/render btn-container (render-install-button block icon-url))))))
+        (r/render btn-container (render-install-button block icon-url (:install-allowed? state)))))))
 
 (defn ensure-installer-css!
   "Inject installer CSS into document.head (idempotent - no-op if already exists)."
@@ -641,6 +644,14 @@
   color: white;
   border-color: rgba(27,31,36,0.15);
   cursor: default;
+}
+
+.epupp-install-btn.is-unavailable {
+  background: #f6f8fa;
+  color: #666;
+  border-color: #d0d7de;
+  cursor: default;
+  font-style: italic;
 }
 
 .epupp-modal-overlay {
@@ -798,7 +809,7 @@
   "Render install button into container with error handling."
   [container block-data]
   (try
-    (r/render container (render-install-button block-data (:icon-url @!state)))
+    (r/render container (render-install-button block-data (:icon-url @!state) (:install-allowed? @!state)))
     (catch :default e
       (js/console.error "[Web Userscript Installer] Replicant render error:" e))))
 
@@ -841,23 +852,20 @@
 
 (defn- create-and-attach-block!
   "Create block-data from processing results and attach button to DOM."
-  [block-info block-id manifest code-text existing-code installed-scripts]
-  (let [script-name (:script-name manifest)
-        state-info (determine-button-state script-name code-text installed-scripts existing-code)
-        block-data (merge {:id block-id
-                           :manifest manifest
-                           :code code-text
-                           :format (:format block-info)
-                           :status (:install-state state-info)}
-                          state-info)]
+  [block-info block-id manifest code-text install-state]
+  (let [block-data {:id block-id
+                    :manifest manifest
+                    :code code-text
+                    :format (:format block-info)
+                    :status install-state}]
     (dispatch! [[:db/update :blocks conj block-data]])
     (attach-button-to-block! block-info block-data)))
 
 (defn- process-code-block!+
   "Process a single code block. Returns promise.
    block-info is {:element :format :code-text}
-   Fetches script code if needed to determine state."
-  [block-info installed-scripts]
+   Checks script status via check-script-exists message."
+  [block-info]
   (let [element (:element block-info)
         code-text (:code-text block-info)
         trimmed-text (str/trim code-text)]
@@ -872,46 +880,22 @@
           (.setAttribute element "data-epupp-processed" "true")
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
-          (-> (if (get installed-scripts script-name)
-                (fetch-script-code!+ script-name)
-                (js/Promise.resolve nil))
-              (.then #(create-and-attach-block! block-info block-id manifest code-text % installed-scripts))
+          (-> (check-script-status!+ script-name code-text)
+              (.then #(create-and-attach-block! block-info block-id manifest code-text %))
               (.catch (fn [e]
                         (js/console.error "[Web Userscript Installer] Error processing block" script-name e)))))
         (js/Promise.resolve nil))
       (js/Promise.resolve nil))))
 
-(defn- update-existing-blocks-with-installed-scripts!+
-  "Update status of existing blocks after installed scripts are fetched.
-   Returns promise that resolves when all updates are complete."
-  [installed-scripts]
-  (let [blocks (:blocks @!state)]
-    (-> (js/Promise.all
-         (to-array
-          (for [block blocks]
-            (let [script-name (get-in block [:manifest :script-name])
-                  page-code (:code block)]
-              (if (get installed-scripts script-name)
-                (-> (fetch-script-code!+ script-name)
-                    (.then (fn [existing-code]
-                             (let [state-info (determine-button-state script-name page-code installed-scripts existing-code)]
-                               (dispatch! [[:block/update-status (:id block) (:install-state state-info)]]))))
-                    (.catch (fn [e]
-                              (js/console.error "[Web Userscript Installer] Error updating block" script-name e))))
-                (js/Promise.resolve nil))))))
-        (.catch (fn [error]
-                  (js/console.error "[Web Userscript Installer] Error updating blocks:" error))))))
-
 (defn scan-code-blocks! []
   (let [all-blocks (detect-all-code-blocks)
-        installed-scripts (:installed-scripts @!state)
         unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
     ;; Debug: set marker with scan info
     (when-let [marker (js/document.getElementById "epupp-installer-debug")]
       (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
     ;; Process all unprocessed blocks concurrently
     (-> (js/Promise.all
-         (to-array (map #(process-code-block!+ % installed-scripts) unprocessed)))
+         (to-array (map #(process-code-block!+ %) unprocessed)))
         (.then (fn [_]
                  (when-let [marker (js/document.getElementById "epupp-installer-debug")]
                    (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))))
@@ -959,6 +943,7 @@
         (when js/document.body
           (.appendChild js/document.body marker))))
 
+    (swap! !db assoc :install-allowed? (install-allowed?))
     (ensure-installer-css!)
     (setup-ui! !db)
 
@@ -973,14 +958,6 @@
           (.then (fn [url]
                    (dispatch! [[:db/assoc :icon-url url]])))
           (.catch (fn [_]))))
-
-    ;; Fetch installed scripts for button state awareness
-    (-> (fetch-installed-scripts!+)
-        (.then (fn [installed-scripts]
-                 (dispatch! [[:db/assoc :installed-scripts installed-scripts]])
-                 (update-existing-blocks-with-installed-scripts!+ installed-scripts)))
-        (.catch (fn [error]
-                  (js/console.error "[Web Userscript Installer] Failed to fetch installed scripts:" error))))
 
     ;; SPA navigation listener (once)
     (when-not (:nav-registered? state)
