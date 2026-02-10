@@ -7,7 +7,11 @@
    :uf/fxs []})
 
 (defn unregister
-  "Remove a WebSocket connection for a tab and broadcast the change."
+  "Remove a WebSocket connection for a tab and broadcast the change.
+   Also clears FS sync if the disconnecting tab was the FS sync tab."
   [state {:ws/keys [tab-id]}]
-  {:uf/db (assoc state :ws/connections (dissoc (or (:ws/connections state) {}) tab-id))
-   :uf/fxs [[:ws/fx.broadcast-connections-changed!]]})
+  (let [clear-fs? (= tab-id (:fs/sync-tab-id state))]
+    {:uf/db (cond-> (assoc state :ws/connections (dissoc (or (:ws/connections state) {}) tab-id))
+              clear-fs? (assoc :fs/sync-tab-id nil))
+     :uf/fxs (cond-> [[:ws/fx.broadcast-connections-changed!]]
+               clear-fs? (conj [:fs/fx.broadcast-sync-status! nil]))}))

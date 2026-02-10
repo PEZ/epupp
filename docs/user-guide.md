@@ -407,7 +407,14 @@ When enabled, Epupp automatically connects to the relay server when you open a p
 
 ### FS REPL Sync
 
-Enables the REPL File System API (`epupp.fs`). All FS operations require both this toggle AND an active REPL connection for the tab. Disabled by default.
+Enables the REPL File System API (`epupp.fs`) for the current tab. The toggle
+is per-tab and labeled "Allow REPL FS Sync for this tab". Only one tab can
+have FS sync active at a time - enabling it on a new tab automatically
+revokes it from any previously enabled tab.
+
+All FS operations require both this toggle enabled for the tab AND an active
+REPL connection. FS sync auto-disables when the REPL disconnects. The toggle
+is only available when a REPL connection is active.
 
 ---
 
@@ -516,7 +523,7 @@ Enables the REPL File System API (`epupp.fs`). All FS operations require both th
 
 Manage userscripts programmatically from the REPL using the `epupp.fs` namespace.
 
-**Prerequisites:** All FS operations require **FS REPL Sync** enabled in popup Settings.
+**Prerequisites:** All FS operations require **FS REPL Sync** enabled for the tab (toggle in popup Settings).
 
 ### Available Functions
 

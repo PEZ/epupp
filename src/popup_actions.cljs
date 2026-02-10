@@ -108,13 +108,16 @@
       {:uf/db (assoc state :settings/auto-reconnect-repl new-value)
        :uf/fxs [[:popup/fx.save-auto-reconnect-setting new-value]]})
 
-    :popup/ax.load-fs-sync-setting
-    {:uf/fxs [[:popup/fx.load-fs-sync-setting]]}
+    :popup/ax.load-fs-sync-status
+    {:uf/fxs [[:popup/fx.load-fs-sync-status]]}
 
     :popup/ax.toggle-fs-sync
-    (let [new-value (not (:settings/fs-repl-sync-enabled state))]
-      {:uf/db (assoc state :settings/fs-repl-sync-enabled new-value)
-       :uf/fxs [[:popup/fx.save-fs-sync-setting new-value]]})
+    (let [current-tab-id (:scripts/current-tab-id state)
+          currently-enabled? (and (some? current-tab-id)
+                                  (= current-tab-id (:fs/sync-tab-id state)))
+          new-enabled (not currently-enabled?)]
+      ;; Don't optimistically update state - wait for broadcast from background
+      {:uf/fxs [[:popup/fx.toggle-fs-sync current-tab-id new-enabled]]})
 
     :popup/ax.load-debug-logging-setting
     {:uf/fxs [[:popup/fx.load-debug-logging-setting]]}

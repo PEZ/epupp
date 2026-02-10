@@ -169,10 +169,6 @@
       (let [popup (js-await (create-popup-page context ext-id))]
         (js-await (wait-for-popup-ready popup))
 
-        ;; Disable FS REPL Sync
-        (js-await (send-runtime-message popup "e2e/set-storage"
-                                        #js {:key "fsReplSyncEnabled" :value false}))
-
         ;; Save via REPL path with URL-based scriptSource
         ;; Web-install paths bypass the FS Sync gate (they have their own auth model)
         (let [code "{:epupp/script-name \"from_gist.cljs\" :epupp/auto-run-match \"*://example.com/*\"}\n(println \"hello\")"

@@ -1,5 +1,6 @@
 (ns background-actions
   (:require [background-actions.repl-fs-actions :as repl-fs-actions]
+            [background-actions.fs-actions :as fs-actions]
             [background-actions.icon-actions :as icon-actions]
             [background-actions.history-actions :as history-actions]
             [background-actions.ws-actions :as ws-actions]
@@ -37,6 +38,14 @@
        state
        {:fs/now-iso (.toISOString (js/Date. (:system/now uf-data)))
         :fs/script script}))
+
+    :fs/ax.toggle-sync
+    (let [[tab-id enabled send-response] args]
+      (fs-actions/toggle-sync state {:fs/tab-id tab-id :fs/enabled enabled :fs/send-response send-response}))
+
+    :fs/ax.get-sync-status
+    (let [[send-response] args]
+      (fs-actions/get-sync-status state {:fs/send-response send-response}))
 
     :icon/ax.set-state
     (let [[tab-id new-state] args]

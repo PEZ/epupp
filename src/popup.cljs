@@ -33,7 +33,7 @@
          :scripts/current-tab-id nil ; Current tab ID for connection check
          :settings/auto-connect-repl false ; Auto-connect REPL on page load
          :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
-         :settings/fs-repl-sync-enabled false ; Allow REPL to write scripts (default off)
+         :fs/sync-tab-id nil ; Tab ID with FS sync enabled, or nil (ephemeral)
          :settings/debug-logging false ; Enable verbose debug logging (default off)
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
@@ -274,18 +274,19 @@
     (let [[enabled] args]
       (js/chrome.storage.local.set #js {:autoReconnectRepl enabled}))
 
-    :popup/fx.load-fs-sync-setting
-    (js/chrome.storage.local.get
-     #js ["fsReplSyncEnabled"]
-     (fn [result]
-       (let [enabled (if (some? (.-fsReplSyncEnabled result))
-                       (.-fsReplSyncEnabled result)
-                       false)]  ; Default to false (safe)
-         (dispatch [[:db/ax.assoc :settings/fs-repl-sync-enabled enabled]]))))
+    :popup/fx.load-fs-sync-status
+    (js/chrome.runtime.sendMessage
+     #js {:type "get-fs-sync-status"}
+     (fn [response]
+       (when response
+         (dispatch [[:db/ax.assoc :fs/sync-tab-id (.-fsSyncTabId response)]]))))
 
-    :popup/fx.save-fs-sync-setting
-    (let [[enabled] args]
-      (js/chrome.storage.local.set #js {:fsReplSyncEnabled enabled}))
+    :popup/fx.toggle-fs-sync
+    (let [[tab-id enabled] args]
+      (js/chrome.runtime.sendMessage
+       #js {:type "toggle-fs-sync" :tabId tab-id :enabled enabled}
+       (fn [_response]
+         (when js/chrome.runtime.lastError nil))))
 
     :popup/fx.load-debug-logging-setting
     (js/chrome.storage.local.get
@@ -718,7 +719,7 @@
         [:div.no-scripts-hint
          "Scripts that won't auto-run for this page appear here."]])]))
 
-(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl fs-repl-sync-enabled debug-logging] :as state}]
+(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl debug-logging] :as state}]
   [:div.settings-content
    [:div.settings-section
     [:h3.settings-section-title "REPL Connection"]
@@ -751,15 +752,23 @@
      [:p.description.warning
       "Enabling this will connect an Epupp REPL to every page you visit, "
       "even in tabs never connected before. It will also disconnect any Epupp REPL connected on the same Websocket port."]]
-    [:div.setting
-     [:label.checkbox-label
-      [:input#fs-repl-sync {:type "checkbox"
-                            :checked fs-repl-sync-enabled
-                            :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
-      "Enable FS REPL Sync"]
-     [:p.description.warning
-      "Allow connected REPLs to create, modify, and delete userscripts. "
-      "Remember to disable when done editing from the REPL."]]]
+    (let [current-tab-id (:scripts/current-tab-id state)
+          fs-sync-tab-id (:fs/sync-tab-id state)
+          current-tab-connected? (some #(= (:tab-id %) (str current-tab-id))
+                                       (:repl/connections state))
+          fs-sync-enabled? (and (some? current-tab-id)
+                                (= current-tab-id fs-sync-tab-id))]
+      [:div.setting
+       [:label.checkbox-label
+        [:input#fs-repl-sync {:type "checkbox"
+                              :checked fs-sync-enabled?
+                              :disabled (not current-tab-connected?)
+                              :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
+        "Allow REPL FS Sync for this tab"]
+       [:p.description.warning
+        (if current-tab-connected?
+          "Only enable this for pages you trust."
+          "Connect a REPL to enable FS Sync for this tab.")]])]
    [:div.settings-section
     [:h3.settings-section-title "Diagnostics"]
     [:div.setting
@@ -972,6 +981,8 @@
      (when (= "connections-changed" (.-type message))
        (let [connections (.-connections message)]
          (dispatch! [[:db/ax.assoc :repl/connections connections]])))
+     (when (= "fs-sync-status-changed" (.-type message))
+       (dispatch! [[:db/ax.assoc :fs/sync-tab-id (.-fsSyncTabId message)]]))
      ;; Return false - we don't send async response
      false))
 
@@ -1067,7 +1078,7 @@
               [:popup/ax.check-page-scriptability]
               [:popup/ax.load-auto-connect-setting]
               [:popup/ax.load-auto-reconnect-setting]
-              [:popup/ax.load-fs-sync-setting]
+              [:popup/ax.load-fs-sync-status]
               [:popup/ax.load-debug-logging-setting]
               [:popup/ax.load-connections]
               [:popup/ax.load-sponsor-status]

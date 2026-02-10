@@ -130,10 +130,10 @@
                          (str "chrome-extension://" ext-id "/popup.html")
                          #js {:waitUntil "networkidle"}))
         (js-await (clear-fs-scripts bg-page))
-        (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
         (js-await (wait-for-builtin-script bg-page "epupp-builtin-web-userscript-installer" 5000))
         (let [tab-id (js-await (find-tab-id bg-page "http://localhost:*/*"))]
           (js-await (connect-tab bg-page tab-id ws-port-1))
+          (js-await (send-runtime-message bg-page "toggle-fs-sync" #js {:tabId tab-id :enabled true}))
           (js-await (.close bg-page))
           (js-await (wait-for-script-tag "scittle" 5000)))))
     ctx))

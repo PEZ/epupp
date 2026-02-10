@@ -25,7 +25,8 @@
 (def !state (atom {:init/promise nil
                    :ws/connections {}
                    :icon/states {}
-                   :connected-tabs/history {}}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
+                   :connected-tabs/history {}
+                   :fs/sync-tab-id nil}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
@@ -279,10 +280,11 @@
 
 (defn- fs-access-allowed?
   "Check if FS access is allowed for a tab.
-   Requires both FS REPL Sync enabled in settings AND
+   Requires this tab to be THE FS sync tab AND
    an active WebSocket connection for the tab."
   [tab-id]
-  (and (get @!state :settings/fs-repl-sync-enabled)
+  (and (some? tab-id)
+       (= tab-id (:fs/sync-tab-id @!state))
        (some? (bg-ws/get-ws (:ws/connections @!state) tab-id))))
 
 (defn ^:async get-tab-hostname
@@ -714,6 +716,12 @@
                       "connect-tab" (handle-connect-tab message dispatch! send-response)
                       "check-status" (handle-check-status message dispatch! send-response)
                       "disconnect-tab" (handle-disconnect-tab message dispatch!)
+                      "toggle-fs-sync"
+                      (do (dispatch! [[:fs/ax.toggle-sync (.-tabId message) (.-enabled message) send-response]])
+                          true)
+                      "get-fs-sync-status"
+                      (do (dispatch! [[:fs/ax.get-sync-status send-response]])
+                          true)
                       "e2e/find-tab-id" (if (.-dev config)
                                           (handle-e2e-find-tab-id message dispatch! send-response)
                                           (do (send-response #js {:success false :error "Not available"})
@@ -841,10 +849,6 @@
                       (let [change (aget changes "settings/debug-logging")
                             enabled (boolean (.-newValue change))]
                         (log/set-debug-enabled! enabled)))
-                    (when (aget changes "fsReplSyncEnabled")
-                      (let [change (aget changes "fsReplSyncEnabled")
-                            enabled (boolean (.-newValue change))]
-                        (swap! !state assoc :settings/fs-repl-sync-enabled enabled)))
                     (when (aget changes "sponsor/sponsored-username")
                       (let [change (aget changes "sponsor/sponsored-username")
                             new-username (or (.-newValue change) "PEZ")]
@@ -897,15 +901,6 @@
                            (let [enabled (boolean (aget result "settings/debug-logging"))]
                              (log/set-debug-enabled! enabled)
                              (res true)))))))
-           ;; Load FS REPL Sync setting into !state
-           (js-await (js/Promise.
-                      (fn [res]
-                        (js/chrome.storage.local.get
-                         #js ["fsReplSyncEnabled"]
-                         (fn [result]
-                           (swap! !state assoc :settings/fs-repl-sync-enabled
-                                  (boolean (aget result "fsReplSyncEnabled")))
-                           (res true))))))
            (js-await (registration/sync-registrations!))
            (log/info "Background" "Initialization complete")
            (js-await (test-logger/log-event! "EXTENSION_STARTED"
@@ -1080,6 +1075,14 @@
     ;; Process userscripts for a navigation event
     (let [[tab-id url] args]
       (js-await (process-navigation! dispatch! tab-id url)))
+
+    :fs/fx.broadcast-sync-status!
+    (let [[sync-tab-id] args]
+      (js/chrome.runtime.sendMessage
+       #js {:type "fs-sync-status-changed"
+            :fsSyncTabId sync-tab-id}
+       (fn [_response]
+         (when js/chrome.runtime.lastError nil))))
 
     :uf/unhandled-fx))
 

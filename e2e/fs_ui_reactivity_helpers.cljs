@@ -114,8 +114,6 @@
                            (str "chrome-extension://" ext-id "/popup.html")
                            #js {:waitUntil "networkidle"}))
           (js-await (clear-fs-scripts bg-page))
-          ;; Enable FS REPL Sync for write tests via runtime message
-          (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
           ;; Find test page tab ID
           (let [find-result (js-await (send-runtime-message
                                        bg-page "e2e/find-tab-id"
@@ -129,6 +127,8 @@
                                                  :wsPort ws-port-1}))]
               (when-not (and connect-result (.-success connect-result))
                 (throw (js/Error. (str "Connection failed: " (.-error connect-result)))))
+              ;; Enable FS sync for this tab (must be after connect)
+              (js-await (send-runtime-message bg-page "toggle-fs-sync" #js {:tabId (.-tabId find-result) :enabled true}))
               (js-await (.close bg-page))
               ;; Wait for Scittle to be available
               (js-await (wait-for-script-tag "scittle" 5000)))))))))

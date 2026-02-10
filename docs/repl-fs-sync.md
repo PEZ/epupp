@@ -74,14 +74,21 @@ Operations that would overwrite existing content fail, by default, but you can o
 ### The FS REPL Sync Setting
 
 All FS operations (`ls`, `show`, `save!`, `mv!`, `rm!`) require both:
-1. **FS REPL Sync** enabled in the popup Settings section
+1. **FS REPL Sync** enabled for the tab ("Allow REPL FS Sync for this tab" checkbox in popup Settings)
 2. An **active REPL connection** (WebSocket) for the tab
+
+Only one tab can have FS sync enabled at a time. Enabling it on a new tab
+automatically revokes it from any previously enabled tab. The toggle is
+disabled in the popup when no REPL connection is active.
+
+FS sync is ephemeral - it auto-disables when the REPL disconnects or the
+browser restarts. It is not persisted across sessions.
 
 When either condition is not met, operations return an error:
 
 ```clojure
 (epupp.fs/save! new-code)
-;; => {:fs/success false :fs/error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}
+;; => {:fs/success false :fs/error "FS Sync requires an active REPL connection and FS Sync enabled for this tab"}
 ```
 
 

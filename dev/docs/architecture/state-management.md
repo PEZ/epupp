@@ -5,8 +5,9 @@ isolated. The architecture coordinates through message passing.
 
 ## State Domains
 
-- Background worker: connection lifecycle, toolbar icon state, and
-  auto-connect tracking for tabs.
+- Background worker: connection lifecycle, toolbar icon state,
+  auto-connect tracking for tabs, and per-tab FS sync state
+  (`:fs/sync-tab-id` - ephemeral, not persisted).
 - Content bridge: ephemeral relay state and keepalive behavior.
 - Popup: UI state, connection status, settings, and script list derived from
   storage.
@@ -18,6 +19,9 @@ isolated. The architecture coordinates through message passing.
 
 - `chrome.storage.local` is the durable source of truth for userscripts and
   settings.
+- FS sync state (`:fs/sync-tab-id`) is ephemeral in-memory state in the
+  background worker. It is not persisted to storage and resets on service
+  worker restart. Only one tab can have FS sync at a time.
 - UI contexts mirror storage in memory and react to `storage.onChanged` for
   updates.
 - Background is the only place that orchestrates injection, so storage changes

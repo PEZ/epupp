@@ -119,8 +119,9 @@ flowchart LR
 
 The background worker replies via `sendResponse` with `{success, ...}` data. Errors
 use `success: false` and an `error` string. All FS operations (reads and writes)
-return an error when FS REPL Sync is disabled or the requesting tab has no active
-WebSocket connection.
+return an error when FS REPL Sync is not enabled for the requesting tab or the
+tab has no active WebSocket connection. Only one tab can have FS sync enabled at
+a time.
 
 ## Popup/Panel → Background
 
@@ -136,6 +137,8 @@ Via `chrome.runtime.sendMessage`.
 | `evaluate-script` | `{tabId, scriptId, code, inject}` | `{success, error?}` | Run a script in the current tab |
 | `panel-save-script` | `{script}` | `{success, error?, isUpdate?, id?}` | Save script from DevTools panel |
 | `panel-rename-script` | `{from, to}` | `{success, error?}` | Rename script from DevTools panel |
+| `toggle-fs-sync` | `{tabId, enabled}` | `{success, enabled, tabId}` | Enable/disable FS sync for a tab (single-tab: enabling revokes other tabs) |
+| `get-fs-sync-status` | `{tabId}` | `{enabled, tabId}` | Query FS sync status for a tab |
 
 ## Background → Popup/Panel
 
@@ -143,6 +146,7 @@ Via `chrome.runtime.sendMessage`.
 |------|---------|---------|
 | `connections-changed` | `{connections}` | Broadcast connection list updates |
 | `system-banner` | `{event-type, operation, script-name, error?, bulk-id?, bulk-index?, bulk-count?}` | System notification banner (FS operations, validation errors) |
+| `fs-sync-status-changed` | `{tabId, enabled}` | FS sync status changed for a tab |
 
 ## Related
 
