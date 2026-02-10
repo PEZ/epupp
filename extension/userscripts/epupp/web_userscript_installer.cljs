@@ -352,34 +352,24 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status] :as block} icon-url install-allowed?]
-  (let [clickable? (and (#{:install :update} status) install-allowed?)
+(defn render-install-button [{:keys [id status] :as block} icon-url]
+  (let [clickable? (#{:install :update} status)
         status-class (str "is-" (name status))]
-    (if (and (#{:install :update} status) (not install-allowed?))
-      ;; Non-whitelisted domain: show info instead of button
-      [:span.epupp-install-btn
-       {:class "is-unavailable"
-        :data-e2e-install-state "unavailable"
-        :data-e2e-script-name (get-in block [:manifest :script-name])
-        :title "Install not available on this domain. Copy the code and paste in the Epupp panel."}
-       (epupp-icon icon-url)
-       "Copy to install"]
-      ;; Normal button
-      [:button.epupp-install-btn
-       {:class status-class
-        :on {:click [:db/assoc :modal {:visible? true :mode :confirm :block-id id}]}
-        :data-e2e-install-state (name status)
-        :data-e2e-script-name (get-in block [:manifest :script-name])
-        :disabled (not clickable?)
-        :title (button-tooltip block)}
-       (epupp-icon icon-url)
-       (case status
-         :install "Install"
-         :update "Update"
-         :installed "✓"
-         :installing "Installing..."
-         :error "Install Failed"
-         "Install")])))
+    [:button.epupp-install-btn
+     {:class status-class
+      :on {:click [:db/assoc :modal {:visible? true :mode :confirm :block-id id}]}
+      :data-e2e-install-state (name status)
+      :data-e2e-script-name (get-in block [:manifest :script-name])
+      :disabled (not clickable?)
+      :title (button-tooltip block)}
+     (epupp-icon icon-url)
+     (case status
+       :install "Install"
+       :update "Update"
+       :installed "✓"
+       :installing "Installing..."
+       :error "Install Failed"
+       "Install")]))
 
 (defn- modal-header
   "Branded modal header with Epupp icon, title, tagline, and action title."
@@ -436,19 +426,27 @@
       [:p [:strong "Source:"]]
       [:p
        [:code {:style {:word-break "break-all"}} page-url]]
+      (when-not install-allowed?
+        [:p.epupp-modal__note
+         "This domain is not whitelisted for direct installation. "
+         "Copy the code block and paste it in the Epupp panel to install."])
       [:div.epupp-modal__actions
-       [:button.epupp-btn.epupp-btn--secondary
-        {:id "epupp-cancel"
-         :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
-        "Cancel"]
        (if install-allowed?
+         (list
+          [:button.epupp-btn.epupp-btn--secondary
+           {:id "epupp-cancel"
+            :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
+           "Cancel"]
+          [:button.epupp-btn.epupp-btn--primary
+           {:id "epupp-confirm"
+            :on {:click [[:db/assoc :modal {:visible? false :mode nil :block-id nil}]
+                         [:block/update-status id :installing]
+                         [:block/save-script id code]]}}
+           confirm-text])
          [:button.epupp-btn.epupp-btn--primary
-          {:id "epupp-confirm"
-           :on {:click [[:db/assoc :modal {:visible? false :mode nil :block-id nil}]
-                        [:block/update-status id :installing]
-                        [:block/save-script id code]]}}
-          confirm-text]
-         [:p.epupp-modal__note "Copy the code block and paste it in the Epupp panel to install."])]]]))
+          {:id "epupp-ok"
+           :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
+          "OK"])]]]))
 
 (defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
@@ -588,7 +586,7 @@
     ;; Also update buttons in their inline containers
     (doseq [[block-id btn-container] (:button-containers state)]
       (when-let [block (find-block-by-id state block-id)]
-        (r/render btn-container (render-install-button block icon-url (:install-allowed? state)))))))
+        (r/render btn-container (render-install-button block icon-url))))))
 
 (defn ensure-installer-css!
   "Inject installer CSS into document.head (idempotent - no-op if already exists)."
@@ -646,14 +644,6 @@
   cursor: default;
 }
 
-.epupp-install-btn.is-unavailable {
-  background: #f6f8fa;
-  color: #666;
-  border-color: #d0d7de;
-  cursor: default;
-  font-style: italic;
-}
-
 .epupp-modal-overlay {
   position: fixed;
   top: 0;
@@ -674,6 +664,20 @@
   max-width: 500px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+.epupp-modal * {
+  box-sizing: border-box;
+}
+
+.epupp-modal p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .epupp-modal h2 {
@@ -688,16 +692,23 @@
 .epupp-modal__table {
   width: 100%;
   border-collapse: collapse;
+  border: none;
   margin-bottom: 16px;
 }
 
 .epupp-modal__table td {
   padding: 6px 0;
+  border: none;
+  vertical-align: top;
+  font-size: 14px;
+  line-height: 1.5;
+  background: transparent;
 }
 
 .epupp-modal__table td:first-child {
   color: #666;
   width: 100px;
+  font-weight: normal;
 }
 
 .epupp-modal__note {
@@ -713,6 +724,22 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.epupp-modal code {
+  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+
+.epupp-modal strong {
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .epupp-modal__context {
@@ -809,7 +836,7 @@
   "Render install button into container with error handling."
   [container block-data]
   (try
-    (r/render container (render-install-button block-data (:icon-url @!state) (:install-allowed? @!state)))
+    (r/render container (render-install-button block-data (:icon-url @!state)))
     (catch :default e
       (js/console.error "[Web Userscript Installer] Replicant render error:" e))))
 
@@ -864,7 +891,9 @@
 (defn- process-code-block!+
   "Process a single code block. Returns promise.
    block-info is {:element :format :code-text}
-   Checks script status via check-script-exists message."
+   Checks script status via check-script-exists message.
+   Falls back to :install status on error so the button still renders
+   (shows 'Copy to install' on non-whitelisted domains)."
   [block-info]
   (let [element (:element block-info)
         code-text (:code-text block-info)
@@ -876,14 +905,15 @@
               existing-id (aget element "id")
               block-id (if (and existing-id (pos? (count existing-id)))
                          existing-id
-                         (str "block-" (.randomUUID js/crypto)))]
+                         (str "block-" (random-uuid)))]
           (.setAttribute element "data-epupp-processed" "true")
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
           (-> (check-script-status!+ script-name code-text)
               (.then #(create-and-attach-block! block-info block-id manifest code-text %))
               (.catch (fn [e]
-                        (js/console.error "[Web Userscript Installer] Error processing block" script-name e)))))
+                        (js/console.error "[Web Userscript Installer] Error checking script status:" script-name e)
+                        (create-and-attach-block! block-info block-id manifest code-text :install)))))
         (js/Promise.resolve nil))
       (js/Promise.resolve nil))))
 

@@ -38,6 +38,9 @@ RUN bb build:test && bb test:e2e:compile
 # The e2e tasks handle HTTP server and browser-nrepl lifecycle internally
 # REPL integration tests now run as part of the unified e2e suite
 RUN echo '#!/bin/bash\n\
+# Add non-whitelisted hostname for E2E testing domain whitelist behavior\n\
+echo "127.0.0.1 not-whitelisted.test" >> /etc/hosts\n\
+\n\
 Xvfb :99 -screen 0 1280x720x24 2>/dev/null &\n\
 sleep 1\n\
 export DISPLAY=:99\n\

@@ -126,3 +126,14 @@
     (js-await (-> (expect (.locator page "#test-marker"))
                   (.toContainText "ready")))
     page))
+
+(defn ^:async navigate-to-mock-gist-non-whitelisted
+  "Navigate to mock gist page via non-whitelisted hostname.
+   Uses 'not-whitelisted.test' which resolves to 127.0.0.1 in Docker
+   (configured in Dockerfile.e2e entrypoint)."
+  [context]
+  (let [page (js-await (.newPage context))]
+    (js-await (.goto page "http://not-whitelisted.test:18080/mock-gist.html" #js {:timeout 5000}))
+    (js-await (-> (expect (.locator page "#test-marker"))
+                  (.toContainText "ready")))
+    page))

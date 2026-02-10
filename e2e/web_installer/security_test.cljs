@@ -192,6 +192,60 @@
 ;; Test Registration
 ;; ============================================================
 
+(defn- ^:async test_non_whitelisted_domain_shows_copy_instructions []
+  ;; Navigate to mock gist via non-whitelisted hostname.
+  ;; The install button should render normally, but clicking it
+  ;; should open a modal with copy instructions instead of an install button.
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Setup installer
+      (let [popup (js-await (h/setup-installer!+ context ext-id))]
+        (js-await (.close popup)))
+
+      ;; Navigate via non-whitelisted hostname
+      (let [page (js-await (h/navigate-to-mock-gist-non-whitelisted context))]
+        ;; Capture page errors for diagnosis
+        (.on page "console" (fn [msg]
+                              (when (= "error" (.type msg))
+                                (js/console.log "PAGE CONSOLE.ERROR:" (.text msg)))))
+        (.on page "pageerror" (fn [err]
+                                (js/console.log "PAGE ERROR:" (.-message err))))
+
+        ;; Wait for normal install button (same as whitelisted domain)
+        (js-await (h/wait-for-install-button page "#installable-gist" "install" 5000))
+
+        ;; Click the install button to open the modal
+        (let [btn (h/get-install-button page "#installable-gist" "install")]
+          (js-await (.click btn)))
+
+        ;; Modal should show copy instructions, not an install/confirm button
+        (let [modal (.locator page ".epupp-modal")]
+          (js-await (-> (expect modal) (.toBeVisible #js {:timeout 2000})))
+          ;; Should have copy instructions
+          (js-await (-> (expect modal) (.toContainText "not whitelisted")))
+          (js-await (-> (expect modal) (.toContainText "Copy the code block")))
+          ;; Should NOT have a confirm/install button
+          (let [confirm-btn (.locator modal "#epupp-confirm")]
+            (js-await (-> (expect confirm-btn) (.toHaveCount 0))))
+          ;; Should have an OK button instead of Cancel
+          (let [ok-btn (.locator modal "#epupp-ok")]
+            (js-await (-> (expect ok-btn) (.toBeVisible)))
+            ;; Click OK to close
+            (js-await (.click ok-btn)))
+          ;; Modal should be closed
+          (js-await (-> (expect modal) (.not.toBeVisible))))
+
+        (js-await (.close page)))
+
+      ;; Verify no errors
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Web Installer: security"
            (fn []
              (test "check-script-exists returns not found for missing script"
@@ -210,4 +264,7 @@
                    test_non_whitelisted_origin_rejected)
 
              (test "save-script (REPL path) requires FS REPL Sync even with URL scriptSource"
-                   test_save_script_requires_fs_sync_with_url_source)))
+                   test_save_script_requires_fs_sync_with_url_source)
+
+             (test "non-whitelisted domain shows copy instructions in modal"
+                   test_non_whitelisted_domain_shows_copy_instructions)))
