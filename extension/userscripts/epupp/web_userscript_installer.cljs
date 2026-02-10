@@ -18,7 +18,7 @@
 
 (ns epupp.web-userscript-installer
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]
+            [clojure.string :as string]
             [replicant.dom :as r]))
 
 ;; ============================================================
@@ -50,13 +50,13 @@
 (defn normalize-script-name
   "Normalize a script name to a consistent format."
   [input-name]
-  (let [base-name (if (str/ends-with? input-name ".cljs")
+  (let [base-name (if (string/ends-with? input-name ".cljs")
                     (subs input-name 0 (- (count input-name) 5))
                     input-name)]
     (-> base-name
-        (str/lower-case)
-        (str/replace #"[\s.-]+" "_")
-        (str/replace #"[^a-z0-9_/]" "")
+        (string/lower-case)
+        (string/replace #"[\s.-]+" "_")
+        (string/replace #"[^a-z0-9_/]" "")
         (str ".cljs"))))
 
 ;; SYNC WARNING: This parser must stay in sync with src/manifest_parser.cljs
@@ -115,7 +115,7 @@
   (let [lines (.querySelectorAll table-element "td.js-file-line")]
     (->> (js/Array.from lines)
          (map #(.-textContent %))
-         (str/join "\n"))))
+         (string/join "\n"))))
 
 (defn- get-gitlab-snippet-text
   "Extract code text from GitLab snippet pre element within .file-holder"
@@ -390,7 +390,8 @@
         page-url js/window.location.href
         is-update? (= status :update)
         modal-title (if is-update? "Update Userscript" "Install Userscript")
-        confirm-text (if is-update? "Update" "Install")]
+        action-text (if is-update? "update" "install")
+        confirm-text (string/capitalize action-text)]
     [:div.epupp-modal-overlay
      {:on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
      [:div.epupp-modal
@@ -429,7 +430,7 @@
       (when-not install-allowed?
         [:p.epupp-modal__note
          "This domain is not whitelisted for direct installation. "
-         "Copy the code block and paste it in the Epupp panel to install."])
+         "Copy the code and paste it in the " [:strong "Developemt Tools"] " Epupp panel to " action-text " it."])
       [:div.epupp-modal__actions
        (if install-allowed?
          (list
@@ -672,6 +673,7 @@
 
 .epupp-modal * {
   box-sizing: border-box;
+  color: #1a1a1a;
 }
 
 .epupp-modal p {
@@ -712,7 +714,6 @@
 }
 
 .epupp-modal__note {
-  color: #888;
   font-size: 12px;
 }
 
@@ -737,9 +738,12 @@
   border: none;
 }
 
+.epupp-modal {
+   * {
+   }
+}
 .epupp-modal strong {
   font-weight: 600;
-  color: #1a1a1a;
 }
 
 .epupp-modal__context {
@@ -775,11 +779,11 @@
   margin: -1px 0;
 }
 
-.epupp-modal__header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e1e4e8; }
+.epupp-modal__header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e1e4e8; color: #1a1a1a; }
 .epupp-modal__brand { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .epupp-modal__icon { width: 32px; height: 32px; }
-.epupp-modal__title { font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; color: #1a1a1a; }
-.epupp-modal__tagline { font-size: 16px; font-weight: 400; font-style: italic; color: #1a1a1a; }
+.epupp-modal__title { font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+.epupp-modal__tagline { font-size: 16px; font-weight: 400; font-style: italic; }
 .epupp-modal__action-title { margin: 0; font-size: 16px; font-weight: 500; }
 .epupp-modal__action-title.is-error { color: #dc3545; }
 ")
@@ -897,9 +901,9 @@
   [block-info]
   (let [element (:element block-info)
         code-text (:code-text block-info)
-        trimmed-text (str/trim code-text)]
+        trimmed-text (string/trim code-text)]
     (if (and (> (count trimmed-text) 10)
-             (str/starts-with? trimmed-text "{"))
+             (string/starts-with? trimmed-text "{"))
       (if-let [manifest (extract-manifest code-text)]
         (let [script-name (:script-name manifest)
               existing-id (aget element "id")
