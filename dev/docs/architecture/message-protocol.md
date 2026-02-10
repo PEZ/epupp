@@ -25,7 +25,6 @@ Via `window.postMessage` with source identifiers.
 
 | Type | Payload | Purpose |
 |------|---------|---------|
-| `save-script` | `{code, enabled, force, requestId}` | Save script (also accepted from epupp-page) |
 | `sponsor-status` | `{sponsor}` | Report sponsor detection (one-way `true` signal) |
 **Content Bridge → Page** (`source: "epupp-bridge"`):
 
@@ -119,8 +118,9 @@ flowchart LR
 ### Background Responses
 
 The background worker replies via `sendResponse` with `{success, ...}` data. Errors
-use `success: false` and an `error` string. Write operations return an error when
-FS REPL Sync is disabled.
+use `success: false` and an `error` string. All FS operations (reads and writes)
+return an error when FS REPL Sync is disabled or the requesting tab has no active
+WebSocket connection.
 
 ## Popup/Panel → Background
 

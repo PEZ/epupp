@@ -116,6 +116,8 @@
                                                :wsPort ws-port-1}))]
             (when-not (and connect-result (.-success connect-result))
               (throw (js/Error. (str "Connection failed: " (.-error connect-result)))))
+            ;; Enable FS REPL Sync so read operations are allowed
+            (js-await (send-runtime-message bg-page "e2e/set-storage" #js {:key "fsReplSyncEnabled" :value true}))
             (js-await (send-runtime-message bg-page "e2e/ensure-builtin" #js {}))
             (js-await (wait-for-builtin-script bg-page 5000))
             (js-await (.close bg-page))

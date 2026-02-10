@@ -162,7 +162,7 @@
       (finally
         (js-await (.close context))))))
 
-(defn- ^:async test_save_script_requires_fs_sync_with_url_source []
+(defn- ^:async test_save_script_with_url_source_bypasses_fs_sync []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -171,17 +171,16 @@
 
         ;; Disable FS REPL Sync
         (js-await (send-runtime-message popup "e2e/set-storage"
-                                        #js {:key "fs-repl-sync" :value false}))
+                                        #js {:key "fsReplSyncEnabled" :value false}))
 
-        ;; Try to save via the REPL path (save-script)
-        ;; Even with a URL-based scriptSource, FS REPL Sync must be required
+        ;; Save via REPL path with URL-based scriptSource
+        ;; Web-install paths bypass the FS Sync gate (they have their own auth model)
         (let [code "{:epupp/script-name \"from_gist.cljs\" :epupp/auto-run-match \"*://example.com/*\"}\n(println \"hello\")"
               response (js-await (send-runtime-message popup "save-script"
                                                        #js {:code code
                                                             :scriptSource "https://gist.github.com/user/abc123"}))]
-          ;; Should be rejected because FS REPL Sync is disabled
-          (-> (expect (.-success response)) (.toBe false))
-          (-> (expect (.-error response)) (.toContain "FS REPL Sync")))
+          ;; Should succeed - web-install path bypasses FS Sync gate
+          (-> (expect (.-success response)) (.toBe true)))
 
         (js-await (assert-no-errors! popup))
         (js-await (.close popup)))
@@ -264,8 +263,8 @@
              (test "non-whitelisted origin is rejected by web-installer-save-script"
                    test_non_whitelisted_origin_rejected)
 
-             (test "save-script (REPL path) requires FS REPL Sync even with URL scriptSource"
-                   test_save_script_requires_fs_sync_with_url_source)
+             (test "save-script with URL scriptSource bypasses FS Sync gate"
+                   test_save_script_with_url_source_bypasses_fs_sync)
 
              (test "non-whitelisted domain shows copy instructions in modal"
                    test_non_whitelisted_domain_shows_copy_instructions)))

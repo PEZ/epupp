@@ -14,9 +14,10 @@ post_date: "2026-01-18"
 ## Overview
 
 REPL FS Sync lets page code read and write userscripts through a controlled
-message pipeline. Read operations are always available. Write operations are
-gated by a setting in the extension. UI save operations from the panel or
-popup bypass the gate because they are already trusted UI flows.
+message pipeline. All FS operations (reads and writes) require both the FS
+REPL Sync toggle enabled in settings AND an active WebSocket connection for
+the requesting tab. UI save operations from the panel or popup bypass the
+gate because they are already trusted UI flows.
 
 The wire protocol uses non-namespaced keys. This matters because Scittle
 `clj->js` strips namespace prefixes and keywords are strings. Squint treats
@@ -27,7 +28,7 @@ equal. Do not expect namespaced keys to survive page to extension transport.
 
 Goals:
 - Provide a low-latency, deterministic read path for scripts.
-- Gate write operations behind a user setting.
+- Gate all FS operations behind toggle + WebSocket connection.
 - Keep UI save flows independent of the gate.
 - Preserve a consistent request and response shape with `requestId`.
 
@@ -57,8 +58,7 @@ Primary entities:
 
 Invariants:
 - `requestId` is required on all page API requests and responses.
-- Read operations always run, regardless of write gate state.
-- Write operations are rejected when the setting gate is off.
+- All FS operations (reads and writes) require both FS REPL Sync enabled and an active WebSocket connection for the requesting tab.
 - UI save bypass applies only to extension UI flows, not page API.
 - Wire protocol keys are non-namespaced strings.
 - Bulk operations include `bulk-id`, `bulk-index`, and `bulk-count` so UI can
@@ -102,23 +102,17 @@ This means the REPL caller can directly require `epupp.fs` and `epupp.repl`
 in the page environment. The injected code runs in Scittle, while the content
 bridge and background worker run in Squint and service worker contexts.
 
-## Read Operation Flow
+## FS Operation Flow and Access Gate
 
-1. Page API sends `list-scripts` or `get-script` with `requestId`.
-2. Content Bridge validates and forwards to background.
-3. Background reads from storage and returns a response with `requestId`.
-4. Content Bridge relays back to page API for promise resolution.
+All FS operations (reads and writes) go through the same access gate:
 
-Read operations are always available and do not consult the write gate.
-
-## Write Operation Flow and Setting Gate
-
-1. Page API sends `save-script`, `rename-script`, or `delete-script` with
-   `requestId`.
-2. Background checks the gate setting for REPL FS Sync writes.
-3. If gated off, return `{success false, error ...}` with the same
-   `requestId`.
-4. If gated on, write to storage and return `{success true, ...}`.
+1. Page API sends a request (`list-scripts`, `get-script`, `save-script`,
+   `rename-script`, or `delete-script`) with `requestId`.
+2. Background checks `fs-access-allowed?` which requires both:
+   - FS REPL Sync toggle enabled in settings
+   - Active WebSocket connection for the requesting tab
+3. If access denied, return `{success false, error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}` with the same `requestId`.
+4. If allowed, execute the operation and return `{success true, ...}`.
 
 UI save operations from panel or popup bypass the gate because they are
 trusted extension UI flows. This bypass does not apply to page API requests.
@@ -132,7 +126,7 @@ and effects to run.
 
 Flow summary:
 1. Message handler receives `save-script`, `rename-script`, or `delete-script`.
-2. Gate check runs in `background.cljs`. If disabled, respond immediately.
+2. Access check runs via `fs-access-allowed?` in `background.cljs`. If denied, respond immediately.
 3. If enabled, the handler constructs a script map or names and calls
    `bg-fs-dispatch/dispatch-fs-action!` with a `:fs/ax.*` action.
 4. `background-actions/handle-action` runs pure decision logic and returns
@@ -169,7 +163,8 @@ panel so UI can show success and error banners.
 
 - Content Bridge is the security boundary. It validates message type, origin,
   and shape before forwarding.
-- Page API is untrusted. It never bypasses the write gate.
+- Page API is untrusted. All FS operations (reads and writes) require both
+  the toggle and an active WebSocket connection (`fs-access-allowed?`).
 - Use non-namespaced keys in the wire protocol to avoid namespace stripping.
 
 ## Testing and Observability

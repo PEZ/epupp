@@ -24,21 +24,21 @@
 
    ;; Script CRUD - read operations
    "list-scripts"           {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync
+                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "get-script"             {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync
+                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
 
    ;; Script CRUD - write operations
-   "save-script"            {:msg/sources #{"epupp-page" "epupp-userscript"}
-                             :msg/auth :auth/fs-sync-or-token
+   "save-script"            {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "rename-script"          {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync
+                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "delete-script"          {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync
+                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
 
    ;; Web installer

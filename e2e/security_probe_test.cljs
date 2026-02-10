@@ -98,7 +98,7 @@
             ;; =========================================================
             ;; epupp-userscript source: response-bearing messages
             ;; =========================================================
-            (assert-status! results "epupp-userscript" "save-script" "responded")
+            (assert-status! results "epupp-userscript" "save-script" "dropped")
             (assert-status! results "epupp-userscript" "load-manifest" "dropped")
 
             ;; epupp-userscript source: fire-and-forget messages

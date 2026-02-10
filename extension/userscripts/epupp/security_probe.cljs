@@ -15,13 +15,13 @@
                             :response-type "list-scripts-response"}
    "get-script"            {:sources ["epupp-page"]
                             :response-type "get-script-response"}
-   "save-script"           {:sources ["epupp-page" "epupp-userscript"]
+   "save-script"           {:sources ["epupp-page"]
                             :response-type "save-script-response"}
    "rename-script"         {:sources ["epupp-page"]
                             :response-type "rename-script-response"}
    "delete-script"         {:sources ["epupp-page"]
                             :response-type "delete-script-response"}
-   "load-manifest"         {:sources ["epupp-page" "epupp-userscript"]
+   "load-manifest"         {:sources ["epupp-page"]
                             :response-type "manifest-response"}
    "get-sponsored-username" {:sources ["epupp-page"]
                              :response-type "get-sponsored-username-response"}
@@ -39,6 +39,12 @@
 (def ^:private unregistered-messages
   "Types not in the registry - should always be dropped."
   ["evil-message" "request-save-token"])
+
+(def ^:private disallowed-source-probes
+  "Source/type combos where the source was removed from the registry.
+   Should be dropped at bridge level (wrong source for message type)."
+  [{:source "epupp-userscript" :type "save-script" :response-type "save-script-response"}
+   {:source "epupp-userscript" :type "load-manifest" :response-type "manifest-response"}])
 
 ;; ============================================================
 ;; Safe payloads for messages that need them
@@ -139,6 +145,12 @@
       (swap! plan conj {:source source
                         :type msg-type
                         :response-type (str msg-type "-response")
+                        :timeout-ms 500}))
+    ;; Disallowed-source probes: registered types from unauthorized sources
+    (doseq [{:keys [source type response-type]} disallowed-source-probes]
+      (swap! plan conj {:source source
+                        :type type
+                        :response-type response-type
                         :timeout-ms 500}))
     @plan))
 

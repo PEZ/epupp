@@ -60,12 +60,12 @@
         (.toBe true))
     (-> (expect (contains? (:msg/sources sponsor-entry) "epupp-page"))
         (.toBe false)))
-  ;; save-script should be accessible from BOTH sources
+  ;; save-script should only be accessible from epupp-page (WS-gated FS sync)
   (let [save-entry (get message-registry "save-script")]
     (-> (expect (contains? (:msg/sources save-entry) "epupp-page"))
         (.toBe true))
     (-> (expect (contains? (:msg/sources save-entry) "epupp-userscript"))
-        (.toBe true))))
+        (.toBe false))))
 
 (describe "message-registry access control"
           (fn []

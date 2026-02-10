@@ -73,11 +73,15 @@ Operations that would overwrite existing content fail, by default, but you can o
 
 ### The FS REPL Sync Setting
 
-Write operations (`save!`, `mv!`, `rm!`) require the **FS REPL Sync** setting to be enabled in the popup Settings section. When disabled, these operations return an error:
+All FS operations (`ls`, `show`, `save!`, `mv!`, `rm!`) require both:
+1. **FS REPL Sync** enabled in the popup Settings section
+2. An **active REPL connection** (WebSocket) for the tab
+
+When either condition is not met, operations return an error:
 
 ```clojure
 (epupp.fs/save! new-code)
-;; => {:fs/success false :fs/error "FS REPL Sync is disabled"}
+;; => {:fs/success false :fs/error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}
 ```
 
 

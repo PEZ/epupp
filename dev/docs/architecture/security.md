@@ -22,8 +22,7 @@ Key message categories:
 |------------|----------|---------|
 | `:auth/none` | `ws-connect`, `load-manifest`, `check-script-exists`, `get-sponsored-username` | Open access (read-only or low-risk) |
 | `:auth/connected` | `ws-send` | Requires active REPL connection |
-| `:auth/fs-sync` | `list-scripts`, `get-script`, `rename-script`, `delete-script` | Requires FS REPL Sync enabled |
-| `:auth/fs-sync` | `save-script` | REPL FS write (always requires FS REPL Sync) |
+| `:auth/fs-sync+ws` | `list-scripts`, `get-script`, `save-script`, `rename-script`, `delete-script` | Requires FS REPL Sync enabled AND active WebSocket connection |
 | `:auth/domain-whitelist` | `web-installer-save-script` | Domain-gated save for web installer |
 | `:auth/challenge-response` | `sponsor-status` | Background-initiated pre-authorization |
 

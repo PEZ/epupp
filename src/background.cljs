@@ -277,17 +277,13 @@
           ;; Default to true if not set
           (resolve (if (some? value) value true))))))))
 
-(defn ^:async fs-repl-sync-enabled?
-  "Check if FS REPL Sync is enabled in settings.
-   Returns true if enabled, false otherwise (defaults to false)."
-  []
-  (js/Promise.
-   (fn [resolve]
-     (js/chrome.storage.local.get
-      #js ["fsReplSyncEnabled"]
-      (fn [result]
-        (let [value (.-fsReplSyncEnabled result)]
-          (resolve (boolean value))))))))
+(defn- fs-access-allowed?
+  "Check if FS access is allowed for a tab.
+   Requires both FS REPL Sync enabled in settings AND
+   an active WebSocket connection for the tab."
+  [tab-id]
+  (and (get @!state :settings/fs-repl-sync-enabled)
+       (some? (bg-ws/get-ws (:ws/connections @!state) tab-id))))
 
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
@@ -364,62 +360,71 @@
   (bg-ws/handle-ws-close (:ws/connections @!state) dispatch! tab-id)
   false)
 
-(defn- handle-list-scripts [message dispatch! send-response]
-  (let [include-hidden? (.-lsHidden message)]
-    (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
-    false))
+(defn- handle-list-scripts [message tab-id dispatch! send-response]
+  (if-not (fs-access-allowed? tab-id)
+    (do
+      (send-response #js {:success false
+                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
+      false)
+    (let [include-hidden? (.-lsHidden message)]
+      (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
+      false)))
 
-(defn- handle-save-script [message dispatch! send-response]
+(defn- handle-save-script [message tab-id dispatch! send-response]
   ((^:async fn []
      (js-await (ensure-initialized! dispatch!))
-     (if (not (js-await (fs-repl-sync-enabled?)))
-       (do
-         (bg-icon/broadcast-system-banner! {:event-type "error"
-                                            :operation "save"
-                                            :error "FS REPL Sync is disabled in settings"})
-         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-       (let [code (.-code message)
-             script-source (.-scriptSource message)
-             enabled (if (some? (.-enabled message)) (.-enabled message) true)
-             force? (.-force message)
-             bulk-id (.-bulkId message)
-             bulk-index (.-bulkIndex message)
-             bulk-count (.-bulkCount message)]
-         (try
-           (let [manifest (manifest-parser/extract-manifest code)
-                 raw-name (or (when manifest (aget manifest "raw-script-name"))
-                              (when manifest (aget manifest "script-name")))
-                 name-error (script-utils/validate-script-name raw-name)
-                 auto-run-match (when manifest (aget manifest "auto-run-match"))
-                 injects (when manifest (aget manifest "inject"))
-                 run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
-             (cond
-               (nil? raw-name)
-               (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+     (let [script-source (.-scriptSource message)
+           web-install? (and script-source
+                             (or (.startsWith script-source "http://")
+                                 (.startsWith script-source "https://")))]
+       (if (and (not web-install?) (not (fs-access-allowed? tab-id)))
+         (do
+           (bg-icon/broadcast-system-banner! {:event-type "error"
+                                              :operation "save"
+                                              :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
+           (send-response #js {:success false
+                               :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
+         (let [code (.-code message)
+               enabled (if (some? (.-enabled message)) (.-enabled message) true)
+               force? (.-force message)
+               bulk-id (.-bulkId message)
+               bulk-index (.-bulkIndex message)
+               bulk-count (.-bulkCount message)]
+           (try
+             (let [manifest (manifest-parser/extract-manifest code)
+                   raw-name (or (when manifest (aget manifest "raw-script-name"))
+                                (when manifest (aget manifest "script-name")))
+                   name-error (script-utils/validate-script-name raw-name)
+                   auto-run-match (when manifest (aget manifest "auto-run-match"))
+                   injects (when manifest (aget manifest "inject"))
+                   run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
+               (cond
+                 (nil? raw-name)
+                 (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
 
-               name-error
-               (send-response #js {:success false :error name-error})
+                 name-error
+                 (send-response #js {:success false :error name-error})
 
-               :else
-               (let [crypto (.-crypto js/globalThis)
-                     script-id (if (and crypto (.-randomUUID crypto))
-                                 (str "script-" (.randomUUID crypto))
-                                 (str "script-" (.now js/Date) "-" (.random js/Math)))
-                     script (cond-> {:script/id script-id
-                                     :script/name raw-name
-                                     :script/code code
-                                     :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
-                                     :script/inject (or injects [])
-                                     :script/enabled enabled
-                                     :script/run-at run-at
-                                     :script/force? force?}
-                              (some? script-source) (assoc :script/source script-source)
-                              (some? bulk-id) (assoc :script/bulk-id bulk-id)
-                              (some? bulk-index) (assoc :script/bulk-index bulk-index)
-                              (some? bulk-count) (assoc :script/bulk-count bulk-count))]
-                 (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
-           (catch :default err
-             (send-response #js {:success false :error (str "Parse error: " (.-message err))})))))))
+                 :else
+                 (let [crypto (.-crypto js/globalThis)
+                       script-id (if (and crypto (.-randomUUID crypto))
+                                   (str "script-" (.randomUUID crypto))
+                                   (str "script-" (.now js/Date) "-" (.random js/Math)))
+                       script (cond-> {:script/id script-id
+                                       :script/name raw-name
+                                       :script/code code
+                                       :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
+                                       :script/inject (or injects [])
+                                       :script/enabled enabled
+                                       :script/run-at run-at
+                                       :script/force? force?}
+                                (some? script-source) (assoc :script/source script-source)
+                                (some? bulk-id) (assoc :script/bulk-id bulk-id)
+                                (some? bulk-index) (assoc :script/bulk-index bulk-index)
+                                (some? bulk-count) (assoc :script/bulk-count bulk-count))]
+                   (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
+             (catch :default err
+               (send-response #js {:success false :error (str "Parse error: " (.-message err))}))))))))
   true)
 
 (defn- handle-panel-save-script [message send-response]
@@ -444,46 +449,51 @@
     (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))
   false)
 
-(defn- handle-rename-script [message send-response]
-  ((^:async fn []
-     (if-not (js-await (fs-repl-sync-enabled?))
-       (do
-         (bg-icon/broadcast-system-banner! {:event-type "error"
-                                           :operation "rename"
-                                           :error "FS REPL Sync is disabled in settings"})
-         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-       (let [from-name (.-from message)
-             to-name (.-to message)
-             name-error (script-utils/validate-script-name to-name)]
-         (if name-error
-           (send-response #js {:success false :error name-error})
-           (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))))
+(defn- handle-rename-script [message tab-id send-response]
+  (if-not (fs-access-allowed? tab-id)
+    (do
+      (bg-icon/broadcast-system-banner! {:event-type "error"
+                                         :operation "rename"
+                                         :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
+      (send-response #js {:success false
+                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
+    (let [from-name (.-from message)
+          to-name (.-to message)
+          name-error (script-utils/validate-script-name to-name)]
+      (if name-error
+        (send-response #js {:success false :error name-error})
+        (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))
   true)
 
-(defn- handle-delete-script [message send-response]
-  ((^:async fn []
-     (if-not (js-await (fs-repl-sync-enabled?))
-       (do
-         (bg-icon/broadcast-system-banner! {:event-type "error"
-                                           :operation "delete"
-                                           :error "FS REPL Sync is disabled in settings"})
-         (send-response #js {:success false :error "FS REPL Sync is disabled"}))
-       (let [script-name (.-name message)
-             bulk-id (.-bulkId message)
-             bulk-index (.-bulkIndex message)
-             bulk-count (.-bulkCount message)]
-         (fs-dispatch/dispatch-fs-action! send-response
-                                          [:fs/ax.delete-script
-                                           {:script-name script-name
-                                            :bulk-id bulk-id
-                                            :bulk-index bulk-index
-                                            :bulk-count bulk-count}])))))
+(defn- handle-delete-script [message tab-id send-response]
+  (if-not (fs-access-allowed? tab-id)
+    (do
+      (bg-icon/broadcast-system-banner! {:event-type "error"
+                                         :operation "delete"
+                                         :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
+      (send-response #js {:success false
+                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
+    (let [script-name (.-name message)
+          bulk-id (.-bulkId message)
+          bulk-index (.-bulkIndex message)
+          bulk-count (.-bulkCount message)]
+      (fs-dispatch/dispatch-fs-action! send-response
+                                       [:fs/ax.delete-script
+                                        {:script-name script-name
+                                         :bulk-id bulk-id
+                                         :bulk-index bulk-index
+                                         :bulk-count bulk-count}])))
   true)
 
-(defn- handle-get-script [message dispatch! send-response]
-  (let [script-name (.-name message)]
-    (dispatch! [[:msg/ax.get-script send-response script-name]])
-    false))
+(defn- handle-get-script [message tab-id dispatch! send-response]
+  (if-not (fs-access-allowed? tab-id)
+    (do
+      (send-response #js {:success false
+                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
+      false)
+    (let [script-name (.-name message)]
+      (dispatch! [[:msg/ax.get-script send-response script-name]])
+      false)))
 
 (defn- handle-load-manifest [message tab-id dispatch! send-response]
   (let [manifest (.-manifest message)]
@@ -690,13 +700,13 @@
                       "ws-send" (handle-ws-send message tab-id)
                       "ws-close" (handle-ws-close tab-id dispatch!)
                       "ping" false
-                      "list-scripts" (handle-list-scripts message dispatch! send-response)
-                      "save-script" (handle-save-script message dispatch! send-response)
+                      "list-scripts" (handle-list-scripts message tab-id dispatch! send-response)
+                      "save-script" (handle-save-script message tab-id dispatch! send-response)
                       "panel-save-script" (handle-panel-save-script message send-response)
                       "panel-rename-script" (handle-panel-rename-script message send-response)
-                      "rename-script" (handle-rename-script message send-response)
-                      "delete-script" (handle-delete-script message send-response)
-                      "get-script" (handle-get-script message dispatch! send-response)
+                      "rename-script" (handle-rename-script message tab-id send-response)
+                      "delete-script" (handle-delete-script message tab-id send-response)
+                      "get-script" (handle-get-script message tab-id dispatch! send-response)
                       "check-script-exists" (handle-check-script-exists message dispatch! send-response)
                       "web-installer-save-script" (handle-web-installer-save-script message sender dispatch! send-response)
                       "load-manifest" (handle-load-manifest message tab-id dispatch! send-response)
@@ -831,6 +841,10 @@
                       (let [change (aget changes "settings/debug-logging")
                             enabled (boolean (.-newValue change))]
                         (log/set-debug-enabled! enabled)))
+                    (when (aget changes "fsReplSyncEnabled")
+                      (let [change (aget changes "fsReplSyncEnabled")
+                            enabled (boolean (.-newValue change))]
+                        (swap! !state assoc :settings/fs-repl-sync-enabled enabled)))
                     (when (aget changes "sponsor/sponsored-username")
                       (let [change (aget changes "sponsor/sponsored-username")
                             new-username (or (.-newValue change) "PEZ")]
@@ -883,6 +897,15 @@
                            (let [enabled (boolean (aget result "settings/debug-logging"))]
                              (log/set-debug-enabled! enabled)
                              (res true)))))))
+           ;; Load FS REPL Sync setting into !state
+           (js-await (js/Promise.
+                      (fn [res]
+                        (js/chrome.storage.local.get
+                         #js ["fsReplSyncEnabled"]
+                         (fn [result]
+                           (swap! !state assoc :settings/fs-repl-sync-enabled
+                                  (boolean (aget result "fsReplSyncEnabled")))
+                           (res true))))))
            (js-await (registration/sync-registrations!))
            (log/info "Background" "Initialization complete")
            (js-await (test-logger/log-event! "EXTENSION_STARTED"

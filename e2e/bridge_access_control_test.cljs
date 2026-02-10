@@ -81,9 +81,31 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_save_script_from_userscript_source_is_dropped []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))
+            page (js-await (setup-test-page context popup))]
+        ;; Post save-script with userscript source (was allowed, now dropped at bridge level)
+        (js-await (post-page-message! page "epupp-userscript" "save-script" "bad-us-save"))
+        ;; Post sentinel - locally handled, always responds
+        (js-await (post-page-message! page "epupp-page" "get-icon-url" "sentinel-us"))
+        ;; Wait for sentinel response via DOM attribute
+        (js-await (-> (expect (.locator page "html"))
+                      (.toHaveAttribute "data-resp-sentinel-us" "1" #js {:timeout 5000})))
+        ;; Sentinel arrived - verify no response had the bad requestId (attribute absent)
+        (js-await (-> (expect (.locator page "html"))
+                      (.not.toHaveAttribute "data-resp-bad-us-save")))
+        (js-await (assert-no-errors! popup)))
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Bridge: access control"
            (fn []
              (test "unregistered message type is silently dropped"
                    test_unregistered_message_is_silently_dropped)
              (test "wrong source message is rejected"
-                   test_wrong_source_message_is_rejected)))
+                   test_wrong_source_message_is_rejected)
+             (test "save-script from userscript source is dropped at bridge level"
+                   test_save_script_from_userscript_source_is_dropped)))
