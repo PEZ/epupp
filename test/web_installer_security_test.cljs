@@ -275,3 +275,112 @@
           (fn []
             (test "script with URL source uses normal save path (no bypass)"
                   test-save-script-action-enforces-fs-sync-regardless-of-source)))
+
+;; ============================================================
+;; Web installer save-script action handler tests
+;;
+;; Tests the pure action handler with the same script shape that
+;; handle-web-installer-save-script builds. The handler itself is
+;; private, but the action handler is the pure core that matters.
+;; ============================================================
+
+(defn- test-web-installer-save-creates-new-script []
+  (let [state {:storage/scripts []}
+        uf-data {:system/now 1737100000000}
+        script {:script/id "installer-1"
+                :script/name "Test Installer Script"
+                :script/code "{:epupp/script-name \"Test Installer Script\" :epupp/auto-run-match \"https://example.com/*\"}\n(ns test)\n(println \"test\")"
+                :script/match ["https://example.com/*"]
+                :script/inject []
+                :script/enabled true
+                :script/run-at "document_idle"
+                :script/force? true
+                :script/source "https://gist.github.com/user/abc123"}
+        result (bg-actions/handle-action state uf-data [:fs/ax.save-script script])
+        saved-scripts (-> result :uf/db :storage/scripts)
+        saved (first saved-scripts)
+        response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+    ;; Should succeed
+    (-> (expect (:success response)) (.toBe true))
+    ;; Script should be saved with normalized name
+    (-> (expect (:script/name saved)) (.toBe "test_installer_script.cljs"))
+    ;; Source URL should be preserved
+    (-> (expect (:script/source saved)) (.toBe "https://gist.github.com/user/abc123"))
+    ;; Match patterns should be preserved
+    (-> (expect (first (:script/match saved))) (.toBe "https://example.com/*"))
+    ;; Force flag should be stripped (transient)
+    (-> (expect (:script/force? saved)) (.toBeFalsy))))
+
+(defn- test-web-installer-save-preserves-inject-urls []
+  (let [state {:storage/scripts []}
+        uf-data {:system/now 1737100000000}
+        script {:script/id "installer-2"
+                :script/name "Inject Script"
+                :script/code "{:epupp/script-name \"inject_script.cljs\" :epupp/auto-run-match \"*\" :epupp/inject [\"scittle://reagent.js\"]}\n(ns test)"
+                :script/inject ["scittle://reagent.js"]
+                :script/match ["*"]
+                :script/enabled true
+                :script/run-at "document_idle"
+                :script/force? true
+                :script/source "https://github.com/user/repo"}
+        result (bg-actions/handle-action state uf-data [:fs/ax.save-script script])
+        saved (-> result :uf/db :storage/scripts first)]
+    ;; Inject URLs should be preserved
+    (-> (expect (count (:script/inject saved))) (.toBe 1))
+    (-> (expect (first (:script/inject saved))) (.toBe "scittle://reagent.js"))))
+
+(defn- test-web-installer-save-force-overwrites-existing []
+  (let [existing {:script/id "existing-1"
+                  :script/name "test_script.cljs"
+                  :script/code "(println \"old\")"
+                  :script/match []
+                  :script/enabled true}
+        state {:storage/scripts [existing]}
+        uf-data {:system/now 1737100000000}
+        new-script {:script/id "installer-new"
+                    :script/name "test_script.cljs"
+                    :script/code "{:epupp/script-name \"test_script.cljs\" :epupp/auto-run-match \"*\"}\n(println \"new\")"
+                    :script/match ["*"]
+                    :script/enabled true
+                    :script/run-at "document_idle"
+                    :script/force? true
+                    :script/source "https://gist.github.com/user/gist1"}
+        result (bg-actions/handle-action state uf-data [:fs/ax.save-script new-script])
+        saved-scripts (-> result :uf/db :storage/scripts)
+        response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+    ;; Should succeed
+    (-> (expect (:success response)) (.toBe true))
+    ;; Should still have one script (overwritten, not duplicated)
+    (-> (expect (count saved-scripts)) (.toBe 1))
+    ;; Should use existing ID (stable identity)
+    (-> (expect (:script/id (first saved-scripts))) (.toBe "existing-1"))
+    ;; Code should be updated
+    (-> (expect (.includes (:script/code (first saved-scripts)) "new")) (.toBe true))))
+
+(defn- test-web-installer-save-rejects-invalid-name []
+  (let [state {:storage/scripts []}
+        uf-data {:system/now 1737100000000}
+        script {:script/id "bad-1"
+                :script/name "epupp/evil.cljs"
+                :script/code "{:epupp/script-name \"epupp/evil.cljs\"}\n(println \"bad\")"
+                :script/match []
+                :script/enabled true
+                :script/force? true
+                :script/source "https://github.com/user/repo"}
+        result (bg-actions/handle-action state uf-data [:fs/ax.save-script script])
+        response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+    ;; Should fail - epupp/ prefix is reserved
+    (-> (expect (:success response)) (.toBe false))
+    (-> (expect (:error response)) (.toBeTruthy))))
+
+(describe "web-installer save-script action handler"
+          (fn []
+            (beforeEach (fn [] (reset! storage/!db {:storage/scripts []})))
+            (test "creates new script with web-installer fields"
+                  test-web-installer-save-creates-new-script)
+            (test "preserves inject URLs from manifest"
+                  test-web-installer-save-preserves-inject-urls)
+            (test "force-overwrites existing script with stable ID"
+                  test-web-installer-save-force-overwrites-existing)
+            (test "rejects script with reserved epupp/ prefix"
+                  test-web-installer-save-rejects-invalid-name)))

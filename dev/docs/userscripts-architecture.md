@@ -181,9 +181,23 @@ The `grantedOrigins` storage key is retained for potential future use but curren
 ## Userscript Installation (from Page)
 
 Epupp supports installing userscripts from the page via a built-in Web
-Userscript Installer script. The installer extracts code directly from DOM
-elements and sends a `save-script` request through the content bridge. The
-background validates the manifest and saves the script with source provenance.
+Userscript Installer script. The installer detects Epupp manifests in DOM
+elements on code-hosting pages.
+
+**Domain whitelist**: Installation is only available on whitelisted origins
+(github.com, gist.github.com, gitlab.com, codeberg.org, localhost, 127.0.0.1).
+On non-whitelisted domains, the installer shows copy-paste instructions instead
+of an install button.
+
+**Message flow**: The installer uses two dedicated messages:
+- `check-script-exists` (`:auth/none`) - checks if a script with the same name
+  already exists and whether the code is identical
+- `web-installer-save-script` (`:auth/domain-whitelist`) - saves the script with
+  domain enforcement in the background worker
+
+These messages bypass FS REPL Sync (users should not need to enable FS Sync
+just to install from the web). The domain whitelist enforced in the background
+worker prevents arbitrary pages from triggering installs.
 
 ### Web Userscript Installer Test Pages
 

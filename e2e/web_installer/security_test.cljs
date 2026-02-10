@@ -53,10 +53,14 @@
         (js-await (wait-for-popup-ready popup))
 
         ;; Get the script's code from storage and check existence with identical code
+        ;; Note: raw storage scripts don't have a name field (it's derived from
+        ;; manifest at load time), so find by code content instead
         (let [storage-result (js-await (send-runtime-message popup "e2e/get-storage"
                                                              #js {:key "scripts"}))
               scripts (.-value storage-result)
-              test-script (.find scripts (fn [s] (= (.-name s) "test_installer_script.cljs")))
+              test-script (.find scripts (fn [s]
+                                           (and (.-code s)
+                                                (.includes (.-code s) "Test Installer Script"))))
               script-code (.-code test-script)
               response (js-await (send-runtime-message popup "check-script-exists"
                                                        #js {:name "test_installer_script.cljs"
@@ -136,6 +140,28 @@
 ;; save-script (REPL path) FS REPL Sync enforcement
 ;; ============================================================
 
+(defn- ^:async test_non_whitelisted_origin_rejected []
+  ;; Send web-installer-save-script from the popup (extension page).
+  ;; Extension pages have no sender.tab, so the origin check rejects them -
+  ;; same code path as a non-whitelisted domain.
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (wait-for-popup-ready popup))
+
+        (let [code "{:epupp/script-name \"sneaky.cljs\" :epupp/auto-run-match \"*\"}\n(println \"pwned\")"
+              response (js-await (send-runtime-message popup "web-installer-save-script"
+                                                       #js {:code code}))]
+          ;; Should be rejected
+          (-> (expect (.-success response)) (.toBe false))
+          (-> (expect (.-error response)) (.toContain "Domain not allowed")))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
 (defn- ^:async test_save_script_requires_fs_sync_with_url_source []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
@@ -179,6 +205,9 @@
 
              (test "whitelisted domain (localhost) can save via web-installer-save-script"
                    test_whitelisted_domain_can_save)
+
+             (test "non-whitelisted origin is rejected by web-installer-save-script"
+                   test_non_whitelisted_origin_rejected)
 
              (test "save-script (REPL path) requires FS REPL Sync even with URL scriptSource"
                    test_save_script_requires_fs_sync_with_url_source)))

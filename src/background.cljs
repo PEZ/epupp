@@ -646,31 +646,35 @@
   (if-not (bg-utils/web-installer-origin-allowed? sender)
     (do (send-response #js {:success false :error "Domain not allowed for web installation"})
         false)
-    (let [code (.-code message)
-          manifest (manifest-parser/extract-manifest code)
-          raw-name (or (when manifest (aget manifest "raw-script-name"))
-                       (when manifest (aget manifest "script-name")))]
-      (if-not raw-name
-        (do (send-response #js {:success false :error "No script name in manifest"})
-            false)
-        (let [auto-run-match (when manifest (aget manifest "auto-run-match"))
-              injects (when manifest (js->clj (aget manifest "inject")))
-              run-at (when manifest (aget manifest "run-at"))
-              script-source (.. sender -tab -url)
-              script-id (str (.now js/Date))
-              script {:script/id script-id
-                      :script/name raw-name
-                      :script/code code
-                      :script/match (if (vector? auto-run-match)
-                                      auto-run-match
-                                      [auto-run-match])
-                      :script/inject (or injects [])
-                      :script/enabled true
-                      :script/run-at (or run-at "document_idle")
-                      :script/force? true
-                      :script/source script-source}]
-          (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script])
-          true)))))
+    (try
+      (let [code (.-code message)
+            manifest (manifest-parser/extract-manifest code)
+            raw-name (or (when manifest (aget manifest "raw-script-name"))
+                         (when manifest (aget manifest "script-name")))]
+        (if-not raw-name
+          (do (send-response #js {:success false :error "No script name in manifest"})
+              false)
+          (let [auto-run-match (when manifest (aget manifest "auto-run-match"))
+                injects (when manifest (aget manifest "inject"))
+                run-at (when manifest (aget manifest "run-at"))
+                script-source (.. sender -tab -url)
+                script-id (str (.now js/Date))
+                script {:script/id script-id
+                        :script/name raw-name
+                        :script/code code
+                        :script/match (if (vector? auto-run-match)
+                                        auto-run-match
+                                        [auto-run-match])
+                        :script/inject (or injects [])
+                        :script/enabled true
+                        :script/run-at (or run-at "document_idle")
+                        :script/force? true
+                        :script/source script-source}]
+            (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script])
+            false)))
+      (catch :default err
+        (send-response #js {:success false :error (str "Parse error: " (.-message err))})
+        false))))
 
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)

@@ -14,16 +14,22 @@ This means page scripts (including userscripts) **cannot** directly send message
 
 ## Content Bridge as Security Boundary
 
-The content bridge ([content_bridge.cljs](../../../src/content_bridge.cljs)) is the sole gateway from page context to background. It explicitly handles only:
+The content bridge ([content_bridge.cljs](../../../src/content_bridge.cljs)) is the sole gateway from page context to background. It uses a declarative message registry that controls which messages are forwarded. Every registered message declares its allowed sources and auth model. Unregistered types are silently dropped.
 
-| Source | Message Type | Forwarded To | Purpose |
-|--------|--------------|--------------|---------|
-| `epupp-page` | `ws-connect` | Background | WebSocket relay for REPL |
-| `epupp-page` | `ws-send` | Background | WebSocket relay for REPL |
-| `epupp-userscript` | `install-userscript` | Background | Script installation (with origin validation) |
-| `epupp-userscript` | `sponsor-status` | Background | Sponsor detection (fire-and-forget, boolean only) |
+Key message categories:
 
-**Any message type not in this whitelist is silently dropped.** This prevents userscripts from spoofing popup/panel messages like `evaluate-script`.
+| Auth Model | Messages | Purpose |
+|------------|----------|---------|
+| `:auth/none` | `ws-connect`, `load-manifest`, `check-script-exists`, `get-sponsored-username` | Open access (read-only or low-risk) |
+| `:auth/connected` | `ws-send` | Requires active REPL connection |
+| `:auth/fs-sync` | `list-scripts`, `get-script`, `rename-script`, `delete-script` | Requires FS REPL Sync enabled |
+| `:auth/fs-sync` | `save-script` | REPL FS write (always requires FS REPL Sync) |
+| `:auth/domain-whitelist` | `web-installer-save-script` | Domain-gated save for web installer |
+| `:auth/challenge-response` | `sponsor-status` | Background-initiated pre-authorization |
+
+The registry in `content_bridge.cljs` is the authoritative whitelist - see it for the complete, always-current list.
+
+**Domain whitelist for web installer**: The `web-installer-save-script` message only succeeds from whitelisted domains (github.com, gist.github.com, gitlab.com, codeberg.org, localhost, 127.0.0.1). Non-whitelisted domains trigger a copy-paste fallback in the installer UI.
 
 When adding new forwarded message types, consider: "What if any page script could call this?" If the answer involves privilege escalation, don't forward it.
 

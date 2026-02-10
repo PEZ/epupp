@@ -30,7 +30,9 @@ The alert appears. That's ClojureScript running in the page context.
 
 ### Install Example Scripts
 
-The built-in **Web Userscript Installer** lets you install scripts from code-hosting sites like GitHub Gists. A few examples to try:
+The built-in **Web Userscript Installer** lets you install scripts from code-hosting sites. It works automatically on whitelisted domains: GitHub, GitHub Gists, GitLab, Codeberg, and localhost. On other sites, the installer shows copy-paste instructions instead.
+
+A few examples to try:
 
 Very silly examples...
 

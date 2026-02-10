@@ -16,6 +16,8 @@ Via `window.postMessage` with source identifiers.
 | `list-scripts` | `{lsHidden, requestId}` | List scripts (REPL FS read) |
 | `get-script` | `{name, requestId}` | Get script by name (REPL FS read) |
 | `save-script` | `{code, enabled, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Save script (REPL FS write) |
+| `check-script-exists` | `{name, code}` | Check if script exists (web installer) |
+| `web-installer-save-script` | `{code}` | Save script from whitelisted domain (web installer) |
 | `rename-script` | `{from, to, force, requestId}` | Rename script (REPL FS write) |
 | `delete-script` | `{name, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Delete script (REPL FS write) |
 
@@ -23,7 +25,8 @@ Via `window.postMessage` with source identifiers.
 
 | Type | Payload | Purpose |
 |------|---------|---------|
-| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin || `sponsor-status` | `{sponsor}` | Report sponsor detection (one-way `true` signal) |
+| `save-script` | `{code, enabled, force, requestId}` | Save script (also accepted from epupp-page) |
+| `sponsor-status` | `{sponsor}` | Report sponsor detection (one-way `true` signal) |
 **Content Bridge → Page** (`source: "epupp-bridge"`):
 
 | Type | Payload | Purpose |
@@ -39,7 +42,6 @@ Via `window.postMessage` with source identifiers.
 | `save-script-response` | `{success, name?, error?, requestId}` | Response for `save-script` |
 | `rename-script-response` | `{success, error?, requestId}` | Response for `rename-script` |
 | `delete-script-response` | `{success, error?, requestId}` | Response for `delete-script` |
-| `install-response` | `{success, error?}` | Install userscript response |
 
 ## Content Bridge ↔ Background
 
@@ -53,7 +55,8 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `ws-send` | `{data}` | Send through tab's WebSocket |
 | `ping` | - | Keepalive (every 5s) |
 | `load-manifest` | `{manifest}` | Forward library injection request |
-| `install-userscript` | `{manifest, scriptUrl}` | Install userscript from allowed origin |
+| `check-script-exists` | `{name, code}` | Check script existence (web installer) |
+| `web-installer-save-script` | `{code}` | Save script from whitelisted domain |
 | `sponsor-status` | `{sponsor}` | Sponsor detection (fire-and-forget via `send-message-safe!`) |
 
 **Background → Content Bridge**:
