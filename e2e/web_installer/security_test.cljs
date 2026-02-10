@@ -223,8 +223,9 @@
         (let [modal (.locator page ".epupp-modal")]
           (js-await (-> (expect modal) (.toBeVisible #js {:timeout 2000})))
           ;; Should have copy instructions
-          (js-await (-> (expect modal) (.toContainText "not whitelisted")))
-          (js-await (-> (expect modal) (.toContainText "Copy the code block")))
+          ;; Should have the not-whitelisted note (by data attribute, not copy text)
+          (let [note (.locator modal "[data-e2e-not-whitelisted]")]
+            (js-await (-> (expect note) (.toBeVisible))))
           ;; Should NOT have a confirm/install button
           (let [confirm-btn (.locator modal "#epupp-confirm")]
             (js-await (-> (expect confirm-btn) (.toHaveCount 0))))

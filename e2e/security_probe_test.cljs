@@ -21,6 +21,18 @@
     (-> (expect actual-status)
         (.toBe expected-status))))
 
+(defn- assert-response!
+  "Assert that a probe result entry has the expected response payload fields."
+  [results source msg-type expected-success expected-error-substring]
+  (let [source-results (aget results source)
+        entry (when source-results (aget source-results msg-type))
+        response (when entry (.-response entry))]
+    (-> (expect (.-success response))
+        (.toBe expected-success))
+    (when expected-error-substring
+      (-> (expect (.-error response))
+          (.toContain expected-error-substring)))))
+
 (defn- ^:async test_security_probe_bridge_access_control []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
@@ -70,6 +82,10 @@
             (assert-status! results "epupp-page" "get-sponsored-username" "responded")
             (assert-status! results "epupp-page" "check-script-exists" "responded")
             (assert-status! results "epupp-page" "web-installer-save-script" "responded")
+
+            ;; Response payload assertions for auth-gated messages
+            ;; Test page runs on localhost (whitelisted), so web-installer-save-script succeeds
+            (assert-response! results "epupp-page" "web-installer-save-script" true nil)
 
             ;; epupp-page source: fire-and-forget messages
             (assert-status! results "epupp-page" "ws-connect" "no-response")

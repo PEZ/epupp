@@ -83,3 +83,5 @@
 * [ ] Make the banner truly system wide and shared.
 * [ ] Enable scripts to define popup UI, at least for the script entry
 * [ ] Make an extension page/url for fs sync
+* [ ] Make Epupp css fetchable from epupp scripts
+* [ ] Add some basic Epupp-styled UI widgets

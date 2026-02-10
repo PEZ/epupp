@@ -428,9 +428,9 @@
       [:p
        [:code {:style {:word-break "break-all"}} page-url]]
       (when-not install-allowed?
-        [:p.epupp-modal__note
+        [:p.epupp-modal__note {:data-e2e-not-whitelisted true}
          "This domain is not whitelisted for direct installation. "
-         "Copy the code and paste it in the " [:strong "Developemt Tools"] " Epupp panel to " action-text " it."])
+         "Copy the code and paste it in the " [:strong "Development Tools"] " Epupp panel to " action-text " it."])
       [:div.epupp-modal__actions
        (if install-allowed?
          (list

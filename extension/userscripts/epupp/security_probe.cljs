@@ -77,7 +77,9 @@
                            (when-let [tid @timeout-id]
                              (js/clearTimeout tid))
                            (.removeEventListener js/window "message" handler)
-                           (resolve {:status "responded"})))))]
+                           (resolve {:status "responded"
+                                     :response {:success (.-success msg)
+                                                :error (.-error msg)}})))))]
        (if response-type
          (do
            (.addEventListener js/window "message" handler)
@@ -165,14 +167,24 @@
 ;; Output results
 ;; ============================================================
 
+(defn- format-response-detail
+  "Format response detail for display, if present."
+  [{:keys [success error]}]
+  (cond
+    (nil? success) ""
+    (true? success) " (success)"
+    error (str " (REJECTED: " error ")")
+    :else " (success=false)"))
+
 (defn- format-summary
   "Format results as a readable summary table."
   [results]
   (let [lines (atom [])]
     (doseq [[source type-map] (sort results)]
       (swap! lines conj (str "  " source ":"))
-      (doseq [[msg-type {:keys [status]}] (sort type-map)]
-        (swap! lines conj (str "    " msg-type " -> " status))))
+      (doseq [[msg-type {:keys [status response]}] (sort type-map)]
+        (swap! lines conj (str "    " msg-type " -> " status
+                               (when response (format-response-detail response))))))
     (str/join "\n" @lines)))
 
 (defn- output-results! [results]
