@@ -68,6 +68,8 @@
             (assert-status! results "epupp-page" "delete-script" "responded")
             (assert-status! results "epupp-page" "load-manifest" "responded")
             (assert-status! results "epupp-page" "get-sponsored-username" "responded")
+            (assert-status! results "epupp-page" "check-script-exists" "responded")
+            (assert-status! results "epupp-page" "web-installer-save-script" "responded")
 
             ;; epupp-page source: fire-and-forget messages
             (assert-status! results "epupp-page" "ws-connect" "no-response")
@@ -82,7 +84,6 @@
             ;; =========================================================
             (assert-status! results "epupp-userscript" "save-script" "responded")
             (assert-status! results "epupp-userscript" "load-manifest" "dropped")
-            (assert-status! results "epupp-userscript" "install-userscript" "responded")
 
             ;; epupp-userscript source: fire-and-forget messages
             (assert-status! results "epupp-userscript" "sponsor-status" "no-response")

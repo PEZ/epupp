@@ -25,8 +25,10 @@
                             :response-type "manifest-response"}
    "get-sponsored-username" {:sources ["epupp-page"]
                              :response-type "get-sponsored-username-response"}
-   "install-userscript"    {:sources ["epupp-userscript"]
-                            :response-type "install-response"}})
+   "check-script-exists"  {:sources ["epupp-page"]
+                            :response-type "check-script-exists-response"}
+   "web-installer-save-script" {:sources ["epupp-page"]
+                                :response-type "web-installer-save-script-response"}})
 
 (def ^:private fire-and-forget-messages
   "Messages with no response expected."
@@ -49,7 +51,8 @@
     "rename-script"   #js {:oldName "nonexistent_xyz.cljs" :newName "nonexistent_abc.cljs"}
     "delete-script"   #js {:name "nonexistent_xyz.cljs"}
     "load-manifest"   #js {:code "{:epupp/script-name \"probe_temp.cljs\"}"}
-    "install-userscript" #js {:url "https://example.com/nonexistent.cljs"}
+    "check-script-exists" #js {:name "nonexistent_xyz.cljs" :code "(ns test)"}
+    "web-installer-save-script" #js {:code "{:epupp/script-name \"probe_temp.cljs\"}\n(ns probe-temp)"}
     #js {}))
 
 ;; ============================================================

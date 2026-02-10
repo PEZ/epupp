@@ -34,6 +34,25 @@
 ;; Use a mutable variable (not defonce) so each script wake gets fresh state.
 ;; The :init/promise key ensures all operations wait for storage to load.
 
+(def web-installer-allowed-origins
+  "Scheme + domain pairs where the web installer save message is allowed.
+   Validated against sender.tab.url in the background handler.
+   Uses string keys because Squint compiles sets to JS Set which uses
+   reference equality for objects - set-of-maps would never match."
+  #{"https://github.com"
+    "https://gist.github.com"
+    "https://gitlab.com"
+    "https://codeberg.org"
+    "http://localhost"
+    "http://127.0.0.1"})
+
+(defn- web-installer-origin-allowed? [sender]
+  (try
+    (let [url (js/URL. (.. sender -tab -url))
+          origin (str (.-protocol url) "//" (.-hostname url))]
+      (contains? web-installer-allowed-origins origin))
+    (catch :default _ false)))
+
 (defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
    Safe to call multiple times - only initializes once per script lifetime."
@@ -634,6 +653,48 @@
            username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
        (send-response #js {:success true :username username}))))
   true)
+(defn- handle-check-script-exists [message _dispatch! send-response]
+  (let [script-name (.-name message)
+        code (.-code message)
+        script (storage/get-script-by-name script-name)]
+    (if script
+      (send-response #js {:success true
+                          :exists true
+                          :identical (= code (:script/code script))})
+      (send-response #js {:success true
+                          :exists false}))
+    false))
+
+(defn- handle-web-installer-save-script [message sender _dispatch! send-response]
+  (if-not (web-installer-origin-allowed? sender)
+    (do (send-response #js {:success false :error "Domain not allowed for web installation"})
+        false)
+    (let [code (.-code message)
+          manifest (manifest-parser/extract-manifest code)
+          raw-name (or (when manifest (aget manifest "raw-script-name"))
+                       (when manifest (aget manifest "script-name")))]
+      (if-not raw-name
+        (do (send-response #js {:success false :error "No script name in manifest"})
+            false)
+        (let [auto-run-match (when manifest (aget manifest "auto-run-match"))
+              injects (when manifest (js->clj (aget manifest "inject")))
+              run-at (when manifest (aget manifest "run-at"))
+              script-source (.. sender -tab -url)
+              script-id (str (.now js/Date))
+              script {:script/id script-id
+                      :script/name raw-name
+                      :script/code code
+                      :script/match (if (vector? auto-run-match)
+                                      auto-run-match
+                                      [auto-run-match])
+                      :script/inject (or injects [])
+                      :script/enabled true
+                      :script/run-at (or run-at "document_idle")
+                      :script/force? true
+                      :script/source script-source}]
+          (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script])
+          true)))))
+
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)
   false)
@@ -655,6 +716,8 @@
                       "rename-script" (handle-rename-script message send-response)
                       "delete-script" (handle-delete-script message send-response)
                       "get-script" (handle-get-script message dispatch! send-response)
+                      "check-script-exists" (handle-check-script-exists message dispatch! send-response)
+                      "web-installer-save-script" (handle-web-installer-save-script message sender dispatch! send-response)
                       "load-manifest" (handle-load-manifest message tab-id dispatch! send-response)
                       "get-connections" (handle-get-connections dispatch! send-response)
                       "connect-tab" (handle-connect-tab message dispatch! send-response)

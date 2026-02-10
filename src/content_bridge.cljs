@@ -41,6 +41,14 @@
                              :msg/auth :auth/fs-sync
                              :msg/response? true}
 
+   ;; Web installer
+   "check-script-exists"    {:msg/sources #{"epupp-page"}
+                             :msg/auth :auth/none
+                             :msg/response? true}
+   "web-installer-save-script" {:msg/sources #{"epupp-page"}
+                                :msg/auth :auth/domain-whitelist
+                                :msg/response? true}
+
    ;; Web installer token flow (not yet implemented - depends on security audit remediation)
    ;; Uncomment when background handler exists:
    ;; "request-save-token"  {:msg/sources #{"epupp-page"} :msg/auth :auth/none :msg/response? true}
@@ -59,13 +67,7 @@
                                                 (log/debug "Bridge" "Forwarding sponsor-status to background"))}
    "get-sponsored-username" {:msg/sources #{"epupp-page"}
                              :msg/auth :auth/none
-                             :msg/response? true}
-
-   ;; Userscript self-install
-   "install-userscript"     {:msg/sources #{"epupp-userscript"}
-                             :msg/auth :auth/origin-validated
-                             :msg/response? true
-                             :msg/response-type "install-response"}})
+                             :msg/response? true}})
 
 (def !state (atom {:bridge/connected? false
                    :bridge/keepalive-interval nil}))

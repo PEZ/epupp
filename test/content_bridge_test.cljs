@@ -26,9 +26,7 @@
 
 (defn- test-response-type-overrides-are-present-where-expected []
   (-> (expect (:msg/response-type (get message-registry "load-manifest")))
-      (.toBe "manifest-response"))
-  (-> (expect (:msg/response-type (get message-registry "install-userscript")))
-      (.toBe "install-response")))
+      (.toBe "manifest-response")))
 
 (describe "message-registry integrity"
           (fn []
