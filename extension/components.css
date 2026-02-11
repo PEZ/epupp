@@ -262,6 +262,7 @@ kbd {
   color: var(--color-text-success-banner);
   font-size: 12px;
   text-align: center;
+  overflow: hidden;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
@@ -276,6 +277,7 @@ kbd {
   color: var(--color-text-error-banner);
   font-size: 12px;
   text-align: center;
+  overflow: hidden;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
@@ -290,6 +292,7 @@ kbd {
   color: var(--color-text-info-banner);
   font-size: 12px;
   text-align: center;
+  overflow: hidden;
   animation: banner-slide-in var(--transition-duration) ease-out;
 }
 
@@ -306,26 +309,34 @@ kbd {
   border-radius: 2px;
 }
 
-/* Banner animations */
+/* Banner animations - slide in by expanding height */
 @keyframes banner-slide-in {
   from {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
     opacity: 0;
-    transform: translateY(-100%);
   }
   to {
+    max-height: 60px;
+    padding-top: 8px;
+    padding-bottom: 8px;
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes banner-slide-out {
   from {
+    max-height: 60px;
+    padding-top: 8px;
+    padding-bottom: 8px;
     opacity: 1;
-    transform: translateY(0);
   }
   to {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
     opacity: 0;
-    transform: translateY(-100%);
   }
 }
 
@@ -333,6 +344,7 @@ kbd {
 .error-banner.leaving,
 .info-banner.leaving {
   animation: banner-slide-out var(--transition-duration) ease-in forwards;
+  overflow: hidden;
 }
 
 /* ============================================================
