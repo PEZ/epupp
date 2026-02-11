@@ -605,7 +605,7 @@
            {:button/variant :danger
             :button/class "script-delete"
             :button/size :md
-            :button/icon icons/x
+            :button/icon icons/trash
             :button/title "Delete script"
             :button/on-click #(when (js/confirm "Delete this script?")
                                 (dispatch! [[:popup/ax.delete-script script-id]]))}
