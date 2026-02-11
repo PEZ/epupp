@@ -42,13 +42,14 @@
       :title "Close"}
      [icons/close {:size 14}]]]
    [:a.creator-menu-item {:href "https://github.com/PEZ" :target "_blank"}
-    [icons/github {:size 16}] [:span "@PEZ"]]
-   [:button.creator-menu-item
-    {:on-click on-sponsor-click}
-    [icons/heart {:size 14 :filled? sponsor-status
-                  :class (str "sponsor-heart-icon"
-                              (when sponsor-status " sponsor-heart-filled"))}]
-    [:span (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]
+    [icons/github {:size 16}] [:span "@PEZ"]
+    " "
+    [:button.creator-menu-item
+        {:on-click on-sponsor-click}
+        [icons/heart {:size 14 :filled? sponsor-status
+                      :class (str "sponsor-heart-icon"
+                                  (when sponsor-status " sponsor-heart-filled"))}]
+        [:span (if sponsor-status "Thank you for sponsoring!" "Please sponsor me")]]]
    [:a.creator-menu-item {:href "https://www.youtube.com/CalvaTV" :target "_blank"}
     [icons/youtube {:size 14}] [:span "CalvaTV"]]
    [:a.creator-menu-item {:href "https://www.linkedin.com/in/cospaia/" :target "_blank"}
