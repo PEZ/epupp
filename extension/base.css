@@ -69,11 +69,14 @@
 
 /* Header container */
 .app-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
+  background: var(--color-bg-base);
+  z-index: 100;
 }
 
 /* Header title */

@@ -240,8 +240,20 @@ kbd {
 }
 
 /* ============================================================
-   System Banners - FS sync feedback and notifications
+   System Banners
    ============================================================ */
+
+/* System banners slide in/out under page banners */
+.system-banners-container, .system-banner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Page banners stay on top of system banners */
+.page-banner {
+  position: relative;
+  z-index: 2;
+}
 
 .success-banner {
   padding: 8px 12px;
