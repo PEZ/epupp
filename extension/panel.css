@@ -160,7 +160,7 @@ body {
   line-height: 1.5;
   max-height: 500px;
   opacity: 1;
-  overflow: hidden;
+  overflow: auto;
   transition: max-height var(--transition-duration) ease-out,
               opacity var(--transition-duration) ease-out,
               padding var(--transition-duration) ease-out;

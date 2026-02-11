@@ -349,9 +349,11 @@
 (defn results-area [{:panel/keys [results]}]
   [:div.results-area
    (if (seq results)
-     (for [[idx result] (map-indexed vector results)]
-       ^{:key idx}
-       [result-item result])
+     ;; Index first, then reverse to keep stable keys as new results are added
+     (let [indexed (map-indexed vector results)]
+       (for [[idx result] (reverse indexed)]
+         ^{:key idx}
+         [result-item result]))
      [view-elements/empty-state {:empty/class "empty-results"}
       [:div.empty-results-text
        "Evaluate ClojureScript code above to see results here"]
