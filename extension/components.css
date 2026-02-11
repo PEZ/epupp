@@ -300,6 +300,21 @@ kbd {
   color: var(--color-text-info-banner-strong);
 }
 
+.warning-banner,
+.page-banner.warning-banner {
+  padding: 8px 12px;
+  background: var(--color-bg-warning-banner);
+  border-bottom: 1px solid var(--color-border-warning-banner);
+  color: var(--color-text-warning-banner);
+  font-size: 12px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.warning-banner strong {
+  color: var(--color-text-warning-banner-strong);
+}
+
 /* System banner favicon */
 .system-banner-favicon {
   width: 16px;
