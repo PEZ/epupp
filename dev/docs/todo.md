@@ -85,3 +85,4 @@
 * [ ] Make an extension page/url for fs sync
 * [ ] Make Epupp css fetchable from epupp scripts
 * [ ] Add some basic Epupp-styled UI widgets
+* [ ] Custom script icon in the manifest
