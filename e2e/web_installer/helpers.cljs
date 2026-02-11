@@ -130,7 +130,7 @@
 (defn ^:async navigate-to-mock-gist-non-whitelisted
   "Navigate to mock gist page via non-whitelisted hostname.
    Uses 'not-whitelisted.test' which resolves to 127.0.0.1 via /etc/hosts
-   (configured by Dockerfile entrypoint for Docker, bb task for native runs)."
+   (configured in Dockerfile.e2e entrypoint for Docker and in CI workflow)."
   [context]
   (let [page (js-await (.newPage context))]
     (js-await (.goto page "http://not-whitelisted.test:18080/mock-gist.html" #js {:timeout 5000}))

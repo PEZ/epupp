@@ -176,6 +176,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
+      - name: Add test hostname to /etc/hosts
+        run: echo "127.0.0.1 not-whitelisted.test" | sudo tee -a /etc/hosts
+
       - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/6)
         run: xvfb-run --auto-servernum bb test:e2e:ci --shard=${{ matrix.shard }}/6
 
