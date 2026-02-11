@@ -274,6 +274,7 @@
 
 .creator-menu .creator-menu-item span {
   color: var(--clojure-blue);
+  white-space: nowrap;
 }
 
 .creator-menu .creator-menu-item .sponsor-heart-icon {
