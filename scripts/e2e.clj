@@ -29,6 +29,26 @@
 (def ^:private e2e-output-file (str e2e-tmp-dir "/e2e-output.txt"))
 (def ^:private e2e-nrepl-log (str e2e-tmp-dir "/e2e-nrepl.log"))
 
+;; Test hostname for non-whitelisted domain tests
+(def ^:private test-hostname "not-whitelisted.test")
+
+(defn- ensure-test-hostname!
+  "Ensure the test hostname resolves to localhost.
+   Adds entry to /etc/hosts if needed (requires sudo outside Docker)."
+  []
+  (let [can-resolve? (try
+                       (java.net.InetAddress/getByName test-hostname)
+                       true
+                       (catch Exception _ false))]
+    (when-not can-resolve?
+      (println (str "Adding " test-hostname " to /etc/hosts..."))
+      (let [result (p/shell {:continue true}
+                            "sudo" "tee" "-a" "/etc/hosts"
+                            :in (str "127.0.0.1 " test-hostname "\n"))]
+        (when-not (zero? (:exit result))
+          (println (str "Warning: Could not add " test-hostname " to /etc/hosts. "
+                        "Some tests may fail.")))))))
+
 (defn- ensure-tmp-dir!
   "Ensure the .tmp directory exists for test output files."
   []
@@ -108,6 +128,7 @@
    Subprocess output goes to .tmp/ for clean console output.
    Exits with Playwright's exit code without Babashka stack trace noise."
   [args]
+  (ensure-test-hostname!)
   (println (str "nREPL log: " e2e-nrepl-log))
   (with-test-server
     #(with-browser-nrepls
