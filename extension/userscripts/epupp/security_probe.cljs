@@ -52,13 +52,13 @@
 
 (defn- payload-for [msg-type]
   (case msg-type
-    "save-script"     #js {:code "(ns probe-temp)" :name "epupp_security_probe_TEMP.cljs"}
+    "save-script"     #js {:code "(ns probe-fs-sync-temp)" :name "probe_fs_sync_temp.cljs"}
     "get-script"      #js {:name "epupp/security_probe.cljs"}
     "rename-script"   #js {:oldName "nonexistent_xyz.cljs" :newName "nonexistent_abc.cljs"}
     "delete-script"   #js {:name "nonexistent_xyz.cljs"}
-    "load-manifest"   #js {:code "{:epupp/script-name \"probe_temp.cljs\"}"}
+    "load-manifest"   #js {:code "{:epupp/script-name \"probe_webinstall_manifest_temp.cljs\"}"}
     "check-script-exists" #js {:name "nonexistent_xyz.cljs" :code "(ns test)"}
-    "web-installer-save-script" #js {:code "{:epupp/script-name \"probe_temp.cljs\"}\n(ns probe-temp)"}
+    "web-installer-save-script" #js {:code "{:epupp/script-name \"probe_webinstall_temp.cljs\"}\n(ns probe-webinstall-temp)"}
     #js {}))
 
 ;; ============================================================

@@ -5,7 +5,7 @@
    and sources."
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              find-tab-id send-runtime-message
+                              find-tab-id
                               wait-for-popup-ready assert-no-errors!
                               http-port]]))
 
@@ -84,6 +84,8 @@
             (assert-status! results "epupp-page" "web-installer-save-script" "responded")
 
             ;; Response payload assertions for auth-gated messages
+            ;; save-script requires FS sync (not enabled in test) - should be rejected
+            (assert-response! results "epupp-page" "save-script" false "FS")
             ;; Test page runs on localhost (whitelisted), so web-installer-save-script succeeds
             (assert-response! results "epupp-page" "web-installer-save-script" true nil)
 
