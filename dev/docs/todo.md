@@ -82,9 +82,9 @@
 * [ ] Add Joyride mention in README
 * [ ] Make the banner truly system wide and shared.
 * [ ] Enable scripts to define popup UI, at least for the script entry
+* [ ] Make Epupp css fetchable from epupp scripts
 * [ ] Add some basic Epupp-styled UI widgets for userscripts
 * [ ] Make an extension page/url for fs sync
-* [ ] Make Epupp css fetchable from epupp scripts
 * [ ] Custom script icon in the manifest
 * [ ] Popup: Structure scripts:
   - Manual scripts
