@@ -279,7 +279,7 @@
         total-flaky (reduce + (map :flaky results))
         total-files (reduce + (map :files results))]
     {:files total-files
-     :total (+ total-passed total-failed total-skipped)
+     :total (+ total-passed total-failed)
      :passed total-passed
      :failed total-failed
      :skipped total-skipped
@@ -292,15 +292,15 @@
   [{:keys [files total passed failed skipped flaky]} & {:keys [failed-override]}]
   (let [actual-failed (or failed-override failed)]
     (println)
-    (println (format "Files:   %d" files))
-    (println (format "Total:   %d tests" total))
-    (println (format "Passed:  %d" passed))
-    (println (format "Skipped: %d" skipped))
-    (println (format "Flaky:   %d" flaky))
-    (println (format "Failed:  %d%s" actual-failed
+    (println (format "Files:    %3d" files))
+    (println (format "Total:    %3d tests" total))
+    (println (format "  Passed: %3d" passed))
+    (println (format "  Failed: %3d%s" actual-failed
                      (if (and failed-override (not= failed-override failed))
                        (str " (" failed-override " shard(s) failed)")
                        "")))
+    (println (format "Flaky:    %3d" flaky))
+    (println (format "Skipped:  %3d" skipped))
     (if (zero? actual-failed)
       (println "Status:  ALL TESTS PASSED")
       (println "Status:  SOME TESTS FAILED"))))
@@ -446,7 +446,9 @@
     ;; Write combined shard output for tool consumption
     (spit e2e-output-file (str/join "\n" (map slurp log-files)))
 
-    (println "Full test output:" e2e-output-file "Shards:" shard-dir "Previous runs:" e2e-history-dir)
+    (println "Full test output:" e2e-output-file)
+    (println "  Shards:" shard-dir)
+    (println "  Previous runs:" e2e-history-dir)
     (if (seq failed) 1 0)))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
