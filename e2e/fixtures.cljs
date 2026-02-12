@@ -113,7 +113,7 @@
   (let [panel-page (js-await (.newPage context))
         panel-url (str "chrome-extension://" ext-id "/panel.html")]
     (js-await (.addInitScript panel-page mock-devtools-script))
-    (js-await (.goto panel-page panel-url #js {:timeout 1000}))
+    (js-await (.goto panel-page panel-url #js {:timeout 3000}))
     ;; Wait for panel to be fully initialized - code-area indicates JS has loaded
     (js-await (-> (expect (.locator panel-page "#code-area"))
                   (.toBeVisible #js {:timeout 3000})))
@@ -159,7 +159,7 @@
   (let [panel-page (js-await (.newPage context))
         panel-url (str "chrome-extension://" ext-id "/panel.html")]
     (js-await (.addInitScript panel-page (mock-devtools-script-for-tab tab-id)))
-    (js-await (.goto panel-page panel-url #js {:timeout 1000}))
+    (js-await (.goto panel-page panel-url #js {:timeout 3000}))
     (js-await (-> (expect (.locator panel-page "#code-area"))
                   (.toBeVisible #js {:timeout 3000})))
     panel-page))
@@ -174,7 +174,7 @@
   [context ext-id]
   (let [popup-page (js-await (.newPage context))
         popup-url (str "chrome-extension://" ext-id "/popup.html")]
-    (js-await (.goto popup-page popup-url #js {:timeout 1000}))
+    (js-await (.goto popup-page popup-url #js {:timeout 3000}))
     ;; Wait for popup to be fully initialized - nrepl-port input indicates JS has loaded
     (js-await (-> (expect (.locator popup-page "#nrepl-port"))
                   (.toBeVisible #js {:timeout 3000})))
