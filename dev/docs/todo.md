@@ -86,3 +86,7 @@
 * [ ] Make Epupp css fetchable from epupp scripts
 * [ ] Add some basic Epupp-styled UI widgets
 * [ ] Custom script icon in the manifest
+* [ ] Popup: Structure scripts:
+  - Manual scripts
+  - Matching auto-run
+  - Non-matching auto-run
