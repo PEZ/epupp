@@ -487,45 +487,23 @@
    Options:
      --shards N   Number of parallel shards (default: 13)
      --serial     Run sequentially (very seldom needed)
-     --repeat N   Run tests N times without rebuilding between runs
      --history N  Number of past runs to keep in .tmp/e2e-history/ (default: 10)
 
    Use -- to separate bb options from Playwright options:
      bb test:e2e -- --grep \"popup\""
   [args]
-  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int :history :int}
-                                                  :alias {:s :serial :r :repeat}})
+  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :history :int}
+                                                  :alias {:s :serial}})
         args (into [(str "--retries=" default-retries)] args)
         serial? (:serial opts)
         n-shards (or (:shards opts) default-n-shards)
-        repeat-count (max 1 (or (:repeat opts) 1))
         history-count (or (:history opts) default-history-count)]
     (rotate-e2e-artifacts! history-count)
-    (if (= repeat-count 1)
-      ;; Single run - build and run with exit
-      (if serial?
-        (let [exit-code (run-e2e-serial! args {:build? true})]
-          (System/exit exit-code))
-        (let [exit-code (run-e2e-parallel! n-shards args {:build? true})]
-          (System/exit exit-code)))
-      ;; Multiple runs - build once, then loop without rebuilding
-      (do
-        (build-e2e!)
-        (loop [run 1
-               failures 0]
-          (println (str "Run " run "/" repeat-count))
-          (let [exit-code (if serial?
-                            (run-e2e-serial! args {:build? false})
-                            (run-e2e-parallel! n-shards args {:build? false}))]
-            (if (zero? exit-code)
-              (if (< run repeat-count)
-                (recur (inc run) failures)
-                (do
-                  (println (str "REPEAT RUNS DONE: " repeat-count "/" repeat-count " - 0 failures"))
-                  (System/exit 0)))
-              (let [new-failures (inc failures)]
-                (println (str "REPEAT RUNS DONE: " run "/" repeat-count " - " new-failures " failures"))
-                (System/exit exit-code)))))))))
+    (if serial?
+      (let [exit-code (run-e2e-serial! args {:build? true})]
+        (System/exit exit-code))
+      (let [exit-code (run-e2e-parallel! n-shards args {:build? true})]
+        (System/exit exit-code)))))
 
 (defn- extract-json-from-output
   "Extract JSON object from mixed output that may have log prefixes.

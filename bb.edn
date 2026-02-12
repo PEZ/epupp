@@ -92,7 +92,7 @@
   test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist). Pass extra args to Playwright."
                :task (e2e/run-e2e-tests! *command-line-args*)}
 
-  test:e2e {:doc "Run E2E tests in Docker. Parallel. --serial for serial, --shards N to customize, --repeat N to run tests N times without rebuilding between runs. Use -- to pass args to Playwright: bb test:e2e -- --grep 'popup'"
+  test:e2e {:doc "Run E2E tests in Docker. Parallel. --serial for serial, --shards N to customize. Use -- to pass args to Playwright: bb test:e2e -- --grep 'popup'"
             :task (e2e/run-e2e! *command-line-args*)}
 
   test:e2e:timing {:doc "Run E2E tests in Docker and print timing report sorted fastest-first. Tail for slowest tests."

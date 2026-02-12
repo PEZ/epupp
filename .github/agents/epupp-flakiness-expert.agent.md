@@ -106,7 +106,7 @@ Example: If a hypothesis involves Squint's keyword-as-string behavior affecting 
 
 ### 1. Observe - Understand the Situation
 
-1. **Ask `epupp-testrunner`** to run `bb test:e2e --repeat 5` to gather fresh data
+1. **Ask `epupp-testrunner`** to run `bb test:e2e -- --repeat-each 5` to gather fresh data
    - Testrunner will report flakes and you update tallies
    - This is a starting seeding point for your investigation
 2. **Read the tracking document** - Check Symptom Log and Experiments Log
@@ -145,7 +145,7 @@ Create a todo list with:
 
 **Ask `epupp-testrunner`** for:
 - All test runs (you never run tests directly)
-- When verifying after changes, ask for it to run `bb test:e2e --repeat 5` again
+- When verifying after changes, ask for it to run `bb test:e2e -- --repeat-each 5` again
 
 **Delegate to `epupp-e2e-expert`** for:
 - Analyzing test code for anti-patterns
