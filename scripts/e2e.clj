@@ -28,6 +28,8 @@
 (def ^:private e2e-tmp-dir ".tmp")
 (def ^:private e2e-output-file (str e2e-tmp-dir "/e2e-output.txt"))
 (def ^:private e2e-nrepl-log (str e2e-tmp-dir "/e2e-nrepl.log"))
+(def ^:private e2e-history-dir (str e2e-tmp-dir "/e2e-history"))
+(def ^:private default-history-count 10)
 
 (defn- ensure-tmp-dir!
   "Ensure the .tmp directory exists for test output files."
@@ -333,6 +335,37 @@
           (println err)))
       (System/exit 1))))
 
+(defn- rotate-e2e-artifacts!
+  "Rotate E2E output artifacts into .tmp/e2e-history/ before a new run.
+   Shifts existing backups (1 -> 2, 2 -> 3, etc.) and moves current
+   e2e-output.txt and e2e-shards/ into slot 1. Deletes anything beyond
+   history-count."
+  [history-count]
+  (let [output-file e2e-output-file
+        shard-dir (str e2e-tmp-dir "/e2e-shards")
+        has-output? (fs/exists? output-file)
+        has-shards? (fs/exists? shard-dir)]
+    (when (or has-output? has-shards?)
+      (fs/create-dirs e2e-history-dir)
+      ;; Delete oldest slot if at capacity
+      (let [oldest-output (str e2e-history-dir "/e2e-output-" history-count ".txt")
+            oldest-shards (str e2e-history-dir "/e2e-shards-" history-count)]
+        (when (fs/exists? oldest-output) (fs/delete oldest-output))
+        (when (fs/exists? oldest-shards) (fs/delete-tree oldest-shards)))
+      ;; Shift existing backups: N-1 -> N, ..., 2 -> 3, 1 -> 2
+      (doseq [i (range history-count 1 -1)]
+        (let [src-output (str e2e-history-dir "/e2e-output-" (dec i) ".txt")
+              dst-output (str e2e-history-dir "/e2e-output-" i ".txt")
+              src-shards (str e2e-history-dir "/e2e-shards-" (dec i))
+              dst-shards (str e2e-history-dir "/e2e-shards-" i)]
+          (when (fs/exists? src-output) (fs/move src-output dst-output))
+          (when (fs/exists? src-shards) (fs/move src-shards dst-shards))))
+      ;; Move current artifacts into slot 1
+      (when has-output?
+        (fs/move output-file (str e2e-history-dir "/e2e-output-1.txt")))
+      (when has-shards?
+        (fs/move shard-dir (str e2e-history-dir "/e2e-shards-1"))))))
+
 (defn- run-e2e-serial!
   "Run E2E tests sequentially in a single Docker container.
    Suppresses build output, shows test output, then prints summary."
@@ -452,19 +485,22 @@
   "Run E2E tests in Docker. Parallel by default, --serial to disable this (but why would you?).
 
    Options:
-     --shards N  Number of parallel shards (default: 13)
-     --serial    Run sequentially (very seldom needed)
-     --repeat N  Run tests N times without rebuilding between runs
+     --shards N   Number of parallel shards (default: 13)
+     --serial     Run sequentially (very seldom needed)
+     --repeat N   Run tests N times without rebuilding between runs
+     --history N  Number of past runs to keep in .tmp/e2e-history/ (default: 10)
 
    Use -- to separate bb options from Playwright options:
      bb test:e2e -- --grep \"popup\""
   [args]
-  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int}
+  (let [{:keys [args opts]} (cli/parse-args args {:coerce {:shards :int :repeat :int :history :int}
                                                   :alias {:s :serial :r :repeat}})
         args (into [(str "--retries=" default-retries)] args)
         serial? (:serial opts)
         n-shards (or (:shards opts) default-n-shards)
-        repeat-count (max 1 (or (:repeat opts) 1))]
+        repeat-count (max 1 (or (:repeat opts) 1))
+        history-count (or (:history opts) default-history-count)]
+    (rotate-e2e-artifacts! history-count)
     (if (= repeat-count 1)
       ;; Single run - build and run with exit
       (if serial?
