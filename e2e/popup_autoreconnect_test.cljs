@@ -18,10 +18,6 @@
       ;; Enable auto-connect via popup
       (let [popup (js-await (create-popup-page context ext-id))]
 
-        ;; Expand settings section
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
-
         ;; Enable auto-connect
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
           (js-await (.click auto-connect-checkbox))
@@ -85,8 +81,6 @@
         (js-await (wait-for-popup-ready popup))
 
         ;; Verify auto-reconnect is enabled by default
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
         (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
           (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
           (js/console.log "Auto-reconnect is enabled (default)"))
@@ -159,8 +153,6 @@
         (js-await (wait-for-popup-ready popup))
 
         ;; Verify auto-reconnect is enabled but auto-connect-all is OFF
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
         (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
           (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked))))
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
@@ -212,9 +204,7 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Expand settings and disable auto-reconnect
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
+        ;; Disable auto-reconnect
         (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
           ;; It's checked by default, uncheck it
           (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))

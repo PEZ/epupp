@@ -5,4 +5,10 @@
 
 {:dev true
  :test true  ; <-- Enables structured test logging to chrome.storage.local
+ :sectionsCollapsed {:repl-connect false
+                     :manual-scripts false
+                     :matching-scripts false
+                     :other-scripts false
+                     :settings false
+                     :dev-tools false}
  :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"}

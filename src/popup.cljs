@@ -15,19 +15,20 @@
             [clojure.string :as str]))
 
 ;; EXTENSION_CONFIG is injected by esbuild at bundle time from config/*.edn
-;; Shape: {"dev": boolean, "depsString": string}
+;; Shape: {"dev": boolean, "depsString": string, "sectionsCollapsed": {...}}
 (def ^:private config js/EXTENSION_CONFIG)
 
 (defonce !state
   (atom {:ports/nrepl "1339"
          :ports/ws "1340"
          :ui/reveal-highlight-script-name nil ; Temporary highlight when revealing a script
-         :ui/sections-collapsed {:repl-connect false      ; expanded by default
-                                 :matching-scripts false  ; expanded by default
-                                 :other-scripts false     ; expanded by default
-                                 :manual-scripts false    ; expanded by default
-                                 :settings true           ; collapsed by default
-                                 :dev-tools false}        ; expanded by default (dev only)
+         :ui/sections-collapsed (or (.-sectionsCollapsed config)
+                                    {:repl-connect false
+                                     :manual-scripts false
+                                     :matching-scripts false
+                                     :other-scripts true
+                                     :settings true
+                                     :dev-tools true})
          :browser/brave? false
          :scripts/list []         ; All userscripts (source of truth)
          :scripts/current-url nil ; Current tab URL for matching
@@ -58,7 +59,7 @@
                             :repl/connections {:id-fn :tab-id
                                                :shadow-path :ui/connections-shadow
                                                :on-change :ui/ax.sync-connections-shadow}
-}}))
+                            }}))
 
 
 

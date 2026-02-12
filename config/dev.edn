@@ -4,4 +4,10 @@
 ;; Changes here require a rebuild to take effect.
 
 {:dev true
+ :sectionsCollapsed {:repl-connect false
+                     :manual-scripts false
+                     :matching-scripts false
+                     :other-scripts true
+                     :settings true
+                     :dev-tools true}
  :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"1042578d5784db07b4d1b6d974f1db7cabf89e3f\"}}}"}

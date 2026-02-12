@@ -22,12 +22,6 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Expand settings section
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")
-              settings-content (.locator popup ".settings-content")]
-          (js-await (.click settings-header))
-          (js-await (-> (expect settings-content) (.toBeVisible))))
-
         ;; Auto-connect checkbox exists and is unchecked by default
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
           (js-await (-> (expect auto-connect-checkbox) (.toBeVisible)))
@@ -41,10 +35,6 @@
 
       ;; === PHASE 2: Enable setting and verify it persists ===
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; Expand settings
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
-
         ;; Enable auto-connect
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
           (js-await (.click auto-connect-checkbox))
@@ -54,10 +44,6 @@
 
       ;; === PHASE 3: Setting persists after reload ===
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; Expand settings
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
-
         ;; Verify setting is still enabled
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
           (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
@@ -86,10 +72,6 @@
         (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
-
-        ;; Expand settings section
-        (let [settings-header (.locator popup ".collapsible-section:has(.section-title:text(\"Settings\")) .section-header")]
-          (js-await (.click settings-header)))
 
         ;; Enable auto-connect
         (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
