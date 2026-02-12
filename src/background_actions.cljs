@@ -108,6 +108,18 @@
     :ws/ax.broadcast
     {:uf/fxs [[:ws/fx.broadcast-connections-changed! (:ws/connections state)]]}
 
+    :ws/ax.handle-connect
+    (let [[tab-id port] args]
+      (ws-actions/handle-connect state {:ws/tab-id tab-id :ws/port port}))
+
+    :ws/ax.handle-send
+    (let [[tab-id data] args]
+      (ws-actions/handle-send state {:ws/tab-id tab-id :ws/data data}))
+
+    :ws/ax.handle-close
+    (let [[tab-id] args]
+      (ws-actions/handle-close state {:ws/tab-id tab-id}))
+
     :init/ax.ensure-initialized
     (if-let [promise (:init/promise state)]
       ;; Already initializing/initialized - await existing promise

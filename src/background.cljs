@@ -338,15 +338,15 @@
           (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
 
 (defn- handle-ws-connect [message tab-id dispatch!]
-  (bg-ws/handle-ws-connect (:ws/connections @!state) dispatch! tab-id (.-port message))
+  (dispatch! [[:ws/ax.handle-connect tab-id (.-port message)]])
   false)
 
-(defn- handle-ws-send [message tab-id]
-  (bg-ws/handle-ws-send (:ws/connections @!state) tab-id (.-data message))
+(defn- handle-ws-send [message tab-id dispatch!]
+  (dispatch! [[:ws/ax.handle-send tab-id (.-data message)]])
   false)
 
 (defn- handle-ws-close [tab-id dispatch!]
-  (bg-ws/handle-ws-close (:ws/connections @!state) dispatch! tab-id)
+  (dispatch! [[:ws/ax.handle-close tab-id]])
   false)
 
 (defn- handle-list-scripts [message tab-id dispatch! send-response]
@@ -506,7 +506,7 @@
 
 (defn- handle-disconnect-tab [message dispatch!]
   (let [target-tab-id (.-tabId message)]
-    (bg-ws/close-ws! (:ws/connections @!state) dispatch! target-tab-id))
+    (dispatch! [[:ws/ax.handle-close target-tab-id]]))
   false)
 
 (defn- handle-e2e-find-tab-id [message dispatch! send-response]
@@ -674,7 +674,7 @@
                         msg-type (.-type message)]
                     (case msg-type
                       "ws-connect" (handle-ws-connect message tab-id dispatch!)
-                      "ws-send" (handle-ws-send message tab-id)
+                      "ws-send" (handle-ws-send message tab-id dispatch!)
                       "ws-close" (handle-ws-close tab-id dispatch!)
                       "ping" false
                       "list-scripts" (handle-list-scripts message tab-id dispatch! send-response)
@@ -856,6 +856,18 @@
     :ws/fx.broadcast-connections-changed!
     (let [[connections] args]
       (bg-ws/broadcast-connections-changed! connections))
+
+    :ws/fx.handle-connect
+    (let [[connections tab-id port] args]
+      (bg-ws/handle-ws-connect connections dispatch! tab-id port))
+
+    :ws/fx.handle-send
+    (let [[connections tab-id data] args]
+      (bg-ws/handle-ws-send connections tab-id data))
+
+    :ws/fx.handle-close
+    (let [[connections tab-id] args]
+      (bg-ws/handle-ws-close connections dispatch! tab-id))
 
     :icon/fx.update-toolbar!
     (let [[tab-id display-state] args]
