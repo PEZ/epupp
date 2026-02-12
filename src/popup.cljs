@@ -25,6 +25,7 @@
          :ui/sections-collapsed {:repl-connect false      ; expanded by default
                                  :matching-scripts false  ; expanded by default
                                  :other-scripts false     ; expanded by default
+                                 :manual-scripts false    ; expanded by default
                                  :settings true           ; collapsed by default
                                  :dev-tools false}        ; expanded by default (dev only)
          :browser/brave? false
@@ -695,11 +696,36 @@
 ;; Settings Components
 ;; ============================================================
 
+(defn manual-scripts-section [{:scripts/keys [current-url]
+                               :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
+  (let [manual-shadow (->> scripts-shadow
+                           (filterv (fn [{:keys [item]}]
+                                     (empty? (:script/match item))))
+                           (sort-by (fn [{:keys [item]}]
+                                      [(if (script-utils/builtin-script? item) 1 0)
+                                       (str/lower-case (or (:script/name item) ""))])))
+        modified-set (or recently-modified-scripts #{})]
+    [:div.script-list
+     (if (seq manual-shadow)
+       (for [{:keys [item] :ui/keys [entering? leaving?]} manual-shadow
+             :let [script item]]
+         ^{:key (:script/id script)}
+         [script-item script current-url
+          {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+           :recently-modified? (contains? modified-set (:script/name script))
+           :leaving? leaving?
+           :entering? entering?}])
+       [:div.no-scripts
+        "No manual scripts."
+        [:div.no-scripts-hint
+         "Scripts without auto-run patterns appear here."]])]))
+
 (defn other-scripts-section [{:scripts/keys [current-url]
                               :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
-  (let [;; Filter and sort shadow items by NOT matching URL
-        other-shadow (->> scripts-shadow
-                          (filterv #(not (script-utils/get-matching-pattern current-url (:item %))))
+  (let [other-shadow (->> scripts-shadow
+                          (filterv (fn [{:keys [item]}]
+                                    (and (seq (:script/match item))
+                                         (not (script-utils/get-matching-pattern current-url item)))))
                           (sort-by (fn [{:keys [item]}]
                                      [(if (script-utils/builtin-script? item) 1 0)
                                       (str/lower-case (or (:script/name item) ""))])))
@@ -715,9 +741,9 @@
            :leaving? leaving?
            :entering? entering?}])
        [:div.no-scripts
-        "No other scripts."
+        "No auto-run scripts for other pages."
         [:div.no-scripts-hint
-         "Scripts that won't auto-run for this page appear here."]])]))
+         "Scripts with match patterns that don't match this page appear here."]])]))
 
 (defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl debug-logging] :as state}]
   [:div.settings-content
@@ -910,8 +936,12 @@
                  :as state}]
   (let [matching-scripts (->> list
                               (filterv #(script-utils/get-matching-pattern current-url %)))
-        other-scripts (->> list
-                           (filterv #(not (script-utils/get-matching-pattern current-url %))))
+        other-autorun-scripts (->> list
+                                   (filterv (fn [s]
+                                              (and (seq (:script/match s))
+                                                   (not (script-utils/get-matching-pattern current-url s))))))
+        manual-scripts (->> list
+                            (filterv #(empty? (:script/match %))))
         settings-max-height 700]
     [:div
      [view-elements/app-header
@@ -938,11 +968,17 @@
                            :max-height (str (+ 50 (* 105 (max 1 (count matching-scripts)))) "px")}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
-                           :title "Other Scripts"
+                           :title "Other Auto-run Scripts"
                            :expanded? (not (:other-scripts sections-collapsed))
-                           :badge-count (count other-scripts)
-                           :max-height (str (+ 50 (* 105 (max 1 (count other-scripts)))) "px")}
+                           :badge-count (count other-autorun-scripts)
+                           :max-height (str (+ 50 (* 105 (max 1 (count other-autorun-scripts)))) "px")}
       [other-scripts-section state]]
+     [collapsible-section {:id :manual-scripts
+                           :title "Manual Scripts"
+                           :expanded? (not (:manual-scripts sections-collapsed))
+                           :badge-count (count manual-scripts)
+                           :max-height (str (+ 50 (* 105 (max 1 (count manual-scripts)))) "px")}
+      [manual-scripts-section state]]
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))
