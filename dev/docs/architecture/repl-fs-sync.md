@@ -190,7 +190,6 @@ panel so UI can show success and error banners.
 - [../architecture.md](../architecture.md)
 - [dev/docs/architecture/message-protocol.md](dev/docs/architecture/message-protocol.md)
 - [dev/docs/architecture/uniflow.md](dev/docs/architecture/uniflow.md)
-- [dev/docs/architecture/background-uniflow-implementation.md](dev/docs/architecture/background-uniflow-implementation.md)
 - [dev/docs/architecture/state-management.md](dev/docs/architecture/state-management.md)
 - [dev/docs/testing-e2e.md](dev/docs/testing-e2e.md)
 
@@ -218,7 +217,6 @@ panel so UI can show success and error banners.
 
 - [dev/docs/architecture/message-protocol.md](dev/docs/architecture/message-protocol.md)
 - [dev/docs/architecture/uniflow.md](dev/docs/architecture/uniflow.md)
-- [dev/docs/architecture/background-uniflow-implementation.md](dev/docs/architecture/background-uniflow-implementation.md)
 - [dev/docs/architecture/security.md](dev/docs/architecture/security.md)
 - [dev/docs/repl-fs-api-issues.md](dev/docs/repl-fs-api-issues.md)
 - [dev/docs/fs-write-enable-setting.md](dev/docs/fs-write-enable-setting.md)

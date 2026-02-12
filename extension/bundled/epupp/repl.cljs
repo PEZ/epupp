@@ -23,7 +23,7 @@
   "Load Epupp manifest. Injects required Scittle libraries.
    Returns a promise that resolves when libraries are loaded.
 
-   Example: (epupp.repl/manifest! {:epupp/require [\"scittle://reagent.js\"]})"
+   Example: (epupp.repl/manifest! {:epupp/inject [\"scittle://reagent.js\"]})"
   [m]
   (-> (send-and-receive "load-manifest" {:manifest m} "manifest-response")
       (.then (fn [msg]

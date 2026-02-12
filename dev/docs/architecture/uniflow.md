@@ -268,14 +268,19 @@ For testable code, separate pure action handlers into their own module (no brows
 
 This pattern keeps decision logic testable without mocking Chrome APIs.
 
-## Background FS Usage
+## Background Usage
 
-The background worker applies the same Uniflow pattern for REPL FS write
-operations. Message handlers in `background.cljs` gate requests and dispatch
-`[:fs/ax.* ...]` actions through `bg-fs-dispatch/dispatch-fs-action!`, which
-invokes the pure decision logic in `background-actions/handle-action` and
-executes `:uf/fxs` effects for persistence and responses. This is a scoped
-Uniflow usage focused on script mutation decisions.
+The background worker applies the same Uniflow pattern across several domains:
+- **FS mutations** - Script save, rename, delete, and validation via `[:fs/ax.* ...]` actions
+- **WebSocket lifecycle** - Connection tracking and state transitions
+- **Icon state** - Extension icon updates based on connection status
+- **Navigation** - Tab lifecycle and connection decisions (gather-then-decide)
+- **History** - Connected tab tracking
+
+Message handlers in `background.cljs` gate requests and dispatch actions
+through `bg-fs-dispatch/dispatch-fs-action!`, which invokes the pure decision
+logic in `background_actions/handle-action` and executes `:uf/fxs` effects for
+persistence and responses.
 
 ## Generic Handlers
 

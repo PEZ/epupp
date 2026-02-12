@@ -316,8 +316,8 @@
       false)))
 
 ;; Initialize - guard against multiple injections
-(when-not js/window.__browserJackInBridge
-  (set! js/window.__browserJackInBridge true)
+(when-not js/window.__browserJackInContentBridge
+  (set! js/window.__browserJackInContentBridge true)
   ;; Install error handlers for test mode (now that we have EXTENSION_CONFIG)
   (test-logger/install-global-error-handlers! "content-bridge" js/window)
   ;; Load debug logging setting

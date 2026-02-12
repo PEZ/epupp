@@ -146,8 +146,6 @@ two layers of protection:
 Both must pass for sponsor status to be persisted. The content bridge forwards
 blindly, which is correct - it is not a trust boundary.
 
-See [../archive/sponsor-heart-security.md](../archive/sponsor-heart-security.md)
-for the full vulnerability analysis and fix details.
 
 ## Key Files
 
@@ -165,4 +163,3 @@ for the full vulnerability analysis and fix details.
 | `src/background_utils.cljs` | `sponsor-url-matches?`, `sponsor-script-id` constant |
 | `extension/userscripts/epupp/sponsor.cljs` | Builtin userscript with detection logic, URL guard, and branded banner |
 | `extension/components.css` | `.sponsor-heart` button styles |
-| `dev/docs/archive/sponsor-heart-security.md` | Security vulnerability analysis and fix details |

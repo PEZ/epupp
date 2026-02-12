@@ -64,7 +64,7 @@ flowchart TB
 | Source file map + dependencies | [architecture/components.md](architecture/components.md) |
 | Message types + payloads | [architecture/message-protocol.md](architecture/message-protocol.md) |
 | REPL FS Sync architecture | [architecture/repl-fs-sync.md](architecture/repl-fs-sync.md) |
-| Connected REPL flow + `epupp/manifest!` | [architecture/connected-repl.md](architecture/connected-repl.md) |
+| Connected REPL flow + `epupp.repl/manifest!` | [architecture/connected-repl.md](architecture/connected-repl.md) |
 | State atoms + action/effect tables | [architecture/state-management.md](architecture/state-management.md) |
 | Uniflow event system | [architecture/uniflow.md](architecture/uniflow.md) |
 | REPL/userscripts/panel injection flows | [architecture/injection-flows.md](architecture/injection-flows.md) |

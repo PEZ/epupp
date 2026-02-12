@@ -11,6 +11,9 @@ This document is a map of where the architecture lives in code.
 | `background_actions/*.cljs` | Service Worker | Pure handlers for history, icon state, WS, REPL FS |
 | `background_utils.cljs` | Shared | Background helper functions (icon, connections) |
 | `bg_fs_dispatch.cljs` | Service Worker | FS Uniflow dispatcher and effect bridge |
+| `bg_inject.cljs` | Service Worker | Script injection orchestration (bridge, Scittle, userscripts) |
+| `bg_ws.cljs` | Service Worker | WebSocket lifecycle management per tab |
+| `bg_icon.cljs` | Service Worker | Extension icon state management |
 | `registration.cljs` | Service Worker | Content script registration for early-timing scripts |
 | `content_bridge.cljs` | Content Script (ISOLATED) | Message relay, DOM injection, keepalive, FS forwarder |
 | `userscript-loader.js` | Content Script (ISOLATED) | Early script injection at document-start/end |
@@ -93,6 +96,9 @@ graph LR
     %% Background dependencies
     background.cljs --> background_actions.cljs
     background.cljs --> background_utils.cljs
+    background.cljs --> bg_inject.cljs
+    background.cljs --> bg_ws.cljs
+    background.cljs --> bg_icon.cljs
     background.cljs --> registration.cljs
     background.cljs --> storage.cljs
     background.cljs --> url_matching.cljs

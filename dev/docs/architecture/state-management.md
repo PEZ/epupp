@@ -34,9 +34,9 @@ background uses the same pattern for increasingly more of its decisions. This
 keeps UI and write validation deterministic while allowing side effects to be
 minimal.
 
-See [uniflow.md](uniflow.md) for the event system and
-[background-uniflow-implementation.md](background-uniflow-implementation.md)
-for the background write pipeline.
+See [uniflow.md](uniflow.md) for the event system. The background uses the same
+pattern for FS write mutations, WS lifecycle, icon state, and navigation
+decisions via `background_actions.cljs` and its sub-modules.
 
 ## Design Rules
 

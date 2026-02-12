@@ -67,7 +67,7 @@ See [architecture/state-management.md](architecture/state-management.md) for com
 
 **`:script/run-at` values:**
 - `"document-start"` - Runs before page scripts (via `registerContentScripts` + loader)
-- `"document-end"` - Runs at DOMContentLoaded (via `registerContentScripts` + loader)
+- `"document-end"` - Runs early via `registerContentScripts` + loader (registered at `document_start` timing; scripts needing DOM-ready should handle that in code)
 - `"document-idle"` - Runs after page load (default, via `webNavigation.onCompleted`)
 
 **`:script/inject` values:**
@@ -114,20 +114,14 @@ Note: `grantedOrigins` storage key exists for potential future use but is curren
 **Script IDs are immutable.** Renaming a script updates `:script/name` but
 preserves `:script/id` for stable identity.
 
-**Namespace Reservation:** The `epupp/` prefix is reserved for system scripts. User scripts cannot begin with `epupp/` to prevent conflicts with built-in functionalit(defn- detect-textarea-elements
-  "Find generic textarea elements, return array of {:element :format :code-text}.
-   Excludes textareas inside .file containers with .file-actions (GitHub gist edit)."
-  []
-  (->> (.querySelectorAll js/document "textarea")
-       js/Array.from
-       (filter (fn [el]
-                 (let [file-div (.closest el ".file")]
-                   (or (not file-div)
-                       (not (.querySelector file-div ".file-actions"))))))
-       (map (fn [el]
-              {:element el
-               :format :textarea
-               :code-text (get-textarea-text el)})))) after `swap!`, write the whole blob back
+**Namespace Reservation:** The `epupp/` prefix is reserved for system scripts. User scripts cannot begin with `epupp/` to prevent conflicts with built-in functionality.
+
+### Storage Implementation
+
+Scripts are stored as a flat array under a single `scripts` key in `chrome.storage.local`:
+
+1. **Read all scripts** - `chrome.storage.local.get("scripts")`
+2. **Mutate and write back** - after `swap!`, write the whole blob back
 3. **Listen for external changes** - popup, DevTools panel, and background worker share storage; use `chrome.storage.onChanged` to keep atoms in sync
 
 ### Data Integrity Invariants

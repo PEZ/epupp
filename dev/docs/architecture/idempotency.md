@@ -60,7 +60,7 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 **Behavior**: Each URL is tracked. Duplicate injection requests return `{:success true :skipped true}` without adding another script tag.
 
-**Test coverage**: ✅ Explicit E2E test in `repl_ui_spec.cljs` - "epupp/manifest! is idempotent"
+**Test coverage**: ✅ Explicit E2E test in `repl_ui_spec.cljs` - "epupp.repl/manifest! is idempotent"
 
 ### Scittle Core (`ensure-scittle!`)
 
@@ -129,4 +129,3 @@ Add to `e2e/integration_test.cljs` or a new `e2e/idempotency_test.cljs`:
 ## Related
 
 - [../architecture.md](../architecture.md) - Component overview and injection flows
-- [repl-manifest-implementation.md](repl-manifest-implementation.md) - `epupp/manifest!` implementation details

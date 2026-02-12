@@ -100,7 +100,7 @@ The loader ([userscript-loader.js](../../../extension/userscript-loader.js)) run
 1. Guard against multiple injections (`window.__epuppLoaderInjected`)
 2. Read all scripts from `chrome.storage.local`
 3. Filter to enabled scripts with early timing matching current URL
-4. Inject `vendor/scittle.js` synchronously (blocks until loaded)
+4. Inject `vendor/scittle.js` asynchronously (waits for `onload` before proceeding)
 5. Inject each matching script as `<script type="application/x-scittle">`
 6. Inject `trigger-scittle.js` to evaluate all Scittle scripts
 
@@ -117,7 +117,7 @@ sequenceDiagram
     Chrome->>Loader: document-start
     Loader->>Loader: Read storage
     Loader->>Loader: Filter matching scripts
-    Loader->>Page: Inject scittle.js (sync)
+    Loader->>Page: Inject scittle.js (async, waits for onload)
     loop Each matching script
         Loader->>Page: Inject <script type="x-scittle">
     end

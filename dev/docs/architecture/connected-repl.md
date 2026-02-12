@@ -76,7 +76,7 @@ This enables loading Scittle ecosystem libraries on demand from the REPL:
 
 ```clojure
 ;; Load Replicant for reactive UI
-(epupp/manifest! {:epupp/inject ["scittle://replicant.js"]})
+(epupp.repl/manifest! {:epupp/inject ["scittle://replicant.js"]})
 
 ;; Now use it
 (require '[replicant.dom :as r])
@@ -93,7 +93,7 @@ sequenceDiagram
     participant CB as Content Bridge
     participant BG as Background
 
-    REPL->>Scittle: (epupp/manifest! {:epupp/require [...]})
+    REPL->>Scittle: (epupp.repl/manifest! {:epupp/inject [...]})
     Scittle->>CB: postMessage (load-manifest)
     CB->>BG: sendMessage (load-manifest)
     BG->>BG: collect-require-files

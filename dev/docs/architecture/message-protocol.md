@@ -2,6 +2,8 @@
 
 All cross-context communication uses JavaScript objects with a `type` field. Source identifiers distinguish origins in `window.postMessage` communication.
 
+**Note:** Some page messages are handled entirely by the content bridge without a background round-trip (marked "handled locally" below). These include icon URL lookup and logging.
+
 ## Page ↔ Content Bridge
 
 Via `window.postMessage` with source identifiers.
@@ -12,7 +14,7 @@ Via `window.postMessage` with source identifiers.
 |------|---------|---------|
 | `ws-connect` | `{port}` | Request WebSocket connection |
 | `ws-send` | `{data}` | Send data through WebSocket |
-| `load-manifest` | `{manifest}` | Request library injection via `epupp/manifest!` |
+| `load-manifest` | `{manifest}` | Request library injection via `epupp.repl/manifest!` |
 | `list-scripts` | `{lsHidden, requestId}` | List scripts (REPL FS read) |
 | `get-script` | `{name, requestId}` | Get script by name (REPL FS read) |
 | `save-script` | `{code, enabled, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Save script (REPL FS write) |
@@ -20,6 +22,9 @@ Via `window.postMessage` with source identifiers.
 | `web-installer-save-script` | `{code}` | Save script from whitelisted domain (web installer) |
 | `rename-script` | `{from, to, force, requestId}` | Rename script (REPL FS write) |
 | `delete-script` | `{name, force, requestId, bulk-id?, bulk-index?, bulk-count?}` | Delete script (REPL FS write) |
+| `get-sponsored-username` | - | Get configured sponsor username |
+| `get-icon-url` | `{requestId}` | Get extension icon URL (handled locally by bridge) |
+| `log` | `{level, subsystem, messages}` | Log from page context (handled locally by bridge) |
 
 **Page → Content Bridge** (`source: "epupp-userscript"`):
 
@@ -41,6 +46,7 @@ Via `window.postMessage` with source identifiers.
 | `save-script-response` | `{success, name?, error?, requestId}` | Response for `save-script` |
 | `rename-script-response` | `{success, error?, requestId}` | Response for `rename-script` |
 | `delete-script-response` | `{success, error?, requestId}` | Response for `delete-script` |
+| `get-icon-url-response` | `{url, requestId}` | Response for `get-icon-url` |
 
 ## Content Bridge ↔ Background
 
@@ -57,6 +63,7 @@ Via `chrome.runtime.sendMessage` / `chrome.tabs.sendMessage`.
 | `check-script-exists` | `{name, code}` | Check script existence (web installer) |
 | `web-installer-save-script` | `{code}` | Save script from whitelisted domain |
 | `sponsor-status` | `{sponsor}` | Sponsor detection (fire-and-forget via `send-message-safe!`) |
+| `get-sponsored-username` | - | Get configured sponsor username |
 
 **Background → Content Bridge**:
 
@@ -137,8 +144,8 @@ Via `chrome.runtime.sendMessage`.
 | `evaluate-script` | `{tabId, scriptId, code, inject}` | `{success, error?}` | Run a script in the current tab |
 | `panel-save-script` | `{script}` | `{success, error?, isUpdate?, id?}` | Save script from DevTools panel |
 | `panel-rename-script` | `{from, to}` | `{success, error?}` | Rename script from DevTools panel |
-| `toggle-fs-sync` | `{tabId, enabled}` | `{success, enabled, tabId}` | Enable/disable FS sync for a tab (single-tab: enabling revokes other tabs) |
-| `get-fs-sync-status` | `{tabId}` | `{enabled, tabId}` | Query FS sync status for a tab |
+| `toggle-fs-sync` | `{tabId, enabled}` | `{success}` | Enable/disable FS sync for a tab (single-tab: enabling revokes other tabs) |
+| `get-fs-sync-status` | `{tabId}` | `{fsSyncTabId}` | Query FS sync status (null when no tab has sync enabled) |
 
 ## Background → Popup/Panel
 
@@ -146,7 +153,7 @@ Via `chrome.runtime.sendMessage`.
 |------|---------|---------|
 | `connections-changed` | `{connections}` | Broadcast connection list updates |
 | `system-banner` | `{event-type, operation, script-name, error?, bulk-id?, bulk-index?, bulk-count?}` | System notification banner (FS operations, validation errors) |
-| `fs-sync-status-changed` | `{tabId, enabled}` | FS sync status changed for a tab |
+| `fs-sync-status-changed` | `{fsSyncTabId}` | FS sync status changed (null when disabled) |
 
 ## Related
 
