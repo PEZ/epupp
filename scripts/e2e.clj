@@ -243,14 +243,17 @@
         passed-pattern #"(?m)^\s*(\d+)\s+passed\s*(?:\([^)]+\))?\s*$"
         failed-pattern #"(?m)^\s*(\d+)\s+failed\s*$"
         skipped-pattern #"(?m)^\s*(\d+)\s+skipped\s*$"
+        flaky-pattern #"(?m)^\s*(\d+)\s+flaky\s*$"
         ;; Always check separate patterns (handles both combined and separate formats)
         passed-match (re-find passed-pattern clean-content)
         failed-match (re-find failed-pattern clean-content)
-        skipped-match (re-find skipped-pattern clean-content)]
+        skipped-match (re-find skipped-pattern clean-content)
+        flaky-match (re-find flaky-pattern clean-content)]
     (when passed-match
       {:passed (parse-long (nth passed-match 1))
        :failed (if failed-match (parse-long (nth failed-match 1)) 0)
-       :skipped (if skipped-match (parse-long (nth skipped-match 1)) 0)})))
+       :skipped (if skipped-match (parse-long (nth skipped-match 1)) 0)
+       :flaky (if flaky-match (parse-long (nth flaky-match 1)) 0)})))
 
 (defn- count-test-files-in-log
   "Count unique test files mentioned in Playwright output."
@@ -273,25 +276,27 @@
         total-passed (reduce + (map :passed results))
         total-failed (reduce + (map :failed results))
         total-skipped (reduce + (map :skipped results))
+        total-flaky (reduce + (map :flaky results))
         total-files (reduce + (map :files results))]
     {:files total-files
      :total (+ total-passed total-failed total-skipped)
      :passed total-passed
      :failed total-failed
-     :skipped total-skipped}))
+     :skipped total-skipped
+     :flaky total-flaky}))
 
 (defn- print-test-summary
   "Print a summary of test results.
    When failed-override is provided, uses it instead of the parsed :failed count.
    This handles cases where shards crash without producing a parseable summary."
-  [{:keys [files total passed failed skipped]} & {:keys [failed-override]}]
+  [{:keys [files total passed failed skipped flaky]} & {:keys [failed-override]}]
   (let [actual-failed (or failed-override failed)]
     (println)
     (println (format "Files:   %d" files))
     (println (format "Total:   %d tests" total))
     (println (format "Passed:  %d" passed))
-    (when (pos? skipped)
-      (println (format "Skipped: %d" skipped)))
+    (println (format "Skipped: %d" skipped))
+    (println (format "Flaky:   %d" flaky))
     (println (format "Failed:  %d%s" actual-failed
                      (if (and failed-override (not= failed-override failed))
                        (str " (" failed-override " shard(s) failed)")
@@ -441,7 +446,7 @@
     ;; Write combined shard output for tool consumption
     (spit e2e-output-file (str/join "\n" (map slurp log-files)))
 
-    (println "Full test output:" e2e-output-file "Shards:" shard-dir "Previous runs: " e2e-history-dir)
+    (println "Full test output:" e2e-output-file "Shards:" shard-dir "Previous runs:" e2e-history-dir)
     (if (seq failed) 1 0)))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
