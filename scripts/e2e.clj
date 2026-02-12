@@ -447,8 +447,8 @@
     (spit e2e-output-file (str/join "\n" (map slurp log-files)))
 
     (println "Full test output:" e2e-output-file)
-    (println "  Shards:" shard-dir)
-    (println "  Previous runs:" e2e-history-dir)
+    (println "Shards:" shard-dir)
+    (println "Previous runs:" e2e-history-dir)
     (if (seq failed) 1 0)))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
