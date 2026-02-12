@@ -539,27 +539,6 @@ Search for these patterns in Uniflow-managed files:
 - `swap!` or `reset!` on the state atom outside the event loop
 - Helpers that take no state parameters but internally deref atoms
 
-## Compliance Status
-
-The codebase has 100% Uniflow compliance. All `@!state` references outside the
-event loop (`event_handler/dispatch!`) and view delivery (`render!`) have been
-eliminated. There are zero direct `swap!` or `reset!` calls on the state atom
-outside the event loop. Guard functions, message handlers, and effect helpers
-all receive data as parameters rather than reading the atom.
-
-This was achieved by fixing 30 violations across all categories:
-
-- **A (Effects/helpers reading `@!state`)** - Refactored to receive data from
-  actions via `:uf/fxs` params
-- **B (Direct `swap!/reset!` outside event loop)** - Replaced with actions and
-  `dispatch!` calls
-- **C (Guard functions reading `@!state`)** - Converted to pure functions with
-  data parameters
-- **D (Message handlers reading `@!state`)** - Refactored to dispatch actions
-
-To maintain compliance, search for the patterns listed in "How to Spot
-Violations" above before merging new code.
-
 ## Current Limitations
 
 **Cross-subsystem calls not supported.** Each module has its own handlers; one subsystem cannot dispatch actions handled by another. The generic fallback (`:uf/unhandled-*`) provides shared utilities, but not cross-module communication.
