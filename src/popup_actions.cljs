@@ -346,7 +346,8 @@
     {:uf/fxs [[:popup/fx.load-dev-sponsor-username]]}
 
     :popup/ax.check-sponsor
-    {:uf/fxs [[:popup/fx.check-sponsor]]}
+    (let [username (or (:sponsor/sponsored-username state) "PEZ")]
+      {:uf/fxs [[:popup/fx.check-sponsor username]]})
 
     :popup/ax.load-sponsor-status
     {:uf/fxs [[:popup/fx.load-sponsor-status]]}

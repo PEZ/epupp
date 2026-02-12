@@ -26,6 +26,14 @@
   [!state tab-id]
   (compute-display-icon-state !state tab-id))
 
+(defn ^:async update-icon-with-state!
+  "Update the toolbar icon using pre-computed display state.
+   tab-id is included for logging/test event tracking."
+  [tab-id display-state]
+  (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state display-state}))
+  (js/chrome.action.setIcon
+   #js {:path (get-icon-paths display-state)}))
+
 (defn ^:async update-icon-now!
   "Update the toolbar icon based on global connection state.
    Takes the relevant tab-id to determine which tab to consider for display."
@@ -42,9 +50,9 @@
   (js-await (dispatch! [[:icon/ax.set-state tab-id state]])))
 
 (defn get-icon-state
-  "Get current icon state for a tab."
-  [!state tab-id]
-  (get-in @!state [:icon/states tab-id] :disconnected))
+  "Get current icon state for a tab from icon-states data."
+  [icon-states tab-id]
+  (get icon-states tab-id :disconnected))
 
 (defn clear-icon-state!
   "Clear icon state for a tab (when tab closes).
@@ -52,17 +60,6 @@
    the user switches to another tab."
   [dispatch! tab-id]
   (dispatch! [[:icon/ax.clear tab-id]]))
-
-(defn ^:async prune-icon-states-direct!
-  "Remove icon states for tabs that no longer exist by directly manipulating state.
-   Used during initialization when dispatch! is not yet available.
-   Modifies !state atom directly without going through action handlers."
-  [!state]
-  (let [tabs (js-await (js/chrome.tabs.query #js {}))
-        valid-ids (set (map #(.-id %) tabs))
-        current-states (:icon/states @!state)
-        pruned-states (select-keys current-states valid-ids)]
-    (swap! !state assoc :icon/states pruned-states)))
 
 (defn ^:async prune-icon-states!
   "Remove icon states for tabs that no longer exist.

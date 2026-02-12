@@ -760,12 +760,8 @@
       nil)))
 
 (defn check-version! []
-  (let [current-version (get-extension-version)
-        init-version (:panel/init-version @!state)]
-    (when (or (nil? current-version)  ; Context invalidated
-              (and init-version (not= current-version init-version)))
-      (log/debug "Panel" "Extension updated or context invalidated")
-      (dispatch! [[:editor/ax.set-needs-refresh]]))))
+  (let [current-version (get-extension-version)]
+    (dispatch! [[:panel/ax.check-version current-version]])))
 
 (defn- update-page-banner!
   "Update page banner based on URL scriptability."

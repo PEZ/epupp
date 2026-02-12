@@ -437,7 +437,7 @@
        #js {:type "disconnect-tab" :tabId numeric-tab-id}))
 
     :popup/fx.check-sponsor
-    (let [username (or (:sponsor/sponsored-username @!state) "PEZ")]
+    (let [[username] args]
       (js/chrome.tabs.create #js {:url (str "https://github.com/sponsors/" username) :active true}))
 
     :popup/fx.load-sponsor-status

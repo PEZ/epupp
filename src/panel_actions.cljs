@@ -410,4 +410,12 @@
     :editor/ax.load-sponsor-status
     {:uf/fxs [[:editor/fx.load-sponsor-status]]}
 
+    :panel/ax.check-version
+    (let [[current-version] args
+          init-version (:panel/init-version state)]
+      (when (or (nil? current-version)
+                (and init-version (not= current-version init-version)))
+        {:uf/fxs [[:log/fx.log :debug "Panel" "Extension updated or context invalidated"]]
+         :uf/dxs [[:editor/ax.set-needs-refresh]]}))
+
     :uf/unhandled-ax))

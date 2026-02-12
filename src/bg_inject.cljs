@@ -119,11 +119,8 @@
 
 (defn ^:async ensure-scittle!
   "Ensure Scittle is loaded in the page.
-   Parameters:
-   - !state: State atom for icon state checking
-   - dispatch!: Dispatch function for icon updates
-   - tab-id: Target tab ID"
-  [!state dispatch! tab-id]
+   icon-state: Current icon state for the tab (keyword, e.g. :connected, :disconnected)"
+  [dispatch! tab-id icon-state]
   (let [status (js-await (execute-in-page tab-id check-scittle-fn))]
     (when-not (and status (.-hasScittle status))
       (let [scittle-url (js/chrome.runtime.getURL "vendor/scittle.js")]
@@ -134,7 +131,7 @@
                    5000))
         ;; Update icon to show Scittle is injected (stays disconnected/white)
         ;; Only if not already connected (gold)
-        (when (not= :connected (bg-icon/get-icon-state !state tab-id))
+        (when (not= :connected icon-state)
           (js-await (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected)))
         ;; Log test event for E2E tests (after icon update so tests see stable state)
         (js-await (test-logger/log-event! "SCITTLE_LOADED" {:tab-id tab-id}))))

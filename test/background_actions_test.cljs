@@ -518,7 +518,7 @@
                  [:icon/ax.set-state 1 :connected])]
     (-> (expect (get-in result [:uf/db :icon/states 1]))
         (.toBe :connected))
-    (-> (expect (some #(= [:icon/fx.update-toolbar! 1] %) (:uf/fxs result)))
+    (-> (expect (some #(= [:icon/fx.update-toolbar! 1 :connected] %) (:uf/fxs result)))
         (.toBeTruthy))))
 
 (describe ":icon/ax.set-state"
@@ -534,7 +534,7 @@
     (-> (expect (count (:uf/fxs result)))
         (.toBe 1))
     (-> (expect (first (:uf/fxs result)))
-        (.toEqual [:icon/fx.update-toolbar! 1]))))
+        (.toEqual [:icon/fx.update-toolbar! 1 :disconnected]))))
 
 (describe ":icon/ax.clear"
           (fn []
@@ -627,15 +627,15 @@
 ;; Initialization Tests
 ;; ============================================================
 
-(defn- test-init-ensure-initialized-returns-existing-promise-without-effects []
-  (let [promise (js/Promise.resolve true)
-        state {:init/promise promise}
+(defn- test-init-ensure-initialized-returns-await-effect-when-promise-exists []
+  (let [existing-promise (js/Promise.resolve true)
+        state {:init/promise existing-promise}
         result (bg-actions/handle-action state uf-data
                  [:init/ax.ensure-initialized])]
-    (-> (expect (get-in result [:uf/db :init/promise]))
-        (.toBe promise))
-    (-> (expect (count (or (:uf/fxs result) [])))
-        (.toBe 0))))
+    (-> (expect (count (:uf/fxs result)))
+        (.toBe 1))
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toEqual :uf/await))))
 
 (defn- test-init-ensure-initialized-creates-promise-and-initialization-effect-when-missing []
   (let [result (bg-actions/handle-action {} uf-data
@@ -658,7 +658,7 @@
 
 (describe ":init/ax.ensure-initialized"
           (fn []
-            (test "returns existing promise without effects" test-init-ensure-initialized-returns-existing-promise-without-effects)
+            (test "returns await effect when promise already exists" test-init-ensure-initialized-returns-await-effect-when-promise-exists)
             (test "creates promise and initialization effect when missing" test-init-ensure-initialized-creates-promise-and-initialization-effect-when-missing)))
 
 (defn- test-init-clear-promise-clears-init-promise []

@@ -37,28 +37,14 @@
 
 (defn ^:async ensure-initialized!
   "Returns a promise that resolves when initialization is complete.
-   Safe to call multiple times - only initializes once per script lifetime."
+   Safe to call multiple times - only initializes once per script lifetime.
+   Works by dispatching an action that handles both 'already initialized'
+   and 'needs initialization' cases. dispatch! returns a promise via
+   the :uf/await effect chain."
   [dispatch!]
-  (if-let [p (:init/promise @!state)]
-    (js-await p)
-    (do
-      (dispatch! [[:init/ax.ensure-initialized]])
-      (if-let [p (:init/promise @!state)]
-        (js-await p)
-        (throw (js/Error. "Initialization promise missing"))))))
+  (js-await (dispatch! [[:init/ax.ensure-initialized]])))
 
-;; ============================================================
-;; Sponsor Check Tracking
-;; ============================================================
 
-(defn- set-sponsor-pending! [tab-id]
-  (swap! !state assoc-in [:sponsor/pending-checks tab-id] (js/Date.now)))
-
-(defn- consume-sponsor-pending! [tab-id]
-  (let [pending (get-in @!state [:sponsor/pending-checks tab-id])]
-    (swap! !state update :sponsor/pending-checks dissoc tab-id)
-    (when pending
-      (< (- (js/Date.now) pending) 30000))))
 
 ;; ============================================================
 ;; Auto-Injection: Run userscripts on page load
@@ -242,12 +228,12 @@
   "End-to-end connect flow for a specific tab.
    Ensures bridge + Scittle + scittle.nrepl and waits for connection.
    Also injects the Epupp API for manifest! support."
-  [dispatch! tab-id ws-port]
+  [dispatch! tab-id ws-port icon-state]
   (when-not (and tab-id ws-port)
     (throw (js/Error. "connect-tab: Missing tab-id or ws-port")))
   (let [status (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
     (js-await (ensure-bridge! tab-id status))
-    (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+    (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
     (let [status2 (js-await (bg-inject/execute-in-page tab-id check-status-fn))]
       (js-await (ensure-scittle-nrepl! tab-id ws-port status2)))
     ;; Inject Epupp API for manifest! support
@@ -280,13 +266,13 @@
           (resolve (if (some? value) value true))))))))
 
 (defn- fs-access-allowed?
-  "Check if FS access is allowed for a tab.
+  "Check if FS access is allowed for a tab. Pure function.
    Requires this tab to be THE FS sync tab AND
    an active WebSocket connection for the tab."
-  [tab-id]
+  [sync-tab-id connections tab-id]
   (and (some? tab-id)
-       (= tab-id (:fs/sync-tab-id @!state))
-       (some? (bg-ws/get-ws (:ws/connections @!state) tab-id))))
+       (= tab-id sync-tab-id)
+       (some? (bg-ws/get-ws connections tab-id))))
 
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
@@ -325,7 +311,7 @@
    Find matching scripts and execute them.
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs)."
-  [dispatch! tab-id url]
+  [dispatch! tab-id url icon-state]
   (let [all-scripts (url-matching/get-matching-scripts url)
         ;; Filter to only document-idle scripts (default for scripts without run-at)
         ;; Early-timing scripts (document-start, document-end) are handled by
@@ -343,9 +329,9 @@
       (log/debug "Background:Inject" "Executing" (count idle-scripts) "scripts")
       (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
       (when (some #(= bg-utils/sponsor-script-id (:script/id %)) idle-scripts)
-        (set-sponsor-pending! tab-id))
+        (dispatch! [[:sponsor/ax.set-pending tab-id]]))
       (try
-        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+        (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
         (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
         (catch :default err
           (log/error "Background:Inject" "Failed:" (.-message err))
@@ -364,7 +350,7 @@
   false)
 
 (defn- handle-list-scripts [message tab-id dispatch! send-response]
-  (if-not (fs-access-allowed? tab-id)
+  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
     (do
       (send-response #js {:success false
                           :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
@@ -380,7 +366,7 @@
            web-install? (and script-source
                              (or (.startsWith script-source "http://")
                                  (.startsWith script-source "https://")))]
-       (if (and (not web-install?) (not (fs-access-allowed? tab-id)))
+       (if (and (not web-install?) (not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)))
          (do
            (bg-icon/broadcast-system-banner! {:event-type "error"
                                               :operation "save"
@@ -453,7 +439,7 @@
   false)
 
 (defn- handle-rename-script [message tab-id send-response]
-  (if-not (fs-access-allowed? tab-id)
+  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
     (do
       (bg-icon/broadcast-system-banner! {:event-type "error"
                                          :operation "rename"
@@ -469,7 +455,7 @@
   true)
 
 (defn- handle-delete-script [message tab-id send-response]
-  (if-not (fs-access-allowed? tab-id)
+  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
     (do
       (bg-icon/broadcast-system-banner! {:event-type "error"
                                          :operation "delete"
@@ -489,7 +475,7 @@
   true)
 
 (defn- handle-get-script [message tab-id dispatch! send-response]
-  (if-not (fs-access-allowed? tab-id)
+  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
     (do
       (send-response #js {:success false
                           :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
@@ -602,22 +588,10 @@
     (dispatch! [[:msg/ax.evaluate-script send-response target-tab-id code libs (.-scriptId message)]])
     true))
 
-(defn- handle-sponsor-status [_message sender send-response]
-  ((^:async fn []
-     (let [tab-id (when (.-tab sender) (.. sender -tab -id))
-           tab-url (when (.-tab sender) (.. sender -tab -url))
-           pending? (when tab-id (consume-sponsor-pending! tab-id))
-           storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
-           username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
-       (if (and pending?
-                (bg-utils/sponsor-url-matches? tab-url username))
-         (do (swap! storage/!db assoc
-                    :sponsor/status true
-                    :sponsor/checked-at (js/Date.now))
-             (js-await (storage/persist!))
-             (send-response #js {:success true}))
-         (send-response #js {:success false
-                             :error (if pending? "URL mismatch" "No pending sponsor check")})))))
+(defn- handle-sponsor-status [_message sender dispatch! send-response]
+  (let [tab-id (when (.-tab sender) (.. sender -tab -id))
+        tab-url (when (.-tab sender) (.. sender -tab -url))]
+    (dispatch! [[:sponsor/ax.consume-pending tab-id tab-url send-response]]))
   true)
 
 
@@ -758,7 +732,7 @@
                       "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
                       "inject-libs" (handle-inject-libs message dispatch! send-response)
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)
-                      "sponsor-status" (handle-sponsor-status message sender send-response)
+                      "sponsor-status" (handle-sponsor-status message sender dispatch! send-response)
                       "get-sponsored-username" (handle-get-sponsored-username message send-response)
                       (handle-unknown-message msg-type))))))
 
@@ -771,8 +745,7 @@
   (test-logger/install-global-error-handlers! "background" js/self)
 
   ;; Prune stale icon states from previous session on service worker wake
-  ;; This happens after dispatch! is defined so it can use the action system
-  (js-await (bg-icon/prune-icon-states-direct! !state))
+  (js-await (bg-icon/prune-icon-states! dispatch!))
 
   ;; ============================================================
   ;; Message Handlers
@@ -881,11 +854,16 @@
 (defn ^:async perform-effect! [dispatch! [effect & args]]
   (case effect
     :ws/fx.broadcast-connections-changed!
-    (bg-ws/broadcast-connections-changed! (:ws/connections @!state))
+    (let [[connections] args]
+      (bg-ws/broadcast-connections-changed! connections))
 
     :icon/fx.update-toolbar!
-    (let [[tab-id] args]
-      (js-await (bg-icon/update-icon-now! !state tab-id)))
+    (let [[tab-id display-state] args]
+      (js-await (bg-icon/update-icon-with-state! tab-id display-state)))
+
+    :init/fx.await-promise
+    (let [[promise] args]
+      (js-await promise))
 
     :init/fx.initialize
     (let [[resolve reject] args]
@@ -913,9 +891,9 @@
              (reject err))))))
 
     :repl/fx.connect-tab
-    (let [[tab-id ws-port] args]
+    (let [[tab-id ws-port icon-state] args]
       (try
-        (js-await (connect-tab! dispatch! tab-id ws-port))
+        (js-await (connect-tab! dispatch! tab-id ws-port icon-state))
         {:success true}
         (catch :default err
           {:success false :error (.-message err)})))
@@ -929,21 +907,21 @@
           {:success false :error (.-message err)})))
 
     :msg/fx.ensure-scittle
-    (let [[send-response tab-id] args]
+    (let [[send-response tab-id icon-state] args]
       ((^:async fn []
          (try
-           (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+           (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
            (dispatch! [[:msg/ax.ensure-scittle-result send-response {:ok? true}]])
            (catch :default err
              (dispatch! [[:msg/ax.ensure-scittle-result send-response {:ok? false
                                                                       :error (.-message err)}]]))))))
 
     :script/fx.evaluate
-    (let [[tab-id script] args]
+    (let [[tab-id script icon-state] args]
       (when (= bg-utils/sponsor-script-id (:script/id script))
-        (set-sponsor-pending! tab-id))
+        (dispatch! [[:sponsor/ax.set-pending tab-id]]))
       (try
-        (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
+        (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
         (js-await (bg-inject/execute-scripts! tab-id [script]))
         {:success true}
         (catch :default err
@@ -978,8 +956,7 @@
                                                           :script script}]]))
 
     :msg/fx.get-connections
-    (let [[send-response] args
-          connections (:ws/connections @!state)
+    (let [[send-response connections] args
           display-list (bg-utils/connections->display-list connections)]
       (test-logger/log-event! "GET_CONNECTIONS_RESPONSE"
                               {:raw-connection-count (count (keys connections))
@@ -1024,12 +1001,6 @@
         (catch :default err
           {:success false :error (.-message err)})))
 
-    :msg/fx.execute-script-in-tab
-    (let [[tab-id script] args]
-      ((^:async fn []
-         (js-await (bg-inject/ensure-scittle! !state dispatch! tab-id))
-         (js-await (bg-inject/execute-scripts! tab-id [script])))))
-
     ;; Navigation effects for gather-then-decide pattern
 
     :icon/fx.update-icon-disconnected
@@ -1037,19 +1008,14 @@
       (bg-icon/update-icon-for-tab! dispatch! tab-id :disconnected))
 
     :nav/fx.gather-auto-connect-context
-    ;; Gather all context needed for auto-connect decision
-    ;; Returns context map for :nav/ax.decide-connection
-    (let [[tab-id url] args]
-      ;; Ensure initialization before accessing state/storage
+    (let [[tab-id url history] args]
       (js-await (ensure-initialized! dispatch!))
       (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
       (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))
             auto-reconnect? (js-await (get-auto-reconnect-setting))
             saved-port (js-await (get-saved-ws-port tab-id))
-            history (:connected-tabs/history @!state)
             in-history? (bg-utils/tab-in-history? history tab-id)
             history-port (when in-history? (bg-utils/get-history-port history tab-id))]
-        ;; Return context map for decision action
         {:nav/tab-id tab-id
          :nav/url url
          :nav/auto-connect-enabled? (boolean enabled?)
@@ -1060,12 +1026,12 @@
 
     :nav/fx.connect
     ;; Connect REPL to a tab
-    (let [[tab-id port] args]
+    (let [[tab-id port icon-state] args]
       (try
         (js-await (test-logger/log-event! "NAV_AUTO_CONNECT"
                                           {:tab-id tab-id
                                            :port port}))
-        (js-await (connect-tab! dispatch! tab-id port))
+        (js-await (connect-tab! dispatch! tab-id port icon-state))
         (log/info "Background:AutoConnect" "Successfully connected REPL to tab:" tab-id)
         {:success true}
         (catch :default err
@@ -1074,8 +1040,26 @@
 
     :nav/fx.process-navigation
     ;; Process userscripts for a navigation event
-    (let [[tab-id url] args]
-      (js-await (process-navigation! dispatch! tab-id url)))
+    (let [[tab-id url icon-state] args]
+      (js-await (process-navigation! dispatch! tab-id url icon-state)))
+
+    :sponsor/fx.handle-status-result
+    (let [[{:keys [pending? tab-url send-response]}] args]
+      ((^:async fn []
+         (try
+           (let [storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
+                 username (or (aget storage-result "sponsor/sponsored-username") "PEZ")]
+             (if (and pending?
+                      (bg-utils/sponsor-url-matches? tab-url username))
+               (do (swap! storage/!db assoc
+                          :sponsor/status true
+                          :sponsor/checked-at (js/Date.now))
+                   (js-await (storage/persist!))
+                   (send-response #js {:success true}))
+               (send-response #js {:success false
+                                   :error (if pending? "URL mismatch" "No pending sponsor check")})))
+           (catch :default err
+             (send-response #js {:success false :error (.-message err)}))))))
 
     :fs/fx.broadcast-sync-status!
     (let [[sync-tab-id] args]

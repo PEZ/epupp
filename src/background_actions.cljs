@@ -4,6 +4,7 @@
             [background-actions.icon-actions :as icon-actions]
             [background-actions.history-actions :as history-actions]
             [background-actions.ws-actions :as ws-actions]
+            [background-actions.sponsor-actions :as sponsor-actions]
             [background-utils :as bg-utils]
             [scittle-libs :as scittle-libs]
             [script-utils :as script-utils]))
@@ -92,12 +93,27 @@
        state
        {:ws/tab-id tab-id}))
 
+    :sponsor/ax.set-pending
+    (let [[tab-id] args]
+      (sponsor-actions/set-pending state {:sponsor/tab-id tab-id
+                                          :sponsor/now (:system/now uf-data)}))
+
+    :sponsor/ax.consume-pending
+    (let [[tab-id tab-url send-response] args]
+      (sponsor-actions/consume-pending state {:sponsor/tab-id tab-id
+                                              :sponsor/now (:system/now uf-data)
+                                              :sponsor/tab-url tab-url
+                                              :sponsor/send-response send-response}))
+
     :ws/ax.broadcast
-    {:uf/fxs [[:ws/fx.broadcast-connections-changed!]]}
+    {:uf/fxs [[:ws/fx.broadcast-connections-changed! (:ws/connections state)]]}
 
     :init/ax.ensure-initialized
-    (if (:init/promise state)
-      {:uf/db state}
+    (if-let [promise (:init/promise state)]
+      ;; Already initializing/initialized - await existing promise
+      {:uf/db state
+       :uf/fxs [[:uf/await :init/fx.await-promise promise]]}
+      ;; First call - create promise and initialize
       (let [resolve-fn (volatile! nil)
             reject-fn (volatile! nil)
             promise (js/Promise. (fn [resolve reject]
@@ -110,8 +126,9 @@
     {:uf/db (assoc state :init/promise nil)}
 
     :msg/ax.connect-tab
-    (let [[send-response tab-id ws-port] args]
-      {:uf/fxs [[:uf/await :repl/fx.connect-tab tab-id ws-port]
+    (let [[send-response tab-id ws-port] args
+          icon-state (get-in state [:icon/states tab-id] :disconnected)]
+      {:uf/fxs [[:uf/await :repl/fx.connect-tab tab-id ws-port icon-state]
                 [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :msg/ax.check-status
@@ -120,8 +137,9 @@
                 [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :msg/ax.ensure-scittle
-    (let [[send-response tab-id] args]
-      {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id]]})
+    (let [[send-response tab-id] args
+          icon-state (get-in state [:icon/states tab-id] :disconnected)]
+      {:uf/fxs [[:msg/fx.ensure-scittle send-response tab-id icon-state]]})
 
     :msg/ax.ensure-scittle-result
     (let [[send-response {:keys [ok? error]}] args
@@ -131,11 +149,12 @@
 
     :msg/ax.evaluate-script
     (let [[send-response tab-id code libs script-id] args
+          icon-state (get-in state [:icon/states tab-id] :disconnected)
           script (cond-> {:script/id script-id
                           :script/name "popup-eval"
                           :script/code code}
                    libs (assoc :script/inject libs))]
-      {:uf/fxs [[:uf/await :script/fx.evaluate tab-id script]
+      {:uf/fxs [[:uf/await :script/fx.evaluate tab-id script icon-state]
                 [:msg/fx.send-response send-response :uf/prev-result]]})
 
     :msg/ax.e2e-get-storage
@@ -198,8 +217,9 @@
         {:uf/fxs [[:msg/fx.send-response send-response {:success true}]]}))
 
     :msg/ax.get-connections
-    (let [[send-response] args]
-      {:uf/fxs [[:msg/fx.get-connections send-response]]})
+    (let [[send-response] args
+          connections (:ws/connections state)]
+      {:uf/fxs [[:msg/fx.get-connections send-response connections]]})
 
     :msg/ax.e2e-find-tab-id
     (let [[send-response url-pattern] args]
@@ -216,17 +236,18 @@
     :nav/ax.decide-connection
     (let [[context] args
           {:nav/keys [tab-id url]} context
+          icon-state (get-in state [:icon/states tab-id] :disconnected)
           {:keys [decision port]} (bg-utils/decide-auto-connection context)
           connect-fxs (when (not= decision "none")
-                        [[:uf/await :nav/fx.connect tab-id port]])]
+                        [[:uf/await :nav/fx.connect tab-id port icon-state]])]
       {:uf/fxs (vec (concat connect-fxs
-                            [[:nav/fx.process-navigation tab-id url]]))})
+                            [[:nav/fx.process-navigation tab-id url icon-state]]))})
 
     :nav/ax.handle-navigation
-    ;; Trigger action: gathers context via effect, then defers to decision action
-    (let [[tab-id url] args]
+    (let [[tab-id url] args
+          history (:connected-tabs/history state)]
       {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
-                [:uf/await :nav/fx.gather-auto-connect-context tab-id url]]
+                [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
        :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
 
     :uf/unhandled-ax))
