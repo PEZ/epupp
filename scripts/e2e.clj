@@ -367,51 +367,15 @@
         (fs/move shard-dir (str e2e-history-dir "/e2e-shards-1"))))))
 
 (defn- run-e2e-serial!
-  "Run E2E tests sequentially in a single Docker container.
-   Suppresses build output, shows test output, then prints summary."
+  "Run E2E tests sequentially in a single Docker container."
   [extra-args {:keys [build?] :or {build? true}}]
-  ;; Build phase (if requested)
   (when build?
     (build-e2e!))
-
-  ;; Run tests - stream output in real-time, also capture for summary
-  (ensure-tmp-dir!)
-  (println "Running tests...")
+  (println "Running tests (serial)...")
   (when (seq extra-args)
     (println (str "  Extra Playwright args: " (str/join " " extra-args))))
-  (let [log-file e2e-output-file
-        ;; Use tee to both display output in real-time and capture to file
-        ;; pipefail ensures we get docker's exit code, not tee's (which always succeeds)
-        docker-cmd (str "docker run --rm epupp-e2e " (str/join " " extra-args))
-        tee-cmd (str "set -o pipefail; " docker-cmd " 2>&1 | tee " log-file)
-        result (p/shell {:continue true} "bash" "-c" tee-cmd)
-        log-content (slurp log-file)
-        parsed-summary (parse-playwright-summary log-content)
-        files (count-test-files-in-log log-content)
-        exit-code (:exit result)
-        ;; Build summary with safe defaults when parsing fails
-        summary (if parsed-summary
-                  (let [{:keys [passed failed skipped]} parsed-summary]
-                    (assoc parsed-summary
-                           :files files
-                           :total (+ passed failed (or skipped 0))))
-                  {:files files :total 0 :passed 0 :failed 0 :skipped 0})
-        ;; When parsing fails but exit is non-zero, report 1 failure
-        failed-override (when (and (nil? parsed-summary) (not (zero? exit-code))) 1)]
-    ;; Always print summary (matches parallel mode behavior)
-    (print-test-summary summary :failed-override failed-override)
-    (when (nil? parsed-summary)
-      (println "  (Warning: Could not parse Playwright summary from output)"))
-    (println (str "Full test output: " e2e-output-file))
-    (when (fs/exists? e2e-history-dir)
-      (println (str "Previous runs: " e2e-history-dir)))
-    (if (zero? exit-code)
-      (do
-        (println "All tests passed.")
-        0)
-      (do
-        (println "Some tests failed.")
-        exit-code))))
+  (let [result (apply p/shell {:continue true} "docker" "run" "--rm" "epupp-e2e" extra-args)]
+    (:exit result)))
 
 (defn- run-e2e-parallel!
   "Run E2E tests in parallel Docker containers using Playwright's native sharding."
