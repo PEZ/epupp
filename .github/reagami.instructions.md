@@ -11,25 +11,8 @@ Reagami is a minimal React-like UI library for Squint/ClojureScript, inspired by
 
 Key differences from Reagent:
 * No fragment `:<>` - use wrapping divs instead
-* No ratoms - use plain atoms with `add-watch` for reactivity
+* No ratoms - use Uniflow for state management
 * Components are plain functions returning hiccup vectors
-
-## State Management Pattern
-
-Use a single atom with `add-watch` for re-rendering:
-
-```clojure
-(defonce !state
-  (atom {:ui/status nil
-         :data/items []}))
-
-;; Re-render on any state change
-(add-watch !state ::render (fn [_ _ _ _] (render!)))
-
-(defn render! []
-  (r/render (js/document.getElementById "app")
-            [root-component @!state]))
-```
 
 ## Component Patterns
 

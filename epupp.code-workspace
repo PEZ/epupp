@@ -95,7 +95,9 @@
 			"bb": true
 		},
 		"files.exclude": {
-			"extension/**/*.mjs": true
+			".tmp": true,
+			"extension/**/*.mjs": true,
+			"extension/vendor": true
 		}
 	}
 }
