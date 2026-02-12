@@ -403,6 +403,8 @@
     (when (nil? parsed-summary)
       (println "  (Warning: Could not parse Playwright summary from output)"))
     (println (str "Full test output: " e2e-output-file))
+    (when (fs/exists? e2e-history-dir)
+      (println (str "Previous runs: " e2e-history-dir)))
     (if (zero? exit-code)
       (do
         (println "All tests passed.")
@@ -475,7 +477,7 @@
     ;; Write combined shard output for tool consumption
     (spit e2e-output-file (str/join "\n" (map slurp log-files)))
 
-    (println "Full test output:" e2e-output-file ", shards:" shard-dir)
+    (println "Full test output:" e2e-output-file "Shards:" shard-dir "Previous runs: " e2e-history-dir)
     (if (seq failed) 1 0)))
 
 ; Playwright's stupid sharding will make it vary a lot what n-shards is the best
