@@ -418,4 +418,71 @@
         {:uf/fxs [[:log/fx.log :debug "Panel" "Extension updated or context invalidated"]]
          :uf/dxs [[:editor/ax.set-needs-refresh]]}))
 
+    :panel/ax.handle-system-banner
+    (let [[{:keys [event-type operation script-name error unchanged
+                   from-name bulk-id bulk-count bulk-index]}] args
+          bulk-final? (and (some? bulk-count)
+                           (some? bulk-index)
+                           (= bulk-index (dec bulk-count)))
+          bulk-op? (and (= event-type "success")
+                        (some? bulk-count)
+                        (or (= operation "save")
+                            (= operation "delete")))
+          current-name (:panel/script-name state)
+          original-name (:panel/original-name state)
+          matches-name? (or (= script-name current-name)
+                            (= script-name original-name))
+          matches-from? (or (= from-name current-name)
+                            (= from-name original-name))
+          affects-current? (and (or (= event-type "success") (= event-type "info"))
+                                (or matches-name? matches-from?))
+          show-banner? (or (= event-type "error")
+                           (= event-type "info")
+                           (not bulk-op?)
+                           bulk-final?)
+          banner-msg (cond
+                       (= event-type "error")
+                       (str "FS sync error: " error)
+
+                       unchanged
+                       (str "Script \"" script-name "\" unchanged")
+
+                       (and bulk-op? bulk-final?)
+                       (str bulk-count (if (= bulk-count 1) " file " " files ")
+                            (if (= operation "delete") "deleted" "saved"))
+
+                       :else
+                       (str "Script \"" script-name "\" " operation "d"))
+          skip-banner? (and affects-current? (= operation "save"))
+          ;; Compute post-tracking bulk names
+          pre-bulk-names (get-in state [:panel/system-bulk-names bulk-id])
+          tracked-bulk-names (if (and bulk-id script-name)
+                               ((fnil conj []) pre-bulk-names script-name)
+                               pre-bulk-names)
+          ;; State update
+          new-state (cond-> state
+                      (some? bulk-id)
+                      (assoc-in [:panel/system-bulk-names bulk-id] tracked-bulk-names)
+                      (and bulk-id bulk-final?)
+                      (update :panel/system-bulk-names dissoc bulk-id))
+          ;; Effects for console logging
+          fxs (when (and show-banner? (not skip-banner?))
+                (if (and bulk-op? bulk-final? (seq tracked-bulk-names))
+                  [[:panel/fx.log-system-banner banner-msg tracked-bulk-names]]
+                  [[:panel/fx.log-system-banner banner-msg nil]]))
+          ;; Deferred dispatches
+          dxs (cond-> []
+                ;; Show banner (except panel's own saves)
+                (and show-banner? (not skip-banner?))
+                (conj [:editor/ax.show-system-banner event-type banner-msg])
+                ;; Reload or clear editor when current script was modified
+                (and affects-current? (= operation "delete"))
+                (conj [:editor/ax.new-script])
+                (and affects-current? (not= operation "delete"))
+                (conj [:editor/ax.reload-script-from-storage script-name]))]
+      (cond-> {}
+        (not= state new-state) (assoc :uf/db new-state)
+        (seq fxs) (assoc :uf/fxs fxs)
+        (seq dxs) (assoc :uf/dxs dxs)))
+
     :uf/unhandled-ax))

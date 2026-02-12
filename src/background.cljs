@@ -542,21 +542,20 @@
                                                              (send-response #js {:success true :tabId tab-id})))))))
     true))
 
-(defn- handle-e2e-update-icon [message send-response]
+(defn- handle-e2e-update-icon [message dispatch! send-response]
   (let [tab-id (.-tabId message)]
     ((^:async fn []
        (try
-         (js-await (bg-icon/update-icon-now! !state tab-id))
+         (js-await (dispatch! [[:icon/ax.refresh-toolbar tab-id]]))
          (send-response #js {:success true :tabId tab-id})
          (catch :default err
            (send-response #js {:success false :error (.-message err)})))))
     true))
 
-(defn- handle-e2e-get-icon-display-state [message send-response]
-  (let [tab-id (.-tabId message)
-        state (bg-icon/get-display-icon-state !state tab-id)]
-    (send-response #js {:success true :state state})
-    false))
+(defn- handle-e2e-get-icon-display-state [message dispatch! send-response]
+  (let [tab-id (.-tabId message)]
+    (dispatch! [[:msg/ax.e2e-get-icon-display-state send-response tab-id]])
+    true))
 
 (defn- handle-e2e-ensure-builtin [dispatch! send-response]
   ((^:async fn []
@@ -718,11 +717,11 @@
                                            (do (send-response #js {:success false :error "Not available"})
                                                false))
                       "e2e/update-icon" (if (.-dev config)
-                                          (handle-e2e-update-icon message send-response)
+                                          (handle-e2e-update-icon message dispatch! send-response)
                                           (do (send-response #js {:success false :error "Not available"})
                                               false))
                       "e2e/get-icon-display-state" (if (.-dev config)
-                                                     (handle-e2e-get-icon-display-state message send-response)
+                                                     (handle-e2e-get-icon-display-state message dispatch! send-response)
                                                      (do (send-response #js {:success false :error "Not available"})
                                                          false))
                       "e2e/ensure-builtin" (if (.-dev config)
@@ -757,39 +756,27 @@
   (.addListener js/chrome.tabs.onRemoved
                 (fn [tab-id _remove-info]
                   (log/debug "Background" "Tab closed, cleaning up:" tab-id)
-                  (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
-                    (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))
-                  (bg-icon/clear-icon-state! dispatch! tab-id)
-                  ;; Remove from connection history - no point reconnecting a closed tab
-                  (dispatch! [[:history/ax.forget tab-id]])))
+                  (dispatch! [[:tab/ax.handle-removed tab-id]])))
 
   (.addListener js/chrome.tabs.onActivated
                 (fn [active-info]
                   (let [tab-id (.-tabId active-info)]
-                    ;; Query the tab to check if it's an extension page or empty/new tab
                     (-> (js/chrome.tabs.get tab-id)
                         (.then (fn [tab]
                                  (let [url (or (.-url tab) "")]
-                                   ;; Only update icon for real web pages
-                                   ;; Skip: extension pages, empty tabs, about:blank
                                    (when (and (seq url)
                                               (not (.startsWith url "chrome-extension://"))
                                               (not (.startsWith url "about:")))
-                                     (bg-icon/update-icon-now! !state tab-id)))))
-                        (.catch (fn [_err]
-                                  ;; Tab might be gone, ignore
-                                  nil))))))
+                                     (dispatch! [[:icon/ax.refresh-toolbar tab-id]])))))
+                        (.catch (fn [_] nil))))))
 
   ;; Close WebSocket when page starts navigating (reload, navigation to new URL)
   ;; This ensures the connection list updates immediately when a page reloads
   (.addListener js/chrome.webNavigation.onBeforeNavigate
                 (fn [details]
-                  ;; Only handle main frame navigation
                   (when (zero? (.-frameId details))
                     (let [tab-id (.-tabId details)]
-                      (when (bg-ws/get-ws (:ws/connections @!state) tab-id)
-                        (log/debug "Background:WS" "Closing connection for navigating tab:" tab-id)
-                        (bg-ws/close-ws! (:ws/connections @!state) dispatch! tab-id))))))
+                      (dispatch! [[:nav/ax.handle-before-navigate tab-id]])))))
 
   (.addListener js/chrome.webNavigation.onCompleted
                 (fn [details]

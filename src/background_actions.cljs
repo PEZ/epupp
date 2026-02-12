@@ -262,4 +262,30 @@
                 [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
        :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
 
+    :tab/ax.handle-removed
+    (let [[tab-id] args
+          connections (or (:ws/connections state) {})
+          has-ws? (some? (get connections tab-id))]
+      {:uf/fxs (when has-ws?
+                 [[:ws/fx.handle-close connections tab-id]])
+       :uf/dxs [[:icon/ax.clear tab-id]
+                [:history/ax.forget tab-id]]})
+
+    :nav/ax.handle-before-navigate
+    (let [[tab-id] args
+          connections (or (:ws/connections state) {})
+          has-ws? (some? (get connections tab-id))]
+      (when has-ws?
+        {:uf/fxs [[:ws/fx.handle-close connections tab-id]]}))
+
+    :icon/ax.refresh-toolbar
+    (let [[tab-id] args
+          display-state (bg-utils/compute-display-icon-state (:icon/states state) tab-id)]
+      {:uf/fxs [[:icon/fx.update-toolbar! tab-id display-state]]})
+
+    :msg/ax.e2e-get-icon-display-state
+    (let [[send-response tab-id] args
+          display-state (bg-utils/compute-display-icon-state (:icon/states state) tab-id)]
+      {:uf/fxs [[:msg/fx.send-response send-response {:success true :state display-state}]]})
+
     :uf/unhandled-ax))

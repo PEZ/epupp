@@ -355,4 +355,59 @@
     :popup/ax.check-page-scriptability
     {:uf/fxs [[:popup/fx.check-page-scriptability]]}
 
+    :popup/ax.handle-system-banner
+    (let [[{:keys [event-type operation script-name error unchanged
+                   bulk-id bulk-count bulk-index]}] args
+          bulk-final? (and (some? bulk-count)
+                           (some? bulk-index)
+                           (= bulk-index (dec bulk-count)))
+          bulk-op? (and (= event-type "success")
+                        (some? bulk-count)
+                        (or (= operation "save")
+                            (= operation "delete")))
+          show-banner? (or (= event-type "error")
+                           (= event-type "info")
+                           (not bulk-op?)
+                           bulk-final?)
+          banner-msg (cond
+                       (= event-type "error")
+                       (str "FS sync error: " error)
+
+                       unchanged
+                       (str "Script \"" script-name "\" unchanged")
+
+                       (and bulk-op? bulk-final?)
+                       (str bulk-count (if (= bulk-count 1) " file " " files ")
+                            (if (= operation "delete") "deleted" "saved"))
+
+                       :else
+                       (str "Script \"" script-name "\" " operation "d"))
+          ;; Compute post-tracking bulk names (simulates what track-bulk-name would do)
+          pre-bulk-names (get-in state [:ui/system-bulk-names bulk-id])
+          tracked-bulk-names (if (and bulk-id script-name)
+                               ((fnil conj []) pre-bulk-names script-name)
+                               pre-bulk-names)
+          ;; State update: track bulk name + clear bulk names if final
+          new-state (cond-> state
+                      (some? bulk-id)
+                      (assoc-in [:ui/system-bulk-names bulk-id] tracked-bulk-names)
+                      (and bulk-id bulk-final?)
+                      (update :ui/system-bulk-names dissoc bulk-id))
+          ;; Deferred dispatches for downstream actions
+          dxs (cond-> []
+                ;; Mark scripts modified for error/unchanged saves
+                (and (or (= event-type "error") unchanged)
+                     (= operation "save")
+                     script-name
+                     (not bulk-id))
+                (conj [:popup/ax.mark-scripts-modified [script-name]])
+                ;; Show banner
+                show-banner?
+                (conj [:popup/ax.show-system-banner event-type banner-msg
+                       {:bulk-op? bulk-op? :bulk-final? bulk-final?
+                        :bulk-names tracked-bulk-names}]))]
+      (cond-> {}
+        (not= state new-state) (assoc :uf/db new-state)
+        (seq dxs) (assoc :uf/dxs dxs)))
+
     :uf/unhandled-ax))

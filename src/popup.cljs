@@ -990,54 +990,15 @@
   (js/chrome.runtime.onMessage.addListener
    (fn [message _sender _send-response]
      (when (= "system-banner" (.-type message))
-       (let [event-type (aget message "event-type")
-             operation (aget message "operation")
-             script-name (aget message "script-name")
-             error-msg (aget message "error")
-             unchanged? (aget message "unchanged")
-             bulk-id (aget message "bulk-id")
-             bulk-count (aget message "bulk-count")
-             bulk-index (aget message "bulk-index")
-             bulk-final? (and (some? bulk-count)
-                              (some? bulk-index)
-                              (= bulk-index (dec bulk-count)))
-             bulk-op? (and (= event-type "success")
-                           (some? bulk-count)
-                           (or (= operation "save")
-                               (= operation "delete")))
-             show-banner? (or (= event-type "error")
-                              (= event-type "info")
-                              (not bulk-op?)
-                              bulk-final?)
-             banner-msg (cond
-                          (= event-type "error")
-                          (str "FS sync error: " error-msg)
-
-                          unchanged?
-                          (str "Script \"" script-name "\" unchanged")
-
-                          (and bulk-op? bulk-final?)
-                          (str bulk-count (if (= bulk-count 1) " file " " files ")
-                               (if (= operation "delete") "deleted" "saved"))
-
-                          :else
-                          (str "Script \"" script-name "\" " operation "d"))]
-         (when bulk-id
-           (dispatch! [[:popup/ax.track-bulk-name bulk-id script-name]]))
-         ;; Flash on errors or unchanged saves so user knows which file was affected
-         (when (and (or (= event-type "error") unchanged?)
-                    (= operation "save")
-                    script-name
-                    (not bulk-id))
-           (dispatch! [[:popup/ax.mark-scripts-modified [script-name]]]))
-         (when show-banner?
-           (let [bulk-names (when bulk-id (get-in @!state [:ui/system-bulk-names bulk-id]))]
-             (dispatch! [[:popup/ax.show-system-banner event-type banner-msg
-                          {:bulk-op? bulk-op?
-                           :bulk-final? bulk-final?
-                           :bulk-names bulk-names}]])))
-         (when (and bulk-id bulk-final?)
-           (dispatch! [[:popup/ax.clear-bulk-names bulk-id]]))))
+       (dispatch! [[:popup/ax.handle-system-banner
+                    {:event-type (aget message "event-type")
+                     :operation (aget message "operation")
+                     :script-name (aget message "script-name")
+                     :error (aget message "error")
+                     :unchanged (aget message "unchanged")
+                     :bulk-id (aget message "bulk-id")
+                     :bulk-count (aget message "bulk-count")
+                     :bulk-index (aget message "bulk-index")}]]))
      ;; Return false - we don't send async response
      false))
 

@@ -320,6 +320,12 @@
                      :sponsor/status status
                      :sponsor/checked-at checked-at]]))))
 
+    :panel/fx.log-system-banner
+    (let [[message bulk-names] args]
+      (if (seq bulk-names)
+        (js/console.info "[Epupp:FS]" message (clj->js {:files bulk-names}))
+        (js/console.info "[Epupp:FS]" message)))
+
     :uf/unhandled-fx))
 
 (defn dispatch! [actions]
@@ -864,68 +870,16 @@
    (cond
      ;; FS sync events
      (= "system-banner" (.-type message))
-     (let [event-type (aget message "event-type")
-           operation (aget message "operation")
-           script-name (aget message "script-name")
-           error-msg (aget message "error")
-           unchanged? (aget message "unchanged")
-           from-name (aget message "from-name")
-           bulk-id (aget message "bulk-id")
-           bulk-count (aget message "bulk-count")
-           bulk-index (aget message "bulk-index")
-           bulk-final? (and (some? bulk-count)
-                            (some? bulk-index)
-                            (= bulk-index (dec bulk-count)))
-           bulk-op? (and (= event-type "success")
-                         (some? bulk-count)
-                         (or (= operation "save")
-                             (= operation "delete")))
-           current-name (:panel/script-name @!state)
-           original-name (:panel/original-name @!state)
-           ;; Name-based matching only (like FS Sync API)
-           matches-name? (or (= script-name current-name)
-                             (= script-name original-name))
-           matches-from? (or (= from-name current-name)
-                             (= from-name original-name))
-           ;; Check if this event affects the currently edited script
-           affects-current? (and (or (= event-type "success") (= event-type "info"))
-                                 (or matches-name? matches-from?))
-           show-banner? (or (= event-type "error")
-                            (= event-type "info")
-                            (not bulk-op?)
-                            bulk-final?)
-           banner-msg (cond
-                        (= event-type "error")
-                        (str "FS sync error: " error-msg)
-
-                        unchanged?
-                        (str "Script \"" script-name "\" unchanged")
-
-                        (and bulk-op? bulk-final?)
-                        (str bulk-count (if (= bulk-count 1) " file " " files ")
-                             (if (= operation "delete") "deleted" "saved"))
-
-                        :else
-                        (str "Script \"" script-name "\" " operation "d"))
-           ;; Skip banner for saves affecting current script - panel save response handler already showed it
-           skip-banner? (and affects-current? (= operation "save"))]
-       (when bulk-id
-         (dispatch! [[:editor/ax.track-bulk-name bulk-id script-name]]))
-       ;; Show banner for all system-banner events (except panel's own saves)
-       (when (and show-banner? (not skip-banner?))
-         (dispatch! [[:editor/ax.show-system-banner event-type banner-msg]])
-         ;; TODO: Move to log module when it supports targeting specific consoles (page vs extension)
-         (let [bulk-names (when bulk-id (get-in @!state [:panel/system-bulk-names bulk-id]))]
-           (if (and bulk-op? bulk-final? (seq bulk-names))
-             (js/console.info "[Epupp:FS]" banner-msg (clj->js {:files bulk-names}))
-             (js/console.info "[Epupp:FS]" banner-msg))))
-       (when (and bulk-id bulk-final?)
-         (dispatch! [[:editor/ax.clear-bulk-names bulk-id]]))
-       ;; Reload or clear editor when current script was modified
-       (when affects-current?
-         (if (= operation "delete")
-           (dispatch! [[:editor/ax.new-script]])
-           (dispatch! [[:editor/ax.reload-script-from-storage script-name]]))))
+     (dispatch! [[:panel/ax.handle-system-banner
+                  {:event-type (aget message "event-type")
+                   :operation (aget message "operation")
+                   :script-name (aget message "script-name")
+                   :error (aget message "error")
+                   :unchanged (aget message "unchanged")
+                   :from-name (aget message "from-name")
+                   :bulk-id (aget message "bulk-id")
+                   :bulk-count (aget message "bulk-count")
+                   :bulk-index (aget message "bulk-index")}]])
 
      ;; Connection status changes - track if our inspected tab is connected
      (= "connections-changed" (.-type message))
