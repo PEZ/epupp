@@ -50,5 +50,5 @@ Scripts guard against multiple injections using global window flags:
 
 | Module | Flag | Purpose |
 |--------|------|---------|
-| `content_bridge.cljs` | `window.__browserJackInBridge` | Prevent duplicate content bridge |
+| `content_bridge.cljs` | `window.__browserJackInContentBridge` | Prevent duplicate content bridge |
 | `ws_bridge.cljs` | `window.__browserJackInWSBridge` | Prevent duplicate WS bridge |

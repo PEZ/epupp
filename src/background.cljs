@@ -191,7 +191,8 @@
 (defn ^:async ensure-bridge!
   "Ensure the content bridge is injected and the ws-bridge is installed in the page."
   [tab-id status]
-  (js-await (bg-inject/inject-content-script tab-id "content-bridge.js"))
+  (when-not (and status (.-hasContentBridge status))
+    (js-await (bg-inject/inject-content-script tab-id "content-bridge.js")))
   (when-not (and status (.-hasWsBridge status))
     (let [bridge-url (js/chrome.runtime.getURL "ws-bridge.js")]
       (js-await (bg-inject/execute-in-page tab-id inject-script-fn bridge-url false))))

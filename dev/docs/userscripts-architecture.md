@@ -207,50 +207,14 @@ worker prevents arbitrary pages from triggering installs.
 
 Scripts can run at different points in the page lifecycle. The timing is specified via `:epupp/run-at` in the script's code metadata.
 
-### When to Use Each Timing
+### Injection Timing: Implementation Details
 
-| Timing | Use Case | Examples |
-|--------|----------|----------|
-| `document-start` | Intercept page initialization, block scripts, modify globals | Ad blockers, analytics blockers, polyfills |
-| `document-end` | Access DOM before images/iframes load | DOM manipulation that must run before page renders |
-| `document-idle` | Most scripts (default) | UI enhancements, data extraction, page tweaks |
+Each `:epupp/run-at` value maps to a different injection mechanism:
 
-### document-start: Early Injection
+- **`document-start` / `document-end`**: Use Chrome content script registration. Scittle loads synchronously on all pages matching any early script's approved patterns, which adds overhead even if the script is later disabled (until registration cleanup).
+- **`document-idle`** (default): Uses `webNavigation.onCompleted` events. No content script registration - injection is on-demand per tab.
 
-Use `document-start` when your script needs to:
-- **Intercept page scripts** before they run
-- **Modify global objects** that page scripts depend on
-- **Block or redirect requests** by overriding fetch/XHR
-- **Polyfill APIs** the page will use
-
-```clojure
-{:epupp/run-at "document-start"}
-
-(ns analytics-blocker)
-
-;; Intercept before page scripts run
-(set! js/window._gaq #js [])
-(set! js/window.gtag (fn [& _]))
-```
-
-**Trade-off:** Early scripts use content script registration, which means Scittle loads on all pages matching any early script's approved patterns. This adds overhead to those URLs, even if you later disable the script (until the registration is cleaned up).
-
-### document-idle: Default Timing
-
-Most scripts should use the default `document-idle` (or omit `:epupp/run-at`):
-- Runs after page load completes
-- DOM is fully available
-- Page scripts have finished initialization
-- No overhead on non-matching pages
-
-```clojure
-;; No :epupp/run-at needed - document-idle is default
-(ns github-tweaks)
-
-;; Enhance the UI after page loads
-(when-let [btn (js/document.querySelector ".merge-button")]
-  (.addEventListener btn "click" #(js/console.log "Merge clicked!")))
-```
+See the [user guide](../../../docs/user-guide.md) for guidance on choosing timing.
 
 ### How Early vs Idle Injection Differs
 

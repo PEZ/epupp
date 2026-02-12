@@ -4,7 +4,7 @@
 // Stub 'window' if not defined (Node.js environment)
 if (typeof globalThis.window === 'undefined') {
   globalThis.window = {
-    __browserJackInBridge: true, // Skip initialization code
+    __browserJackInContentBridge: true, // Skip initialization code
     addEventListener: () => {},
     postMessage: () => {},
     location: { href: 'http://test' },

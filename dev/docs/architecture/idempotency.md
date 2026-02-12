@@ -11,7 +11,7 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 | Injection Point | Guard Mechanism | Test Coverage | Notes |
 |-----------------|-----------------|---------------|-------|
-| Content Bridge | `window.__browserJackInBridge` flag | ✅ E2E (implicit) | Guards entire init block |
+| Content Bridge | `window.__browserJackInContentBridge` flag | ✅ E2E (implicit) | Guards entire init block |
 | WebSocket Bridge | `window.__browserJackInWSBridge` flag | ✅ E2E (implicit) | Guards entire init block |
 | Script Tags (via `inject-script-tag!`) | `window.__epuppInjectedScripts` Set | ✅ E2E | URL tracked, skips duplicates |
 | Scittle Core | `check-scittle-fn` check | ✅ Implicit | Only injects if not present |
@@ -24,8 +24,8 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 **Guard**: Line 271-272
 ```clojure
-(when-not js/window.__browserJackInBridge
-  (set! js/window.__browserJackInBridge true)
+(when-not js/window.__browserJackInContentBridge
+  (set! js/window.__browserJackInContentBridge true)
   ;; ... initialization
 ```
 

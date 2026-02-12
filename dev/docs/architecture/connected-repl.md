@@ -72,17 +72,7 @@ At connect time, Epupp injects its API namespaces from bundled Scittle source fi
 
 The injection uses the same pattern as userscripts: background fetches file content via `chrome.runtime.getURL`, sends it to the content bridge via `inject-userscript` message (creating inline `<script type="application/x-scittle">` tags), and triggers Scittle evaluation.
 
-This enables loading Scittle ecosystem libraries on demand from the REPL:
-
-```clojure
-;; Load Replicant for reactive UI
-(epupp.repl/manifest! {:epupp/inject ["scittle://replicant.js"]})
-
-;; Now use it
-(require '[replicant.dom :as r])
-(r/render (js/document.getElementById "app")
-  [:h1 "Hello from REPL!"])
-```
+`epupp.repl/manifest!` accepts a map with `:epupp/inject` (a vector of `scittle://` URLs) and triggers the library loading flow described below. See the [user guide](../../../docs/user-guide.md) for usage examples.
 
 ### Library Loading Flow
 
