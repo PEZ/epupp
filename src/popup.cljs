@@ -961,24 +961,24 @@
                            :max-height (str (+ 500 (* 35 (count connections))) "px")
                            :data-attrs {:data-e2e-connection-count (count connections)}}
       [repl-connect-content state]]
+     [collapsible-section {:id :manual-scripts
+                           :title "Manual/On-demand scripts"
+                           :expanded? (not (:manual-scripts sections-collapsed))
+                           :badge-count (count manual-scripts)
+                           :max-height (str (+ 50 (* 105 (max 1 (count manual-scripts)))) "px")}
+      [manual-scripts-section state]]
      [collapsible-section {:id :matching-scripts
-                           :title "Auto-run for This Page"
+                           :title "Auto-run for this page"
                            :expanded? (not (:matching-scripts sections-collapsed))
                            :badge-count (count matching-scripts)
                            :max-height (str (+ 50 (* 105 (max 1 (count matching-scripts)))) "px")}
       [matching-scripts-section state]]
      [collapsible-section {:id :other-scripts
-                           :title "Other Auto-run Scripts"
+                           :title "Auto-run not matching this page"
                            :expanded? (not (:other-scripts sections-collapsed))
                            :badge-count (count other-autorun-scripts)
                            :max-height (str (+ 50 (* 105 (max 1 (count other-autorun-scripts)))) "px")}
       [other-scripts-section state]]
-     [collapsible-section {:id :manual-scripts
-                           :title "Manual Scripts"
-                           :expanded? (not (:manual-scripts sections-collapsed))
-                           :badge-count (count manual-scripts)
-                           :max-height (str (+ 50 (* 105 (max 1 (count manual-scripts)))) "px")}
-      [manual-scripts-section state]]
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))
