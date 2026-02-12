@@ -29,8 +29,7 @@ isolated. The architecture coordinates through message passing.
 
 ## Uniflow as the Local Decision Engine
 
-Popup and panel use Uniflow to separate pure decisions from side effects. The
-background uses the same pattern for increasingly more of its decisions. This
+Background, popup and panel use Uniflow to separate pure decisions from side effects. This
 keeps UI and write validation deterministic while allowing side effects to be
 minimal.
 
@@ -43,3 +42,13 @@ decisions via `background_actions.cljs` and its sub-modules.
 - Keep state flat and namespaced by domain for clarity.
 - Treat storage as the durable source and rehydrate on open.
 - Keep decision logic pure and push side effects to effect handlers.
+- Only the event loop (`dispatch!`) may `deref` or `reset!` the state atom - see
+  [The Single Access Point Rule](uniflow.md#the-single-access-point-rule).
+- Effects receive data from actions via `:uf/fxs` parameters - they never read
+  `@!state` directly (nor transitively through helpers).
+- Guard/utility functions are pure - they receive data as parameters, not atom
+  access.
+- Message handlers and event listeners dispatch actions rather than reading
+  state. The action extracts what it needs and declares effects with that data.
+- No `swap!` or `reset!` on the state atom outside the event loop during
+  runtime. The sole exception is pre-dispatch initialization, documented as such.

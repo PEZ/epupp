@@ -58,6 +58,17 @@
     You ALWAYS try your very hardest to avoid forward delcares. You are a Clojure expert and you know that in Clojure definition order matters and you makes sure functions are deined before they are used. Forward delcares are almost always a sign of poor structure or a mistake.
   </clojure>
 
+  <uniflow-state-discipline>
+    The Uniflow event loop is the SINGLE ACCESS POINT for the state atom. This means:
+    - Actions receive `state` as pure data, return `{:uf/db new-state}`. Never touch the atom.
+    - Effects receive data from actions via `:uf/fxs` params. Never read `@!state`.
+    - Helpers called by effects inherit the same constraint - no transitive atom access.
+    - Message handlers and event listeners dispatch actions - they do not read `@!state`.
+    - No `swap!` or `reset!` on the state atom outside the event loop.
+    - Guard/utility functions are pure - receive data as parameters, not atom access.
+    See `dev/docs/architecture/uniflow.md` (section: The Single Access Point Rule).
+  </uniflow-state-discipline>
+
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>
 
   <use-edit-tools>
@@ -259,6 +270,7 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
    * When bb tasks do not suffice, use Babashka utilities for file operations, HTTP server, etc.
 9. **Agent/prompt/instruction files are NOT fenced** - The `read_file` tool displays files with syntax highlighting fences (e.g., ``` chatagent), but this is just display formatting. These files are frontmatter-enriched markdown and should start with `---`, not backticks.
 10. **Avoid `sed`** - When reading files, prefer your tools! If you absolutely cannot use the tools and must use the shell, usee `cat/head/tail`, anything but`sed`. `sed`will be get stuck in approval. Pure reading commands will be auto-approved.
+11. **Uniflow state access** - Never read `@!state` in effects, helpers, message handlers, or event listeners. Actions pass data to effects via `:uf/fxs` params. No `swap!/reset!` outside the event loop. See `dev/docs/architecture/uniflow.md` (The Single Access Point Rule).
 
 ## Use `cat` over `sed`
 

@@ -43,6 +43,8 @@ Actions are pure functions that take current state and return new state (plus op
 
 Effects execute decisions made by actions: API calls, storage, DOM manipulation. **Keep decision logic in actions** - effects should be straightforward execution.
 
+An effect's only inputs are `dispatch` and the `args` the action provided. Effects never read `@!state` - all state-derived data must arrive through the effect's parameter vector.
+
 ```clojure
 (defn perform-effect! [dispatch [effect & args]]
   (case effect
@@ -54,6 +56,24 @@ Effects execute decisions made by actions: API calls, storage, DOM manipulation.
 ```
 
 Effects receive `dispatch` for async callbacks that need to trigger more actions.
+
+**Passing state-derived data to effects:**
+
+When an effect needs data from state, the action extracts it and passes it through:
+
+```clojure
+;; Action extracts what the effect needs from state
+:ws/ax.broadcast
+(let [connections (:ws/connections state)]
+  {:uf/fxs [[:ws/fx.broadcast-connections-changed! connections]]})
+
+;; Effect receives data as args - never touches the atom
+:ws/fx.broadcast-connections-changed!
+(let [[connections] args]
+  (bg-ws/broadcast-connections-changed! connections))
+```
+
+This keeps the data flow unidirectional: state -> action -> effect args.
 
 ### Async Effects (Squint)
 
@@ -143,18 +163,26 @@ The `:uf/prev-result` placeholder also works in `:uf/dxs` (deferred actions). Th
 **Gather-then-decide pattern:**
 
 This separates concerns cleanly:
-- **Gathering effects** - Handle async Chrome APIs, fetch data, call services
-- **Decision actions** - Pure functions that receive gathered data and decide what to do
+- **The originating action** passes any state-derived data the effect needs through effect params
+- **Gathering effects** call external/async APIs only - they never read `@!state`
+- **Decision actions** are pure functions that receive gathered data and decide what to do
 
 ```clojure
-;; Gathering effect (impure - calls Chrome API)
-:nav/fx.gather-context
+;; Originating action passes state-derived data to the gathering effect
+:nav/ax.check-connection
 (let [[tab-id] args
+      injected? (get-in state [:injections tab-id])]
+  {:uf/fxs [[:uf/await :nav/fx.gather-context tab-id injected?]]
+   :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
+
+;; Gathering effect - only calls external APIs, receives state data as args
+:nav/fx.gather-context
+(let [[tab-id injected?] args
       tab (js-await (chrome.tabs.get tab-id))]
   {:url (.-url tab)
-   :injected? (get-in @!state [:injections tab-id])})
+   :injected? injected?})
 
-;; Decision action (pure - testable without Chrome)
+;; Decision action (pure - testable without Chrome or atoms)
 :nav/ax.decide-connection
 (let [[context] args
       {:keys [url injected?]} context]
@@ -169,9 +197,12 @@ This separates concerns cleanly:
     {:uf/db (assoc state :nav/error "Cannot connect to this page")}))
 ```
 
+**Key constraint:** The gathering effect receives `injected?` from the action, not from `@!state`. The effect's job is to call the Chrome API - the one thing actions can't do. State data flows from action to effect through params.
+
 **Benefits:**
 - Decision logic is pure and testable without mocking Chrome APIs
-- Clear separation: effects gather, actions decide
+- Gathering effects are testable too - no hidden atom dependencies
+- Clear separation: actions provide state data, effects call external APIs, decision actions decide
 - Single action returns the complete "recipe" - effects + follow-up decision
 - Reduces deep callback nesting and intermediate action chains
 
@@ -277,10 +308,14 @@ The background worker applies the same Uniflow pattern across several domains:
 - **Navigation** - Tab lifecycle and connection decisions (gather-then-decide)
 - **History** - Connected tab tracking
 
-Message handlers in `background.cljs` gate requests and dispatch actions
-through `bg-fs-dispatch/dispatch-fs-action!`, which invokes the pure decision
-logic in `background_actions/handle-action` and executes `:uf/fxs` effects for
-persistence and responses.
+Message handlers in `background.cljs` dispatch actions rather than reading
+state directly. The action handler (`background_actions/handle-action`) extracts
+what it needs from state and declares effects with that data. Effects execute
+the side effects using only the data actions provided.
+
+FS mutations route through `bg-fs-dispatch/dispatch-fs-action!`, which invokes
+the pure decision logic and executes `:uf/fxs` effects for persistence and
+responses.
 
 ## Generic Handlers
 
@@ -414,6 +449,95 @@ This ensures UI updates when scripts are modified via REPL or storage changes.
 3. **Actions decide, effects execute** - Factor decision logic into actions for testability
 4. **Batch for composition** - Small actions, combine in dispatch calls
 5. **Fallback for reuse** - Generic handlers via `:uf/unhandled-*`
+
+## The Single Access Point Rule
+
+The event loop (`event_handler/dispatch!`) is the **only code** that may `deref` or `reset!` the state atom. Everything else receives state as data:
+
+- **Actions** receive `state` as a plain map parameter. They return `{:uf/db new-state}`. They never touch the atom.
+- **Effects** perform side effects using data passed to them by actions via `:uf/fxs` vectors. They never read `@!state`.
+- **Helpers** called by effects inherit the same constraint - no transitive atom access.
+- **Entry points** (message handlers, event listeners) dispatch actions instead of reading state directly.
+
+When an effect needs state-derived data, the action that declares it must pass that data as parameters in the effect vector:
+
+```clojure
+;; CORRECT: Action passes data to effect
+:ws/ax.broadcast
+(let [connections (:ws/connections state)]
+  {:uf/fxs [[:ws/fx.broadcast-connections-changed! connections]]})
+
+;; WRONG: Effect reads atom
+:ws/fx.broadcast-connections-changed!
+(bg-ws/broadcast-connections-changed! (:ws/connections @!state))  ; violation
+```
+
+**Why this matters:**
+- **Testability** - Actions are pure functions. Effects that depend only on their parameters are testable without mocking atoms.
+- **Predictability** - No race conditions between state reads in effects and state writes from concurrent actions.
+- **Traceability** - Every piece of data an effect uses traces back to the action that provided it.
+
+### Guard and Utility Functions
+
+Functions like access-control guards must be pure - they receive data as parameters, not atom access:
+
+```clojure
+;; CORRECT: Pure guard receiving data
+(defn- fs-access-allowed? [sync-tab-id connections tab-id]
+  (and (= tab-id sync-tab-id)
+       (some? (bg-ws/get-ws connections tab-id))))
+
+;; WRONG: Guard reading atom
+(defn- fs-access-allowed? [tab-id]
+  (and (= tab-id (:fs/sync-tab-id @!state))              ; violation
+       (some? (bg-ws/get-ws (:ws/connections @!state) tab-id))))  ; violation
+```
+
+### Entry Points Dispatch
+
+Message handlers and event listeners should dispatch actions rather than reading state directly. The action extracts what it needs from state and declares effects with that data:
+
+```clojure
+;; CORRECT: Handler dispatches, action extracts state
+(defn- handle-ws-send [message tab-id dispatch!]
+  (dispatch! [[:ws/ax.send tab-id (.-data message)]])
+  false)
+
+;; WRONG: Handler reads state, calls helper imperatively
+(defn- handle-ws-send [message tab-id]
+  (bg-ws/handle-ws-send (:ws/connections @!state) tab-id (.-data message))  ; violation
+  false)
+```
+
+### Acceptable Exception: Pre-dispatch Initialization
+
+During startup, before `dispatch!` is available, direct atom access may be necessary. This is the **only** acceptable exception:
+
+- Must be documented explicitly as "pre-dispatch initialization only"
+- Cannot be deferred to first action or effect
+- Must have a clear comment explaining the constraint
+- Must not occur during normal runtime
+
+## Anti-Patterns
+
+These patterns cause Uniflow violations. Each maps to a violation category from the state access review:
+
+| Anti-Pattern | Category | Prevention |
+|--------------|----------|------------|
+| Effect reads `@!state` | A1 | Action passes data via `:uf/fxs` params |
+| Helper called by effect reads `@!state` | A1 (transitive) | Refactor helper to accept data as parameter |
+| Direct `swap!/reset!` outside event loop | B | Create action + dispatch instead |
+| Guard function reads `@!state` | C | Refactor to pure function with data params |
+| Message handler reads `@!state` | D | Dispatch action; action extracts from state |
+| Effect gathers state then dispatches | A2 | Move state read into action, pass via effect params |
+
+### How to Spot Violations
+
+Search for these patterns in Uniflow-managed files:
+
+- `@!state` anywhere except the event loop and view delivery (`render!`)
+- `swap!` or `reset!` on the state atom outside the event loop
+- Helpers that take no state parameters but internally deref atoms
 
 ## Current Limitations
 
