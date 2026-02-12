@@ -140,7 +140,7 @@
           (js-await (-> (expect no-conn-hint) (.toContainText "Step 1" #js {:timeout 500}))))
 
         ;; Matching Scripts section shows "no userscripts yet" message
-        (let [matching-section (.locator popup ".collapsible-section:has(.section-title:text(\"Auto-run for This Page\"))")
+        (let [matching-section (.locator popup "[data-e2e-section=\"matching-scripts\"]")
               no-scripts (.locator matching-section ".no-scripts")]
           (js-await (-> (expect no-scripts) (.toContainText "No userscripts yet" #js {:timeout 500}))))
 
