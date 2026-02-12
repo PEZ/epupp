@@ -22,7 +22,7 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 ### Content Bridge (`content_bridge.cljs`)
 
-**Guard**: Line 271-272
+**Guard**: `__browserJackInContentBridge` flag at top-level init block
 ```clojure
 (when-not js/window.__browserJackInContentBridge
   (set! js/window.__browserJackInContentBridge true)
@@ -35,7 +35,7 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 ### WebSocket Bridge (`ws_bridge.cljs`)
 
-**Guard**: Line 121-122
+**Guard**: `__browserJackInWSBridge` flag at top-level init block
 ```clojure
 (when-not js/window.__browserJackInWSBridge
   (set! js/window.__browserJackInWSBridge true)
@@ -48,7 +48,7 @@ Epupp injects several scripts into web pages. Each has different idempotency cha
 
 ### Script Tag Injection (`inject-script-tag!`)
 
-**Guard**: `window.__epuppInjectedScripts` Set (content_bridge.cljs lines 150-171)
+**Guard**: `window.__epuppInjectedScripts` Set (in `inject-script-tag!` handler in `content_bridge.cljs`)
 ```clojure
 (when-not js/window.__epuppInjectedScripts
   (set! js/window.__epuppInjectedScripts (js/Set.)))
