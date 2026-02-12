@@ -14,18 +14,6 @@
   [state]
   (bg-utils/get-icon-paths state))
 
-(defn- compute-display-icon-state
-  "Compute icon state to display based on global connection state:
-   - Connected: if ANY tab has REPL connected -> gold
-   - Otherwise: disconnected (white)"
-  [!state active-tab-id]
-  (bg-utils/compute-display-icon-state (:icon/states @!state) active-tab-id))
-
-(defn get-display-icon-state
-  "Get the computed display icon state for a tab."
-  [!state tab-id]
-  (compute-display-icon-state !state tab-id))
-
 (defn ^:async update-icon-with-state!
   "Update the toolbar icon using pre-computed display state.
    tab-id is included for logging/test event tracking."
@@ -33,15 +21,6 @@
   (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state display-state}))
   (js/chrome.action.setIcon
    #js {:path (get-icon-paths display-state)}))
-
-(defn ^:async update-icon-now!
-  "Update the toolbar icon based on global connection state.
-   Takes the relevant tab-id to determine which tab to consider for display."
-  [!state relevant-tab-id]
-  (let [display-state (compute-display-icon-state !state relevant-tab-id)]
-    (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id relevant-tab-id :state display-state}))
-    (js/chrome.action.setIcon
-     #js {:path (get-icon-paths display-state)})))
 
 (defn ^:async update-icon-for-tab!
   "Update icon state for a specific tab, then update the toolbar icon.

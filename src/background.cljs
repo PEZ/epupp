@@ -265,15 +265,6 @@
           ;; Default to true if not set
           (resolve (if (some? value) value true))))))))
 
-(defn- fs-access-allowed?
-  "Check if FS access is allowed for a tab. Pure function.
-   Requires this tab to be THE FS sync tab AND
-   an active WebSocket connection for the tab."
-  [sync-tab-id connections tab-id]
-  (and (some? tab-id)
-       (= tab-id sync-tab-id)
-       (some? (bg-ws/get-ws connections tab-id))))
-
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
   [tab-id]
@@ -350,71 +341,24 @@
   false)
 
 (defn- handle-list-scripts [message tab-id dispatch! send-response]
-  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
-    (do
-      (send-response #js {:success false
-                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
-      false)
-    (let [include-hidden? (.-lsHidden message)]
-      (dispatch! [[:msg/ax.list-scripts send-response include-hidden?]])
-      false)))
+  (let [include-hidden? (.-lsHidden message)]
+    (dispatch! [[:fs/ax.guard-list-scripts tab-id send-response include-hidden?]])
+    true))
 
 (defn- handle-save-script [message tab-id dispatch! send-response]
-  ((^:async fn []
-     (js-await (ensure-initialized! dispatch!))
-     (let [script-source (.-scriptSource message)
-           web-install? (and script-source
-                             (or (.startsWith script-source "http://")
-                                 (.startsWith script-source "https://")))]
-       (if (and (not web-install?) (not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)))
-         (do
-           (bg-icon/broadcast-system-banner! {:event-type "error"
-                                              :operation "save"
-                                              :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
-           (send-response #js {:success false
-                               :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
-         (let [code (.-code message)
-               enabled (if (some? (.-enabled message)) (.-enabled message) true)
-               force? (.-force message)
-               bulk-id (.-bulkId message)
-               bulk-index (.-bulkIndex message)
-               bulk-count (.-bulkCount message)]
-           (try
-             (let [manifest (manifest-parser/extract-manifest code)
-                   raw-name (or (when manifest (aget manifest "raw-script-name"))
-                                (when manifest (aget manifest "script-name")))
-                   name-error (script-utils/validate-script-name raw-name)
-                   auto-run-match (when manifest (aget manifest "auto-run-match"))
-                   injects (when manifest (aget manifest "inject"))
-                   run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
-               (cond
-                 (nil? raw-name)
-                 (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
-
-                 name-error
-                 (send-response #js {:success false :error name-error})
-
-                 :else
-                 (let [crypto (.-crypto js/globalThis)
-                       script-id (if (and crypto (.-randomUUID crypto))
-                                   (str "script-" (.randomUUID crypto))
-                                   (str "script-" (.now js/Date) "-" (.random js/Math)))
-                       script (cond-> {:script/id script-id
-                                       :script/name raw-name
-                                       :script/code code
-                                       :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
-                                       :script/inject (or injects [])
-                                       :script/enabled enabled
-                                       :script/run-at run-at
-                                       :script/force? force?}
-                                (some? script-source) (assoc :script/source script-source)
-                                (some? bulk-id) (assoc :script/bulk-id bulk-id)
-                                (some? bulk-index) (assoc :script/bulk-index bulk-index)
-                                (some? bulk-count) (assoc :script/bulk-count bulk-count))]
-                   (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
-             (catch :default err
-               (send-response #js {:success false :error (str "Parse error: " (.-message err))}))))))))
-  true)
+  (let [script-source (.-scriptSource message)
+        web-install? (and script-source
+                          (or (.startsWith script-source "http://")
+                              (.startsWith script-source "https://")))
+        raw-data {:code (.-code message)
+                  :enabled (if (some? (.-enabled message)) (.-enabled message) true)
+                  :force? (.-force message)
+                  :bulk-id (.-bulkId message)
+                  :bulk-index (.-bulkIndex message)
+                  :bulk-count (.-bulkCount message)
+                  :script-source script-source}]
+    (dispatch! [[:fs/ax.guard-save-script tab-id send-response raw-data web-install?]])
+    true))
 
 (defn- handle-panel-save-script [message send-response]
   (let [js-script (.-script message)
@@ -438,51 +382,28 @@
     (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))
   false)
 
-(defn- handle-rename-script [message tab-id send-response]
-  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
-    (do
-      (bg-icon/broadcast-system-banner! {:event-type "error"
-                                         :operation "rename"
-                                         :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
-      (send-response #js {:success false
-                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
-    (let [from-name (.-from message)
-          to-name (.-to message)
-          name-error (script-utils/validate-script-name to-name)]
-      (if name-error
-        (send-response #js {:success false :error name-error})
-        (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))))
-  true)
+(defn- handle-rename-script [message tab-id dispatch! send-response]
+  (let [from-name (.-from message)
+        to-name (.-to message)]
+    (dispatch! [[:fs/ax.guard-rename-script tab-id send-response from-name to-name]])
+    true))
 
-(defn- handle-delete-script [message tab-id send-response]
-  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
-    (do
-      (bg-icon/broadcast-system-banner! {:event-type "error"
-                                         :operation "delete"
-                                         :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
-      (send-response #js {:success false
-                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}))
-    (let [script-name (.-name message)
-          bulk-id (.-bulkId message)
-          bulk-index (.-bulkIndex message)
-          bulk-count (.-bulkCount message)]
-      (fs-dispatch/dispatch-fs-action! send-response
-                                       [:fs/ax.delete-script
-                                        {:script-name script-name
-                                         :bulk-id bulk-id
-                                         :bulk-index bulk-index
-                                         :bulk-count bulk-count}])))
-  true)
+(defn- handle-delete-script [message tab-id dispatch! send-response]
+  (let [script-name (.-name message)
+        bulk-id (.-bulkId message)
+        bulk-index (.-bulkIndex message)
+        bulk-count (.-bulkCount message)]
+    (dispatch! [[:fs/ax.guard-delete-script tab-id send-response
+                 {:script-name script-name
+                  :bulk-id bulk-id
+                  :bulk-index bulk-index
+                  :bulk-count bulk-count}]])
+    true))
 
 (defn- handle-get-script [message tab-id dispatch! send-response]
-  (if-not (fs-access-allowed? (:fs/sync-tab-id @!state) (:ws/connections @!state) tab-id)
-    (do
-      (send-response #js {:success false
-                          :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"})
-      false)
-    (let [script-name (.-name message)]
-      (dispatch! [[:msg/ax.get-script send-response script-name]])
-      false)))
+  (let [script-name (.-name message)]
+    (dispatch! [[:fs/ax.guard-get-script tab-id send-response script-name]])
+    true))
 
 (defn- handle-load-manifest [message tab-id dispatch! send-response]
   (let [manifest (.-manifest message)]
@@ -680,8 +601,8 @@
                       "save-script" (handle-save-script message tab-id dispatch! send-response)
                       "panel-save-script" (handle-panel-save-script message send-response)
                       "panel-rename-script" (handle-panel-rename-script message send-response)
-                      "rename-script" (handle-rename-script message tab-id send-response)
-                      "delete-script" (handle-delete-script message tab-id send-response)
+                      "rename-script" (handle-rename-script message tab-id dispatch! send-response)
+                      "delete-script" (handle-delete-script message tab-id dispatch! send-response)
                       "get-script" (handle-get-script message tab-id dispatch! send-response)
                       "check-script-exists" (handle-check-script-exists message dispatch! send-response)
                       "web-installer-save-script" (handle-web-installer-save-script message sender dispatch! send-response)
@@ -1067,6 +988,53 @@
             :fsSyncTabId sync-tab-id}
        (fn [_response]
          (when js/chrome.runtime.lastError nil))))
+
+    :fs/fx.parse-and-save
+    (let [[send-response raw-data] args
+          {:keys [code enabled force? bulk-id bulk-index bulk-count script-source]} raw-data]
+      (try
+        (let [manifest (manifest-parser/extract-manifest code)
+              raw-name (or (when manifest (aget manifest "raw-script-name"))
+                           (when manifest (aget manifest "script-name")))
+              name-error (script-utils/validate-script-name raw-name)
+              auto-run-match (when manifest (aget manifest "auto-run-match"))
+              injects (when manifest (aget manifest "inject"))
+              run-at (script-utils/normalize-run-at (when manifest (aget manifest "run-at")))]
+          (cond
+            (nil? raw-name)
+            (send-response #js {:success false :error "Missing :epupp/script-name in manifest"})
+
+            name-error
+            (send-response #js {:success false :error name-error})
+
+            :else
+            (let [crypto (.-crypto js/globalThis)
+                  script-id (if (and crypto (.-randomUUID crypto))
+                              (str "script-" (.randomUUID crypto))
+                              (str "script-" (.now js/Date) "-" (.random js/Math)))
+                  script (cond-> {:script/id script-id
+                                  :script/name raw-name
+                                  :script/code code
+                                  :script/match (if (vector? auto-run-match) auto-run-match [auto-run-match])
+                                  :script/inject (or injects [])
+                                  :script/enabled enabled
+                                  :script/run-at run-at
+                                  :script/force? force?}
+                           (some? script-source) (assoc :script/source script-source)
+                           (some? bulk-id) (assoc :script/bulk-id bulk-id)
+                           (some? bulk-index) (assoc :script/bulk-index bulk-index)
+                           (some? bulk-count) (assoc :script/bulk-count bulk-count))]
+              (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script]))))
+        (catch :default err
+          (send-response #js {:success false :error (str "Parse error: " (.-message err))}))))
+
+    :fs/fx.dispatch-action
+    (let [[send-response action] args]
+      (fs-dispatch/dispatch-fs-action! send-response action))
+
+    :banner/fx.broadcast-system
+    (let [[event] args]
+      (bg-icon/broadcast-system-banner! event))
 
     :uf/unhandled-fx))
 

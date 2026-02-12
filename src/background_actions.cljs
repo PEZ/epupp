@@ -13,6 +13,59 @@
   "Pure function - no side effects allowed."
   [state uf-data [action & args]]
   (case action
+    :fs/ax.guard-list-scripts
+    (let [[tab-id send-response include-hidden?] args
+          allowed? (bg-utils/fs-access-allowed? (:fs/sync-tab-id state) (:ws/connections state) tab-id)]
+      (if allowed?
+        {:uf/fxs [[:msg/fx.list-scripts send-response include-hidden?]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]]}))
+
+    :fs/ax.guard-get-script
+    (let [[tab-id send-response script-name] args
+          allowed? (bg-utils/fs-access-allowed? (:fs/sync-tab-id state) (:ws/connections state) tab-id)]
+      (if allowed?
+        {:uf/fxs [[:msg/fx.get-script send-response script-name]]}
+        {:uf/fxs [[:msg/fx.send-response send-response {:success false
+                                                        :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]]}))
+
+    :fs/ax.guard-rename-script
+    (let [[tab-id send-response from-name to-name] args
+          allowed? (bg-utils/fs-access-allowed? (:fs/sync-tab-id state) (:ws/connections state) tab-id)]
+      (if allowed?
+        (let [name-error (script-utils/validate-script-name to-name)]
+          (if name-error
+            {:uf/fxs [[:msg/fx.send-response send-response {:success false :error name-error}]]}
+            {:uf/fxs [[:fs/fx.dispatch-action send-response [:fs/ax.rename-script from-name to-name]]]}))
+        {:uf/fxs [[:banner/fx.broadcast-system {:event-type "error"
+                                                :operation "rename"
+                                                :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]
+                  [:msg/fx.send-response send-response {:success false
+                                                        :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]]}))
+
+    :fs/ax.guard-delete-script
+    (let [[tab-id send-response delete-params] args
+          allowed? (bg-utils/fs-access-allowed? (:fs/sync-tab-id state) (:ws/connections state) tab-id)]
+      (if allowed?
+        {:uf/fxs [[:fs/fx.dispatch-action send-response [:fs/ax.delete-script delete-params]]]}
+        {:uf/fxs [[:banner/fx.broadcast-system {:event-type "error"
+                                                :operation "delete"
+                                                :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]
+                  [:msg/fx.send-response send-response {:success false
+                                                        :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]]}))
+
+    :fs/ax.guard-save-script
+    (let [[tab-id send-response raw-data web-install?] args
+          allowed? (or web-install?
+                       (bg-utils/fs-access-allowed? (:fs/sync-tab-id state) (:ws/connections state) tab-id))]
+      (if allowed?
+        {:uf/fxs [[:fs/fx.parse-and-save send-response raw-data]]}
+        {:uf/fxs [[:banner/fx.broadcast-system {:event-type "error"
+                                                :operation "save"
+                                                :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]
+                  [:msg/fx.send-response send-response {:success false
+                                                        :error "FS Sync requires an active REPL connection and FS Sync enabled in settings"}]]}))
+
     :fs/ax.rename-script
     (let [[from-name to-name] args]
       (repl-fs-actions/rename-script

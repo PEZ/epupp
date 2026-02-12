@@ -118,6 +118,15 @@
 
 (def sponsor-script-id "epupp-builtin-sponsor-check")
 
+(defn fs-access-allowed?
+  "Check if FS access is allowed for a tab. Pure function.
+   Requires this tab to be THE FS sync tab AND
+   an active WebSocket connection for the tab."
+  [sync-tab-id connections tab-id]
+  (and (some? tab-id)
+       (= tab-id sync-tab-id)
+       (some? (get-in connections [tab-id :ws/socket]))))
+
 ;; ============================================================
 ;; Web Installer Origin Whitelist
 ;; ============================================================
