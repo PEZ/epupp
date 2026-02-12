@@ -45,7 +45,9 @@
     [icons/github {:size 16}] [:span "@PEZ"]
     " • "
     [:button.footer-sponsor-heart
-     {:on-click on-sponsor-click}
+     {:on-click (fn [e]
+                  (on-sponsor-click e)
+                  (.preventDefault e))}
      [icons/heart {:size 14 :filled? sponsor-status
                    :class (str "sponsor-heart-icon"
                                (when sponsor-status " sponsor-heart-filled"))}]

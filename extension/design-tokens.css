@@ -21,6 +21,7 @@
 
   --color-bg-base: #ffffff;
   --color-bg-elevated: #f8f9fa;
+  --color-bg-elevated-more: #fcfcfc;
   --color-bg-input: #ffffff;
   --color-bg-accent: #707070;
   --color-fg-accent: #fafafa;
@@ -123,6 +124,7 @@
 
     --color-bg-base: #1e1e1e;
     --color-bg-elevated: #252526;
+    --color-bg-elevated-more: #040404;
     --color-bg-input: #2d2d2d;
     --color-bg-accent: #8f8f8f;
     --color-fg-accent: #ffffff;
