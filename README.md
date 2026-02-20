@@ -1,6 +1,60 @@
 # Epupp: Live Tamper your Web
 
-A web browser extension that lets you tamper with web pages, live and/or with userscripts. Powered by by [Scittle](https://github.com/babashka/scittle), Epupp lets you inspect and modify the pages you visit while you are there. You can save your tampers as userscripts, TamperMonkey style. For live tampers and interactive development of userscripts, you can jack in your favorite editor or AI tools to interactively tamper with the page.
+A web browser extension that lets you tamper with web pages, live and/or with userscripts.
+
+Epupp has two modes of operation:
+
+1. **Live REPL connection from your editor to the web page**, letting you inspect and modify the page on the fly, with or without the assistance of an AI agent.
+2. **Userscripts**: Tampermonkey style. Target all websites, or any subset of the web's pages, with prepared scripts that modify or query information from the page. You can also have userscripts that trigger only on demand. Userscripts can be triggered before the page loads, or after the DOM has settled.
+
+The live REPL connection is a very efficient way to interactively develop userscripts, as well as doing one-off changes or data extractions.
+
+Epupp is powered by [Scittle](https://github.com/babashka/scittle), which allows for scripting the page using [ClojureScript](https://clojurescript.org), a dynamic language enabling **Interactive Programming**.
+
+## Example Use Cases
+
+**Custom Data Dashboards**:
+* **Problem**: Some web page you often visit keeps updated data, but doesn't present it aggregated the way you want it.
+* **Solution**: A userscript automatically aggregates the data the way you want it and presents it the way you want it, every time you visit the page.
+
+**One-off Data Extraction**:
+* **Problem**: Some web page you visit one time has information you want to summarize (or just find).
+* **Solution**: Connect your editor and/or AI agent and poke around the DOM of the web page until you understand enough to create a function that collects the data you need.
+
+**Print-friendly Pages**:
+* **Problem**: Some web page you visit is hard to print cleanly on your printer.
+* **Solution**: Connect your editor and/or AI agent and poke around the DOM of the web page until you understand enough to create a function that isolates only the part you want to print. (This was the use case that made me create Epupp in the first place.) This can be generalized in a userscript that lets you use your mouse to point at the element you want to isolate on any web page.
+
+**Missing UI Controls**:
+* **Problem**: Some web app you often use lacks a button or input widget that would make your workflow convenient.
+* **Solution**: A userscript automatically adds the buttons and widgets for you every time you use the app.
+
+**AI-powered Web Inspection**:
+* **Problem**: You want to show your AI agent some web app, in a way that it can read things and inspect whatever aspect of it you are interested in.
+* **Solution**: Give the agent access to the page using the live REPL connection.
+
+**AI-assisted Web Development**:
+* **Problem**: You want your AI agent to help you with a page/app you are developing.
+* **Solution**: Give the agent access to the page using the live REPL connection. While you and the agent are updating the page, the agent always has instant access to the DOM, styles, and everything to gather feedback on the changes. It can test that the app works as it should, and fulfill development tasks with much less help from you in manual testing.
+
+When it comes to userscript use cases, a lot of things that you would use Tampermonkey for, you can use Epupp for instead. Tampermonkey can probably handle more use cases, but Epupp lets you develop userscripts in a much more dynamic way, with the shortest possible feedback loop.
+
+With the live REPL connection, you will discover use cases you may not ever have thought about before, or thought about, but dismissed.
+
+## The Epupp UI
+
+The UI has three main components:
+
+1. The extension **popup**. You access this from the Epupp extension icon. The popup hosts the REPL connection UI, lists userscripts, and provides accesss to Epupp settings.
+2. A browser Developement Tools **panel**. The panel is for inspecting and editing userscripts, creating simple usercripts, and for dynamic interaction with the visited web page.
+3. Your favorite **editor** and/or your favorite **AI agent** harness. This is enabled by the live REPL connection.
+
+### Popup
+
+### Panel
+
+### REPL
+
 
 ## Userscripts Usage
 
@@ -10,7 +64,7 @@ A web browser extension that lets you tamper with web pages, live and/or with us
 There is a script “editor” (a textarea) in the Development Tools tab named **Epupp**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script. For this you need to also fill in:
 
 * Script name: (Whatever for now, this is one of the things I am undecided about)
-* Site pattern: a TamperMonkey compatible pattern targeting the sites where this script should be auto-injected and run.
+* Site pattern: a Tampermonkey compatible pattern targeting the sites where this script should be auto-injected and run.
 
 Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
 
