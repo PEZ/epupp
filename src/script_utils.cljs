@@ -232,7 +232,7 @@
   (cond
     (nil? input-name) nil
     (not (string? input-name)) "Script name must be a string"
-    (.startsWith input-name "epupp/") "Cannot create scripts in reserved namespace: epupp/"
+    (.startsWith (.toLowerCase input-name) "epupp/") "Cannot create scripts in reserved namespace: epupp/"
     (.startsWith input-name "/") "Script name cannot start with '/'"
     (or (.includes input-name "./") (.includes input-name "../")) "Script name cannot contain './' or '../'"
     :else nil))

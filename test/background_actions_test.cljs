@@ -83,6 +83,17 @@
     (-> (expect (:error error-response))
         (.toContain "reserved namespace"))))
 
+(defn- test-rename-rejects-reserved-namespace-uppercase-on-rename []
+  (let [result (bg-actions/handle-action initial-state uf-data
+                 [:fs/ax.rename-script "test.cljs" "EPUPP/test.cljs"])
+        error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+    (-> (expect error-response)
+        (.toBeTruthy))
+    (-> (expect (:success error-response))
+        (.toBe false))
+    (-> (expect (:error error-response))
+        (.toContain "reserved namespace"))))
+
 (defn- test-rename-rejects-leading-slash-on-rename []
   (let [result (bg-actions/handle-action initial-state uf-data
                  [:fs/ax.rename-script "test.cljs" "/test.cljs"])
@@ -136,6 +147,7 @@
             (test "rejects when source is builtin script" test-rename-rejects-when-source-is-builtin-script)
             (test "rejects when target name already exists" test-rename-rejects-when-target-name-already-exists)
             (test "rejects reserved namespace on rename" test-rename-rejects-reserved-namespace-on-rename)
+            (test "rejects reserved namespace uppercase on rename" test-rename-rejects-reserved-namespace-uppercase-on-rename)
             (test "rejects leading slash on rename" test-rename-rejects-leading-slash-on-rename)
             (test "rejects path traversal on rename" test-rename-rejects-path-traversal-on-rename)
             (test "allows rename when target name is free" test-rename-allows-rename-when-target-name-is-free)
@@ -440,6 +452,21 @@
 ;; epupp/ Namespace Reservation Tests
 ;; ============================================================
 
+(defn- test-epupp-namespace-rejects-uppercase-epupp-prefix []
+  (let [state {:storage/scripts []}
+        new-script {:script/id "script-attacker"
+                    :script/name "EPUPP/my-script.cljs"
+                    :script/code "(println \"test\")"}]
+    (let [result (bg-actions/handle-action state uf-data
+                   [:fs/ax.save-script new-script])
+          error-response (some #(when (= :bg/fx.send-response (first %)) (second %)) (:uf/fxs result))]
+      (-> (expect error-response)
+          (.toBeTruthy))
+      (-> (expect (:success error-response))
+          (.toBe false))
+      (-> (expect (:error error-response))
+          (.toContain "reserved namespace")))))
+
 (defn- test-epupp-namespace-rejects-when-creating-script-with-epupp-prefix []
   (let [state {:storage/scripts []}
         new-script {:script/id "script-attacker"
@@ -504,6 +531,7 @@
 (describe ":fs/ax.save-script - epupp/ namespace reservation"
           (fn []
             (test "rejects when creating script with epupp/ prefix" test-epupp-namespace-rejects-when-creating-script-with-epupp-prefix)
+            (test "rejects uppercase EPUPP/ prefix (case-bypass)" test-epupp-namespace-rejects-uppercase-epupp-prefix)
             (test "rejects epupp/ prefix even with force flag" test-epupp-namespace-rejects-epupp-prefix-even-with-force-flag)
             (test "rejects epupp/built-in/ prefix (deep nesting)" test-epupp-namespace-rejects-epupp-built-in-prefix)
             (test "allows scripts with epupp elsewhere in name" test-epupp-namespace-allows-scripts-with-epupp-elsewhere-in-name)))
