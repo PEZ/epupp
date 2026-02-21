@@ -90,3 +90,10 @@
   - Manual scripts
   - Matching auto-run
   - Non-matching auto-run
+* [ ] Change Mozilla Addons slug
+    ```
+    curl -X PATCH "https://addons.mozilla.org/api/v5/addons/addon/browser-jack-in/" \
+    -H "Authorization: Bearer <your-token>" \
+    -H "Content-Type: application/json" \
+    -d '{"slug": "epupp"}'
+    ```
