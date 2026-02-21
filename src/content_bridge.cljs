@@ -1,6 +1,5 @@
 ;; Security: The message-registry below is the authoritative whitelist.
 ;; Unregistered message types are silently dropped by the bridge.
-;; See the :msg/auth values for each message's security model.
 
 (ns content-bridge
   "Content script bridge for WebSocket connections.
@@ -11,62 +10,50 @@
 (def message-registry
   ;; WebSocket relay - REPL connectivity
   {"ws-connect"             {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/none
                              :msg/response? false
                              :msg/pre-forward (fn [msg]
                                                 (log/debug "Bridge" "Requesting connection to port:" (.-port msg))
                                                 (set-connected! true))}
    "ws-send"                {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/connected
                              :msg/response? false
                              :msg/pre-forward (fn [_msg]
                                                 (connected?))}
 
    ;; Script CRUD - read operations
    "list-scripts"           {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "get-script"             {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
 
    ;; Script CRUD - write operations
    "save-script"            {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "rename-script"          {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
    "delete-script"          {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/fs-sync+ws
                              :msg/response? true}
 
    ;; Web installer
    "check-script-exists"    {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/none
                              :msg/response? true}
    "web-installer-save-script" {:msg/sources #{"epupp-page"}
-                                :msg/auth :auth/domain-whitelist
                                 :msg/response? true}
 
    ;; Web installer token flow (not yet implemented - depends on security audit remediation)
    ;; Uncomment when background handler exists:
-   ;; "request-save-token"  {:msg/sources #{"epupp-page"} :msg/auth :auth/none :msg/response? true}
+   ;; "request-save-token"  {:msg/sources #{"epupp-page"} :msg/response? true}
 
    ;; Library injection
    "load-manifest"          {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/none
                              :msg/response? true
                              :msg/response-type "manifest-response"}
 
    ;; Sponsor system
    "sponsor-status"         {:msg/sources #{"epupp-userscript"}
-                             :msg/auth :auth/challenge-response
                              :msg/response? false
                              :msg/pre-forward (fn [_msg]
                                                 (log/debug "Bridge" "Forwarding sponsor-status to background"))}
    "get-sponsored-username" {:msg/sources #{"epupp-page"}
-                             :msg/auth :auth/none
                              :msg/response? true}})
 
 (def !state (atom {:bridge/connected? false

@@ -6,8 +6,6 @@
   (doseq [[_ entry] message-registry]
     (-> (expect (:msg/sources entry))
         (.toBeTruthy))
-    (-> (expect (:msg/auth entry))
-        (.not.toBeUndefined))
     (-> (expect (:msg/response? entry))
         (.not.toBeUndefined))))
 
@@ -18,11 +16,7 @@
         (-> (expect (contains? valid-sources source))
             (.toBe true))))))
 
-(defn- test-fire-and-forget-messages-do-not-require-fs-sync-auth []
-  (doseq [[_ entry] message-registry]
-    (when-not (:msg/response? entry)
-      (-> (expect (:msg/auth entry))
-          (.not.toBe :auth/fs-sync)))))
+
 
 (defn- test-response-type-overrides-are-present-where-expected []
   (-> (expect (:msg/response-type (get message-registry "load-manifest")))
@@ -34,8 +28,6 @@
                   test-all-entries-have-required-keys)
             (test "all sources are valid source strings"
                   test-all-sources-are-valid-source-strings)
-            (test "fire-and-forget messages do not require fs-sync auth"
-                  test-fire-and-forget-messages-do-not-require-fs-sync-auth)
             (test "response type overrides are present where expected"
                   test-response-type-overrides-are-present-where-expected)))
 
@@ -87,9 +79,6 @@
         (.toBe true))
     (-> (expect (contains? (:msg/sources entry) "epupp-userscript"))
         (.toBe false))
-    ;; No auth required (read-only check)
-    (-> (expect (:msg/auth entry))
-        (.toBe :auth/none))
     ;; Response-bearing message
     (-> (expect (:msg/response? entry))
         (.toBe true))))
@@ -103,9 +92,6 @@
         (.toBe true))
     (-> (expect (contains? (:msg/sources entry) "epupp-userscript"))
         (.toBe false))
-    ;; Uses domain-whitelist auth
-    (-> (expect (:msg/auth entry))
-        (.toBe :auth/domain-whitelist))
     ;; Response-bearing message
     (-> (expect (:msg/response? entry))
         (.toBe true))))
