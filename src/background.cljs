@@ -112,6 +112,7 @@
   (js* "function() {
     var ws = window.ws_nrepl;
     if (ws) {
+      window.__savedNreplOnMessage = ws.onmessage || null;
       if (ws.readyState === 0 || ws.readyState === 1) {
         ws.close();
       }
@@ -122,7 +123,11 @@
 (def reconnect-nrepl-fn
   (js* "function(port) {
     // Create new WebSocket - will be intercepted by ws-bridge
-    var ws = new WebSocket('ws://localhost:' + port + '/_nrepl');
+    new WebSocket('ws://localhost:' + port + '/_nrepl');
+    // Restore Scittle's onmessage handler onto the new proxy
+    if (window.__savedNreplOnMessage && window.ws_nrepl) {
+      window.ws_nrepl.onmessage = window.__savedNreplOnMessage;
+    }
   }"))
 
 (def check-connection-fn
