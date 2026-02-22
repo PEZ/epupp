@@ -6,22 +6,6 @@
             [clojure.edn :as edn]
             [clojure.string :as str]))
 
-(defn- patch-scittle-for-csp
-  "Patch scittle.js to remove eval() call that breaks on CSP-strict sites.
-   The Closure Compiler adds a dynamic import polyfill using eval which
-   triggers CSP violations on sites like YouTube, GitHub, etc."
-  [scittle-path]
-  (let [content (slurp scittle-path)
-        patched (str/replace
-                 content
-                 "globalThis[\"import\"]=eval(\"(x) \\x3d\\x3e import(x)\");"
-                 "try { globalThis[\"import\"]=eval(\"(x) => import(x)\"); } catch {};")]
-    (when (= content patched)
-      (println "  ⚠ Warning: eval pattern not found in scittle.js - may already be patched or pattern changed"))
-    (spit scittle-path patched)
-    (when (not= content patched)
-      (println "  ✓ Patched scittle.js for CSP compatibility"))))
-
 ;; ============================================================
 ;; Config handling
 ;; ============================================================
@@ -47,7 +31,7 @@
   "Download Scittle ecosystem libraries to extension/vendor.
    Skips download if all files already exist."
   []
-  (let [scittle-version "0.7.30"
+  (let [scittle-version "0.8.31"
         react-version "18"
         scittle-base (str "https://cdn.jsdelivr.net/npm/scittle@" scittle-version "/dist/")
         react-base "https://cdn.jsdelivr.net/npm/"
@@ -86,8 +70,6 @@
           (println "  Downloading" filename "...")
           (let [response (http/get url)]
             (spit (str vendor-dir "/" filename) (:body response))))
-        ;; Patch scittle.js for CSP (only core needs patching)
-        (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
         (println (str "✓ Scittle " scittle-version " ecosystem bundled to " vendor-dir))))))
 
 (defn compile-squint

@@ -193,10 +193,6 @@ npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 
 **CRITICAL: Treat `.mjs` files as compiled artifacts (like binaries).** Never edit them directly - they are auto-generated from `.cljs` source. Only read `.mjs` files when investigating Squint compilation issues. Always edit `.cljs` source in `src/`.
 
-### Scittle CSP Patching
-
-Scittle is patched to remove `eval()` for CSP compatibility. See `dev/docs/dev.md` (section: Patching Scittle for CSP Compatibility) for details. **Always run `bb bundle-scittle` after updating Scittle version.**
-
 ## Key Developer Workflows
 
 See `dev/docs/dev.md` for build commands, loading extension locally, and release process. Note that the instructions there for setting up for local development are meant for the human.
@@ -258,8 +254,8 @@ Do NOT proceed without watcher feedback - it's essential for verifying compilati
 
 1. **Treat `.mjs` as binary** - These are Squint-compiled output. Never edit, and only read when debugging compilation. Edit `.cljs` source in `src/`.
 2. **Squint != ClojureScript** - see `.github/squint.instructions.md` for gotchas (keywords are strings, missing `name` function, mutable data).
-3. **Run `bb bundle-scittle`** after Scittle version updates - the CSP patch is critical.
-4. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle patch works.
+3. **Run `bb bundle-scittle`** after updating the Scittle version.
+4. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle works.
 5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler (`src/ws_bridge.cljs`) to prevent reconnection loops.
 6. **Firefox CSP** - `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
 7. **Use of `!` in shell commands** - In Clojure we use the bang to indicate side-effecting functions. In the shell they are history expansion characters. Avoid using `!` in shell commands to prevent unexpected behavior.
