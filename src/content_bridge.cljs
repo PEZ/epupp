@@ -39,10 +39,6 @@
    "web-installer-save-script" {:msg/sources #{"epupp-page"}
                                 :msg/response? true}
 
-   ;; Web installer token flow (not yet implemented - depends on security audit remediation)
-   ;; Uncomment when background handler exists:
-   ;; "request-save-token"  {:msg/sources #{"epupp-page"} :msg/response? true}
-
    ;; Library injection
    "load-manifest"          {:msg/sources #{"epupp-page"}
                              :msg/response? true
