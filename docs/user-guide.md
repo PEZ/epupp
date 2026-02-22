@@ -624,8 +624,9 @@ For formatted output, use `cljs.pprint`:
 (require '[cljs.pprint :refer [print-table]])
 
 ;; Print all scripts as table
-(-> (epupp.fs/ls)
-    (.then #(print-table [:fs/name :fs/enabled?] %)))
+(defn ^:async print-scripts []
+  (print-table [:fs/name :fs/enabled?] (await (epupp.fs/ls))))
+(print-scripts)
 ```
 
 ---

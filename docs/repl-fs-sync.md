@@ -133,16 +133,16 @@ You have a script installed, but want to edit it in VS Code:
 
 With editor tooling, you could automate this to feel like a mounted directory. That's not built yet, but the primitives are here.
 
-## Promises and Async
+## Async Operations
 
-All FS operations return promises. Use `promesa` for clean async code:
+All FS operations return promises. Use async/await for clean async code:
 
 ```clojure
-(require '[promesa.core :as p])
-
-(p/let [scripts (epupp.fs/ls)
-        code (epupp.fs/show (-> scripts first :fs/name))]
-  (println "First script:" code))
+(defn ^:async show-first-script []
+  (let [scripts (await (epupp.fs/ls))
+        code (await (epupp.fs/show (-> scripts first :fs/name)))]
+    (println "First script:" code)))
+(show-first-script)
 ```
 
 ## FAQ

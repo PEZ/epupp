@@ -12,7 +12,7 @@
 
   ;; Show existing script
   (defn ^:async show-script []
-    (let [show-result (await (epupp.fs/show "epupp/gist_installer.cljs"))]
+    (let [show-result (await (epupp.fs/show "epupp/web_userscript_installer.cljs"))]
       (def show-result show-result)))
   (show-script)
 
@@ -24,7 +24,7 @@
 
   ;; Bulk show - map of name to code (nil for missing)
   (defn ^:async show-bulk-scripts []
-    (let [show-bulk (await (epupp.fs/show ["epupp/gist_installer.cljs" "does-not-exist.cljs"]))]
+    (let [show-bulk (await (epupp.fs/show ["epupp/web_userscript_installer.cljs" "does-not-exist.cljs"]))]
       (def show-bulk show-bulk)))
   (show-bulk-scripts)
 
