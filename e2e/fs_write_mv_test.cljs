@@ -12,7 +12,7 @@
 
   (let [test-code "{:epupp/script-name \"mv-rename-test-original\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns rename-test)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !mv-setup r))))\n                                       :setup-done")))]
+                                (str "(def !mv-setup (atom :pending))\n                                       (defn ^:async do-it [] (reset! !mv-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n                                       (do-it)\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -31,7 +31,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-ls (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !mv-ls scripts))))\n                                                :setup-done"))]
+                                "(def !mv-ls (atom :pending))\n                                                (defn ^:async do-it [] (reset! !mv-ls (await (epupp.fs/ls))))\n                                                (do-it)\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -50,7 +50,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-result (atom :pending))\n                                                (-> (epupp.fs/mv! \"mv_rename_test_original.cljs\" \"mv_renamed_script.cljs\" {:fs/force? true})\n                                                    (.then (fn [r] (reset! !mv-result r))))\n                                                :setup-done"))]
+                                "(def !mv-result (atom :pending))\n                                                (defn ^:async do-it [] (reset! !mv-result (await (epupp.fs/mv! \"mv_rename_test_original.cljs\" \"mv_renamed_script.cljs\" {:fs/force? true}))))\n                                                (do-it)\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -69,7 +69,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !ls-after-mv (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-after-mv scripts))))\n                                                :setup-done"))]
+                                "(def !ls-after-mv (atom :pending))\n                                                (defn ^:async do-it [] (reset! !ls-after-mv (await (epupp.fs/ls))))\n                                                (do-it)\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -91,7 +91,7 @@
 (defn- ^:async test_mv_with_force_returns_from_and_to_names []
   (let [test-code "{:epupp/script-name \"mv-force-confirm\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns mv-force-confirm)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !confirm-mv-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !confirm-mv-setup r))))\n                                       :setup-done")))]
+                                (str "(def !confirm-mv-setup (atom :pending))\n                                       (defn ^:async do-it [] (reset! !confirm-mv-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n                                       (do-it)\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -110,7 +110,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !confirm-mv-ls (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !confirm-mv-ls scripts))))\n                                :setup-done"))]
+                                "(def !confirm-mv-ls (atom :pending))\n                                (defn ^:async do-it [] (reset! !confirm-mv-ls (await (epupp.fs/ls))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -129,7 +129,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !confirm-mv-result (atom :pending))\n                                (-> (epupp.fs/mv! \"mv_force_confirm.cljs\" \"mv_force_renamed.cljs\" {:fs/force? true})\n                                  (.then (fn [r] (reset! !confirm-mv-result r))))\n                                :setup-done"))]
+                                "(def !confirm-mv-result (atom :pending))\n                                (defn ^:async do-it [] (reset! !confirm-mv-result (await (epupp.fs/mv! \"mv_force_confirm.cljs\" \"mv_force_renamed.cljs\" {:fs/force? true}))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -155,7 +155,7 @@
       (-> (expect (.includes result-str ":type")) (.toBe false))))
 
   (let [cleanup-result (js-await (eval-in-browser
-                                  "(def !mv-force-cleanup (atom :pending))\n                                 (-> (epupp.fs/rm! \"mv_force_renamed.cljs\")\n                                   (.then (fn [_] (reset! !mv-force-cleanup :done)))\n                                   (.catch (fn [_] (reset! !mv-force-cleanup :done))))\n                                 :cleanup-started"))]
+                                  "(def !mv-force-cleanup (atom :pending))\n                                 (defn ^:async do-it [] (try (await (epupp.fs/rm! \"mv_force_renamed.cljs\")) (catch :default _)) (reset! !mv-force-cleanup :done))\n                                 (do-it)\n                                 :cleanup-started"))]
     (-> (expect (.-success cleanup-result)) (.toBe true)))
   (let [start (.now js/Date)
         timeout-ms 3000]
@@ -175,7 +175,7 @@
   ;; Create two scripts with different names - save sequentially to avoid races
   (let [code1 "{:epupp/script-name \"mv-collision-source\"\n               :epupp/auto-run-match \"https://example.com/*\"}\n              (ns collision-source)"
         save1-result (js-await (eval-in-browser
-                                (str "(def !save1 (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str code1) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save1 (pr-str r))))\n                                       (.catch (fn [e] (reset! !save1 (str \"ERROR: \" (.-message e))))))\n                                     :started")))]
+                                (str "(def !save1 (atom :pending))\n                                     (defn ^:async do-it [] (try (reset! !save1 (pr-str (await (epupp.fs/save! " (pr-str code1) " {:fs/force? true})))) (catch :default e (reset! !save1 (str \"ERROR: \" (.-message e))))))\n                                     (do-it)\n                                     :started")))]
     (-> (expect (.-success save1-result)) (.toBe true)))
 
   ;; Wait for first save
@@ -198,7 +198,7 @@
   ;; Save second script
   (let [code2 "{:epupp/script-name \"mv-collision-target\"\n               :epupp/auto-run-match \"https://example.com/*\"}\n              (ns collision-target)"
         save2-result (js-await (eval-in-browser
-                                (str "(def !save2 (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str code2) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save2 (pr-str r))))\n                                       (.catch (fn [e] (reset! !save2 (str \"ERROR: \" (.-message e))))))\n                                     :started")))]
+                                (str "(def !save2 (atom :pending))\n                                     (defn ^:async do-it [] (try (reset! !save2 (pr-str (await (epupp.fs/save! " (pr-str code2) " {:fs/force? true})))) (catch :default e (reset! !save2 (str \"ERROR: \" (.-message e))))))\n                                     (do-it)\n                                     :started")))]
     (-> (expect (.-success save2-result)) (.toBe true)))
 
   ;; Wait for second save
@@ -220,7 +220,7 @@
 
   ;; Ensure both scripts are visible before mv
   (let [setup-result (js-await (eval-in-browser
-                                "(def !collision-ls-before (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !collision-ls-before scripts))))\n                                :setup-done"))]
+                                "(def !collision-ls-before (atom :pending))\n                                (defn ^:async do-it [] (reset! !collision-ls-before (await (epupp.fs/ls))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -243,7 +243,7 @@
 
   ;; Now try to rename source to target - should fail since target exists
   (let [setup-result (js-await (eval-in-browser
-                                "(def !collision-mv-result (atom :pending))\n                                (-> (epupp.fs/mv! \"mv_collision_source.cljs\" \"mv_collision_target.cljs\")\n                                  (.then (fn [r] (reset! !collision-mv-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !collision-mv-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !collision-mv-result (atom :pending))\n                                (defn ^:async do-it [] (try (let [r (await (epupp.fs/mv! \"mv_collision_source.cljs\" \"mv_collision_target.cljs\"))] (reset! !collision-mv-result {:resolved r})) (catch :default e (reset! !collision-mv-result {:rejected (.-message e)}))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -268,7 +268,7 @@
 
   ;; Verify both scripts still exist (no data corruption)
   (let [setup-result (js-await (eval-in-browser
-                                "(def !collision-ls (atom :pending))\n                                (-> (epupp.fs/ls)\n                                  (.then (fn [scripts] (reset! !collision-ls scripts))))\n                                :setup-done"))]
+                                "(def !collision-ls (atom :pending))\n                                (defn ^:async do-it [] (reset! !collision-ls (await (epupp.fs/ls))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -292,7 +292,7 @@
 
   ;; Cleanup
   (let [cleanup-result (js-await (eval-in-browser
-                                  "(def !mv-collision-cleanup (atom :pending))\n                                     (-> (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\")\n                                                              (epupp.fs/rm! \"mv_collision_target.cljs\")])\n                                       (.then (fn [_] (reset! !mv-collision-cleanup :done)))\n                                       (.catch (fn [_] (reset! !mv-collision-cleanup :done))))\n                                     :cleanup-started"))]
+                                  "(def !mv-collision-cleanup (atom :pending))\n                                     (defn ^:async do-it [] (try (await (js/Promise.all #js [(epupp.fs/rm! \"mv_collision_source.cljs\") (epupp.fs/rm! \"mv_collision_target.cljs\")])) (catch :default _)) (reset! !mv-collision-cleanup :done))\n                                     (do-it)\n                                     :cleanup-started"))]
     (-> (expect (.-success cleanup-result)) (.toBe true)))
   (let [start (.now js/Date)
         timeout-ms 3000]
@@ -312,7 +312,7 @@
   (let [start (.now js/Date)
         timeout-ms 3000]
     (loop []
-      (let [check-result (js-await (eval-in-browser "(-> (epupp.fs/ls) (.then pr-str))"))]
+      (let [check-result (js-await (eval-in-browser "(defn ^:async do-it [] (pr-str (await (epupp.fs/ls)))) (do-it)"))]
         (if (.-success check-result)
           (let [result (first (.-values check-result))]
             (js/console.log "ls attempt:" result)
@@ -323,7 +323,7 @@
         (js-await (sleep 100)))))
 
   (js/console.log "Verifying web userscript installer exists before mv test...")
-  (let [ls-setup (js-await (eval-in-browser "(def !mv-builtin-ls (atom :pending))\n                                            (-> (epupp.fs/ls {:fs/ls-hidden? true})\n                                              (.then (fn [r] (reset! !mv-builtin-ls (pr-str r))))\n                                              (.catch (fn [e] (reset! !mv-builtin-ls (str \"error: \" (pr-str e))))))\n                                            :setup-done"))]
+  (let [ls-setup (js-await (eval-in-browser "(def !mv-builtin-ls (atom :pending))\n                                            (defn ^:async do-it [] (try (reset! !mv-builtin-ls (pr-str (await (epupp.fs/ls {:fs/ls-hidden? true})))) (catch :default e (reset! !mv-builtin-ls (str \"error: \" (pr-str e))))))\n                                            (do-it)\n                                            :setup-done"))]
     (-> (expect (.-success ls-setup)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -348,7 +348,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-builtin-result (atom :pending))\n                                (-> (epupp.fs/mv! \"epupp/web_userscript_installer.cljs\" \"renamed-builtin.cljs\")\n                                  (.then (fn [r] (reset! !mv-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !mv-builtin-result (atom :pending))\n                                (defn ^:async do-it [] (try (let [r (await (epupp.fs/mv! \"epupp/web_userscript_installer.cljs\" \"renamed-builtin.cljs\"))] (reset! !mv-builtin-result {:resolved r})) (catch :default e (reset! !mv-builtin-result {:rejected (.-message e)}))))\n                                (do-it)\n                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -379,8 +379,8 @@
   (let [test-code "{:epupp/script-name \"mv-reserved-source\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns mv-reserved-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !mv-reserved-setup (atom :pending))\n"
-                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                                     "  (.then (fn [r] (reset! !mv-reserved-setup r))))\n"
+                                     "(defn ^:async do-it [] (reset! !mv-reserved-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                                     "(do-it)\n"
                                      ":setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -397,7 +397,7 @@
             (do (js-await (sleep 20)) (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !mv-reserved-result (atom :pending))\n(-> (epupp.fs/mv! \"mv_reserved_source.cljs\" \"epupp/test.cljs\")\n  (.then (fn [r] (reset! !mv-reserved-result {:resolved r})))\n  (.catch (fn [e] (reset! !mv-reserved-result {:rejected (.-message e)}))))\n:setup-done"))]
+                                "(def !mv-reserved-result (atom :pending))\n(defn ^:async do-it [] (try (let [r (await (epupp.fs/mv! \"mv_reserved_source.cljs\" \"epupp/test.cljs\"))] (reset! !mv-reserved-result {:resolved r})) (catch :default e (reset! !mv-reserved-result {:rejected (.-message e)}))))\n(do-it)\n:setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -414,14 +414,14 @@
             (throw (js/Error. "Timeout waiting for mv reserved namespace result"))
             (do (js-await (sleep 20)) (recur)))))))
 
-  (js-await (eval-in-browser "(-> (epupp.fs/rm! \"mv_reserved_source.cljs\") (.catch (fn [_] nil)))")))
+  (js-await (eval-in-browser "(defn ^:async do-it [] (try (await (epupp.fs/rm! \"mv_reserved_source.cljs\")) (catch :default _ nil))) (do-it)")))
 
 (defn- ^:async test_mv_rejects_path_traversal_target_names []
   (let [test-code "{:epupp/script-name \"mv-path-source\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns mv-path-test)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !mv-path-setup (atom :pending))\n"
-                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                                     "  (.then (fn [r] (reset! !mv-path-setup r))))\n"
+                                     "(defn ^:async do-it [] (reset! !mv-path-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                                     "(do-it)\n"
                                      ":setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -448,8 +448,8 @@
     ;; Ensure source script exists before each invalid mv attempt
     (let [ensure-result (js-await (eval-in-browser
                                    (str "(def !ensure-source (atom :pending))\n"
-                                        "(-> (epupp.fs/save! \"{:epupp/script-name \\\"mv-path-source\\\"\\n                   :epupp/auto-run-match \\\"https://example.com/*\\\"}\\n                  (ns mv-path-test)\" {:fs/force? true})\n"
-                                        "  (.then (fn [r] (reset! !ensure-source r))))\n"
+                                        "(defn ^:async do-it [] (reset! !ensure-source (await (epupp.fs/save! \"{:epupp/script-name \\\"mv-path-source\\\"\\n                   :epupp/auto-run-match \\\"https://example.com/*\\\"}\\n                  (ns mv-path-test)\" {:fs/force? true}))))\n"
+                                        "(do-it)\n"
                                         ":ensuring")))]
       (-> (expect (.-success ensure-result)) (.toBe true))
       (let [start (.now js/Date)
@@ -466,9 +466,8 @@
     (let [label-key (pr-str label)
           setup-result (js-await (eval-in-browser
                                   (str "(swap! !mv-path-results assoc " label-key " :pending)\n"
-                                       "(-> (epupp.fs/mv! \"mv_path_source.cljs\" " (pr-str target-name) ")\n"
-                                       "  (.then (fn [r] (swap! !mv-path-results assoc " label-key " {:resolved r})))\n"
-                                       "  (.catch (fn [e] (swap! !mv-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       "(defn ^:async do-it [] (try (let [r (await (epupp.fs/mv! \"mv_path_source.cljs\" " (pr-str target-name) "))] (swap! !mv-path-results assoc " label-key " {:resolved r})) (catch :default e (swap! !mv-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       "(do-it)\n"
                                        ":setup-done")))]
       (-> (expect (.-success setup-result)) (.toBe true))
 
@@ -486,7 +485,7 @@
                 (throw (js/Error. (str "Timeout for mv path traversal: " label)))
                 (do (js-await (sleep 20)) (recur)))))))))
 
-  (js-await (eval-in-browser "(-> (epupp.fs/rm! \"mv_path_source.cljs\") (.catch (fn [_] nil)))")))
+  (js-await (eval-in-browser "(defn ^:async do-it [] (try (await (epupp.fs/rm! \"mv_path_source.cljs\")) (catch :default _ nil))) (do-it)")))
 
 (.describe test "REPL FS: mv operations"
            (fn []
