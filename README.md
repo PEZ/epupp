@@ -41,6 +41,57 @@ When it comes to userscript use cases, a lot of things that you would use Tamper
 
 With the live REPL connection, you will discover use cases you may not ever have thought about before, or thought about, but dismissed.
 
+## Get Started
+
+### Install
+
+1. Install Epupp from the Chrome and Firefox extension/addon stores.
+    * Chrome Web Store: https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei
+    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/browser-jack-in/
+    * <details>
+      <summary>Safari</summary>
+
+      I'm still pondering wether I should submit to Safari App Store. Apple doesn't exactly love developers... But you can still use Epupp with Safari:
+
+      Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/browser-jack-in/releases). In the case of Safari, download `browser-jack-in-safari.zip`. Then in Safari:
+      1. Open **Settings** -> **Developer**
+      2. Click **Add Temporary Extension...**
+      </details>
+
+2. Pin Epupp to always be visible in the browser location bar. I also recommend to allow Epupp in Private Browsing for maximum utility. The Extension does not collect any data whatsoever.
+3. Navigate away from the extension store, these pages can't be scripted.
+
+### Userscript: Hello World
+
+Create a userscript and run it in some different ways:
+
+1. Open the Developers Tools panel in your browser
+2. Select the **Epupp** tab
+3. Last in the script text area, add a new line and enter:
+   ```clojure
+   (js/alert "Hello World!")
+   ```
+4. Click **Eval Script** to see the alert happen (and the browser console will print things too, assuming you kept the default script.)
+5. Save the script using the **Save Script** button.
+6. Open the Epupp popup by clicking the Eppup extension in the browser toolbar. You will see the script there, named `hello_world.cljs`.
+7. Click the `Play` button on the script. The alert shows again.
+8. Reload the page. The alert show again. The default example code includes a script manifest that will make the script trigger on domain you are currently visiting.
+9. Navigate to another domain and the alert will not show. Navigate back to the previous domain,  and the alert shows.
+10. Annoyed by the alert? Either delete the script or edit it to not alert. The Epupp popup lets you both delete the script and load it in the panel for editing.
+
+### REPL: Hello World
+
+* https://github.com/PEZ/my-epupp-hq
+
+
+### Install a userscript
+
+An Epupp userscript is just a text file which starts with a script manifest and some code. You can install scripts in three ways:
+
+1. Pasting/typing a script in the Epupp panel and clicking **Save Script**.
+2. The web page installer script. The extension has a built-in script that will identify Epupp script and add an **Install** button near the script on the page. Click the button to install the script.
+3.
+
 ## The Epupp UI
 
 The UI has three main components:
@@ -135,33 +186,6 @@ If you try to connect the REPL, immediatelly after installing, you may see a mes
 This is because you can't. Which is a pity! But the web is full of pages we can script.
 
 (Same goes for `chrome://extensions/` and any other `chrome://` page.)
-
-## Installing
-
-Available on the Chrome Web Store: https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei
-
-Firefox pending review, but you can install the package manually in the browser's developer mode. Grab the extension zip file(s) from the latest [release](https://github.com/PEZ/browser-jack-in/releases).
-
-I'm still pondering if I should submit to Safari App Store or not. Apple doesn't exactly love developers...
-
-**Firefox:**
-
-1. Go to `about:debugging#/runtime/this-firefox`
-2. Click "Load Temporary Add-on"
-3. Select any file in `epupp-firefox.zip` file
-
-**Safari:**
-
-1. Go to **Settings** -> **Developer**
-2. **Add Temporary Extension...**
-
-**Chrome:**
-
-0. Unpack `epupp-chrome.zip` (will unpack a `chrome` folder)
-1. Go to `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `chrome` folder
 
 
 ## Troubleshooting
