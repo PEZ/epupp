@@ -11,4 +11,4 @@
                      :other-scripts false
                      :settings false
                      :dev-tools false}
- :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"80ec956af5e6610b040089ba62eecb5d223e9e76\"}}}"
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"80ec956af5e6610b040089ba62eecb5d223e9e76\"}}}"}
