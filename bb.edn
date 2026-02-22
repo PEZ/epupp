@@ -1,5 +1,6 @@
 {:paths ["." "scripts" "e2e" "src"]
- :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
+ :deps {io.github.babashka/sci.nrepl {:git/url "https://github.com/babashka/sci.nrepl"
+                                      :git/sha "80ec956af5e6610b040089ba62eecb5d223e9e76"}
         org.babashka/cli {:mvn/version "0.2.23"}
         org.babashka/http-server {:mvn/version "0.1.14"}
         babashka/fs {:mvn/version "0.5.30"}
