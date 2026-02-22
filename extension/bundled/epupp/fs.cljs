@@ -66,7 +66,7 @@
     (-> (select-keys m allowed-keys)
         (assoc :fs/success (:success m)))))
 
-(defn show
+(defn ^:async show
   "Get script code by name(s). Returns promise.
    Single name: returns code string or nil
    Vector of names: returns map of name->code (nil for missing)
@@ -76,22 +76,18 @@
   [name-or-names]
   (if (vector? name-or-names)
     ;; Bulk mode: fetch all and return map
-    (let [names name-or-names]
-      (-> (js/Promise.all
-           (to-array
-            (map (fn [n]
-                   (-> (send-and-receive "get-script" {:name n} "get-script-response")
-                       (.then (fn [msg]
-                                [n (when (.-success msg) (.-code msg))]))))
-                 names)))
-          (.then (fn [results]
-                   (into {} results)))))
+    (let [results (await (js/Promise.all
+                           (to-array
+                             (map (^:async fn [n]
+                                    (let [msg (await (send-and-receive "get-script" {:name n} "get-script-response"))]
+                                      [n (when (.-success msg) (.-code msg))]))
+                                  name-or-names))))]
+      (into {} results))
     ;; Single mode: return code or nil
-    (-> (send-and-receive "get-script" {:name name-or-names} "get-script-response")
-        (.then (fn [msg]
-                 (when (.-success msg) (.-code msg)))))))
+    (let [msg (await (send-and-receive "get-script" {:name name-or-names} "get-script-response"))]
+      (when (.-success msg) (.-code msg)))))
 
-(defn ls
+(defn ^:async ls
   "List all scripts. Returns promise of vector with script info.
    Each script has :fs/name, :fs/modified, :fs/created, :fs/auto-run-match keys.
    Scripts with auto-run patterns also have :fs/enabled?.
@@ -103,14 +99,13 @@
    Example: (epupp.fs/ls)"
   ([] (ls {}))
   ([opts]
-   (let [ls-hidden? (get opts :fs/ls-hidden?)]
-     (-> (send-and-receive "list-scripts" {:lsHidden ls-hidden?} "list-scripts-response")
-         (.then (fn [msg]
-                  (if (.-success msg)
-                    (js->clj (.-scripts msg) :keywordize-keys true)
-                    [])))))))
+   (let [ls-hidden? (get opts :fs/ls-hidden?)
+         msg (await (send-and-receive "list-scripts" {:lsHidden ls-hidden?} "list-scripts-response"))]
+     (if (.-success msg)
+       (js->clj (.-scripts msg) :keywordize-keys true)
+       []))))
 
-(defn save!
+(defn ^:async save!
   "Save code to Epupp. Parses manifest from code.
    Requires FS REPL Sync to be enabled in settings.
 
@@ -132,30 +127,27 @@
          enabled (get opts :fs/enabled? true)]
      (if (vector? code-or-codes)
        ;; Bulk mode - use map-indexed (realized by to-array for Promise.all)
-       (let [bulk-id (str (.now js/Date) "-" (.random js/Math))]
-         (-> (js/Promise.all
-               (to-array
-                 (map-indexed (fn [idx code]
-                                (-> (send-and-receive "save-script" {:code code
-                                                                     :enabled enabled
-                                                                     :force force?
-                                                                     :bulk-id bulk-id
-                                                                     :bulk-index idx
-                                                                     :bulk-count (count code-or-codes)}
-                                                      "save-script-response")
-                                    (.then ensure-success!)
-                                    (.then (fn [msg]
-                                             [idx (msg->fs-response msg fs-save-keys)]))))
-                              code-or-codes)))
-             (.then (fn [results]
-                      (into {} results)))))
+       (let [bulk-id (str (.now js/Date) "-" (.random js/Math))
+             results (await (js/Promise.all
+                              (to-array
+                                (map-indexed (^:async fn [idx code]
+                                               (let [msg (await (send-and-receive "save-script" {:code code
+                                                                                                  :enabled enabled
+                                                                                                  :force force?
+                                                                                                  :bulk-id bulk-id
+                                                                                                  :bulk-index idx
+                                                                                                  :bulk-count (count code-or-codes)}
+                                                                                  "save-script-response"))]
+                                                 (ensure-success! msg)
+                                                 [idx (msg->fs-response msg fs-save-keys)]))
+                                            code-or-codes))))]
+         (into {} results))
        ;; Single mode
-       (-> (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force force?} "save-script-response")
-           (.then ensure-success!)
-           (.then (fn [msg]
-                    (msg->fs-response msg fs-save-keys))))))))
+       (let [msg (await (send-and-receive "save-script" {:code code-or-codes :enabled enabled :force force?} "save-script-response"))]
+         (ensure-success! msg)
+         (msg->fs-response msg fs-save-keys))))))
 
-(defn mv!
+(defn ^:async mv!
   "Rename a script. Requires FS REPL Sync to be enabled in settings.
 
    Returns promise of base script info plus :fs/from-name.
@@ -169,13 +161,12 @@
    (epupp.fs/mv! \"old.cljs\" \"existing.cljs\" {:fs/force? true})  ; overwrites"
   ([from-name to-name] (mv! from-name to-name {}))
   ([from-name to-name opts]
-   (let [force? (get opts :fs/force?)]
-     (-> (send-and-receive "rename-script" {:from from-name :to to-name :force force?} "rename-script-response")
-         (.then ensure-success!)
-         (.then (fn [msg]
-                  (msg->fs-response msg fs-mv-keys)))))))
+   (let [force? (get opts :fs/force?)
+         msg (await (send-and-receive "rename-script" {:from from-name :to to-name :force force?} "rename-script-response"))]
+     (ensure-success! msg)
+     (msg->fs-response msg fs-mv-keys))))
 
-(defn rm!
+(defn ^:async rm!
   "Delete script(s) by name. Requires FS REPL Sync to be enabled in settings.
 
    Returns promise of base script info of deleted script plus :fs/existed?.
@@ -196,47 +187,44 @@
     (if (vector? name-or-names)
       ;; Bulk mode - use mapv for eager evaluation before Promise.all
       (let [bulk-id (str (.now js/Date) "-" (.random js/Math))
-            bulk-count (count name-or-names)]
-        (-> (js/Promise.all
-             (to-array
-              (mapv (fn [idx n]
-                      (-> (send-and-receive "delete-script" {:name n
-                                                             :bulk-id bulk-id
-                                                             :bulk-index idx
-                                                             :bulk-count bulk-count}
-                                          "delete-script-response")
-                          (.then (fn [msg]
-                                   (cond
-                                     (.-success msg)
-                                     (let [m (msg->fs-response msg fs-rm-keys)]
-                                       [n (assoc m :fs/existed? true)])
+            bulk-count (count name-or-names)
+            results (await (js/Promise.all
+                             (to-array
+                               (mapv (^:async fn [idx n]
+                                       (let [msg (await (send-and-receive "delete-script" {:name n
+                                                                                           :bulk-id bulk-id
+                                                                                           :bulk-index idx
+                                                                                           :bulk-count bulk-count}
+                                                                         "delete-script-response"))]
+                                         (cond
+                                           (.-success msg)
+                                           (let [m (msg->fs-response msg fs-rm-keys)]
+                                             [n (assoc m :fs/existed? true)])
 
-                                     (not-found-error? msg)
-                                     (let [m (msg->fs-response msg fs-rm-keys)]
-                                       [n (assoc m :fs/existed? false)])
+                                           (not-found-error? msg)
+                                           (let [m (msg->fs-response msg fs-rm-keys)]
+                                             [n (assoc m :fs/existed? false)])
 
-                                     :else
-                                     (throw (js/Error. (or (.-error msg) "Unknown error"))))))))
-                    (range bulk-count) name-or-names)))
-            (.then (fn [results]
-                     (let [result-map (into {} results)
-                           missing (->> results
-                                        (keep (fn [[name result]]
-                                                (when (false? (:fs/existed? result))
-                                                  name))))]
-                       (if (seq missing)
-                         (throw (js/Error. (str "Scripts not found: " (.join (to-array missing) ", "))))
-                         result-map))))))
+                                           :else
+                                           (throw (js/Error. (or (.-error msg) "Unknown error"))))))
+                                     (range bulk-count) name-or-names))))
+            result-map (into {} results)
+            missing (->> results
+                         (keep (fn [[name result]]
+                                 (when (false? (:fs/existed? result))
+                                   name))))]
+        (if (seq missing)
+          (throw (js/Error. (str "Scripts not found: " (.join (to-array missing) ", "))))
+          result-map))
       ;; Single mode
-      (-> (send-and-receive "delete-script" {:name name-or-names} "delete-script-response")
-          (.then (fn [msg]
-                   (cond
-                     (.-success msg)
-                     (let [m (msg->fs-response msg fs-rm-keys)]
-                       (assoc m :fs/existed? true))
+      (let [msg (await (send-and-receive "delete-script" {:name name-or-names} "delete-script-response"))]
+        (cond
+          (.-success msg)
+          (let [m (msg->fs-response msg fs-rm-keys)]
+            (assoc m :fs/existed? true))
 
-                     (not-found-error? msg)
-                     (throw (js/Error. (or (.-error msg) "Script not found")))
+          (not-found-error? msg)
+          (throw (js/Error. (or (.-error msg) "Script not found")))
 
-                     :else
-                     (throw (js/Error. (or (.-error msg) "Unknown error"))))))))))
+          :else
+          (throw (js/Error. (or (.-error msg) "Unknown error"))))))))

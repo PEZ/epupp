@@ -18,10 +18,11 @@
       ;; Reset to :pending at start of each iteration
       (let [setup-result (js-await (eval-in-browser
                                     (str "(reset! !wait-builtin-present :pending)\n"
-                                         "(-> (epupp.fs/ls {:fs/ls-hidden? true})\n"
-                                         "    (.then (fn [scripts]\n"
-                                         "            (reset! !wait-builtin-present\n"
-                                         "                    (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts)))))\n"
+                                         "(defn ^:async do-builtin-check []\n"
+                                         "  (let [scripts (await (epupp.fs/ls {:fs/ls-hidden? true}))]\n"
+                                         "    (reset! !wait-builtin-present\n"
+                                         "            (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts))))\n"
+                                         "(do-builtin-check)\n"
                                          ":setup-done")))]
         (when-not (.-success setup-result)
           (throw (js/Error. (str "Failed to start builtin check: " (.-error setup-result)))))
@@ -48,10 +49,11 @@
     (loop []
       (let [setup-result (js-await (eval-in-browser
                                     (str "(def !script-present (atom :pending))\n"
-                                         " (-> (epupp.fs/ls)\n"
-                                         "     (.then (fn [scripts]\n"
-                                         "             (reset! !script-present\n"
-                                         "                     (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts)))))\n"
+                                         " (defn ^:async do-script-check []\n"
+                                         "   (let [scripts (await (epupp.fs/ls))]\n"
+                                         "     (reset! !script-present\n"
+                                         "             (some (fn [s] (= (:fs/name s) \"" script-name "\")) scripts))))\n"
+                                         " (do-script-check)\n"
                                          " :setup-done")))]
         (when-not (.-success setup-result)
           (throw (js/Error. (str "Failed to start script presence check: " (.-error setup-result)))))
@@ -77,7 +79,7 @@
 
   (let [test-code "{:epupp/script-name \"test-script-from-repl\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns test-script)\n                                  (js/console.log \"Hello from test script!\")"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-result (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !save-result r))))\n                                       :setup-done")))]
+                                (str "(def !save-result (atom :pending))\n                                       (defn ^:async do-save [] (reset! !save-result (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n                                       (do-save)\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -103,7 +105,7 @@
       (-> (expect (.includes result-str ":type")) (.toBe false))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !ls-after-save (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-after-save scripts))))\n                                                :setup-done"))]
+                                "(def !ls-after-save (atom :pending))\n                                                (defn ^:async do-ls [] (reset! !ls-after-save (await (epupp.fs/ls))))\n                                                (do-ls)\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -124,7 +126,7 @@
 (defn- ^:async test_save_with_disabled_creates_disabled_script []
   (let [test-code "{:epupp/script-name \"disabled-by-default\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns disabled-test)\n                                  (js/console.log \"Should be disabled!\")"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-disabled (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/enabled? false :fs/force? true})\n                                         (.then (fn [r] (reset! !save-disabled r))))\n                                       :setup-done")))]
+                                (str "(def !save-disabled (atom :pending))\n                                       (defn ^:async do-save [] (reset! !save-disabled (await (epupp.fs/save! " (pr-str test-code) " {:fs/enabled? false :fs/force? true}))))\n                                       (do-save)\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -143,7 +145,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !ls-check-disabled (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-check-disabled scripts))))\n                                                :setup-done"))]
+                                "(def !ls-check-disabled (atom :pending))\n                                                (defn ^:async do-ls [] (reset! !ls-check-disabled (await (epupp.fs/ls))))\n                                                (do-ls)\n                                                :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -172,7 +174,7 @@
   (let [code1 "{:epupp/script-name \"bulk-save-test-1\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-save-1)"
         code2 "{:epupp/script-name \"bulk-save-test-2\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-save-2)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !bulk-save-result (atom :pending))\n                                       (-> (epupp.fs/save! [" (pr-str code1) " " (pr-str code2) "] {:fs/force? true})\n                                         (.then (fn [result] (reset! !bulk-save-result {:resolved result})))\n                                         (.catch (fn [e] (reset! !bulk-save-result {:rejected (.-message e)}))))\n                                       :setup-done")))]
+                                (str "(def !bulk-save-result (atom :pending))\n                                       (defn ^:async do-save []\n                                         (try\n                                           (let [result (await (epupp.fs/save! [" (pr-str code1) " " (pr-str code2) "] {:fs/force? true}))]\n                                             (reset! !bulk-save-result {:resolved result}))\n                                           (catch :default e\n                                             (reset! !bulk-save-result {:rejected (.-message e)}))))\n                                       (do-save)\n                                       :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -206,7 +208,7 @@
                 (recur)))))))
 
   (let [cleanup-result (js-await (eval-in-browser
-                                  "(def !bulk-save-cleanup (atom :pending))\n                                 (-> (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")\n                                                           (epupp.fs/rm! \"bulk_save_test_2.cljs\")])\n                                   (.then (fn [_] (reset! !bulk-save-cleanup :done)))\n                                   (.catch (fn [_] (reset! !bulk-save-cleanup :done))))\n                                 :cleanup-started"))]
+                                  "(def !bulk-save-cleanup (atom :pending))\n                                 (defn ^:async do-cleanup []\n                                   (try\n                                     (await (js/Promise.all #js [(epupp.fs/rm! \"bulk_save_test_1.cljs\")\n                                                                  (epupp.fs/rm! \"bulk_save_test_2.cljs\")]))\n                                     (reset! !bulk-save-cleanup :done)\n                                     (catch :default _\n                                       (reset! !bulk-save-cleanup :done))))\n                                 (do-cleanup)\n                                 :cleanup-started"))]
     (-> (expect (.-success cleanup-result)) (.toBe true)))
   (let [start (.now js/Date)
         timeout-ms 3000]
@@ -226,7 +228,7 @@
   ;; First create a script
   (let [test-code "{:epupp/script-name \"save-collision-test\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns collision-test)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-first (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-first r))))\n                                     :setup-done")))]
+                                (str "(def !save-first (atom :pending))\n                                     (defn ^:async do-save [] (reset! !save-first (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n                                     (do-save)\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   ;; Wait for first save
@@ -250,7 +252,7 @@
   ;; Now try to save again WITHOUT force - should reject
   (let [new-code "{:epupp/script-name \"save-collision-test\"\n                  :epupp/auto-run-match \"https://example.com/*\"}\n                 (ns collision-test-v2)\n                 (js/console.log \"This should not overwrite!\")"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-collision-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str new-code) ")\n                                       (.then (fn [r] (reset! !save-collision-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-collision-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
+                                (str "(def !save-collision-result (atom :pending))\n                                     (defn ^:async do-save []\n                                       (try\n                                         (let [r (await (epupp.fs/save! " (pr-str new-code) "))]\n                                           (reset! !save-collision-result {:resolved r}))\n                                         (catch :default e\n                                           (reset! !save-collision-result {:rejected (.-message e)}))))\n                                     (do-save)\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -281,7 +283,7 @@
 
   ;; Cleanup
   (let [cleanup-result (js-await (eval-in-browser
-                                  "(def !save-collision-cleanup (atom :pending))\n                                     (-> (epupp.fs/rm! \"save_collision_test.cljs\")\n                                       (.then (fn [_] (reset! !save-collision-cleanup :done)))\n                                       (.catch (fn [_] (reset! !save-collision-cleanup :done))))\n                                     :cleanup-started"))]
+                                  "(def !save-collision-cleanup (atom :pending))\n                                     (defn ^:async do-cleanup []\n                                       (try\n                                         (await (epupp.fs/rm! \"save_collision_test.cljs\"))\n                                         (reset! !save-collision-cleanup :done)\n                                         (catch :default _\n                                           (reset! !save-collision-cleanup :done))))\n                                     (do-cleanup)\n                                     :cleanup-started"))]
     (-> (expect (.-success cleanup-result)) (.toBe true)))
   (let [start (.now js/Date)
         timeout-ms 3000]
@@ -305,7 +307,7 @@
   ;; Note: epupp/ prefix is rejected by reserved namespace check (correct behavior)
   (let [test-code "{:epupp/script-name \"epupp/web_userscript_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin)\n                  (js/console.log \"Trying to impersonate built-in!\")"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-builtin-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) ")\n                                       (.then (fn [r] (reset! !save-builtin-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
+                                (str "(def !save-builtin-result (atom :pending))\n                                     (defn ^:async do-save []\n                                       (try\n                                         (let [r (await (epupp.fs/save! " (pr-str test-code) "))]\n                                           (reset! !save-builtin-result {:resolved r}))\n                                         (catch :default e\n                                           (reset! !save-builtin-result {:rejected (.-message e)}))))\n                                     (do-save)\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -341,7 +343,7 @@
   ;; Try to save with force - still should reject (reserved namespace)
   (let [test-code "{:epupp/script-name \"epupp/web_userscript_installer.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns fake-builtin-force)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !save-builtin-force-result (atom :pending))\n                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                       (.then (fn [r] (reset! !save-builtin-force-result {:resolved r})))\n                                       (.catch (fn [e] (reset! !save-builtin-force-result {:rejected (.-message e)}))))\n                                     :setup-done")))]
+                                (str "(def !save-builtin-force-result (atom :pending))\n                                     (defn ^:async do-save []\n                                       (try\n                                         (let [r (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))]\n                                           (reset! !save-builtin-force-result {:resolved r}))\n                                         (catch :default e\n                                           (reset! !save-builtin-force-result {:rejected (.-message e)}))))\n                                     (do-save)\n                                     :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -374,8 +376,8 @@
   ;; Create a script via REPL FS
   (let [test-code-v1 "{:epupp/script-name \"id-preserve-test\"\n                     :epupp/auto-run-match \"https://example.com/*\"}\n                    (ns id-test)\n                    (js/console.log \"Version 1\")"
         setup-result (js-await (eval-in-browser
-                                (str "(-> (epupp.fs/save! " (pr-str test-code-v1) " {:fs/force? true})\n"
-                                     "  (.then (fn [_] :v1-done)))\n")))]
+                                (str "(defn ^:async do-save-v1 [] (await (epupp.fs/save! " (pr-str test-code-v1) " {:fs/force? true})) :v1-done)\n"
+                                     "(do-save-v1)\n")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   ;; Wait for script to appear
@@ -383,7 +385,7 @@
 
   ;; Get script ID via ls
   (let [id1-result (js-await (eval-in-browser
-                              "(-> (epupp.fs/ls)\n                                   (.then (fn [scripts]\n                                            (let [s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                              (pr-str (:fs/id s))))))"))]
+                              "(defn ^:async do-get-id []\n                                   (let [scripts (await (epupp.fs/ls))\n                                         s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                     (pr-str (:fs/id s))))\n                                 (do-get-id)"))]
     (-> (expect (.-success id1-result)) (.toBe true))
     (let [id1 (unquote-result (first (.-values id1-result)))]
       (-> (expect id1) (.not.toBeNull))
@@ -391,14 +393,14 @@
       ;; Force-save v2 with same name but different content
       (let [test-code-v2 "{:epupp/script-name \"id-preserve-test\"\n                       :epupp/auto-run-match \"https://example.com/*\"}\n                      (ns id-test)\n                      (js/console.log \"Version 2 - UPDATED\")"
             save2-result (js-await (eval-in-browser
-                                    (str "(-> (epupp.fs/save! " (pr-str test-code-v2) " {:fs/force? true})\n"
-                                         "  (.then (fn [_] :v2-done)))\n")))]
+                                    (str "(defn ^:async do-save-v2 [] (await (epupp.fs/save! " (pr-str test-code-v2) " {:fs/force? true})) :v2-done)\n"
+                                         "(do-save-v2)\n")))]
         (-> (expect (.-success save2-result)) (.toBe true)))
 
 
       ;; Get script ID again
       (let [id2-result (js-await (eval-in-browser
-                                  "(-> (epupp.fs/ls)\n                                     (.then (fn [scripts]\n                                              (let [s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                                (pr-str (:fs/id s))))))"))]
+                                  "(defn ^:async do-get-id2 []\n                                     (let [scripts (await (epupp.fs/ls))\n                                           s (first (filter #(= (:fs/name %) \"id_preserve_test.cljs\") scripts))]\n                                       (pr-str (:fs/id s))))\n                                   (do-get-id2)"))]
         (-> (expect (.-success id2-result)) (.toBe true))
         (let [id2 (unquote-result (first (.-values id2-result)))]
           ;; IDs MUST be equal - the force save should update, not delete+create
@@ -407,16 +409,20 @@
 
   ;; Cleanup
   (let [cleanup-result (js-await (eval-in-browser
-                                  "(-> (epupp.fs/rm! \"id_preserve_test.cljs\")\n                                     (.then (fn [_] :cleanup-done))\n                                     (.catch (fn [_] :cleanup-done)))"))]
+                                  "(defn ^:async do-cleanup []\n                                     (try (await (epupp.fs/rm! \"id_preserve_test.cljs\")) :cleanup-done\n                                       (catch :default _ :cleanup-done)))\n                                   (do-cleanup)"))]
     (-> (expect (.-success cleanup-result)) (.toBe true))))
 
 (defn- ^:async test_save_rejects_reserved_namespace_with_clear_error []
   (let [test-code "{:epupp/script-name \"epupp/my-script.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns bad-namespace)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !save-reserved-result (atom :pending))\n"
-                                     "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
-                                     "  (.then (fn [r] (reset! !save-reserved-result {:resolved r})))\n"
-                                     "  (.catch (fn [e] (reset! !save-reserved-result {:rejected (.-message e)}))))\n"
+                                     "(defn ^:async do-save []\n"
+                                     "  (try\n"
+                                     "    (let [r (await (epupp.fs/save! " (pr-str test-code) "))]\n"
+                                     "      (reset! !save-reserved-result {:resolved r}))\n"
+                                     "    (catch :default e\n"
+                                     "      (reset! !save-reserved-result {:rejected (.-message e)}))))\n"
+                                     "(do-save)\n"
                                      ":setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -461,9 +467,13 @@
           label-key (pr-str label)
           setup-result (js-await (eval-in-browser
                                   (str "(swap! !save-path-results assoc " label-key " :pending)\n"
-                                       "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
-                                       "  (.then (fn [r] (swap! !save-path-results assoc " label-key " {:resolved r})))\n"
-                                       "  (.catch (fn [e] (swap! !save-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       "(defn ^:async do-save []\n"
+                                       "  (try\n"
+                                       "    (let [r (await (epupp.fs/save! " (pr-str test-code) "))]\n"
+                                       "      (swap! !save-path-results assoc " label-key " {:resolved r}))\n"
+                                       "    (catch :default e\n"
+                                       "      (swap! !save-path-results assoc " label-key " {:rejected (.-message e)}))))\n"
+                                       "(do-save)\n"
                                        ":setup-done")))]
       (-> (expect (.-success setup-result)) (.toBe true))
 

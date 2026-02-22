@@ -158,22 +158,15 @@
 ;; Sequential execution
 ;; ============================================================
 
-(defn- run-probes-sequentially
+(defn- ^:async run-probes-sequentially
   "Execute probe plan items one at a time, collecting results.
    Returns a promise resolving to {source -> {type -> result}}."
   [plan]
   (let [results (atom {})]
-    (.then
-     (reduce
-      (fn [chain {:keys [source type response-type timeout-ms]}]
-        (.then chain
-               (fn [_]
-                 (.then (probe-message source type response-type timeout-ms)
-                        (fn [result]
-                          (swap! results assoc-in [source type] result))))))
-      (js/Promise.resolve nil)
-      plan)
-     (fn [_] @results))))
+    (doseq [{:keys [source type response-type timeout-ms]} plan]
+      (let [result (await (probe-message source type response-type timeout-ms))]
+        (swap! results assoc-in [source type] result)))
+    @results))
 
 ;; ============================================================
 ;; Output results
@@ -211,12 +204,13 @@
 ;; Main
 ;; ============================================================
 
-(defn- run-probe! []
+(defn- ^:async run-probe! []
   (js/console.log "[epupp-security-probe] Starting security surface probe...")
-  (let [plan (build-probe-plan)]
-    (-> (run-probes-sequentially plan)
-        (.then output-results!)
-        (.catch (fn [err]
-                  (js/console.error "[epupp-security-probe] Probe failed:" err))))))
+  (try
+    (let [plan (build-probe-plan)
+          results (await (run-probes-sequentially plan))]
+      (output-results! results))
+    (catch :default err
+      (js/console.error "[epupp-security-probe] Probe failed:" err))))
 
 (run-probe!)

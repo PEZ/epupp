@@ -131,8 +131,8 @@
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !show-result (atom nil))
-                                 (-> (epupp.fs/show \"epupp/web_userscript_installer.cljs\")
-                                     (.then (fn [code] (reset! !show-result code))))
+                                 (defn ^:async do-it [] (reset! !show-result (await (epupp.fs/show \"epupp/web_userscript_installer.cljs\"))))
+                                 (do-it)
                                  :pending"))]
     (js/console.log "=== setup result ===" (js/JSON.stringify setup-result))
     (-> (expect (.-success setup-result)) (.toBe true)))
@@ -157,8 +157,8 @@
 (defn- ^:async test_show_returns_nil_for_nonexistent_script []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !show-nil-result (atom :pending))
-                                 (-> (epupp.fs/show \"does-not-exist.cljs\")
-                                     (.then (fn [code] (reset! !show-nil-result code))))
+                                 (defn ^:async do-it [] (reset! !show-nil-result (await (epupp.fs/show \"does-not-exist.cljs\"))))
+                                 (do-it)
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -179,8 +179,8 @@
 (defn- ^:async test_show_with_vector_returns_map []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !bulk-show-result (atom :pending))
-                                 (-> (epupp.fs/show [\"epupp/web_userscript_installer.cljs\" \"does-not-exist.cljs\"])
-                                     (.then (fn [result] (reset! !bulk-show-result result))))
+                                 (defn ^:async do-it [] (reset! !bulk-show-result (await (epupp.fs/show [\"epupp/web_userscript_installer.cljs\" \"does-not-exist.cljs\"]))))
+                                 (do-it)
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -213,8 +213,8 @@
 
   (let [setup-result (js-await (eval-in-browser
                                 "(def !ls-result (atom :pending))
-                                 (-> (epupp.fs/ls)
-                                     (.then (fn [scripts] (reset! !ls-result scripts))))
+                                 (defn ^:async do-it [] (reset! !ls-result (await (epupp.fs/ls))))
+                                 (do-it)
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -237,8 +237,8 @@
 (defn- ^:async test_ls_includes_builtins_when_option_set []
   (let [setup-result (js-await (eval-in-browser
                                 "(def !ls-hidden-result (atom :pending))
-                                 (-> (epupp.fs/ls {:fs/ls-hidden? true})
-                                     (.then (fn [scripts] (reset! !ls-hidden-result scripts))))
+                                 (defn ^:async do-it [] (reset! !ls-hidden-result (await (epupp.fs/ls {:fs/ls-hidden? true}))))
+                                 (do-it)
                                  :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 

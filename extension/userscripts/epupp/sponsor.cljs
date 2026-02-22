@@ -49,19 +49,19 @@
                           :requestId req-id}
                      "*")))))
 
-(defn fetch-icon-url!+
+(defn ^:async fetch-icon-url!+
   "Fetch the Epupp icon URL from the extension via content bridge.
    Returns a Promise that resolves with the URL string or nil on timeout."
   []
-  (-> (send-and-receive "get-icon-url" "get-icon-url-response")
-      (.then (fn [msg] (when msg (.-url msg))))))
+  (let [msg (await (send-and-receive "get-icon-url" "get-icon-url-response"))]
+    (when msg (.-url msg))))
 
-(defn fetch-sponsored-username!+
+(defn ^:async fetch-sponsored-username!+
   "Fetch the expected sponsor username from the extension via content bridge.
    Returns a Promise that resolves with the username string or nil on timeout."
   []
-  (-> (send-and-receive "get-sponsored-username" "get-sponsored-username-response")
-      (.then (fn [msg] (when msg (.-username msg))))))
+  (let [msg (await (send-and-receive "get-sponsored-username" "get-sponsored-username-response"))]
+    (when msg (.-username msg))))
 ;; ============================================================
 ;; Forever sponsors
 ;; ============================================================
@@ -215,27 +215,28 @@
 ;; Initialization
 ;; ============================================================
 
-(defn- init! []
+(defn- ^:async init! []
   ;; Fetch icon URL once (stored in defonce atom, survives re-injections)
   (when-not @!icon-url
-    (-> (fetch-icon-url!+)
-        (.then (fn [url]
-                 (when url
-                   (reset! !icon-url url)
-                   ;; Re-render banner with icon if one is already showing
-                   (when (js/document.querySelector "[data-epupp-sponsor-banner]")
-                     (detect-and-act!)))))
-        (.catch (fn [_] nil))))
+    (try
+      (let [url (await (fetch-icon-url!+))]
+        (when url
+          (reset! !icon-url url)
+          ;; Re-render banner with icon if one is already showing
+          (when (js/document.querySelector "[data-epupp-sponsor-banner]")
+            (detect-and-act!))))
+      (catch :default _ nil)))
 
   ;; Fetch sponsored username once, then run detection
   (if @!sponsored-username
     (detect-and-act!)
-    (-> (fetch-sponsored-username!+)
-        (.then (fn [username]
-                 (when username
-                   (reset! !sponsored-username username))
-                 (detect-and-act!)))
-        (.catch (fn [_] (detect-and-act!)))))
+    (try
+      (let [username (await (fetch-sponsored-username!+))]
+        (when username
+          (reset! !sponsored-username username))
+        (detect-and-act!))
+      (catch :default _
+        (detect-and-act!))))
 
   ;; Register SPA navigation listener (once)
   (when (and (not @!nav-registered) js/window.navigation)

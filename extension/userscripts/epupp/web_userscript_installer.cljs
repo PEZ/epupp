@@ -303,24 +303,22 @@
                         (clj->js (assoc payload :source "epupp-page" :type msg-type :requestId req-id))
                         "*")))))))
 
-(defn fetch-icon-url!+
+(defn ^:async fetch-icon-url!+
   "Fetch the Epupp icon URL from the extension. Returns promise of URL string."
   []
-  (-> (send-and-receive "get-icon-url" {} "get-icon-url-response")
-      (.then (fn [msg]
-               (.-url msg)))))
+  (let [msg (await (send-and-receive "get-icon-url" {} "get-icon-url-response"))]
+    (.-url msg)))
 
-(defn- check-script-status!+ [script-name code]
-  (-> (send-and-receive "check-script-exists"
-                        {:name script-name :code code}
-                        "check-script-exists-response")
-      (.then (fn [msg]
-               (if (.-success msg)
-                 (cond
-                   (not (.-exists msg)) :install
-                   (.-identical msg) :installed
-                   :else :update)
-                 :install)))))
+(defn- ^:async check-script-status!+ [script-name code]
+  (let [msg (await (send-and-receive "check-script-exists"
+                                     {:name script-name :code code}
+                                     "check-script-exists-response"))]
+    (if (.-success msg)
+      (cond
+        (not (.-exists msg)) :install
+        (.-identical msg) :installed
+        :else :update)
+      :install)))
 
 
 
@@ -532,16 +530,17 @@
                                                                :mode :error
                                                                :block-id block-id
                                                                :error-message error-msg}]]))]
-        (-> (send-and-receive "web-installer-save-script"
-                              {:code code}
-                              "web-installer-save-script-response"
-                              5000)
-            (.then (fn [msg]
-                     (if (.-success msg)
-                       (dispatch! [[:block/update-status block-id :installed]])
-                       (handle-save-error (or (.-error msg) "Installation failed")))))
-            (.catch (fn [error]
-                      (handle-save-error (or (.-message error) "Installation failed"))))))
+        ((^:async fn []
+           (try
+             (let [msg (await (send-and-receive "web-installer-save-script"
+                                                {:code code}
+                                                "web-installer-save-script-response"
+                                                5000))]
+               (if (.-success msg)
+                 (dispatch! [[:block/update-status block-id :installed]])
+                 (handle-save-error (or (.-error msg) "Installation failed"))))
+             (catch :default error
+               (handle-save-error (or (.-message error) "Installation failed")))))))
 
       (js/console.warn "[Web Installer] Unknown effect:" (pr-str effect-type)))))
 
@@ -892,7 +891,7 @@
     (dispatch! [[:db/update :blocks conj block-data]])
     (attach-button-to-block! block-info block-data)))
 
-(defn- process-code-block!+
+(defn- ^:async process-code-block!+
   "Process a single code block. Returns promise.
    block-info is {:element :format :code-text}
    Checks script status via check-script-exists message.
@@ -902,9 +901,9 @@
   (let [element (:element block-info)
         code-text (:code-text block-info)
         trimmed-text (string/trim code-text)]
-    (if (and (> (count trimmed-text) 10)
-             (string/starts-with? trimmed-text "{"))
-      (if-let [manifest (extract-manifest code-text)]
+    (when (and (> (count trimmed-text) 10)
+               (string/starts-with? trimmed-text "{"))
+      (when-let [manifest (extract-manifest code-text)]
         (let [script-name (:script-name manifest)
               existing-id (aget element "id")
               block-id (if (and existing-id (pos? (count existing-id)))
@@ -913,45 +912,44 @@
           (.setAttribute element "data-epupp-processed" "true")
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
-          (-> (check-script-status!+ script-name code-text)
-              (.then #(create-and-attach-block! block-info block-id manifest code-text %))
-              (.catch (fn [e]
-                        (js/console.error "[Web Userscript Installer] Error checking script status:" script-name e)
-                        (create-and-attach-block! block-info block-id manifest code-text :install)))))
-        (js/Promise.resolve nil))
-      (js/Promise.resolve nil))))
+          (try
+            (let [install-state (await (check-script-status!+ script-name code-text))]
+              (create-and-attach-block! block-info block-id manifest code-text install-state))
+            (catch :default e
+              (js/console.error "[Web Userscript Installer] Error checking script status:" script-name e)
+              (create-and-attach-block! block-info block-id manifest code-text :install))))))))
 
-(defn scan-code-blocks! []
+(defn ^:async scan-code-blocks! []
   (let [all-blocks (detect-all-code-blocks)
         unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
     ;; Debug: set marker with scan info
     (when-let [marker (js/document.getElementById "epupp-installer-debug")]
       (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
     ;; Process all unprocessed blocks concurrently
-    (-> (js/Promise.all
-         (to-array (map #(process-code-block!+ %) unprocessed)))
-        (.then (fn [_]
-                 (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-                   (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))))
-        (.catch (fn [error]
-                  (js/console.error "[Web Userscript Installer] Scan error:" error))))))
+    (try
+      (await (js/Promise.all
+              (to-array (map #(process-code-block!+ %) unprocessed))))
+      (when-let [marker (js/document.getElementById "epupp-installer-debug")]
+        (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
+      (catch :default error
+        (js/console.error "[Web Userscript Installer] Scan error:" error)))))
 
-(defn scan-with-retry!
+(defn ^:async scan-with-retry!
   "Scan for code blocks, retry with backoff if no blocks found.
    Pending retries are cancelled by rescan! via clearTimeout."
   ([] (scan-with-retry! 0))
   ([retry-index]
-   (-> (scan-code-blocks!)
-       (.then (fn [_]
-                (when (and (zero? (count (:blocks @!state)))
-                           (< retry-index (count retry-delays)))
-                  (let [delay (nth retry-delays retry-index)
-                        timeout-id (js/setTimeout
-                                    #(scan-with-retry! (inc retry-index))
-                                    delay)]
-                    (dispatch! [[:db/assoc :pending-retry-timeout timeout-id]])))))
-       (.catch (fn [error]
-                 (js/console.error "[Web Userscript Installer] Scan error:" error))))))
+   (try
+     (await (scan-code-blocks!))
+     (when (and (zero? (count (:blocks @!state)))
+                (< retry-index (count retry-delays)))
+       (let [delay (nth retry-delays retry-index)
+             timeout-id (js/setTimeout
+                         #(scan-with-retry! (inc retry-index))
+                         delay)]
+         (dispatch! [[:db/assoc :pending-retry-timeout timeout-id]])))
+     (catch :default error
+       (js/console.error "[Web Userscript Installer] Scan error:" error)))))
 
 (defn rescan!
   "Reset DOM-tied state and re-scan for code blocks.
@@ -965,7 +963,7 @@
               [:db/assoc :button-containers {}]])
   (scan-with-retry!))
 
-(defn init! [!db]
+(defn ^:async init! [!db]
   (let [state @!db]
     (js/console.log "[Web Userscript Installer] Initializing...")
 
@@ -986,14 +984,7 @@
       (.addEventListener js/document "DOMContentLoaded" (partial rescan! !db))
       (rescan! !db))
 
-    ;; Fetch icon URL (once)
-    (when-not (:icon-url state)
-      (-> (fetch-icon-url!+)
-          (.then (fn [url]
-                   (dispatch! [[:db/assoc :icon-url url]])))
-          (.catch (fn [_]))))
-
-    ;; SPA navigation listener (once)
+    ;; SPA navigation listener (once) - register before async icon fetch
     (when-not (:nav-registered? state)
       (dispatch! [[:db/assoc :nav-registered? true]])
       (when js/window.navigation
@@ -1008,6 +999,13 @@
                                      (js/clearTimeout tid))
                                    (reset! !nav-timeout
                                            (js/setTimeout (partial rescan! !db) 300)))))))))
+
+    ;; Fetch icon URL (once)
+    (when-not (:icon-url state)
+      (try
+        (let [url (await (fetch-icon-url!+))]
+          (dispatch! [[:db/assoc :icon-url url]]))
+        (catch :default _)))
 
     (js/console.log "[Web Userscript Installer] Ready")))
 

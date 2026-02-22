@@ -8,6 +8,12 @@
 		},
 		{
 			"path": "../epupp-docs"
+		},
+		{
+			"path": "../scittle"
+		},
+		{
+			"path": "../sci"
 		}
 	],
 	"settings": {
