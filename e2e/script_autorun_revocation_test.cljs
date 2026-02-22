@@ -131,8 +131,8 @@
       (let [code-with-match "^{:epupp/script-name \"repl-revoke-test\"\n  :epupp/auto-run-match \"https://example.com/*\"}\n(ns repl-revoke-test)\n(println \"v1 with match\")"
             setup-result (js-await (eval-in-browser
                                     (str "(def !save1 (atom :pending))\n"
-                                         "(-> (epupp.fs/save! " (pr-str code-with-match) " {:fs/force? true})\n"
-                                         "    (.then (fn [r] (reset! !save1 r))))\n"
+                                         "(defn ^:async do-it [] (reset! !save1 (await (epupp.fs/save! " (pr-str code-with-match) " {:fs/force? true}))))\n"
+                                         "(do-it)\n"
                                          ":setup-done")))]
         (js-await (-> (expect (.-success setup-result)) (.toBe true)))
         ;; Wait for save to complete
@@ -155,8 +155,8 @@
       (let [code-without-match "^{:epupp/script-name \"repl_revoke_test.cljs\"}\n(ns repl-revoke-test)\n(println \"v2 no match - manual only\")"
             update-result (js-await (eval-in-browser
                                      (str "(def !save2 (atom :pending))\n"
-                                          "(-> (epupp.fs/save! " (pr-str code-without-match) " {:fs/force? true})\n"
-                                          "    (.then (fn [r] (reset! !save2 r))))\n"
+                                          "(defn ^:async do-it [] (reset! !save2 (await (epupp.fs/save! " (pr-str code-without-match) " {:fs/force? true}))))\n"
+                                          "(do-it)\n"
                                           ":setup-done")))]
         (js-await (-> (expect (.-success update-result)) (.toBe true)))
         ;; Wait for save to complete

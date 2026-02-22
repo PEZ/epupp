@@ -19,8 +19,8 @@
       ;; Create a new script via REPL fs API
       (let [test-code "{:epupp/script-name \"ui-reactivity-test-script\"\n                                           :epupp/auto-run-match \"https://reactivity-test.com/*\"}\n                                          (ns ui-reactivity-test)"
             save-code (str "(def !ui-save-result (atom :pending))\n"
-                           "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                           "  (.then (fn [r] (reset! !ui-save-result r))))\n"
+                           "(defn ^:async do-it [] (reset! !ui-save-result (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                           "(do-it)\n"
                            ":setup-done")]
         (let [setup-result (js-await (helpers/eval-in-browser save-code))]
           (-> (expect (.-success setup-result)) (.toBe true)))
@@ -43,8 +43,8 @@
   ;; First create a script to delete
   (let [test-code "{:epupp/script-name \"script-to-delete\"\n                                      :epupp/auto-run-match \"https://delete-test.com/*\"}\n                                      (ns script-to-delete)"
         save-code (str "(def !delete-setup (atom :pending))\n"
-                       "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                       "  (.then (fn [r] (reset! !delete-setup r))))\n"
+                       "(defn ^:async do-it [] (reset! !delete-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                       "(do-it)\n"
                        ":setup-done")]
     (let [setup-result (js-await (helpers/eval-in-browser save-code))]
       (-> (expect (.-success setup-result)) (.toBe true)))
@@ -63,7 +63,7 @@
 
     (let [initial-count (js-await (.count (.locator popup ".script-item")))]
       ;; Delete the script via REPL
-      (let [delete-code "(def !rm-ui-result (atom :pending))\n                                  (-> (epupp.fs/rm! \"script_to_delete.cljs\")\n                                    (.then (fn [r] (reset! !rm-ui-result r))))\n                                  :setup-done"
+      (let [delete-code "(def !rm-ui-result (atom :pending))\n                                  (defn ^:async do-it [] (reset! !rm-ui-result (await (epupp.fs/rm! \"script_to_delete.cljs\"))))\n                                  (do-it)\n                                  :setup-done"
             del-result (js-await (helpers/eval-in-browser delete-code))]
         (-> (expect (.-success del-result)) (.toBe true)))
       (js-await (helpers/wait-for-eval-promise "!rm-ui-result" 3000))
@@ -82,8 +82,8 @@
   ;; First create a script to rename
   (let [test-code "{:epupp/script-name \"script-to-rename\"\n                                       :epupp/auto-run-match \"https://rename-test.com/*\"}\n                                      (ns script-to-rename)"
         save-code (str "(def !rename-setup (atom :pending))\n"
-                       "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                       "  (.then (fn [r] (reset! !rename-setup r))))\n"
+                       "(defn ^:async do-it [] (reset! !rename-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                       "(do-it)\n"
                        ":setup-done")]
     (let [setup-result (js-await (helpers/eval-in-browser save-code))]
       (-> (expect (.-success setup-result)) (.toBe true)))
@@ -101,7 +101,7 @@
                   (.toBeVisible #js {:timeout 2000})))
 
     ;; Rename the script via REPL
-    (let [rename-code "(def !mv-ui-result (atom :pending))\n                                  (-> (epupp.fs/mv! \"script_to_rename.cljs\" \"renamed_via_repl.cljs\" {:fs/force? true})\n                                    (.then (fn [r] (reset! !mv-ui-result r))))\n                                  :setup-done"
+    (let [rename-code "(def !mv-ui-result (atom :pending))\n                                  (defn ^:async do-it [] (reset! !mv-ui-result (await (epupp.fs/mv! \"script_to_rename.cljs\" \"renamed_via_repl.cljs\" {:fs/force? true}))))\n                                  (do-it)\n                                  :setup-done"
           mv-result (js-await (helpers/eval-in-browser rename-code))]
       (-> (expect (.-success mv-result)) (.toBe true))
       (js-await (helpers/wait-for-eval-promise "!mv-ui-result" 3000)))

@@ -6,13 +6,17 @@
 (defn- ^:async popup_flashes_on_save_conflict []
   (let [test-code "{:epupp/script-name \"no-overwrite\"\n                                       :epupp/auto-run-match \"https://no-overwrite.com/*\"}\n                                      (ns no-overwrite)"
         save-code (str "(def !no-overwrite-setup (atom :pending))\n"
-                       "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                       "  (.then (fn [r] (reset! !no-overwrite-setup r))))\n"
+                       "(defn ^:async do-it [] (reset! !no-overwrite-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                       "(do-it)\n"
                        ":setup-done")
         conflict-code (str "(def !no-overwrite-conflict (atom :pending))\n"
-                            "(-> (epupp.fs/save! " (pr-str test-code) ")\n"
-                            "  (.then (fn [r] (reset! !no-overwrite-conflict {:resolved r})))\n"
-                            "  (.catch (fn [e] (reset! !no-overwrite-conflict {:rejected (.-message e)}))))\n"
+                            "(defn ^:async do-it []\n"
+                            "  (try\n"
+                            "    (let [r (await (epupp.fs/save! " (pr-str test-code) "))]\n"
+                            "      (reset! !no-overwrite-conflict {:resolved r}))\n"
+                            "    (catch :default e\n"
+                            "      (reset! !no-overwrite-conflict {:rejected (.-message e)}))))\n"
+                            "(do-it)\n"
                             ":setup-done")]
     ;; Create a script to conflict with
     (let [setup-result (js-await (helpers/eval-in-browser save-code))]
@@ -51,8 +55,8 @@
   ;; First create a script to modify
   (let [test-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/auto-run-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)"
         save-code (str "(def !flash-setup (atom :pending))\n"
-                       "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                       "  (.then (fn [r] (reset! !flash-setup r))))\n"
+                       "(defn ^:async do-it [] (reset! !flash-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n"
+                       "(do-it)\n"
                        ":setup-done")]
     (let [setup-result (js-await (helpers/eval-in-browser save-code))]
       (-> (expect (.-success setup-result)) (.toBe true)))
@@ -73,8 +77,8 @@
     ;; Modify the script via REPL (save with force to update existing)
     (let [updated-code "{:epupp/script-name \"flash-test-script\"\n                                       :epupp/auto-run-match \"https://flash-test.com/*\"}\n                                      (ns flash-test)\n                                      (js/console.log \"Updated!\")"
           update-code (str "(def !flash-update (atom :pending))\n"
-                           "(-> (epupp.fs/save! " (pr-str updated-code) " {:fs/force? true})\n"
-                           "  (.then (fn [r] (reset! !flash-update r))))\n"
+                           "(defn ^:async do-it [] (reset! !flash-update (await (epupp.fs/save! " (pr-str updated-code) " {:fs/force? true}))))\n"
+                           "(do-it)\n"
                            ":setup-done")]
       (let [update-result (js-await (helpers/eval-in-browser update-code))]
         (-> (expect (.-success update-result)) (.toBe true)))

@@ -13,9 +13,13 @@
                   (js/console.log \"Trying to use reserved namespace!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !reserved-ns-result (atom :pending))
-                                     (-> (epupp.fs/save! " (pr-str test-code) ")
-                                       (.then (fn [r] (reset! !reserved-ns-result {:resolved r})))
-                                       (.catch (fn [e] (reset! !reserved-ns-result {:rejected (.-message e)}))))
+                                     (defn ^:async do-it []
+                                       (try
+                                         (let [r (await (epupp.fs/save! " (pr-str test-code) "))]
+                                           (reset! !reserved-ns-result {:resolved r}))
+                                         (catch :default e
+                                           (reset! !reserved-ns-result {:rejected (.-message e)}))))
+                                     (do-it)
                                      :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -46,9 +50,13 @@
                   (js/console.log \"Trying to impersonate built-in!\")"
         setup-result (js-await (eval-in-browser
                                 (str "(def !deep-nested-result (atom :pending))
-                                     (-> (epupp.fs/save! " (pr-str test-code) ")
-                                       (.then (fn [r] (reset! !deep-nested-result {:resolved r})))
-                                       (.catch (fn [e] (reset! !deep-nested-result {:rejected (.-message e)}))))
+                                     (defn ^:async do-it []
+                                       (try
+                                         (let [r (await (epupp.fs/save! " (pr-str test-code) "))]
+                                           (reset! !deep-nested-result {:resolved r}))
+                                         (catch :default e
+                                           (reset! !deep-nested-result {:rejected (.-message e)}))))
+                                     (do-it)
                                      :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
@@ -78,9 +86,13 @@
                   (ns force-hack)"
         setup-result (js-await (eval-in-browser
                                 (str "(def !force-reserved-result (atom :pending))
-                                     (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})
-                                       (.then (fn [r] (reset! !force-reserved-result {:resolved r})))
-                                       (.catch (fn [e] (reset! !force-reserved-result {:rejected (.-message e)}))))
+                                     (defn ^:async do-it []
+                                       (try
+                                         (let [r (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))]
+                                           (reset! !force-reserved-result {:resolved r}))
+                                         (catch :default e
+                                           (reset! !force-reserved-result {:rejected (.-message e)}))))
+                                     (do-it)
                                      :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 

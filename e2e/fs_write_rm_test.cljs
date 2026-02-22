@@ -13,7 +13,7 @@
 
   (let [test-code "{:epupp/script-name \"delete-test-script\"\n                                   :epupp/auto-run-match \"https://example.com/*\"}\n                                  (ns delete-test)"
         setup-result (js-await (eval-in-browser
-                                (str "(def !rm-setup (atom :pending))\n                                       (-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n                                         (.then (fn [r] (reset! !rm-setup r))))\n                                       :setup-done")))]
+                                (str "(def !rm-setup (atom :pending))\n (defn ^:async do-it [] (reset! !rm-setup (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))))\n (do-it)\n :setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -31,7 +31,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !ls-before-rm (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-before-rm scripts))))\n                                                :setup-done"))]
+                                "(def !ls-before-rm (atom :pending))\n (defn ^:async do-it [] (reset! !ls-before-rm (await (epupp.fs/ls))))\n (do-it)\n :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -50,7 +50,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !rm-result (atom :pending))\n                                (-> (epupp.fs/rm! \"delete_test_script.cljs\")\n                                  (.then (fn [r] (reset! !rm-result r))))\n                                :setup-done"))]
+                                "(def !rm-result (atom :pending))\n (defn ^:async do-it [] (reset! !rm-result (await (epupp.fs/rm! \"delete_test_script.cljs\"))))\n (do-it)\n :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -69,7 +69,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !ls-after-rm (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !ls-after-rm scripts))))\n                                                :setup-done"))]
+                                "(def !ls-after-rm (atom :pending))\n (defn ^:async do-it [] (reset! !ls-after-rm (await (epupp.fs/ls))))\n (do-it)\n :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -89,7 +89,7 @@
 
 (defn- ^:async test_rm_rejects_deleting_builtin_scripts []
   (let [setup-result (js-await (eval-in-browser
-                                "(def !rm-builtin-result (atom :pending))\n                                (-> (epupp.fs/rm! \"epupp/web_userscript_installer.cljs\")\n                                  (.then (fn [r] (reset! !rm-builtin-result {:resolved r})))\n                                  (.catch (fn [e] (reset! !rm-builtin-result {:rejected (.-message e)}))))\n                                :setup-done"))]
+                                "(def !rm-builtin-result (atom :pending))\n (defn ^:async do-it []\n   (try\n     (let [r (await (epupp.fs/rm! \"epupp/web_userscript_installer.cljs\"))]\n       (reset! !rm-builtin-result {:resolved r}))\n     (catch :default e\n       (reset! !rm-builtin-result {:rejected (.-message e)}))))\n (do-it)\n :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -123,7 +123,8 @@
         code2 "{:epupp/script-name \"bulk-rm-test-2\"\n                               :epupp/auto-run-match \"https://example.com/*\"}\n                              (ns bulk-rm-2)"
         ;; Setup: save two test scripts
         setup-result (js-await (eval-in-browser
-                                (str "(def !bulk-rm-setup (atom :pending))\n                                      (-> (js/Promise.all #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})\n                                                               (epupp.fs/save! " (pr-str code2) " {:fs/force? true})])\n                                          (.then (fn [r] (reset! !bulk-rm-setup {:resolved r})))\n                                          (.catch (fn [e] (reset! !bulk-rm-setup {:rejected (.-message e)}))))\n                                      :setup-started")))]
+                                (str "(def !bulk-rm-setup (atom :pending))\n (defn ^:async do-it []\n   (try\n     (let [r (await (js/Promise.all #js [(epupp.fs/save! " (pr-str code1) " {:fs/force? true})\n                                         (epupp.fs/save! " (pr-str code2) " {:fs/force? true})]))]
+       (reset! !bulk-rm-setup {:resolved r}))\n     (catch :default e\n       (reset! !bulk-rm-setup {:rejected (.-message e)}))))\n (do-it)\n :setup-started")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   ;; Wait for setup to complete
@@ -146,7 +147,7 @@
 
   ;; Delete two existing scripts and one non-existent - should reject
   (let [setup-result (js-await (eval-in-browser
-                                "(def !bulk-rm-result (atom :pending))\n                                (-> (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"])\n                                  (.then (fn [result] (reset! !bulk-rm-result {:resolved result})))\n                                  (.catch (fn [e] (reset! !bulk-rm-result {:rejected (.-message e)}))))\n                                :delete-started"))]
+                                "(def !bulk-rm-result (atom :pending))\n (defn ^:async do-it []\n   (try\n     (let [r (await (epupp.fs/rm! [\"bulk_rm_test_1.cljs\" \"bulk_rm_test_2.cljs\" \"does-not-exist.cljs\"]))]\n       (reset! !bulk-rm-result {:resolved r}))\n     (catch :default e\n       (reset! !bulk-rm-result {:rejected (.-message e)}))))\n (do-it)\n :delete-started"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -174,7 +175,7 @@
               (recur)))))))
 
   (let [setup-result (js-await (eval-in-browser
-                                "(def !bulk-rm-after (atom :pending))\n                                                (-> (epupp.fs/ls)\n                                                    (.then (fn [scripts] (reset! !bulk-rm-after scripts))))\n                                                :setup-done"))]
+                                "(def !bulk-rm-after (atom :pending))\n (defn ^:async do-it [] (reset! !bulk-rm-after (await (epupp.fs/ls))))\n (do-it)\n :setup-done"))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 
   (let [start (.now js/Date)
@@ -209,11 +210,15 @@
                        "(ns existed-test)")
         setup-result (js-await (eval-in-browser
                                 (str "(def !existed-rm-result (atom {:save :pending :rm :pending}))\n"
-                                     "(-> (epupp.fs/save! " (pr-str test-code) " {:fs/force? true})\n"
-                                     "    (.then (fn [r] (swap! !existed-rm-result assoc :save r)\n"
-                                     "                   (epupp.fs/rm! \"" normalized-name "\")))\n"
-                                     "    (.then (fn [r] (swap! !existed-rm-result assoc :rm r)))\n"
-                                     "    (.catch (fn [e] (swap! !existed-rm-result assoc :rm {:rejected (.-message e)}))))\n"
+                                     "(defn ^:async do-it []\n"
+                                     "  (try\n"
+                                     "    (let [save-r (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))]\n"
+                                     "      (swap! !existed-rm-result assoc :save save-r)\n"
+                                     "      (let [rm-r (await (epupp.fs/rm! \"" normalized-name "\"))]\n"
+                                     "        (swap! !existed-rm-result assoc :rm rm-r)))\n"
+                                     "    (catch :default e\n"
+                                     "      (swap! !existed-rm-result assoc :rm {:rejected (.-message e)}))))\n"
+                                     "(do-it)\n"
                                      ":setup-done")))]
     (-> (expect (.-success setup-result)) (.toBe true)))
 

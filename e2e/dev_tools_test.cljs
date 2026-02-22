@@ -169,15 +169,14 @@
 
         ;; Poll storage until the background has updated the sponsor script's match
         (js-await (-> (.poll expect
-                             (fn []
-                               (-> (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"})
-                                   (.then (fn [result]
-                                            (let [scripts (or (.-value result) #js [])
-                                                  sponsor (.find scripts (fn [s] (= "epupp-builtin-sponsor-check" (.-id s))))]
-                                              (when sponsor
-                                                (let [match (.-match sponsor)]
-                                                  (when (and match (pos? (.-length match)))
-                                                    (aget match 0)))))))))
+                             (^:async fn []
+                               (let [result (js-await (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"}))
+                                     scripts (or (.-value result) #js [])
+                                     sponsor (.find scripts (fn [s] (= "epupp-builtin-sponsor-check" (.-id s))))]
+                                 (when sponsor
+                                   (let [match (.-match sponsor)]
+                                     (when (and match (pos? (.-length match)))
+                                       (aget match 0))))))
                              #js {:timeout 3000})
                       (.toBe "https://github.com/sponsors/richhickey*")))
 
