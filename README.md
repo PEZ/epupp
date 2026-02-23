@@ -90,7 +90,7 @@ An Epupp userscript is just a text file which starts with a script manifest and 
 
 1. Pasting/typing a script in the Epupp panel and clicking **Save Script**.
 2. The web page installer script. The extension has a built-in script that will identify Epupp script and add an **Install** button near the script on the page. Click the button to install the script.
-3.
+3. Using the REPL. There's a `epupp.fs` namespace for listing/reading/writing/renaming scripts in the Epupp extension storage.
 
 ## The Epupp UI
 
