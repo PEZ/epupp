@@ -17,7 +17,7 @@ Please understand the attached plan (if no plan is attached, or available in the
 0. Load your todo list with an initial test run + all the chunks:
 1. Delegate to the testrunner to verify that we are starting at a green unit and e2e test slate.
 2. For each chunk
-  a. Understand the work and delegate it to the epupp-doer. Instruct the doer that:
+  a. Understand the work and delegate it to the epupp-expert subagent. Instruct the subagent that:
     * tests are green when starting (no need to verify this)
     * before handing off the completed work, delegate to testrunner to verify that you are leaving the slate as green as you entered it
     * hand of the work with a brief summary of what was dune, and any deviations from the plan
