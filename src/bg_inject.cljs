@@ -58,6 +58,8 @@
         var policy = window.trustedTypes.defaultPolicy;
         if (!policy) {
           policy = window.trustedTypes.createPolicy('default', {
+            createHTML: function(s) { return s; },
+            createScript: function(s) { return s; },
             createScriptURL: function(s) { return s; }
           });
         }
@@ -83,8 +85,20 @@
 
 (def trigger-scittle-fn
   "JavaScript function to trigger Scittle evaluation of script tags.
+   Ensures a broad TrustedTypes default policy before evaluation.
    Called directly via chrome.scripting.executeScript."
   (js* "function() {
+    if (window.trustedTypes && window.trustedTypes.createPolicy && !window.trustedTypes.defaultPolicy) {
+      try {
+        window.trustedTypes.createPolicy('default', {
+          createHTML: function(s) { return s; },
+          createScript: function(s) { return s; },
+          createScriptURL: function(s) { return s; }
+        });
+      } catch(e) {
+        console.warn('[Epupp] TrustedTypes default policy creation failed:', e.message);
+      }
+    }
     if (window.scittle && window.scittle.core && window.scittle.core.eval_script_tags) {
       window.scittle.core.eval_script_tags();
       return true;
