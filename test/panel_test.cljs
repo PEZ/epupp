@@ -169,12 +169,25 @@
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :editor/fx.inject-and-eval))))
 
+(defn- test_eval_without_scittle_passes_inject_libs []
+  (let [state (-> initial-state
+                  (assoc :panel/code "(+ 1 2)")
+                  (assoc :panel/scittle-status :unknown)
+                  (assoc :panel/manifest-hints {:inject ["scittle://reagent.js"]}))
+        result (panel-actions/handle-action state uf-data [:editor/ax.eval])
+        [effect-name _effect-code effect-libs] (first (:uf/fxs result))]
+    (-> (expect effect-name)
+        (.toBe :editor/fx.inject-and-eval))
+    (-> (expect effect-libs)
+        (.toEqual ["scittle://reagent.js"]))))
+
 (describe "panel eval action"
           (fn []
             (test ":editor/ax.eval with empty code returns nil" test_eval_with_empty_code_returns_nil)
             (test ":editor/ax.eval when already evaluating returns nil" test_eval_when_already_evaluating_returns_nil)
             (test ":editor/ax.eval with loaded scittle triggers direct eval" test_eval_with_loaded_scittle_triggers_direct_eval)
-            (test ":editor/ax.eval without scittle triggers inject-and-eval" test_eval_without_scittle_triggers_inject_and_eval)))
+            (test ":editor/ax.eval without scittle triggers inject-and-eval" test_eval_without_scittle_triggers_inject_and_eval)
+            (test ":editor/ax.eval without scittle passes inject libs" test_eval_without_scittle_passes_inject_libs)))
 
 ;; ============================================================
 ;; Panel save action tests
@@ -774,6 +787,18 @@
     (-> (expect (:panel/scittle-status new-state))
         (.toBe :loading))))
 
+(defn- test_eval_selection_with_loaded_scittle_passes_inject_libs []
+  (let [state (-> initial-state
+                  (assoc :panel/code "(+ 1 2)")
+                  (assoc :panel/scittle-status :loaded)
+                  (assoc :panel/manifest-hints {:inject ["scittle://reagent.js"]}))
+        result (panel-actions/handle-action state uf-data [:editor/ax.eval-selection])
+        [effect-name _effect-code effect-libs] (first (:uf/fxs result))]
+    (-> (expect effect-name)
+        (.toBe :editor/fx.eval-in-page))
+    (-> (expect effect-libs)
+        (.toEqual ["scittle://reagent.js"]))))
+
 (describe "panel selection actions"
           (fn []
             (test ":editor/ax.set-selection updates selection state" test_set_selection_updates_selection_state)
@@ -783,7 +808,8 @@
             (test ":editor/ax.eval-selection with empty selection text evaluates full code" test_eval_selection_with_empty_selection_text_evaluates_full_code)
             (test ":editor/ax.eval-selection with empty code and empty selection returns nil" test_eval_selection_with_empty_code_and_empty_selection_returns_nil)
             (test ":editor/ax.eval-selection when already evaluating returns nil" test_eval_selection_when_already_evaluating_returns_nil)
-            (test ":editor/ax.eval-selection without scittle triggers inject-and-eval" test_eval_selection_without_scittle_triggers_inject_and_eval)))
+            (test ":editor/ax.eval-selection without scittle triggers inject-and-eval" test_eval_selection_without_scittle_triggers_inject_and_eval)
+            (test ":editor/ax.eval-selection with loaded scittle passes inject libs" test_eval_selection_with_loaded_scittle_passes_inject_libs)))
 
 ;; === Panel system banner category tests ===
 

@@ -86,15 +86,10 @@
    (->> (js-arr->vec js-scripts)
         (mapv (fn [s]
                 (let [script {:script/id (.-id s)
-                              :script/name (.-name s)
-                              :script/description (.-description s)
-                              :script/match (js-arr->vec (.-match s))
                               :script/code (.-code s)
                               :script/enabled (.-enabled s)
                               :script/created (.-created s)
                               :script/modified (.-modified s)
-                              :script/run-at (normalize-run-at (.-runAt s))
-                              :script/inject (js-arr->vec (.-inject s))
                               :script/builtin? (boolean (.-builtin s))
                               :script/always-enabled? (boolean (.-alwaysEnabled s))}
                       manifest (when (and extract-manifest (:script/code script))
@@ -106,7 +101,9 @@
 
 (defn script->js
   "Convert script map to JS object with simple keys for storage.
-   Includes runAt and match for early injection loader."
+   Includes runAt and match for early injection loader.
+   Other derived fields (name, description, inject) are not stored
+   since they are re-derived from the manifest on load."
   [script]
   #js {:id (:script/id script)
        :code (:script/code script)
@@ -236,6 +233,70 @@
     (.startsWith input-name "/") "Script name cannot start with '/'"
     (or (.includes input-name "./") (.includes input-name "../")) "Script name cannot contain './' or '../'"
     :else nil))
+
+(defn normalize-and-merge-script
+  "Pure script normalization and merge. No persistence, no atoms.
+   Returns {:script updated-script} or {:error error-message}.
+
+   Handles: name extraction from manifest, name validation/normalization,
+   manifest-derived fields (via derive-script-fields), enabled-state
+   computation, existing-script merge, and timestamps.
+
+   Each caller is responsible for:
+   - Manifest extraction
+   - ID resolution
+   - Error handling strategy (throw vs error map)
+   - Persistence"
+  [script existing manifest {:keys [is-builtin? now-iso]}]
+  (let [has-manifest? (some? manifest)
+        manifest-name (when has-manifest?
+                        (or (get manifest "raw-script-name")
+                            (get manifest "script-name")))
+        raw-name (or (and has-manifest? manifest-name)
+                     (:script/name script))
+        name-error (when (and raw-name (not is-builtin?))
+                     (validate-script-name raw-name))
+        normalized-name (when raw-name
+                          (if is-builtin?
+                            raw-name
+                            (normalize-script-name raw-name)))]
+    (if name-error
+      {:error name-error}
+      (let [named-script (cond-> script
+                           normalized-name (assoc :script/name normalized-name))
+            ;; When no manifest and no match on incoming, fall back to existing
+            with-match-fallback (if (and (not has-manifest?)
+                                        (nil? (:script/match named-script))
+                                        existing)
+                                  (assoc named-script :script/match (:script/match existing))
+                                  named-script)
+            ;; Apply manifest-derived fields (match, run-at, description, inject)
+            derived (derive-script-fields with-match-fallback manifest)
+            ;; derive-script-fields may set raw manifest name; override with normalized
+            derived (if normalized-name
+                      (assoc derived :script/name normalized-name)
+                      derived)
+            ;; Compute enabled state
+            has-auto-run? (seq (:script/match derived))
+            is-update? (some? existing)
+            new-enabled (cond
+                          (:script/always-enabled? script) true
+                          (not has-auto-run?) false
+                          is-update? (:script/enabled existing)
+                          (some? (:script/enabled derived)) (:script/enabled derived)
+                          :else false)
+            ;; Merge with existing or create new
+            merged (if is-update?
+                     (-> (merge existing (dissoc derived :script/enabled))
+                         (assoc :script/enabled new-enabled))
+                     (assoc derived :script/enabled new-enabled))
+            ;; Add timestamps
+            timestamped (if is-update?
+                          (assoc merged :script/modified now-iso)
+                          (assoc merged
+                                 :script/created now-iso
+                                 :script/modified now-iso))]
+        {:script timestamped}))))
 
 (defn builtin-script?
   "Check if a script is a built-in script via :script/builtin? metadata."

@@ -13,10 +13,7 @@
   (let [start (.now js/Date)]
     (case effect
       :storage/fx.persist!
-      (let [[new-scripts] args]
-        ;; Update storage atom and persist
-        (swap! storage/!db assoc :storage/scripts new-scripts)
-        (storage/persist!))
+      (storage/persist!)
 
       :bg/fx.broadcast-system-banner!
       (let [[event-data] args]
@@ -34,7 +31,7 @@
 
 (defn dispatch-fs-action!
   "Dispatch an FS action through pure handler, then execute effects.
-   Bridges the pure Uniflow pattern with storage side effects."
+   Mirrors the real Uniflow event loop: update atom first, then run effects."
   [send-response action]
   (log/debug "Background" "dispatch-fs-action! START:" (first action))
   (try
@@ -46,19 +43,12 @@
           _ (log/debug "Background" "Handler result keys:" (keys result))
           {:uf/keys [db fxs]} result
           _ (log/debug "Background" "Effects to execute:" (count fxs) (mapv first fxs))]
+      ;; Update atom before effects (mirrors event_handler/dispatch! pattern)
+      (when db
+        (swap! storage/!db merge db))
       ;; Execute effects
       (doseq [fx fxs]
-        (case (first fx)
-          :storage/fx.persist!
-          (when db
-            ;; Pass the new scripts from db to the effect
-            (perform-fs-effect! send-response [:storage/fx.persist! (:storage/scripts db)]))
-
-          :bg/fx.send-response
-          (perform-fs-effect! send-response fx)
-
-          ;; Other effects pass through
-          (perform-fs-effect! send-response fx)))
+        (perform-fs-effect! send-response fx))
       (let [elapsed (- (.now js/Date) start)]
         (log/debug "Background" "dispatch-fs-action! DONE:" (first action) "in" elapsed "ms")
         (when (> elapsed 100)

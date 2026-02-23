@@ -169,7 +169,7 @@
 
 ;; script->js tests
 
-(defn- test-script-js-emits-fields-for-early-injection-loader []
+(defn- test-script-js-stores-only-primary-fields []
   (let [script {:script/id "script-1"
                 :script/name "derived.cljs"
                 :script/description "Example"
@@ -183,7 +183,7 @@
                 :script/builtin? true}
         js-script (script-utils/script->js script)
         keys (js/Object.keys js-script)]
-    ;; Core fields + runAt + match + alwaysEnabled for early loader
+    ;; Primary fields + runAt + match (needed by early injection loader)
     (-> (expect (.-length keys))
         (.toBe 9))
     (-> (expect (.includes keys "id"))
@@ -198,7 +198,9 @@
         (.toBe true))
     (-> (expect (.includes keys "builtin"))
         (.toBe true))
-    ;; Early loader needs runAt and match
+    (-> (expect (.includes keys "alwaysEnabled"))
+        (.toBe true))
+    ;; runAt and match stored for early injection loader
     (-> (expect (.includes keys "runAt"))
         (.toBe true))
     (-> (expect (.includes keys "match"))
@@ -207,7 +209,7 @@
         (.toBe "document-end"))
     (-> (expect (aget js-script "match"))
         (.toEqual #js ["https://example.com/*"]))
-    ;; UI-only fields are still excluded
+    ;; Derived fields NOT stored (re-derived from manifest on load)
     (-> (expect (aget js-script "name"))
         (.toBeUndefined))
     (-> (expect (aget js-script "description"))
@@ -215,8 +217,6 @@
     (-> (expect (aget js-script "inject"))
         (.toBeUndefined))
     (-> (expect (.-builtin js-script))
-        (.toBe true))
-    (-> (expect (.includes keys "alwaysEnabled"))
         (.toBe true))))
 
 ;; ============================================================
@@ -240,13 +240,147 @@
             (test "manifest without auto-run-match clears match" test-derive-manifest-without-auto-run-clears-match)
             (test "nil manifest preserves existing fields" test-derive-nil-manifest-preserves-existing-fields)))
 
+;; normalize-and-merge-script tests
+
+(defn- test-normalize-merge-new-script-with-manifest []
+  (let [code "^{:epupp/script-name \"My Script\"\n  :epupp/auto-run-match \"https://example.com/*\"\n  :epupp/description \"Test\"\n  :epupp/run-at \"document-end\"\n  :epupp/inject \"scittle://reagent.js\"}\n(ns my-script)"
+        manifest (mp/extract-manifest code)
+        script {:script/id "script-1" :script/code code}
+        result (script-utils/normalize-and-merge-script
+                 script nil manifest
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:error result)) (.toBeUndefined))
+    (-> (expect (:script/name s)) (.toBe "my_script.cljs"))
+    (-> (expect (:script/match s)) (.toEqual ["https://example.com/*"]))
+    (-> (expect (:script/description s)) (.toBe "Test"))
+    (-> (expect (:script/run-at s)) (.toBe "document-end"))
+    (-> (expect (:script/inject s)) (.toEqual ["scittle://reagent.js"]))
+    (-> (expect (:script/enabled s)) (.toBe false))
+    (-> (expect (:script/created s)) (.toBe "2026-01-01T00:00:00.000Z"))
+    (-> (expect (:script/modified s)) (.toBe "2026-01-01T00:00:00.000Z"))))
+
+(defn- test-normalize-merge-new-script-without-manifest []
+  (let [script {:script/id "script-1"
+                :script/code "(ns no-manifest)"
+                :script/name "my-test.cljs"
+                :script/match ["https://example.com/*"]
+                :script/run-at "document-start"}
+        result (script-utils/normalize-and-merge-script
+                 script nil nil
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:error result)) (.toBeUndefined))
+    (-> (expect (:script/name s)) (.toBe "my_test.cljs"))
+    (-> (expect (:script/match s)) (.toEqual ["https://example.com/*"]))
+    (-> (expect (:script/run-at s)) (.toBe "document-start"))
+    (-> (expect (:script/enabled s)) (.toBe false))
+    (-> (expect (:script/created s)) (.toBe "2026-01-01T00:00:00.000Z"))))
+
+(defn- test-normalize-merge-update-preserves-enabled []
+  (let [existing {:script/id "script-1"
+                  :script/name "test.cljs"
+                  :script/code "(ns old)"
+                  :script/enabled true
+                  :script/match ["https://example.com/*"]
+                  :script/created "2025-01-01T00:00:00.000Z"
+                  :script/modified "2025-06-01T00:00:00.000Z"}
+        code "^{:epupp/script-name \"test.cljs\"\n  :epupp/auto-run-match \"https://example.com/*\"}\n(ns test)"
+        manifest (mp/extract-manifest code)
+        script {:script/id "script-1" :script/code code}
+        result (script-utils/normalize-and-merge-script
+                 script existing manifest
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:script/enabled s)) (.toBe true))
+    (-> (expect (:script/created s)) (.toBe "2025-01-01T00:00:00.000Z"))
+    (-> (expect (:script/modified s)) (.toBe "2026-01-01T00:00:00.000Z"))))
+
+(defn- test-normalize-merge-manifest-revokes-auto-run []
+  (let [existing {:script/id "script-1"
+                  :script/name "test.cljs"
+                  :script/code "(ns old)"
+                  :script/enabled true
+                  :script/match ["https://example.com/*"]
+                  :script/created "2025-01-01T00:00:00.000Z"}
+        code "^{:epupp/script-name \"test.cljs\"}\n(ns test)"
+        manifest (mp/extract-manifest code)
+        script {:script/id "script-1" :script/code code}
+        result (script-utils/normalize-and-merge-script
+                 script existing manifest
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:script/match s)) (.toEqual []))
+    (-> (expect (:script/enabled s)) (.toBe false))))
+
+(defn- test-normalize-merge-name-validation-error []
+  (let [script {:script/id "script-1"
+                :script/code "(ns test)"
+                :script/name "epupp/reserved.cljs"}
+        result (script-utils/normalize-and-merge-script
+                 script nil nil
+                 {:now-iso "2026-01-01T00:00:00.000Z"})]
+    (-> (expect (:error result)) (.toContain "reserved namespace"))))
+
+(defn- test-normalize-merge-builtin-bypasses-normalization []
+  (let [script {:script/id "builtin-1"
+                :script/code "(ns builtin)"
+                :script/name "Builtin Name"
+                :script/builtin? true
+                :script/match ["<all_urls>"]}
+        result (script-utils/normalize-and-merge-script
+                 script nil nil
+                 {:is-builtin? true
+                  :now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:script/name s)) (.toBe "Builtin Name"))))
+
+(defn- test-normalize-merge-always-enabled []
+  (let [script {:script/id "script-1"
+                :script/code "(ns test)"
+                :script/name "test.cljs"
+                :script/always-enabled? true
+                :script/match []}
+        result (script-utils/normalize-and-merge-script
+                 script nil nil
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:script/enabled s)) (.toBe true))))
+
+(defn- test-normalize-merge-no-manifest-falls-back-to-existing-match []
+  (let [existing {:script/id "script-1"
+                  :script/name "test.cljs"
+                  :script/code "(ns old)"
+                  :script/enabled true
+                  :script/match ["https://example.com/*"]
+                  :script/created "2025-01-01T00:00:00.000Z"}
+        script {:script/id "script-1"
+                :script/code "(ns updated-code)"}
+        result (script-utils/normalize-and-merge-script
+                 script existing nil
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:script/match s)) (.toEqual ["https://example.com/*"]))
+    (-> (expect (:script/enabled s)) (.toBe true))))
+
+(describe "normalize-and-merge-script"
+          (fn []
+            (test "new script with manifest derives all fields" test-normalize-merge-new-script-with-manifest)
+            (test "new script without manifest uses own fields" test-normalize-merge-new-script-without-manifest)
+            (test "update preserves existing enabled state" test-normalize-merge-update-preserves-enabled)
+            (test "manifest without auto-run revokes and disables" test-normalize-merge-manifest-revokes-auto-run)
+            (test "returns error on invalid name" test-normalize-merge-name-validation-error)
+            (test "builtin bypasses name normalization" test-normalize-merge-builtin-bypasses-normalization)
+            (test "always-enabled stays enabled" test-normalize-merge-always-enabled)
+            (test "no manifest falls back to existing match" test-normalize-merge-no-manifest-falls-back-to-existing-match)))
+
 (describe "parse-scripts"
           (fn []
             (test "derives fields when extractor is provided" test-parse-derives-fields-when-extractor-provided)))
 
 (describe "script->js"
           (fn []
-            (test "emits fields needed for early injection loader" test-script-js-emits-fields-for-early-injection-loader)))
+            (test "stores only primary fields, not derived" test-script-js-stores-only-primary-fields)))
 
 ;; diff-scripts tests
 

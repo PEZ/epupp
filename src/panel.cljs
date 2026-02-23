@@ -631,9 +631,9 @@
           ;; Requires row - shows library count with checkmark if all valid
           [property-row
            {:label "Requires"
-            :value (if (seq require)
-                     (str (count require) " "
-                          (if (= 1 (count require)) "library" "libraries")
+            :value (if (seq inject)
+                     (str (count inject) " "
+                          (if (= 1 (count inject)) "library" "libraries")
                           (when (and (empty? invalid) (seq valid)) " ✓"))
                      nil)}]]]
 

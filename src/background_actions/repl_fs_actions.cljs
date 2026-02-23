@@ -276,39 +276,23 @@
 
       ;; All checks pass - create or update
       :else
-      (let [;; Remove transient flags before storing
-            clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
-            ;; Apply all manifest-derived fields (match, description, run-at, inject)
-            script-with-derived-fields (script-utils/derive-script-fields clean-script manifest)
-            ;; Determine enabled state based on match
-            has-auto-run? (seq (:script/match script-with-derived-fields))
-            ;; For updates: merge with existing, preserve enabled state
-            ;; For creates: default to disabled (new user scripts always start disabled)
-            merged-script (if is-update?
-                            (-> existing-by-id
-                                (merge (dissoc script-with-derived-fields :script/enabled))
-                                ;; When revoking auto-run (has manifest, no match), disable
-                                (cond-> (and (some? manifest) (not has-auto-run?))
-                                  (assoc :script/enabled false)))
-                            (update script-with-derived-fields :script/enabled #(if (some? %) % false)))
-            ;; Add timestamps
-            timestamped-script (if is-update?
-                                 (assoc merged-script :script/modified now-iso)
-                                 (assoc merged-script
-                                        :script/created now-iso
-                                        :script/modified now-iso))
-            updated-scripts (if is-update?
-                              ;; Update existing - replace with merged script
-                              (update-script-in-list scripts script-id (constantly timestamped-script))
-                              ;; Create new (remove any with same name if force)
-                              (let [filtered (if (and force? existing-by-name)
-                                               (remove-script-from-list scripts (:script/id existing-by-name))
-                                               scripts)]
-                                (conj filtered timestamped-script)))]
-        (make-success-response updated-scripts "save" script-name
-                               {:event-data (cond-> {:script-id script-id
-                                                     :created (not is-update?)}
-                                              (some? bulk-id) (assoc :bulk-id bulk-id)
-                                              (some? bulk-index) (assoc :bulk-index bulk-index)
-                                              (some? bulk-count) (assoc :bulk-count bulk-count))
-                                :response-data (script->base-info timestamped-script)})))))
+      (let [clean-script (dissoc script :script/force? :script/bulk-id :script/bulk-index :script/bulk-count)
+            result (script-utils/normalize-and-merge-script
+                     clean-script existing-by-id manifest
+                     {:now-iso now-iso})
+            timestamped-script (:script result)]
+        (if (:error result)
+          (make-error-response (:error result) {:operation "save" :script-name raw-name})
+          (let [updated-scripts (if is-update?
+                                  (update-script-in-list scripts script-id (constantly timestamped-script))
+                                  (let [filtered (if (and force? existing-by-name)
+                                                   (remove-script-from-list scripts (:script/id existing-by-name))
+                                                   scripts)]
+                                    (conj filtered timestamped-script)))]
+            (make-success-response updated-scripts "save" script-name
+                                   {:event-data (cond-> {:script-id script-id
+                                                         :created (not is-update?)}
+                                                  (some? bulk-id) (assoc :bulk-id bulk-id)
+                                                  (some? bulk-index) (assoc :bulk-index bulk-index)
+                                                  (some? bulk-count) (assoc :bulk-count bulk-count))
+                                    :response-data (script->base-info timestamped-script)})))))))

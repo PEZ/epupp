@@ -212,11 +212,7 @@
 
 (defn ^:async save-script!
   "Create or update a script. Extracts metadata from manifest in code.
-
-   Auto-run behavior (Phase 6 - manifest is source of truth):
-   - Manifest with :epupp/auto-run-match → use that match
-   - Manifest without :epupp/auto-run-match → revoke auto-run (empty match, disabled)
-   - No manifest in code → preserve existing match (allows code-only updates)
+   Delegates to normalize-and-merge-script for shared normalization/merge logic.
 
    New scripts default to disabled for safety (applies to all scripts, including built-ins).
 
@@ -227,98 +223,25 @@
   (let [script-id (:script/id script)
         now (.toISOString (js/Date.))
         existing (get-script script-id)
-        ;; Extract manifest from code
         code (:script/code script)
         manifest (when code
                    (try (mp/extract-manifest code)
                         (catch :default _ nil)))
         is-builtin? (script-utils/builtin-script? script)
-        ;; Manifest-derived fields apply to all scripts; built-ins bypass name validation.
-        has-manifest? (some? manifest)
-        ;; Extract fields from manifest
-        run-at (if has-manifest?
-                 (script-utils/normalize-run-at (get manifest "run-at"))
-                 (:script/run-at script))
-        manifest-name (or (get manifest "raw-script-name")
-                          (get manifest "script-name"))
-        manifest-description (get manifest "description")
-        manifest-inject (or (get manifest "inject") [])
-        raw-name (or (and has-manifest? manifest-name)
-                     (:script/name script))
-        name-error (when (and raw-name (not is-builtin?))
-                     (script-utils/validate-script-name raw-name))
-        normalized-name (when raw-name
-                          (if is-builtin?
-                            raw-name
-                            (script-utils/normalize-script-name raw-name)))
-        ;; CRITICAL: Auto-run match handling (Phase 6)
-        ;; When manifest is present, it's the source of truth for match
-        ;; Absence of auto-run-match in manifest = explicit revocation
-        manifest-match-raw (when has-manifest? (get manifest "auto-run-match"))
-        manifest-match (normalize-auto-run-match manifest-match-raw)
-        manifest-has-auto-run-key? (when has-manifest?
-                                     (manifest-has-auto-run-key? manifest))
-        ;; Determine final match:
-        ;; - Manifest has auto-run-match key → use it (even if empty)
-        ;; - Manifest present but no match key → revoke (empty)
-        ;; - No manifest → use caller-provided value, or preserve existing, or empty
-        new-match (cond
-                    ;; Manifest explicitly sets match (including empty)
-                    manifest-has-auto-run-key?
-                    (or manifest-match [])
-                    ;; Manifest present but no auto-run-match key → revocation
-                    has-manifest?
-                    []
-                    ;; No manifest → use caller-provided, or existing, or empty
-                    :else
-                    (or (:script/match script)
-                        (when existing (:script/match existing))
-                        []))
-        has-auto-run? (seq new-match)
-        ;; All new scripts (user and built-in) default to disabled
-        default-enabled false
-        new-enabled (cond
-                      ;; Always-enabled scripts cannot be disabled
-                      (:script/always-enabled? script) true
-                      ;; No auto-run = disabled (manual-only script)
-                      (not has-auto-run?) false
-                      ;; Existing script → preserve enabled state
-                      existing (:script/enabled existing)
-                      ;; New script → use default (always disabled)
-                      :else default-enabled)
-        ;; Build the script with manifest-derived fields
-        ;; Only override match when manifest is present (manifest is source of truth)
-        script-with-manifest (cond-> script
-                               (some? run-at) (assoc :script/run-at run-at)
-                               (some? normalized-name) (assoc :script/name normalized-name)
-                               has-manifest? (assoc :script/match new-match)
-                               (and has-manifest? manifest-description) (assoc :script/description manifest-description)
-                               (and has-manifest? (seq manifest-inject)) (assoc :script/inject
-                                                                                (if (string? manifest-inject)
-                                                                                  [manifest-inject]
-                                                                                  (vec manifest-inject))))
-        ;; Preserve :script/source if provided (Batch A)
-        script-with-source (if-let [source (:script/source script)]
-                             (assoc script-with-manifest :script/source source)
-                             script-with-manifest)
-        ;; Final script state
-        updated-script (if existing
-                         (-> (merge existing script-with-source)
-                             (assoc :script/enabled new-enabled)
-                             (assoc :script/modified now))
-                         (-> script-with-source
-                             (assoc :script/created now)
-                             (assoc :script/modified now)
-                             (assoc :script/enabled new-enabled)))]
-    (when name-error
-      (throw (js/Error. name-error)))
-    (swap! !db update :storage/scripts
-           (fn [scripts]
-             (if existing
-               (mapv #(if (= (:script/id %) script-id) updated-script %) scripts)
-               (conj scripts updated-script))))
-    (js-await (persist!))
-    updated-script))
+        result (script-utils/normalize-and-merge-script
+                 script existing manifest
+                 {:is-builtin? is-builtin?
+                  :now-iso now})]
+    (when (:error result)
+      (throw (js/Error. (:error result))))
+    (let [updated-script (:script result)]
+      (swap! !db update :storage/scripts
+             (fn [scripts]
+               (if existing
+                 (mapv #(if (= (:script/id %) script-id) updated-script %) scripts)
+                 (conj scripts updated-script))))
+      (js-await (persist!))
+      updated-script)))
 
 (defn delete-script!
   "Remove a script by id. Built-in scripts cannot be deleted."
@@ -536,17 +459,18 @@
 
 
 
-(set! js/globalThis.storage
-      #js {:db !db
-           :get_scripts get-scripts
-           :get_script get-script
-           :save_script_BANG_ save-script!
-           :delete_script_BANG_ delete-script!
-           :clear_user_scripts_BANG_ clear-user-scripts!
-           :toggle_script_BANG_ toggle-script!
-           :get_granted_origins get-granted-origins
-           :add_granted_origin_BANG_ add-granted-origin!
-           :remove_granted_origin_BANG_ remove-granted-origin!})
+(when (.-dev js/EXTENSION_CONFIG)
+  (set! js/globalThis.storage
+        #js {:db !db
+             :get_scripts get-scripts
+             :get_script get-script
+             :save_script_BANG_ save-script!
+             :delete_script_BANG_ delete-script!
+             :clear_user_scripts_BANG_ clear-user-scripts!
+             :toggle_script_BANG_ toggle-script!
+             :get_granted_origins get-granted-origins
+             :add_granted_origin_BANG_ add-granted-origin!
+             :remove_granted_origin_BANG_ remove-granted-origin!}))
 
 (defn get-script-by-name
   "Find script by name"

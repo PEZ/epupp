@@ -134,7 +134,7 @@
                     (assoc :panel/evaluating? true)
                     (assoc :panel/scittle-status :loading)
                     (update :panel/results conj {:type :input :text code}))
-         :uf/fxs [[:editor/fx.inject-and-eval code (:require (:panel/manifest-hints state))]]}))
+         :uf/fxs [[:editor/fx.inject-and-eval code (:inject (:panel/manifest-hints state))]]}))
 
     :editor/ax.do-eval
     (let [[code] args]
@@ -326,7 +326,7 @@
         {:uf/db (-> state
                     (assoc :panel/evaluating? true)
                     (update :panel/results conj {:type :input :text code-to-eval}))
-         :uf/fxs [[:editor/fx.eval-in-page code-to-eval (:require (:panel/manifest-hints state))]]}
+         :uf/fxs [[:editor/fx.eval-in-page code-to-eval (:inject (:panel/manifest-hints state))]]}
 
         ;; Scittle not ready - inject first
         :else

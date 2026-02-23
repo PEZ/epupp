@@ -39,7 +39,7 @@
          :settings/debug-logging false ; Enable verbose debug logging (default off)
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
-         :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
+         :ui/system-banners []          ; System banners [{:id :type :message :leaving} ...]
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :ui/page-banner nil           ; Page-level banner (e.g., unscriptable page)
          :ui/recently-modified-scripts #{} ; Scripts modified via REPL FS sync
