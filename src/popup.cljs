@@ -826,10 +826,8 @@
 ;; Connected Tabs Section
 ;; ============================================================
 
-(defn connected-tab-item [{:keys [tab-id port title url favicon is-current-tab leaving? entering?]}]
-  [:div.connected-tab-item {:class (str (when is-current-tab "current-tab ")
-                                        (when entering? "entering ")
-                                        (when leaving? "leaving"))
+(defn connected-tab-item [{:keys [tab-id port title url favicon is-current-tab]}]
+  [:div.connected-tab-item {:class (str (when is-current-tab "current-tab "))
                             :title (str title (when url (str "\n" url)))}
    (when favicon
      [:img.connected-tab-favicon {:src favicon :width 16 :height 16}])
@@ -863,13 +861,10 @@
                             (if (= (:tab-id item) current-tab-id-str) 0 1))
                           connections-shadow)]
        [:div.connected-tabs-list
-        (for [{:keys [item] :ui/keys [entering? leaving?]} sorted-shadow
+        (for [{:keys [item]} sorted-shadow
               :let [{:keys [tab-id] :as conn} item]]
           ^{:key tab-id}
-          [connected-tab-item (assoc conn
-                                     :is-current-tab (= tab-id current-tab-id-str)
-                                     :leaving? leaving?
-                                     :entering? entering?)])])
+          [connected-tab-item (assoc conn :is-current-tab (= tab-id current-tab-id-str))])])
      [view-elements/empty-state {:empty/class "no-connections"}
       "No REPL connections active"
       [:div.no-connections-hint
@@ -955,7 +950,7 @@
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
                            :expanded? (not (:repl-connect sections-collapsed))
-                           :max-height (str (+ (if (current-tab-connected? state) 48 500)
+                           :max-height (str (+ (if (current-tab-connected? state) 71 500)
                                                (* 35 (count connections))) "px")
                            :data-attrs {:data-e2e-connection-count (count connections)}}
       [repl-connect-content state]]
