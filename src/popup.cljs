@@ -876,35 +876,34 @@
                             :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
-     (when-not is-connected
-       [:div.connect-setup
-        [:div.connect-setup-inner
-         [:div.step
-          [:div.step-header "1. Start the browser-nrepl server"]
-          [:div.port-row
-           [port-input {:id "nrepl-port"
-                        :label "nREPL:"
-                        :value nrepl
-                        :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
-           [port-input {:id "ws-port"
-                        :label "WebSocket:"
-                        :value ws
-                        :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
-          [command-box {:command (generate-server-cmd state)}]]
-         [:div.step
-          [:div.step-header "2. Connect browser to server"]
-          [:div.connect-row
-           [:span.connect-target (str "ws://localhost:" ws)]
-           [view-elements/action-button
-            {:button/variant :primary
-             :button/id "connect"
-             :button/title "Connect this tab to the REPL server"
-             :button/on-click #(dispatch! [[:popup/ax.connect]])}
-            "Connect"]]]
-         [:div.step
-          [:div.step-header "3. Connect editor to browser (via server)"]
-          [:div.connect-row
-           [:span.connect-target (str "nrepl://localhost:" nrepl)]]]]])
+     [:div.connect-setup {:class (when is-connected "connected")}
+      [:div.connect-setup-inner
+       [:div.step
+        [:div.step-header "1. Start the browser-nrepl server"]
+        [:div.port-row
+         [port-input {:id "nrepl-port"
+                      :label "nREPL:"
+                      :value nrepl
+                      :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
+         [port-input {:id "ws-port"
+                      :label "WebSocket:"
+                      :value ws
+                      :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
+        [command-box {:command (generate-server-cmd state)}]]
+       [:div.step
+        [:div.step-header "2. Connect browser to server"]
+        [:div.connect-row
+         [:span.connect-target (str "ws://localhost:" ws)]
+         [view-elements/action-button
+          {:button/variant :primary
+           :button/id "connect"
+           :button/title "Connect this tab to the REPL server"
+           :button/on-click #(dispatch! [[:popup/ax.connect]])}
+          "Connect"]]]
+       [:div.step
+        [:div.step-header "3. Connect editor to browser (via server)"]
+        [:div.connect-row
+         [:span.connect-target (str "nrepl://localhost:" nrepl)]]]]]
      [:div.step
       [:div.step-header "Connected Tabs"]
       [connected-tabs-section state]]]))
@@ -996,6 +995,11 @@
   (dispatch! [[:popup/ax.set-brave-detected (some? (.-brave js/navigator))]])
 
   (render!)
+
+  ;; Enable transitions after first paint (prevents animation on popup open)
+  (js/requestAnimationFrame
+   (fn [] (js/requestAnimationFrame
+           (fn [] (.add (.-classList js/document.body) "ready")))))
 
   ;; Listen for connection changes from background
   (js/chrome.runtime.onMessage.addListener

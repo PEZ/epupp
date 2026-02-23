@@ -152,6 +152,24 @@ code {
   cursor: not-allowed;
 }
 
+/* Connect setup - animated collapse when tab connects */
+.connect-setup {
+  max-height: 500px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+/* Transitions only after first paint to prevent animation on popup open */
+body.ready .connect-setup {
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out;
+}
+
+.connect-setup.connected {
+  max-height: 0;
+  opacity: 0;
+}
+
 /* Connect section */
 .connect-row {
   display: flex;
@@ -216,6 +234,9 @@ button#connect:active {
   max-height: 120px;
   opacity: 1;
   overflow: hidden;
+}
+
+body.ready .script-item {
   transition: max-height var(--transition-duration) ease-out,
               opacity var(--transition-duration) ease-out,
               padding var(--transition-duration) ease-out;
