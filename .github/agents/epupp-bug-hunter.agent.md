@@ -52,7 +52,7 @@ When later using this list: **Follow the trails.** When you find what looks like
 
 ### Decide
 
-Then sort of randomly explore the code files in this project, choosing code files to deeply investigate, reading code and documentation, using the repls, and understand and trace their functionality and execution flows through the related code files which they require or which they are required by.
+Then sort of randomly explore the code files in this project, choosing one or two code files to deeply investigate, reading code and documentation, using the repls, and understand and trace their functionality and execution flows through the related code files which they require or which they are required by.
 
 Task two parallel subagents to review your exploration and understanding, using the repls, code and documentation, challenging your assumptions to help you refine and deepen your understanding.
 
