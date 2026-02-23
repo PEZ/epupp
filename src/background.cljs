@@ -579,7 +579,7 @@
                                         [auto-run-match])
                         :script/inject (or injects [])
                         :script/enabled true
-                        :script/run-at (or run-at "document_idle")
+                        :script/run-at (or run-at "document-idle")
                         :script/force? true
                         :script/source script-source}]
             (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.save-script script])

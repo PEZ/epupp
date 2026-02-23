@@ -491,13 +491,20 @@
         (log/debug "Storage" "Removed stale built-ins" stale-ids))
       (doseq [bundled bundled-builtins]
         (try
-          (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))
-                code (js-await (.text response))
-                desired (build-bundled-script bundled code)
-                existing (get-script (:script/id bundled))]
-            (js-await (save-script! desired))
-            (when (builtin-update-needed? existing desired)
-              (log/debug "Storage" "Synced built-in" (:script/id bundled))))
+          (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))]
+            (when-not (.-ok response)
+              (throw (js/Error. (str "Failed to fetch built-in script "
+                                     (:script/id bundled)
+                                     " ("
+                                     (:path bundled)
+                                     ") status "
+                                     (.-status response)))))
+            (let [code (js-await (.text response))
+                  desired (build-bundled-script bundled code)
+                  existing (get-script (:script/id bundled))]
+              (js-await (save-script! desired))
+              (when (builtin-update-needed? existing desired)
+                (log/debug "Storage" "Synced built-in" (:script/id bundled)))))
           (catch :default err
             (log/error "Storage" "Failed to sync built-in" (:script/id bundled) ":" err)))))
     (finally

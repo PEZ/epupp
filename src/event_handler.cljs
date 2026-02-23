@@ -54,7 +54,7 @@
               (js/console.debug "Triggered action" (first action) action)
               (cond-> acc
                 db (assoc :uf/db db)
-                dxs (assoc :uf/dxs dxs)
+                dxs (update :uf/dxs (fnil into []) dxs)
                 (seq all-fxs) (update :uf/fxs into all-fxs))))
           {:uf/db state
            :uf/fxs []}

@@ -100,7 +100,7 @@
     (-> (expect (get (:uf/db result) :bar))
         (.toBe 2))))
 
-(defn- test-last-uf-dxs-wins-in-batch []
+(defn- test-accumulates-uf-dxs-in-batch []
   (let [state {}
         handler (fn [s _uf [action & args]]
                   (case action
@@ -108,8 +108,8 @@
                     :uf/unhandled-ax))
         result (event-handler/handle-actions
                 state {} handler [[:set-dxs [[:first]]] [:set-dxs [[:second]]]])]
-    (-> (expect (first (first (:uf/dxs result))))
-        (.toBe :second))))
+        (-> (expect (:uf/dxs result))
+                (.toEqual [[:first] [:second]]))))
 
 ;; ============================================================
 ;; uf-data context tests
@@ -552,7 +552,7 @@
             (test "accumulates effects from multiple actions" test-accumulates-effects-from-multiple-actions)
             (test "filters nil actions" test-filters-nil-actions)
             (test "falls back to generic handler for unhandled actions" test-falls-back-to-generic-handler-for-unhandled-actions)
-            (test "last :uf/dxs wins in batch" test-last-uf-dxs-wins-in-batch)))
+            (test "accumulates :uf/dxs in batch" test-accumulates-uf-dxs-in-batch)))
 
 (describe "uf-data context"
           (fn []

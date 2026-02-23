@@ -20,7 +20,8 @@
   [tab-id display-state]
   (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state display-state}))
   (js/chrome.action.setIcon
-   #js {:path (get-icon-paths display-state)}))
+   #js {:tabId tab-id
+        :path (get-icon-paths display-state)}))
 
 (defn ^:async update-icon-for-tab!
   "Update icon state for a specific tab, then update the toolbar icon.
