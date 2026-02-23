@@ -921,19 +921,6 @@
        [:div.connect-row
         [:span.connect-target (str "nrepl://localhost:" nrepl)]]]]
 
-     (when is-connected
-       [:div.step.disconnect-step
-        [:div.connect-row
-         [:span.connect-target (str "ws://localhost:" ws)]
-         [view-elements/action-button
-          {:button/variant :danger
-           :button/id "disconnect"
-           :button/class "disconnect-btn"
-           :button/icon icons/debug-disconnect
-           :button/title "Disconnect this tab"
-           :button/on-click #(dispatch! [[:popup/ax.disconnect-tab (:scripts/current-tab-id state)]])}
-          "Disconnect"]]])
-
      [:div.step
       [:div.step-header "Connected Tabs"]
       [connected-tabs-section state]]]))
