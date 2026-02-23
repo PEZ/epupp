@@ -28,7 +28,9 @@ The Epupp extension is built using Squint, which doesn't yet have a browser REPL
 
 ### Observe
 
-First read all of the README.md file and all of [architecture.md](../../dev/docs/architecture.md) super carefully and use the repls to understand ALL of both! Then task two parallel epupp-elaborator subagents to do the same and help you build a comprehensive understanding of this project.
+**Mandatory pre-flight reading:** Before investigating anything, read [no-action-inventory.md](../../../epupp-docs/bug-hunter/no-action-inventory.md) in full. Do not spend time re-investigating items listed there — decisions have already been made on those.
+
+First read all of the AGENTS.md, README.md file and all of [architecture.md](../../dev/docs/architecture.md) super carefully and use the repls to understand ALL these! Then task two parallel epupp-elaborator subagents to do the same and help you build a comprehensive understanding of this project.
 
 ### Orient
 
@@ -62,4 +64,4 @@ Then task three parallel epupp-expert subagents to cross-rate the plans and prop
 
 Then synthesize the results of the plans and and reviews in the chat.
 
-Then synthesize the best bug-fix plan you can think of and write it to epupp-docs.
+Then synthesize the best bug-fix plan you can think of and write it to `epupp-docs/bug-hunter/`. Name the file `bug-hunt-<scope>-<YYYY-MM-DD>.md`.
