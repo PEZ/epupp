@@ -3,26 +3,51 @@
  :epupp/description "Web Userscript Installer. Finds userscripts on web pages, and adds a button to install the script into Epupp"
  :epupp/inject ["scittle://replicant.js"]}
 
-;; Epupp Web Userscript Installer
-;;
-;; Architecture: Mini-Uniflow (actions decide, effects execute)
-;;
-;; Layer 1 - Pure Domain: normalization, manifest parsing, state helpers
-;; Layer 2 - Pure UI: Replicant hiccup components (pure functions of their args)
-;; Layer 3 - Action Handler: pure state transitions + effect declarations
-;; Layer 4 - Effect Handler & Dispatch: side effect execution, dispatch loop
-;; Layer 5 - Orchestration: Replicant bridge, rendering, scanning, initialization
-;;
-;; All state lives in a single atom. State transitions flow through dispatch!.
-;; Components are pure functions. Side effects are declared as data.
-
 (ns epupp.web-userscript-installer
   (:require [clojure.edn :as edn]
             [clojure.string :as string]
             [replicant.dom :as r]))
 
 ;; ============================================================
-;; Pure Domain - Script Normalization & Manifest Parsing
+;; State Shape & Helpers
+;; ============================================================
+
+(defonce !state
+  (atom {:blocks []
+         :install-allowed? false
+         :icon-url nil
+         :modal {:visible? false
+                 :mode nil  ;; :confirm or :error
+                 :block-id nil
+                 :error-message nil}
+         :pending-retry-timeout nil
+         :request-id 0
+         :button-containers {}
+         :ui-container nil
+         :ui-setup? false
+         :nav-registered? false}))
+
+(def retry-delays [100 1000 3000])
+
+(defn find-block-by-id [state block-id]
+  (first (filter #(= (:id %) block-id) (:blocks state))))
+
+(defn update-block-status
+  ([state block-id new-status]
+   (update-block-status state block-id new-status nil))
+  ([state block-id new-status error-message]
+   (update state :blocks
+           (fn [blocks]
+             (mapv (fn [b]
+                     (if (= (:id b) block-id)
+                       (cond-> (assoc b :status new-status)
+                         error-message (assoc :error-message error-message)
+                         (not= new-status :error) (dissoc :error-message))
+                       b))
+                   blocks)))))
+
+;; ============================================================
+;; Manifest Parsing & Normalization
 ;; ============================================================
 
 (def valid-run-at-values
@@ -227,44 +252,6 @@
          .-parentElement)))
 
 ;; ============================================================
-;; Pure Domain - State Shape & Helpers
-;; ============================================================
-
-(defonce !state
-  (atom {:blocks []
-         :install-allowed? false
-         :icon-url nil
-         :modal {:visible? false
-                 :mode nil  ;; :confirm or :error
-                 :block-id nil
-                 :error-message nil}
-         :pending-retry-timeout nil
-         :request-id 0
-         :button-containers {}
-         :ui-container nil
-         :ui-setup? false
-         :nav-registered? false}))
-
-(def retry-delays [100 1000 3000])
-
-(defn find-block-by-id [state block-id]
-  (first (filter #(= (:id %) block-id) (:blocks state))))
-
-(defn update-block-status
-  ([state block-id new-status]
-   (update-block-status state block-id new-status nil))
-  ([state block-id new-status error-message]
-   (update state :blocks
-           (fn [blocks]
-             (mapv (fn [b]
-                     (if (= (:id b) block-id)
-                       (cond-> (assoc b :status new-status)
-                         error-message (assoc :error-message error-message)
-                         (not= new-status :error) (dissoc :error-message))
-                       b))
-                   blocks)))))
-
-;; ============================================================
 ;; Extension Communication
 ;; ============================================================
 
@@ -320,10 +307,8 @@
         :else :update)
       :install)))
 
-
-
 ;; ============================================================
-;; Pure UI - Replicant Components
+;; UI - Replicant View Functions
 ;; ============================================================
 
 (defn epupp-icon
@@ -350,7 +335,7 @@
     "document-end" "document-end"
     "document-idle (default)"))
 
-(defn render-install-button [{:keys [id status] :as block} icon-url]
+(defn install-button [{:keys [id status] :as block} icon-url]
   (let [clickable? (#{:install :update} status)
         status-class (str "is-" (name status))]
     [:button.epupp-install-btn
@@ -382,7 +367,7 @@
    [:h2 {:class (str "epupp-modal__action-title" (when error? " is-error"))}
     action-title]])
 
-(defn render-modal [{:keys [id manifest code status]} icon-url install-allowed?]
+(defn installation-modal [{:keys [id manifest code status]} icon-url install-allowed?]
   (let [{:keys [script-name raw-script-name name-normalized?
                 auto-run-match description run-at run-at-invalid? raw-run-at]} manifest
         page-url js/window.location.href
@@ -447,7 +432,7 @@
            :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
           "OK"])]]]))
 
-(defn render-error-dialog [{:keys [error-message is-update? icon-url]}]
+(defn error-dialog [{:keys [error-message is-update? icon-url]}]
   (let [title (if is-update? "Update Failed" "Installation Failed")]
     [:div.epupp-modal-overlay
      {:on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
@@ -462,7 +447,7 @@
          :on {:click [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]}}
         "Close"]]]]))
 
-(defn render-app [state]
+(defn app [state]
   (let [{:keys [modal icon-url install-allowed?]} state
         {:keys [visible? mode block-id error-message]} modal]
     [:div#epupp-block-installer-ui
@@ -471,13 +456,13 @@
          :error
          (let [current-block (find-block-by-id state block-id)
                is-update? (= (:status current-block) :update)]
-           (render-error-dialog {:error-message error-message
+           (error-dialog {:error-message error-message
                                  :is-update? is-update?
                                  :icon-url icon-url}))
 
          :confirm
          (when-let [current-block (find-block-by-id state block-id)]
-           (render-modal current-block icon-url install-allowed?))))]))
+           (installation-modal current-block icon-url install-allowed?))))]))
 
 ;; ============================================================
 ;; Action Handler (pure state transitions)
@@ -582,11 +567,11 @@
 (defn render-ui! [state]
   (let [icon-url (:icon-url state)]
     (when-let [container (:ui-container state)]
-      (r/render container (render-app state)))
+      (r/render container (app state)))
     ;; Also update buttons in their inline containers
     (doseq [[block-id btn-container] (:button-containers state)]
       (when-let [block (find-block-by-id state block-id)]
-        (r/render btn-container (render-install-button block icon-url))))))
+        (r/render btn-container (install-button block icon-url))))))
 
 (defn ensure-installer-css!
   "Inject installer CSS into document.head (idempotent - no-op if already exists)."
@@ -839,7 +824,7 @@
   "Render install button into container with error handling."
   [container block-data]
   (try
-    (r/render container (render-install-button block-data (:icon-url @!state)))
+    (r/render container (install-button block-data (:icon-url @!state)))
     (catch :default e
       (js/console.error "[Web Userscript Installer] Replicant render error:" e))))
 
