@@ -72,7 +72,7 @@
                     creator-menu-open? on-creator-trigger-click on-creator-menu-close]}]
   [:div {:class (str "app-footer " wrapper-class)}
    [:div.footer-powered
-    "Powered by "
+    "Epupp " (.-version (.getManifest js/chrome.runtime)) ". Powered by "
     [:a {:href "https://github.com/babashka/scittle"
          :target "_blank"
          :title "Scittle - Small Clojure Interpreter exposed for script tags"}
