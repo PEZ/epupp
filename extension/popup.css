@@ -61,24 +61,6 @@ body {
   margin-bottom: 18px;
 }
 
-/* Connect setup animation */
-.connect-setup {
-  max-height: 500px;
-  opacity: 1;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out,
-              opacity 0.2s ease-out;
-}
-
-.connect-setup.hidden {
-  max-height: 0;
-  opacity: 0;
-}
-
-.connect-setup.no-transition {
-  transition: none;
-}
-
 .step-header {
   font-weight: 500;
   font-size: 12px;
