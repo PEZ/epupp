@@ -273,63 +273,6 @@
                       (fn [shadow]
                         (filterv (fn [s] (not (contains? ids (get-in s [:item :script/id])))) shadow)))})
 
-    :ui/ax.sync-connections-shadow
-    (let [[{:keys [added-items removed-ids]}] args
-          shadow (:ui/connections-shadow state)
-          source-list (:repl/connections state)
-          ;; Build map of source items by ID for quick lookup
-          source-by-id (into {} (map (fn [c] [(:tab-id c) c]) source-list))
-          ;; Check if list is transitioning between empty and non-empty
-          ;; to skip animations that would cause ugly shrink-then-grow
-          visible-shadow (filterv (fn [s] (not (:ui/leaving? s))) shadow)
-          was-empty? (empty? visible-shadow)
-          all-visible-leaving? (and (seq visible-shadow)
-                                    (seq removed-ids)
-                                    (every? (fn [s] (contains? removed-ids (:tab-id (:item s)))) visible-shadow))
-          ;; Mark removed items as leaving, update existing items' content
-          shadow-with-updates (mapv (fn [s]
-                                      (let [tab-id (:tab-id (:item s))]
-                                        (cond
-                                          ;; Item being removed - mark as leaving
-                                          (contains? removed-ids tab-id)
-                                          (assoc s :ui/leaving? true)
-                                          ;; Item exists in source - update content
-                                          (contains? source-by-id tab-id)
-                                          (assoc s :item (get source-by-id tab-id))
-                                          ;; Item not in source and not being removed - keep as is
-                                          :else s)))
-                                    shadow)
-          ;; Skip entering animation when list was empty (first tab connect)
-          new-shadow-items (mapv (fn [item] {:item item :ui/entering? (not was-empty?) :ui/leaving? false}) added-items)
-          updated-shadow (into shadow-with-updates new-shadow-items)
-          added-ids (set (map :tab-id added-items))]
-      (if all-visible-leaving?
-        ;; All visible items being removed (last tab disconnect) - skip leaving animation
-        {:uf/db (assoc state :ui/connections-shadow
-                       (filterv (fn [s] (not (contains? removed-ids (:tab-id (:item s))))) updated-shadow))
-         :uf/fxs (when (seq added-ids)
-                   [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-tabs added-ids]] 50]])}
-        ;; Normal case - animate entering and leaving
-        {:uf/db (assoc state :ui/connections-shadow updated-shadow)
-         :uf/fxs [[:uf/fx.defer-dispatch [[:ui/ax.clear-entering-tabs added-ids]] 50]
-                  [:uf/fx.defer-dispatch [[:ui/ax.remove-leaving-tabs removed-ids]] 250]]}))
-
-    :ui/ax.clear-entering-tabs
-    (let [[ids] args]
-      {:uf/db (update state :ui/connections-shadow
-                      (fn [shadow]
-                        (mapv (fn [s]
-                                (if (contains? ids (:tab-id (:item s)))
-                                  (assoc s :ui/entering? false)
-                                  s))
-                              shadow)))})
-
-    :ui/ax.remove-leaving-tabs
-    (let [[ids] args]
-      {:uf/db (update state :ui/connections-shadow
-                      (fn [shadow]
-                        (filterv (fn [s] (not (contains? ids (:tab-id (:item s))))) shadow)))})
-
     :popup/ax.set-brave-detected
     (let [[brave?] args]
       {:uf/db (assoc state :browser/brave? brave?)})

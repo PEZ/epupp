@@ -51,15 +51,10 @@
          ;; Shadow lists for rendering with animation state
          ;; Shape: [{:item <original> :ui/entering? bool :ui/leaving? bool}]
          :ui/scripts-shadow []
-         :ui/connections-shadow []
          ;; List watchers: compare source to shadow, trigger sync actions
          :uf/list-watchers {:scripts/list {:id-fn :script/id
                                            :shadow-path :ui/scripts-shadow
-                                           :on-change :ui/ax.sync-scripts-shadow}
-                            :repl/connections {:id-fn :tab-id
-                                               :shadow-path :ui/connections-shadow
-                                               :on-change :ui/ax.sync-connections-shadow}
-                            }}))
+                                           :on-change :ui/ax.sync-scripts-shadow}}}))
 
 
 
@@ -851,18 +846,16 @@
        :button/on-click #(dispatch! [[:popup/ax.reveal-tab tab-id]])}
       nil])])
 
-(defn connected-tabs-section [{:ui/keys [connections-shadow] :scripts/keys [current-tab-id]}]
+(defn connected-tabs-section [{:repl/keys [connections] :scripts/keys [current-tab-id]}]
   [:div.connected-tabs-section
-   (if (seq connections-shadow)
+   (if (seq connections)
      (let [current-tab-id-str (str current-tab-id)
-           ;; Sort with current tab first
-           sorted-shadow (sort-by
-                          (fn [{:keys [item]}]
-                            (if (= (:tab-id item) current-tab-id-str) 0 1))
-                          connections-shadow)]
+           sorted-connections (sort-by
+                               (fn [conn]
+                                 (if (= (:tab-id conn) current-tab-id-str) 0 1))
+                               connections)]
        [:div.connected-tabs-list
-        (for [{:keys [item]} sorted-shadow
-              :let [{:keys [tab-id] :as conn} item]]
+        (for [{:keys [tab-id] :as conn} sorted-connections]
           ^{:key tab-id}
           [connected-tab-item (assoc conn :is-current-tab (= tab-id current-tab-id-str))])])
      [view-elements/empty-state {:empty/class "no-connections"}
