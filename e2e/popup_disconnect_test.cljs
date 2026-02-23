@@ -139,18 +139,17 @@
               (js-await (-> (expect connected-items)
                             (.toHaveCount 1 #js {:timeout 1000}))))
 
-            (js-await (-> (expect (.locator popup "#disconnect"))
+            ;; Click disconnect button on the connected tab item
+            (js-await (-> (expect (.locator popup ".disconnect-tab-btn"))
                           (.toBeVisible #js {:timeout 1000})))
-
-            ;; Click disconnect button
-            (js-await (.click (.locator popup "#disconnect")))
+            (js-await (.click (.locator popup ".disconnect-tab-btn")))
 
             ;; Reload to see updated state (exit animation completes async but
             ;; we rely on post-reload state verification, not animation timing)
             (js-await (.reload popup))
             (js-await (wait-for-popup-ready popup))
 
-            ;; Connected tabs list should be empty
+            ;; Connected tabs list should be empty and connect UI should reappear
             (js-await (-> (expect (.locator popup ".no-connections"))
                           (.toBeVisible #js {:timeout 1000})))
             (js-await (-> (expect (.locator popup "#connect"))

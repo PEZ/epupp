@@ -368,7 +368,7 @@
   "Wait for popup to be ready after reload/navigation.
    Useful after .reload() calls instead of sleep."
   [popup]
-  (js-await (-> (expect (.locator popup "#nrepl-port"))
+  (js-await (-> (expect (.locator popup ".popup-header"))
                 (.toBeVisible #js {:timeout 3000}))))
 
 (defn ^:async wait-for-edit-hint
