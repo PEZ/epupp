@@ -39,6 +39,7 @@
          :settings/debug-logging false ; Enable verbose debug logging (default off)
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
+         :ui/connections-loaded? false  ; True after first connection state load
          :ui/system-banner nil          ; System banner {:type :success/:error :message "..."}
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :ui/page-banner nil           ; Page-level banner (e.g., unscriptable page)
@@ -410,7 +411,8 @@
          ;; In Squint, data is already JS - no js->clj needed
          ;; Keywords are strings, so {:keys [tab-id]} works with "tab-id" keys
          (let [connections (.-connections response)]
-           (dispatch [[:db/ax.assoc :repl/connections connections]])))))
+           (dispatch [[:db/ax.assoc :repl/connections connections]
+                      [:db/ax.assoc :ui/connections-loaded? true]])))))
 
     :popup/fx.reveal-script
     (let [[script-name] args
@@ -884,43 +886,54 @@
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:ports/keys [nrepl ws] :as state}]
+(defn repl-connect-content [{:ports/keys [nrepl ws]
+                            :ui/keys [connections-loaded?]
+                            :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
-     [:div.step
-      [:div.step-header "1. Start the browser-nrepl server"]
-      [:div.port-row
-       [port-input {:id "nrepl-port"
-                    :label "nREPL:"
-                    :value nrepl
-                    :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
-       [port-input {:id "ws-port"
-                    :label "WebSocket:"
-                    :value ws
-                    :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
-      [command-box {:command (generate-server-cmd state)}]]
+     [:div.connect-setup {:class (str (when is-connected "hidden")
+                                      (when-not connections-loaded? " no-transition"))}
+      [:div.step
+       [:div.step-header "1. Start the browser-nrepl server"]
+       [:div.port-row
+        [port-input {:id "nrepl-port"
+                     :label "nREPL:"
+                     :value nrepl
+                     :on-change #(dispatch! [[:popup/ax.set-nrepl-port %]])}]
+        [port-input {:id "ws-port"
+                     :label "WebSocket:"
+                     :value ws
+                     :on-change #(dispatch! [[:popup/ax.set-ws-port %]])}]]
+       [command-box {:command (generate-server-cmd state)}]]
 
-     [:div.step
-      [:div.step-header "2. Connect browser to server"]
-      [:div.connect-row
-       [:span.connect-target (str "ws://localhost:" ws)]
-       [view-elements/action-button
-        (if is-connected
+      [:div.step
+       [:div.step-header "2. Connect browser to server"]
+       [:div.connect-row
+        [:span.connect-target (str "ws://localhost:" ws)]
+        [view-elements/action-button
+         {:button/variant :primary
+          :button/id "connect"
+          :button/title "Connect this tab to the REPL server"
+          :button/on-click #(dispatch! [[:popup/ax.connect]])}
+         "Connect"]]]
+      [:div.step
+       [:div.step-header "3. Connect editor to browser (via server)"]
+       [:div.connect-row
+        [:span.connect-target (str "nrepl://localhost:" nrepl)]]]]
+
+     (when is-connected
+       [:div.step.disconnect-step
+        [:div.connect-row
+         [:span.connect-target (str "ws://localhost:" ws)]
+         [view-elements/action-button
           {:button/variant :danger
            :button/id "disconnect"
            :button/class "disconnect-btn"
            :button/icon icons/debug-disconnect
            :button/title "Disconnect this tab"
            :button/on-click #(dispatch! [[:popup/ax.disconnect-tab (:scripts/current-tab-id state)]])}
-          {:button/variant :primary
-           :button/id "connect"
-           :button/title "Connect this tab to the REPL server"
-           :button/on-click #(dispatch! [[:popup/ax.connect]])})
-        (if is-connected "Disconnect" "Connect")]]]
-     [:div.step
-      [:div.step-header "3. Connect editor to browser (via server)"]
-      [:div.connect-row
-       [:span.connect-target (str "nrepl://localhost:" nrepl)]]]
+          "Disconnect"]]])
+
      [:div.step
       [:div.step-header "Connected Tabs"]
       [connected-tabs-section state]]]))
