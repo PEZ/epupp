@@ -58,33 +58,17 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
 
 ### Conditional Web Installer Injection (on Navigation)
 
-The web installer is injected conditionally based on page content rather than URL matching. This avoids loading Scittle on every whitelisted page.
+The web installer detects userscript manifests on code hosting pages and adds install buttons. It uses conditional injection: a lightweight DOM scan determines whether to load Scittle, avoiding unnecessary overhead on pages without manifests.
 
-1. Navigation event fires (`onCompleted` or `onHistoryStateUpdated`)
-2. `maybe-inject-installer!` calls `should-scan-for-installer?` - checks:
-   - URL origin is in `web-installer-allowed-origins` whitelist
-   - Tab not already in `!installer-injected-tabs` tracking set
-3. If should scan: runs `scan-for-userscripts-fn` via `execute-in-isolated` (ISOLATED world)
-   - Scanner checks 5 DOM formats: GitHub gist tables, GitHub repo files, GitLab snippets, generic `<pre>`, and `<textarea>` elements
-   - Looks for `:epupp/script-name` in the first 500 chars of code blocks
-4. If blocks found: `inject-installer!` loads Scittle and the installer script
-5. Tab ID added to `!installer-injected-tabs` to prevent re-injection
-
-**SPA navigation support:** GitHub and GitLab use `history.pushState` for navigation. `onCompleted` does not fire on SPA navigations, but `onHistoryStateUpdated` does. Both navigation types use the same bounded retry schedule `[0, 300, 1000, 3000ms]` to handle DOM elements that appear after the navigation event fires (e.g. GitLab's `.file-holder` elements).
-
-**Tab tracking:** `!installer-injected-tabs` is an ephemeral atom (not Uniflow state). Cleared on tab close, page navigation (`onBeforeNavigate`), and service worker restart. Worst case on loss is a redundant scan.
+See [web-installer.md](web-installer.md) for the full architecture, including the background scanning pipeline, page-side detection, format specs, SPA navigation support, and security model.
 
 ```mermaid
 flowchart TD
-    NAV["Navigation event\n(onCompleted / onHistoryStateUpdated)"] --> CHECK{"Origin whitelisted?\nTab not injected?"}
+    NAV["Navigation event"] --> CHECK{"Origin whitelisted?\nInstaller enabled?\nTab not injected?"}
     CHECK -->|No| SKIP["Skip"]
-    CHECK -->|Yes| SCAN["execute-in-isolated:\nscan-for-userscripts-fn"]
-    SCAN --> FOUND{"Manifest blocks found?"}
-    FOUND -->|No| RETRY{"Retries remaining?\n[300, 1000, 3000ms]"}
-    RETRY -->|Yes| SCAN
-    RETRY -->|No| SKIP
-    FOUND -->|Yes| INJECT["inject-installer!\n(ensure Scittle + run script)"]
-    INJECT --> TRACK["Add tab to\n!installer-injected-tabs"]
+    CHECK -->|Yes| SCAN["Scan DOM for manifests\n(ISOLATED world, bounded retries)"]
+    SCAN -->|Found| INJECT["Inject Scittle +\ninstaller script"]
+    SCAN -->|Not found| SKIP
 ```
 
 ## Content Script Registration

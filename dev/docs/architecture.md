@@ -68,6 +68,7 @@ flowchart TB
 | State atoms + action/effect tables | [architecture/state-management.md](architecture/state-management.md) |
 | Uniflow event system | [architecture/uniflow.md](architecture/uniflow.md) |
 | REPL/userscripts/panel injection flows | [architecture/injection-flows.md](architecture/injection-flows.md) |
+| Web Userscript Installer | [architecture/web-installer.md](architecture/web-installer.md) |
 | Trust boundaries + CSP strategy | [architecture/security.md](architecture/security.md) |
 | Build pipeline + configuration injection | [architecture/build-pipeline.md](architecture/build-pipeline.md) |
 | CSS architecture + design tokens | [architecture/css-architecture.md](architecture/css-architecture.md) |

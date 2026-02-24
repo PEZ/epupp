@@ -75,7 +75,7 @@
 * [~] Make popup show when a script is injected
 * [x] Run scripts on SPA page navigation
 * [x] Sort built-in scripts last
-* [ ] Dev doc for web installer
+* [x] Dev doc for web installer
 * [x] Render built-in scripts last
 * [x] Make sponsor link in footer use sponsor-heart status
 * [x] Add CalvaTV to footer
