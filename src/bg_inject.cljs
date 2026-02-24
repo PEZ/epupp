@@ -99,6 +99,31 @@
     };
   }"))
 
+(def check-namespaces-fn
+  "JavaScript function to check if specific namespaces are registered in Scittle.
+   Takes an array of namespace name strings.
+   Returns {available: true} when all are found, or {available: false, missing: [...]}."
+  (js* "function(namespaces) {
+    if (!window.scittle || !window.scittle.core || !window.scittle.core.eval_string) {
+      return {available: false, missing: namespaces};
+    }
+    var missing = [];
+    for (var i = 0; i < namespaces.length; i++) {
+      var nsName = namespaces[i];
+      if (!/^[a-zA-Z][a-zA-Z0-9._-]*$/.test(nsName)) {
+        missing.push(nsName);
+        continue;
+      }
+      try {
+        var result = window.scittle.core.eval_string('(boolean (find-ns \\'' + nsName + '))');
+        if (!result) missing.push(nsName);
+      } catch(e) {
+        missing.push(nsName);
+      }
+    }
+    return {available: missing.length === 0, missing: missing};
+  }"))
+
 (def trigger-scittle-fn
   "JavaScript function to trigger Scittle evaluation of script tags.
    Ensures a broad TrustedTypes default policy before evaluation.
@@ -172,8 +197,9 @@
   }"))
 
 (defn poll-until
-  "Poll a check function until success or timeout"
-  [check-fn success? timeout]
+  "Poll a check function until success or timeout.
+   timeout-message: Optional custom message for timeout errors."
+  [check-fn success? timeout timeout-message]
   (js/Promise.
    (fn [resolve reject]
      (let [start (js/Date.now)]
@@ -183,7 +209,7 @@
                               (cond
                                 (success? result) (resolve result)
                                 (> (- (js/Date.now) start) timeout)
-                                (reject (js/Error. "Timeout waiting for Scittle"))
+                                (reject (js/Error. (or timeout-message "Timeout")))
                                 :else (js/setTimeout poll 100))))
                      (.catch reject)))]
          (poll))))))
@@ -203,7 +229,8 @@
         (js-await (poll-until
                    (fn [] (execute-in-page tab-id check-scittle-fn))
                    (fn [r] (and r (.-hasScittle r)))
-                   5000))
+                   5000
+                   "Timeout waiting for Scittle"))
         ;; Update icon to show Scittle is injected (stays disconnected/white)
         ;; Only if not already connected (gold)
         (when (not= :connected icon-state)
@@ -264,19 +291,24 @@
 
 (defn ^:async inject-libs-sequentially!
   "Inject library files sequentially, awaiting each load.
+   Checks each response for errors before continuing.
    Uses loop/recur instead of doseq because doseq doesn't properly
    await js-await calls in Squint."
   [tab-id files]
   (loop [remaining files]
     (when (seq remaining)
-      (let [url (js/chrome.runtime.getURL (str "vendor/" (first remaining)))]
-        (js-await (send-tab-message tab-id {:type "inject-script" :url url}))
+      (let [file (first remaining)
+            url (js/chrome.runtime.getURL (str "vendor/" file))
+            response (js-await (send-tab-message tab-id {:type "inject-script" :url url}))]
+        (when (and response (false? (.-success response)))
+          (throw (js/Error. (str "Failed to inject library " file ": "
+                                 (or (.-error response) "unknown error")))))
         (recur (rest remaining))))))
 
 (defn ^:async execute-scripts!
   "Execute a list of scripts in the page via Scittle using script tag injection.
    Injects content bridge, waits for readiness signal, injects required Scittle
-   libraries, then injects userscripts."
+   libraries, verifies namespace availability, then injects userscripts."
   [tab-id scripts]
   ;; Log test event at start for E2E tests
   (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_START" {:tab-id tab-id :count (count scripts)}))
@@ -297,7 +329,17 @@
           (js-await (test-logger/log-event! "INJECTING_LIBS" {:files lib-files}))
           ;; Use sequential await helper - doseq doesn't await properly in Squint
           (js-await (inject-libs-sequentially! tab-id lib-files))
-          (js-await (test-logger/log-event! "LIBS_INJECTED" {:count (count lib-files)})))
+          (js-await (test-logger/log-event! "LIBS_INJECTED" {:count (count lib-files)}))
+          ;; Verify namespace availability before evaluation
+          (let [expected-ns (scittle-libs/collect-lib-namespaces scripts)]
+            (when (seq expected-ns)
+              (js-await (poll-until
+                         (fn [] (execute-in-page tab-id check-namespaces-fn expected-ns))
+                         (fn [r] (and r (.-available r)))
+                         5000
+                         (str "Timeout waiting for library namespaces: "
+                              (.join expected-ns ", "))))
+              (js-await (test-logger/log-event! "NAMESPACES_VERIFIED" {:namespaces expected-ns})))))
         ;; Inject all userscript tags
         (js-await
          (js/Promise.all

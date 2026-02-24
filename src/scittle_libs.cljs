@@ -5,21 +5,29 @@
 (def library-catalog
   "Catalog of bundled Scittle libraries and their dependencies.
    Keys are :scittle/lib-name keywords.
-   Internal libraries (:catalog/internal true) are not directly requestable."
+   Internal libraries (:catalog/internal true) are not directly requestable.
+   :catalog/namespaces lists representative namespaces for load verification."
   {:scittle/pprint     {:catalog/file "scittle.pprint.js"
-                        :catalog/deps #{:scittle/core}}
+                        :catalog/deps #{:scittle/core}
+                        :catalog/namespaces ["cljs.pprint"]}
    :scittle/promesa    {:catalog/file "scittle.promesa.js"
-                        :catalog/deps #{:scittle/core}}
+                        :catalog/deps #{:scittle/core}
+                        :catalog/namespaces ["promesa.core"]}
    :scittle/replicant  {:catalog/file "scittle.replicant.js"
-                        :catalog/deps #{:scittle/core}}
+                        :catalog/deps #{:scittle/core}
+                        :catalog/namespaces ["replicant.dom"]}
    :scittle/js-interop {:catalog/file "scittle.js-interop.js"
-                        :catalog/deps #{:scittle/core}}
+                        :catalog/deps #{:scittle/core}
+                        :catalog/namespaces ["applied-science.js-interop"]}
    :scittle/reagent    {:catalog/file "scittle.reagent.js"
-                        :catalog/deps #{:scittle/core :scittle/react}}
+                        :catalog/deps #{:scittle/core :scittle/react}
+                        :catalog/namespaces ["reagent.core"]}
    :scittle/re-frame   {:catalog/file "scittle.re-frame.js"
-                        :catalog/deps #{:scittle/core :scittle/reagent}}
+                        :catalog/deps #{:scittle/core :scittle/reagent}
+                        :catalog/namespaces ["re-frame.core"]}
    :scittle/cljs-ajax  {:catalog/file "scittle.cljs-ajax.js"
-                        :catalog/deps #{:scittle/core}}
+                        :catalog/deps #{:scittle/core}
+                        :catalog/namespaces ["cljs-http.client"]}
    ;; Internal dependencies (not directly requestable)
    :scittle/core       {:catalog/file "scittle.js"
                         :catalog/internal true}
@@ -114,3 +122,16 @@
         all-files (mapcat :inject/files expanded)]
     ;; Dedupe while preserving order (earlier files stay)
     (vec (distinct all-files))))
+
+(defn collect-lib-namespaces
+  "Collect representative namespaces to verify for a set of scripts.
+   Returns a vector of namespace name strings that should be available
+   after all libraries are loaded."
+  [scripts]
+  (let [all-injects (mapcat #(get % :script/inject []) scripts)
+        scittle-urls (filter #(and (string? %) (.startsWith % "scittle://")) all-injects)
+        lib-keys (keep resolve-scittle-url scittle-urls)]
+    (->> lib-keys
+         (mapcat (fn [k] (:catalog/namespaces (get library-catalog k))))
+         (filter some?)
+         vec)))

@@ -239,3 +239,44 @@
             (test "handles scripts without requires" test-collect-lib-files-handles-scripts-without-requires)
             (test "ignores non-scittle URLs" test-collect-lib-files-ignores-non-scittle-urls)
             (test "handles transitive dependencies correctly" test-collect-lib-files-handles-transitive-dependencies-correctly)))
+
+;; collect-lib-namespaces tests
+
+(defn- test-collect-lib-namespaces-returns-namespaces-for-single-lib []
+  (let [scripts [{:script/inject ["scittle://replicant.js"]}]
+        result (libs/collect-lib-namespaces scripts)]
+    (-> (expect result)
+        (.toEqual ["replicant.dom"]))))
+
+(defn- test-collect-lib-namespaces-returns-namespaces-for-multiple-libs []
+  (let [scripts [{:script/inject ["scittle://replicant.js" "scittle://pprint.js"]}]
+        result (libs/collect-lib-namespaces scripts)]
+    (-> (expect result)
+        (.toEqual ["replicant.dom" "cljs.pprint"]))))
+
+(defn- test-collect-lib-namespaces-returns-empty-for-no-injects []
+  (let [scripts [{:script/name "no-requires"}]
+        result (libs/collect-lib-namespaces scripts)]
+    (-> (expect result)
+        (.toEqual []))))
+
+(defn- test-collect-lib-namespaces-ignores-non-scittle-urls []
+  (let [scripts [{:script/inject ["https://example.com/lib.js" "scittle://promesa.js"]}]
+        result (libs/collect-lib-namespaces scripts)]
+    (-> (expect result)
+        (.toEqual ["promesa.core"]))))
+
+(defn- test-collect-lib-namespaces-collects-across-multiple-scripts []
+  (let [scripts [{:script/inject ["scittle://reagent.js"]}
+                 {:script/inject ["scittle://pprint.js"]}]
+        result (libs/collect-lib-namespaces scripts)]
+    (-> (expect result)
+        (.toEqual ["reagent.core" "cljs.pprint"]))))
+
+(describe "collect-lib-namespaces"
+          (fn []
+            (test "returns namespaces for single lib" test-collect-lib-namespaces-returns-namespaces-for-single-lib)
+            (test "returns namespaces for multiple libs" test-collect-lib-namespaces-returns-namespaces-for-multiple-libs)
+            (test "returns empty for no injects" test-collect-lib-namespaces-returns-empty-for-no-injects)
+            (test "ignores non-scittle URLs" test-collect-lib-namespaces-ignores-non-scittle-urls)
+            (test "collects across multiple scripts" test-collect-lib-namespaces-collects-across-multiple-scripts)))

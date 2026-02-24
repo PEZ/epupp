@@ -24,7 +24,9 @@
          :button-containers {}
          :ui-container nil
          :ui-setup? false
-         :nav-registered? false}))
+         :nav-registered? false
+         :mutation-observer nil
+         :mutation-debounce-timeout nil}))
 
 (def retry-delays [100 1000 3000])
 
@@ -159,13 +161,15 @@
 
 (defn- detect-pre-elements
   "Find generic pre elements, return array of {:element :format :code-text}.
-   Excludes pre elements inside .file-holder (GitLab snippets) or
+   Excludes pre elements inside .file-holder (GitLab snippets),
+   .markdown-code-block (GitLab comment code blocks), or
    .CodeMirror (code editor line fragments, e.g. GitHub gist edit mode)."
   []
   (->> (.querySelectorAll js/document "pre")
        js/Array.from
        (filter (fn [el]
                  (and (not (.closest el ".file-holder"))
+                      (not (.closest el ".markdown-code-block"))
                       (not (.closest el ".CodeMirror")))))
        (map (fn [el]
               {:element el
@@ -201,6 +205,20 @@
                :code-text (get-gitlab-snippet-text el)}))
        (filter #(:code-text %))))
 
+(defn- detect-gitlab-comment-code-blocks
+  "Find GitLab comment code blocks (.markdown-code-block not inside .file-holder).
+   Returns seq of {:element :format :code-text}."
+  []
+  (->> (.querySelectorAll js/document ".markdown-code-block")
+       js/Array.from
+       (filter (fn [el]
+                 (not (.closest el ".file-holder"))))
+       (keep (fn [el]
+               (when-let [pre (.querySelector el "pre")]
+                 {:element el
+                  :format :gitlab-comment
+                  :code-text (.-textContent pre)})))))
+
 (defn- get-github-repo-text
   "Extract code text from GitHub repo file via .react-code-lines container"
   []
@@ -224,6 +242,7 @@
   (concat (detect-github-tables)
           (detect-github-repo-files)
           (detect-gitlab-snippets)
+          (detect-gitlab-comment-code-blocks)
           (detect-pre-elements)
           (detect-textarea-elements)))
 
@@ -757,6 +776,14 @@
   vertical-align: middle;
 }
 
+.epupp-btn-container.is-overlay {
+  position: absolute;
+  top: 8px;
+  right: 48px;
+  z-index: 2;
+  margin: 0;
+}
+
 .epupp-install-btn .epupp-icon {
   flex-shrink: 0;
   margin: -1px 0;
@@ -832,6 +859,7 @@
   {:github-table   {:tag "span" :get-container get-github-button-container :insert :append}
    :gitlab-snippet {:tag "span" :get-container get-gitlab-button-container :insert :append}
    :github-repo    {:tag "span" :get-container get-github-repo-button-container :insert :append}
+   :gitlab-comment {:tag "span" :insert :overlay}
    :pre            {:tag "div" :insert :before}
    :textarea       {:tag "div" :insert :before}})
 
@@ -846,6 +874,13 @@
           (let [btn-container (create-button-container! tag script-name (:id block-data))]
             (.appendChild target-container btn-container)
             (render-button-into-container! btn-container block-data))))
+
+      :overlay
+      (when-not (.querySelector element ".epupp-btn-container")
+        (let [btn-container (create-button-container! tag script-name (:id block-data))]
+          (.add (.-classList btn-container) "is-overlay")
+          (.appendChild element btn-container)
+          (render-button-into-container! btn-container block-data)))
 
       :before
       (let [existing-btn (.-previousElementSibling element)]
@@ -935,26 +970,77 @@
      (catch :default error
        (js/console.error "[Web Userscript Installer] Scan error:" error)))))
 
+(defn- has-relevant-elements?
+  "Check if any mutation added nodes that are or contain .file-holder
+   or .markdown-code-block elements (GitLab lazy-loaded content)."
+  [mutations]
+  (some (fn [mutation]
+          (some (fn [node]
+                  (when (= (.-nodeType node) 1)
+                    (or (.matches node ".file-holder, .markdown-code-block")
+                        (.querySelector node ".file-holder, .markdown-code-block"))))
+                (js/Array.from (.-addedNodes mutation))))
+        mutations))
+
+(defn- disconnect-mutation-observer!
+  "Disconnect the MutationObserver and clear any pending debounce timeout."
+  []
+  (when-let [observer (:mutation-observer @!state)]
+    (.disconnect observer))
+  (when-let [tid (:mutation-debounce-timeout @!state)]
+    (js/clearTimeout tid))
+  (dispatch! [[:db/assoc :mutation-observer nil]
+              [:db/assoc :mutation-debounce-timeout nil]]))
+
+(defn- setup-mutation-observer!
+  "Set up a MutationObserver on document.body to detect late-arriving
+   .file-holder and .markdown-code-block elements (GitLab lazy-loading).
+   Debounces scan triggering to avoid excessive scans from noisy mutations."
+  []
+  (disconnect-mutation-observer!)
+  (when js/document.body
+    (let [debounce-ms 250
+          observer (js/MutationObserver.
+                    (fn [mutations]
+                      (when (has-relevant-elements? mutations)
+                        (when-let [tid (:mutation-debounce-timeout @!state)]
+                          (js/clearTimeout tid))
+                        (let [tid (js/setTimeout
+                                   (fn []
+                                     (dispatch! [[:db/assoc :mutation-debounce-timeout nil]])
+                                     (scan-code-blocks!))
+                                   debounce-ms)]
+                          (dispatch! [[:db/assoc :mutation-debounce-timeout tid]])))))]
+      (.observe observer js/document.body #js {:childList true :subtree true})
+      (dispatch! [[:db/assoc :mutation-observer observer]]))))
+
+(defn cleanup-buttons!
+  "Remove button containers from DOM and clear processed tracking attributes.
+   Disconnects the MutationObserver if active. Idempotent - safe to call at any time."
+  [!state]
+  (disconnect-mutation-observer!)
+  (doseq [[_ container] (:button-containers @!state)]
+    (when (and container (.-parentElement container))
+      (.remove container)))
+  (doseq [el (js/Array.from (.querySelectorAll js/document "[data-epupp-processed]"))]
+    (.removeAttribute el "data-epupp-processed"))
+  (dispatch! [[:db/assoc :blocks []]
+              [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]
+              [:db/assoc :button-containers {}]]))
+
 (defn rescan!
   "Reset DOM-tied state and re-scan for code blocks.
    Safe to call repeatedly - cancels any pending retry timeout.
    Removes button containers from DOM and clears tracking attributes
-   before re-scanning to prevent stale buttons after SPA navigation."
+   before re-scanning to prevent stale buttons after SPA navigation.
+   Sets up a MutationObserver to catch late-arriving DOM elements."
   [!state]
   (when-let [timeout-id (:pending-retry-timeout @!state)]
     (js/clearTimeout timeout-id))
-  ;; DOM cleanup: remove stored button containers
-  (doseq [[_ container] (:button-containers @!state)]
-    (when (and container (.-parentElement container))
-      (.remove container)))
-  ;; DOM cleanup: clear processed tracking attributes so blocks can be re-scanned
-  (doseq [el (js/Array.from (.querySelectorAll js/document "[data-epupp-processed]"))]
-    (.removeAttribute el "data-epupp-processed"))
-  (dispatch! [[:db/assoc :pending-retry-timeout nil]
-              [:db/assoc :blocks []]
-              [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]
-              [:db/assoc :button-containers {}]])
-  (scan-with-retry!))
+  (cleanup-buttons! !state)
+  (dispatch! [[:db/assoc :pending-retry-timeout nil]])
+  (scan-with-retry!)
+  (setup-mutation-observer!))
 
 (defn ^:async init! [!db]
   (let [state @!db]
@@ -988,10 +1074,11 @@
                                (let [new-url (.-url (.-destination evt))]
                                  (when (not= new-url @!last-url)
                                    (reset! !last-url new-url)
+                                   (cleanup-buttons! !db)
                                    (when-let [tid @!nav-timeout]
                                      (js/clearTimeout tid))
                                    (reset! !nav-timeout
-                                           (js/setTimeout (partial rescan! !db) 300)))))))))
+                                           (js/setTimeout (partial rescan! !db) 500)))))))))
 
     ;; Fetch icon URL (once)
     (when-not (:icon-url state)
