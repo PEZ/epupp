@@ -270,8 +270,8 @@
                            normalized-name (assoc :script/name normalized-name))
             ;; When no manifest and no match on incoming, fall back to existing
             with-match-fallback (if (and (not has-manifest?)
-                                        (nil? (:script/match named-script))
-                                        existing)
+                                         (nil? (:script/match named-script))
+                                         existing)
                                   (assoc named-script :script/match (:script/match existing))
                                   named-script)
             ;; Apply manifest-derived fields (match, run-at, description, inject)
@@ -285,9 +285,9 @@
             is-update? (some? existing)
             new-enabled (cond
                           (:script/always-enabled? script) true
-                          (:script/special? script) (if is-update?
-                                                      (:script/enabled existing)
-                                                      true)
+                          (:script/web-installer-scan script) (if is-update?
+                                                                (:script/enabled existing)
+                                                                true)
                           (not has-auto-run?) false
                           is-update? (:script/enabled existing)
                           (some? (:script/enabled derived)) (:script/enabled derived)

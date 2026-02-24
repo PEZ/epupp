@@ -669,28 +669,28 @@
 
 (defn- ^:async maybe-inject-installer!
   "Scan a tab for userscript blocks and inject the installer if found.
-   Only scans on whitelisted origins. Skips if installer already injected on this tab.
-   Uses bounded retry delays to catch DOM elements that appear after page load
-   (e.g. GitLab .file-holder elements)."
+   Only scans on whitelisted origins. Skips if installer is disabled or already
+   injected on this tab. Uses bounded retry delays to catch DOM elements that
+   appear after page load (e.g. GitLab .file-holder elements)."
   [dispatch! tab-id url]
   (try
     (when (bg-utils/should-scan-for-installer? url @!installer-injected-tabs tab-id)
-      (let [delays bg-utils/installer-scan-delays
-              found? (loop [remaining delays]
-                       (when (seq remaining)
-                         (let [delay-ms (first remaining)]
-                           (when (pos? delay-ms)
-                             (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
-                           (let [result (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))]
-                             (if (and result (.-found result))
-                               true
-                               (recur (rest remaining)))))))]
-          (when found?
-            (js-await (ensure-initialized! dispatch!))
-            (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
-              (when (and installer (:script/enabled installer))
-                (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
-                (swap! !installer-injected-tabs conj tab-id))))))
+      (js-await (ensure-initialized! dispatch!))
+      (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
+        (when (and installer (:script/enabled installer))
+          (let [delays bg-utils/installer-scan-delays
+                found? (loop [remaining delays]
+                         (when (seq remaining)
+                           (let [delay-ms (first remaining)]
+                             (when (pos? delay-ms)
+                               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
+                             (let [result (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))]
+                               (if (and result (.-found result))
+                                 true
+                                 (recur (rest remaining)))))))]
+            (when found?
+              (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
+              (swap! !installer-injected-tabs conj tab-id))))))
     (catch :default err
       (log/warn "Background" "Installer scan failed for tab" tab-id ":" (.-message err)))))
 

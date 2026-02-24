@@ -31,13 +31,13 @@
                                      :settings true
                                      :dev-tools true})
          :browser/brave? false
-         :scripts/list []         ; All userscripts (source of truth)
-         :scripts/current-url nil ; Current tab URL for matching
-         :scripts/current-tab-id nil ; Current tab ID for connection check
-         :settings/auto-connect-repl false ; Auto-connect REPL on page load
-         :settings/auto-reconnect-repl true ; Auto-reconnect to previously connected tabs (default on)
-         :fs/sync-tab-id nil ; Tab ID with FS sync enabled, or nil (ephemeral)
-         :settings/debug-logging false ; Enable verbose debug logging (default off)
+         :scripts/list []
+         :scripts/current-url nil
+         :scripts/current-tab-id nil
+         :settings/auto-connect-repl false
+         :settings/auto-reconnect-repl true
+         :fs/sync-tab-id nil
+         :settings/debug-logging false
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
          :ui/system-banners []          ; System banners [{:id :type :message :leaving} ...]
@@ -610,7 +610,9 @@
            nil])]]
       ;; Row 2: Pattern (single row, CSS truncated)
       [:div.script-row-pattern
-       (when (and (or (seq match) (:script/special? script)) (not always-enabled?))
+       (when (and (or (seq match)
+                      (:script/web-installer-scan script))
+                  (not always-enabled?))
          [:input.pattern-checkbox {:type "checkbox"
                                    :checked enabled
                                    :title (if enabled "Auto-run enabled" "Auto-run disabled")

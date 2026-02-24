@@ -161,11 +161,11 @@ When a user clicks an install button:
 
 ## Enable/Disable
 
-The installer is a "special" script (`:script/special? true`) that appears in the popup's Special section with an enable/disable checkbox.
+The installer appears in the popup's Special section (`:script/special? true`) with an enable/disable checkbox. The checkbox is shown because the script has `:script/web-installer-scan true`, which indicates a conditional injection path that can be toggled.
 
-- Special scripts default to **enabled** on first install
+- Scripts with `:web-installer-scan` default to **enabled** on first install
 - The user's preference is preserved across extension updates
-- When disabled, `maybe-inject-installer!` skips injection entirely
+- When disabled, `maybe-inject-installer!` skips both scanning and injection entirely
 - The toggle dispatches `[:popup/ax.toggle-script]` like any other script
 
 ## Script Metadata Flags
@@ -174,8 +174,8 @@ Defined in `base-builtins` in `storage.cljs`:
 
 | Flag | Value | Purpose |
 |------|-------|---------|
-| `:special?` | `true` | Groups in "Special" popup section, enables toggle without match patterns |
-| `:web-installer-scan` | `true` | Indicates conditional injection path (not auto-run-match) |
+| `:special?` | `true` | Groups in "Special" popup section |
+| `:web-installer-scan` | `true` | Conditional injection path - enables toggle, defaults to enabled on first install |
 
 These propagate through `build-bundled-script` as `:script/special?` and `:script/web-installer-scan`.
 
@@ -199,6 +199,7 @@ See [security.md](security.md) for the full trust boundary model.
 | `e2e/web_installer/format_test.cljs` | Format detection across code hosting sites |
 | `e2e/web_installer/installation_test.cljs` | Save workflow |
 | `e2e/web_installer/state_test.cljs` | UI state management |
+| `e2e/web_installer/disabled_test.cljs` | Disabled installer does not inject |
 | `e2e/builtin_reinstall_test.cljs` | Builtin sync, enabled state preservation |
 | `test/web_installer_security_test.cljs` | Unit tests for origin validation |
 
