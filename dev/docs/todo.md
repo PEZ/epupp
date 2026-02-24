@@ -97,3 +97,6 @@
     -H "Content-Type: application/json" \
     -d '{"slug": "epupp"}'
     ```
+* [ ] Add run script to web installer identified scripts
+* [ ] Add evaluate selection to web installer identified scripts
+* [ ] Add evaluate current form to web installer identified scripts
