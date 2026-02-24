@@ -42,7 +42,9 @@
 (def ^:private base-builtins
   [{:script/id "epupp-builtin-web-userscript-installer"
     :path "userscripts/epupp/web_userscript_installer.cljs"
-    :name "epupp/web_userscript_installer.cljs"}
+    :name "epupp/web_userscript_installer.cljs"
+    :special? true
+    :web-installer-scan true}
    {:script/id "epupp-builtin-sponsor-check"
     :path "userscripts/epupp/sponsor.cljs"
     :name "epupp/sponsor.cljs"
@@ -383,7 +385,9 @@
       (some? run-at) (assoc :script/run-at run-at)
       manifest-description (assoc :script/description manifest-description)
       (seq inject) (assoc :script/inject inject)
-      (:always-enabled? bundled) (assoc :script/always-enabled? true))))
+      (:always-enabled? bundled) (assoc :script/always-enabled? true)
+      (:special? bundled) (assoc :script/special? true)
+      (:web-installer-scan bundled) (assoc :script/web-installer-scan true))))
 
 (defn builtin-update-needed?
   "Check whether a built-in script needs to be updated from bundled code."
@@ -394,7 +398,9 @@
       (not= (:script/match existing) (:script/match desired))
       (not= (:script/description existing) (:script/description desired))
       (not= (:script/run-at existing) (:script/run-at desired))
-      (not= (:script/inject existing) (:script/inject desired))))
+      (not= (:script/inject existing) (:script/inject desired))
+      (not= (:script/special? existing) (:script/special? desired))
+      (not= (:script/web-installer-scan existing) (:script/web-installer-scan desired))))
 
 (defn ^:async sync-builtin-scripts!
   "Synchronize built-in scripts with bundled versions.

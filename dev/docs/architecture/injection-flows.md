@@ -70,20 +70,19 @@ The web installer is injected conditionally based on page content rather than UR
 4. If blocks found: `inject-installer!` loads Scittle and the installer script
 5. Tab ID added to `!installer-injected-tabs` to prevent re-injection
 
-**SPA navigation support:** GitHub and GitLab use `history.pushState` for navigation. `onCompleted` does not fire on SPA navigations, but `onHistoryStateUpdated` does. SPA navigations retry the scan with delays `[0, 300, 1000, 3000ms]` to handle async DOM updates.
+**SPA navigation support:** GitHub and GitLab use `history.pushState` for navigation. `onCompleted` does not fire on SPA navigations, but `onHistoryStateUpdated` does. Both navigation types use the same bounded retry schedule `[0, 300, 1000, 3000ms]` to handle DOM elements that appear after the navigation event fires (e.g. GitLab's `.file-holder` elements).
 
 **Tab tracking:** `!installer-injected-tabs` is an ephemeral atom (not Uniflow state). Cleared on tab close, page navigation (`onBeforeNavigate`), and service worker restart. Worst case on loss is a redundant scan.
 
 ```mermaid
 flowchart TD
-    NAV["Navigation event"] --> CHECK{"Origin whitelisted?\nTab not injected?"}
+    NAV["Navigation event\n(onCompleted / onHistoryStateUpdated)"] --> CHECK{"Origin whitelisted?\nTab not injected?"}
     CHECK -->|No| SKIP["Skip"]
     CHECK -->|Yes| SCAN["execute-in-isolated:\nscan-for-userscripts-fn"]
     SCAN --> FOUND{"Manifest blocks found?"}
-    FOUND -->|No & SPA| RETRY{"Retries remaining?\n[300, 1000, 3000ms]"}
+    FOUND -->|No| RETRY{"Retries remaining?\n[300, 1000, 3000ms]"}
     RETRY -->|Yes| SCAN
     RETRY -->|No| SKIP
-    FOUND -->|No & !SPA| SKIP
     FOUND -->|Yes| INJECT["inject-installer!\n(ensure Scittle + run script)"]
     INJECT --> TRACK["Add tab to\n!installer-injected-tabs"]
 ```

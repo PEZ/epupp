@@ -85,13 +85,15 @@
   ([js-scripts {:keys [extract-manifest]}]
    (->> (js-arr->vec js-scripts)
         (mapv (fn [s]
-                (let [script {:script/id (.-id s)
-                              :script/code (.-code s)
-                              :script/enabled (.-enabled s)
-                              :script/created (.-created s)
-                              :script/modified (.-modified s)
-                              :script/builtin? (boolean (.-builtin s))
-                              :script/always-enabled? (boolean (.-alwaysEnabled s))}
+                (let [script (cond-> {:script/id (.-id s)
+                                      :script/code (.-code s)
+                                      :script/enabled (.-enabled s)
+                                      :script/created (.-created s)
+                                      :script/modified (.-modified s)
+                                      :script/builtin? (boolean (.-builtin s))
+                                      :script/always-enabled? (boolean (.-alwaysEnabled s))}
+                              (.-special s) (assoc :script/special? true)
+                              (.-webInstallerScan s) (assoc :script/web-installer-scan true))
                       manifest (when (and extract-manifest (:script/code script))
                                  (try (extract-manifest (:script/code script))
                                       (catch :default _ nil)))]
@@ -112,6 +114,8 @@
        :modified (:script/modified script)
        :builtin (:script/builtin? script)
        :alwaysEnabled (:script/always-enabled? script)
+       :special (:script/special? script)
+       :webInstallerScan (:script/web-installer-scan script)
        :runAt (:script/run-at script)
        :match (clj->js (or (:script/match script) []))})
 
@@ -302,6 +306,12 @@
   "Check if a script is a built-in script via :script/builtin? metadata."
   [script]
   (boolean (:script/builtin? script)))
+
+(defn special-script?
+  "Check if a script is a special script via :script/special? flag.
+   Special scripts appear in a dedicated 'Special' section in the popup."
+  [script]
+  (boolean (:script/special? script)))
 
 (defn name-matches-builtin?
   "Check if a normalized script name matches any builtin script's normalized name.

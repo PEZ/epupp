@@ -27,6 +27,7 @@
                                      :manual-scripts false
                                      :matching-scripts false
                                      :other-scripts true
+                                     :special true
                                      :settings true
                                      :dev-tools true})
          :browser/brave? false
@@ -616,8 +617,14 @@
                                    :on-change #(dispatch! [[:popup/ax.toggle-script script-id matching-pattern]])}])
        (when run-at
          (run-at-badge run-at))
-       [:span.script-match {:title (or patterns-tooltip "No auto-run (manual only)")}
-        (or patterns-display "No auto-run (manual only)")]]
+       [:span.script-match {:title (cond
+                                     patterns-tooltip patterns-tooltip
+                                     (:script/web-installer-scan script) "Injected when Userscripts are detected"
+                                     :else "No auto-run (manual only)")}
+        (cond
+          patterns-display patterns-display
+          (:script/web-installer-scan script) "Injected when Userscripts are detected"
+          :else "No auto-run (manual only)")]]
       ;; Row 3: Description (CSS truncated)
       (when (seq description)
         [:div.script-row-description
@@ -628,7 +635,8 @@
                                  :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
   (let [;; Filter and sort shadow items by matching URL
         matching-shadow (->> scripts-shadow
-                             (filterv #(script-utils/get-matching-pattern current-url (:item %)))
+                             (filterv #(and (not (script-utils/special-script? (:item %)))
+                                            (script-utils/get-matching-pattern current-url (:item %))))
                              (sort-by (fn [{:keys [item]}]
                                         [(if (script-utils/builtin-script? item) 1 0)
                                          (str/lower-case (or (:script/name item) ""))])))
@@ -696,7 +704,8 @@
                                :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
   (let [manual-shadow (->> scripts-shadow
                            (filterv (fn [{:keys [item]}]
-                                     (empty? (:script/match item))))
+                                     (and (not (script-utils/special-script? item))
+                                          (empty? (:script/match item)))))
                            (sort-by (fn [{:keys [item]}]
                                       [(if (script-utils/builtin-script? item) 1 0)
                                        (str/lower-case (or (:script/name item) ""))])))
@@ -720,7 +729,8 @@
                               :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
   (let [other-shadow (->> scripts-shadow
                           (filterv (fn [{:keys [item]}]
-                                    (and (seq (:script/match item))
+                                    (and (not (script-utils/special-script? item))
+                                         (seq (:script/match item))
                                          (not (script-utils/get-matching-pattern current-url item)))))
                           (sort-by (fn [{:keys [item]}]
                                      [(if (script-utils/builtin-script? item) 1 0)
@@ -740,6 +750,29 @@
         "No auto-run scripts for other pages."
         [:div.no-scripts-hint
          "Scripts with match patterns that don't match this page appear here."]])]))
+
+(defn special-scripts-section [{:scripts/keys [current-url]
+                                :ui/keys [scripts-shadow reveal-highlight-script-name recently-modified-scripts]}]
+  (let [special-shadow (->> scripts-shadow
+                            (filterv (fn [{:keys [item]}]
+                                       (script-utils/special-script? item)))
+                            (sort-by (fn [{:keys [item]}]
+                                       (str/lower-case (or (:script/name item) "")))))
+        modified-set (or recently-modified-scripts #{})]
+    [:div.script-list
+     (if (seq special-shadow)
+       (for [{:keys [item] :ui/keys [entering? leaving?]} special-shadow
+             :let [script item]]
+         ^{:key (:script/id script)}
+         [script-item script current-url
+          {:reveal-highlight? (= (:script/name script) reveal-highlight-script-name)
+           :recently-modified? (contains? modified-set (:script/name script))
+           :leaving? leaving?
+           :entering? entering?}])
+       [:div.no-scripts
+        "No special scripts."
+        [:div.no-scripts-hint
+         "Background-managed scripts appear here."]])]))
 
 (defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl debug-logging] :as state}]
   [:div.settings-content
@@ -918,14 +951,19 @@
                  :scripts/keys [list current-url]
                  :repl/keys [connections]
                  :as state}]
-  (let [matching-scripts (->> list
-                              (filterv #(script-utils/get-matching-pattern current-url %)))
+  (let [special-scripts (->> list
+                             (filterv script-utils/special-script?))
+        matching-scripts (->> list
+                              (filterv #(and (not (script-utils/special-script? %))
+                                            (script-utils/get-matching-pattern current-url %))))
         other-autorun-scripts (->> list
                                    (filterv (fn [s]
-                                              (and (seq (:script/match s))
+                                              (and (not (script-utils/special-script? s))
+                                                   (seq (:script/match s))
                                                    (not (script-utils/get-matching-pattern current-url s))))))
         manual-scripts (->> list
-                            (filterv #(empty? (:script/match %))))
+                            (filterv #(and (not (script-utils/special-script? %))
+                                          (empty? (:script/match %)))))
         settings-max-height 700]
     [:div
      [view-elements/app-header
@@ -964,6 +1002,13 @@
                            :badge-count (count other-autorun-scripts)
                            :max-height (str (+ 50 (* 105 (max 1 (count other-autorun-scripts)))) "px")}
       [other-scripts-section state]]
+     (when (seq special-scripts)
+       [collapsible-section {:id :special
+                             :title "Special"
+                             :expanded? (not (:special sections-collapsed))
+                             :badge-count (count special-scripts)
+                             :max-height (str (+ 50 (* 105 (max 1 (count special-scripts)))) "px")}
+        [special-scripts-section state]])
      [collapsible-section {:id :settings
                            :title "Settings"
                            :expanded? (not (:settings sections-collapsed))

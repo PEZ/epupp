@@ -554,3 +554,31 @@
                   test-should-scan-returns-true-after-tab-cleared-from-tracking)
             (test "returns false before clear, true after (full lifecycle)"
                   test-should-scan-returns-false-before-clear-true-after)))
+
+;; ============================================================
+;; installer-scan-delays
+;; ============================================================
+
+(defn- test-installer-scan-delays-starts-at-zero []
+  (-> (expect (first bg/installer-scan-delays))
+      (.toBe 0)))
+
+(defn- test-installer-scan-delays-is-ascending []
+  (let [delays bg/installer-scan-delays]
+    (-> (expect (apply < delays))
+        (.toBe true))))
+
+(defn- test-installer-scan-delays-is-bounded []
+  (let [delays bg/installer-scan-delays]
+    (-> (expect (<= (count delays) 5))
+        (.toBe true))
+    (-> (expect (<= (last delays) 5000))
+        (.toBe true))))
+
+(describe "installer-scan-delays"
+          (test "starts at zero for immediate scan"
+                test-installer-scan-delays-starts-at-zero)
+          (test "delays are in ascending order"
+                test-installer-scan-delays-is-ascending)
+          (test "schedule is bounded (count and max delay)"
+                test-installer-scan-delays-is-bounded))

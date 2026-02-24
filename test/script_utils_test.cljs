@@ -183,9 +183,9 @@
                 :script/builtin? true}
         js-script (script-utils/script->js script)
         keys (js/Object.keys js-script)]
-    ;; Primary fields + runAt + match (needed by early injection loader)
+    ;; Primary fields + runAt + match (needed by early injection loader) + special + webInstallerScan
     (-> (expect (.-length keys))
-        (.toBe 9))
+        (.toBe 11))
     (-> (expect (.includes keys "id"))
         (.toBe true))
     (-> (expect (.includes keys "code"))
@@ -199,6 +199,10 @@
     (-> (expect (.includes keys "builtin"))
         (.toBe true))
     (-> (expect (.includes keys "alwaysEnabled"))
+        (.toBe true))
+    (-> (expect (.includes keys "special"))
+        (.toBe true))
+    (-> (expect (.includes keys "webInstallerScan"))
         (.toBe true))
     ;; runAt and match stored for early injection loader
     (-> (expect (.includes keys "runAt"))
@@ -378,9 +382,54 @@
           (fn []
             (test "derives fields when extractor is provided" test-parse-derives-fields-when-extractor-provided)))
 
+(defn- test-script-js-roundtrips-special-flags []
+  (let [script {:script/id "installer-1"
+                :script/code "(ns installer)"
+                :script/enabled false
+                :script/created "2026-01-01T00:00:00.000Z"
+                :script/modified "2026-01-02T00:00:00.000Z"
+                :script/builtin? true
+                :script/special? true
+                :script/web-installer-scan true}
+        js-script (script-utils/script->js script)
+        ;; Roundtrip through parse-scripts
+        parsed (first (script-utils/parse-scripts #js [js-script]))]
+    ;; Verify JS object has the flags
+    (-> (expect (.-special js-script))
+        (.toBe true))
+    (-> (expect (.-webInstallerScan js-script))
+        (.toBe true))
+    ;; Verify roundtrip preserves flags
+    (-> (expect (:script/special? parsed))
+        (.toBe true))
+    (-> (expect (:script/web-installer-scan parsed))
+        (.toBe true))))
+
+(defn- test-script-js-roundtrips-without-special-flags []
+  (let [script {:script/id "regular-1"
+                :script/code "(ns regular)"
+                :script/enabled true
+                :script/created "2026-01-01T00:00:00.000Z"
+                :script/modified "2026-01-02T00:00:00.000Z"
+                :script/builtin? false}
+        js-script (script-utils/script->js script)
+        parsed (first (script-utils/parse-scripts #js [js-script]))]
+    ;; Verify JS object has nil/undefined for flags
+    (-> (expect (.-special js-script))
+        (.toBeFalsy))
+    (-> (expect (.-webInstallerScan js-script))
+        (.toBeFalsy))
+    ;; Verify roundtrip: flags should not be set
+    (-> (expect (:script/special? parsed))
+        (.toBeUndefined))
+    (-> (expect (:script/web-installer-scan parsed))
+        (.toBeUndefined))))
+
 (describe "script->js"
           (fn []
-            (test "stores only primary fields, not derived" test-script-js-stores-only-primary-fields)))
+            (test "stores only primary fields, not derived" test-script-js-stores-only-primary-fields)
+            (test "roundtrips special flags through parse-scripts" test-script-js-roundtrips-special-flags)
+            (test "roundtrips scripts without special flags" test-script-js-roundtrips-without-special-flags)))
 
 ;; diff-scripts tests
 
@@ -505,6 +554,37 @@
         (.toBe 2))
     (-> (expect (mapv :script/name filtered))
         (.toEqual ["user1.cljs" "user2.cljs"]))))
+
+;; ============================================================
+;; special-script? predicate tests
+;; ============================================================
+
+(defn- test-special-script-true-when-flag-set []
+  (let [script {:script/name "installer.cljs" :script/special? true}]
+    (-> (expect (script-utils/special-script? script))
+        (.toBe true))))
+
+(defn- test-special-script-false-when-flag-absent []
+  (let [script {:script/name "regular.cljs"}]
+    (-> (expect (script-utils/special-script? script))
+        (.toBe false))))
+
+(defn- test-special-script-false-when-flag-false []
+  (let [script {:script/name "regular.cljs" :script/special? false}]
+    (-> (expect (script-utils/special-script? script))
+        (.toBe false))))
+
+(defn- test-special-script-false-when-flag-nil []
+  (let [script {:script/name "regular.cljs" :script/special? nil}]
+    (-> (expect (script-utils/special-script? script))
+        (.toBe false))))
+
+(describe "special-script? predicate"
+  (fn []
+    (test "returns true when :script/special? is true" test-special-script-true-when-flag-set)
+    (test "returns false when :script/special? is absent" test-special-script-false-when-flag-absent)
+    (test "returns false when :script/special? is false" test-special-script-false-when-flag-false)
+    (test "returns false when :script/special? is nil" test-special-script-false-when-flag-nil)))
 
 (describe "Script visibility filtering"
   (fn []

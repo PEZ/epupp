@@ -125,3 +125,14 @@
     (js-await (-> (expect (.locator page "#test-marker"))
                   (.toContainText "ready")))
     page))
+
+(defn ^:async navigate-to-delayed-manifest
+  "Navigate to delayed manifest page (simulates GitLab-like delayed DOM).
+   delay-ms controls how long before the manifest element appears."
+  [context delay-ms]
+  (let [page (js-await (.newPage context))]
+    (js-await (.goto page (str "http://localhost:18080/delayed-manifest.html?delay=" delay-ms)
+                     #js {:timeout 5000}))
+    (js-await (-> (expect (.locator page "#test-marker"))
+                  (.toContainText "ready")))
+    page))

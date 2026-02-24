@@ -937,10 +937,19 @@
 
 (defn rescan!
   "Reset DOM-tied state and re-scan for code blocks.
-   Safe to call repeatedly - cancels any pending retry timeout."
+   Safe to call repeatedly - cancels any pending retry timeout.
+   Removes button containers from DOM and clears tracking attributes
+   before re-scanning to prevent stale buttons after SPA navigation."
   [!state]
   (when-let [timeout-id (:pending-retry-timeout @!state)]
     (js/clearTimeout timeout-id))
+  ;; DOM cleanup: remove stored button containers
+  (doseq [[_ container] (:button-containers @!state)]
+    (when (and container (.-parentElement container))
+      (.remove container)))
+  ;; DOM cleanup: clear processed tracking attributes so blocks can be re-scanned
+  (doseq [el (js/Array.from (.querySelectorAll js/document "[data-epupp-processed]"))]
+    (.removeAttribute el "data-epupp-processed"))
   (dispatch! [[:db/assoc :pending-retry-timeout nil]
               [:db/assoc :blocks []]
               [:db/assoc :modal {:visible? false :mode nil :block-id nil :error-message nil}]

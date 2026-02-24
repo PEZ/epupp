@@ -669,11 +669,13 @@
 
 (defn- ^:async maybe-inject-installer!
   "Scan a tab for userscript blocks and inject the installer if found.
-   Only scans on whitelisted origins. Skips if installer already injected on this tab."
-  [dispatch! tab-id url {:keys [spa-nav?]}]
+   Only scans on whitelisted origins. Skips if installer already injected on this tab.
+   Uses bounded retry delays to catch DOM elements that appear after page load
+   (e.g. GitLab .file-holder elements)."
+  [dispatch! tab-id url]
   (try
     (when (bg-utils/should-scan-for-installer? url @!installer-injected-tabs tab-id)
-      (let [delays (if spa-nav? [0 300 1000 3000] [0])
+      (let [delays bg-utils/installer-scan-delays
               found? (loop [remaining delays]
                        (when (seq remaining)
                          (let [delay-ms (first remaining)]
@@ -748,13 +750,13 @@
                       ;; Dispatch navigation action (gather-then-decide pattern)
                       (dispatch! [[:nav/ax.handle-navigation (.-tabId details) url]])
                       ;; Scan for userscript blocks and conditionally inject installer
-                      (maybe-inject-installer! dispatch! (.-tabId details) url {:spa-nav? false})))))
+                      (maybe-inject-installer! dispatch! (.-tabId details) url)))))
 
   (.addListener js/chrome.webNavigation.onHistoryStateUpdated
                 (fn [details]
                   (when (zero? (.-frameId details))
                     (maybe-inject-installer! dispatch! (.-tabId details)
-                                             (.-url details) {:spa-nav? true}))))
+                                             (.-url details)))))
 
   ;; ============================================================
   ;; Lifecycle Events

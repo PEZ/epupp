@@ -165,3 +165,9 @@
       (and (contains? web-installer-allowed-origins origin)
            (not (contains? injected-tabs tab-id))))
     (catch :default _ false)))
+
+(def installer-scan-delays
+  "Bounded retry schedule for scanning tabs for userscript blocks.
+   Starts immediately (0ms), then retries at increasing intervals to catch
+   DOM elements that appear after page load (e.g. GitLab .file-holder)."
+  [0 300 1000 3000])

@@ -39,7 +39,20 @@ This document is a map of where the architecture lives in code.
 
 | File | Purpose |
 |------|---------|
+| `extension/userscripts/epupp/web_userscript_installer.cljs` | Detects userscripts on web pages and offers install button |
 | `extension/userscripts/epupp/sponsor.cljs` | Sponsor detection on GitHub Sponsors page ([details](sponsor-heart.md)) |
+
+### Builtin Metadata Flags
+
+Builtin scripts in the catalog (`storage.cljs` `base-builtins`) can carry metadata flags that control behavior and UI grouping:
+
+| Flag | Type | Purpose |
+|------|------|---------|
+| `:always-enabled?` | boolean | Script cannot be disabled by the user |
+| `:special?` | boolean | Script appears in the popup "Special" section instead of Manual/Auto-run |
+| `:web-installer-scan` | boolean | Script is injected via background web installer scan, not auto-run-match |
+
+These flags propagate through `build-bundled-script` to the script map as `:script/special?` and `:script/web-installer-scan`, and are persisted through the `script->js`/`parse-scripts` storage roundtrip.
 
 ## Styling
 

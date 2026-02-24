@@ -436,6 +436,22 @@
     (-> (expect (storage/builtin-update-needed? nil desired))
         (.toBe true))))
 
+(defn- test-builtin-special-flag-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/name "test.cljs"}
+        desired (assoc existing :script/special? true)]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
+(defn- test-builtin-web-installer-scan-differs-needs-update []
+  (let [existing {:script/id "builtin-1"
+                  :script/code "(ns test)"
+                  :script/name "test.cljs"}
+        desired (assoc existing :script/web-installer-scan true)]
+    (-> (expect (storage/builtin-update-needed? existing desired))
+        (.toBe true))))
+
 (describe "Built-in script update detection"
   (fn []
     (test "Identical scripts → no update needed" test-builtin-identical-no-update)
@@ -445,7 +461,9 @@
     (test "Description differs → update needed" test-builtin-description-differs-needs-update)
     (test "Run-at differs → update needed" test-builtin-run-at-differs-needs-update)
     (test "Inject differs → update needed" test-builtin-inject-differs-needs-update)
-    (test "Nil existing (new built-in) → update needed" test-builtin-nil-existing-needs-update)))
+    (test "Nil existing (new built-in) → update needed" test-builtin-nil-existing-needs-update)
+    (test "Special flag differs → update needed" test-builtin-special-flag-differs-needs-update)
+    (test "Web-installer-scan flag differs → update needed" test-builtin-web-installer-scan-differs-needs-update)))
 
 
 
@@ -639,6 +657,35 @@
     (-> (expect (contains? result :script/always-enabled?))
         (.toBe false))))
 
+(defn- test-build-bundled-special-flags-propagated []
+  (let [bundled {:script/id "builtin-installer"
+                 :path "userscripts/epupp/web_userscript_installer.cljs"
+                 :name "epupp/web_userscript_installer.cljs"
+                 :special? true
+                 :web-installer-scan true}
+        code "{:epupp/script-name \"epupp/web_userscript_installer.cljs\"
+ :epupp/description \"Web Userscript Installer\"}
+
+(ns epupp.web-installer)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (:script/special? result))
+        (.toBe true))
+    (-> (expect (:script/web-installer-scan result))
+        (.toBe true))))
+
+(defn- test-build-bundled-without-special-flags []
+  (let [bundled {:script/id "builtin-normal"
+                 :path "userscripts/normal.cljs"
+                 :name "normal.cljs"}
+        code "{:epupp/script-name \"normal.cljs\"}
+
+(ns normal)"
+        result (storage/build-bundled-script bundled code)]
+    (-> (expect (contains? result :script/special?))
+        (.toBe false))
+    (-> (expect (contains? result :script/web-installer-scan))
+        (.toBe false))))
+
 (describe "Built-in script building from manifest"
           (fn []
             (test "complete manifest with all fields" test-build-bundled-complete-manifest-all-fields)
@@ -652,7 +699,9 @@
             (test "manifest with string match" test-build-bundled-manifest-with-string-match)
             (test "manifest with empty match array" test-build-bundled-manifest-with-empty-match-array)
             (test "always-enabled? propagated from catalog" test-build-bundled-always-enabled-propagated)
-            (test "without always-enabled? omits the key" test-build-bundled-without-always-enabled)))
+            (test "without always-enabled? omits the key" test-build-bundled-without-always-enabled)
+            (test "special flags propagated from catalog" test-build-bundled-special-flags-propagated)
+            (test "without special flags omits the keys" test-build-bundled-without-special-flags)))
 
 ;; ============================================================
 ;; Source metadata tests (Batch A)

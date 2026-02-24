@@ -96,7 +96,88 @@
       (finally
         (js-await (.close context))))))
 
+(defn- ^:async test_special_section_shows_installer []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; === PHASE 1: Clean state ===
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (clear-storage popup))
+        (js-await (.close popup)))
+
+      ;; === PHASE 2: Verify Special section in popup ===
+      (let [popup (js-await (create-popup-page context ext-id))
+            _ (js-await (wait-for-popup-ready popup))
+            special-section (.locator popup "[data-e2e-section=\"special\"]")
+            manual-section (.locator popup "[data-e2e-section=\"manual-scripts\"]")
+            other-section (.locator popup "[data-e2e-section=\"other-scripts\"]")]
+
+        ;; Wait for builtins to load
+        (js-await (wait-for-script-count popup builtin-script-count))
+
+        ;; Special section exists and is visible
+        (js-await (-> (expect special-section)
+                      (.toBeVisible #js {:timeout 500})))
+
+        ;; Web installer appears in Special section
+        (js-await (-> (expect (.locator special-section ".script-item[data-script-name=\"epupp/web_userscript_installer.cljs\"]"))
+                      (.toBeVisible #js {:timeout 500})))
+
+        ;; Web installer does NOT appear in manual or other sections
+        (js-await (-> (expect (.locator manual-section ".script-item[data-script-name=\"epupp/web_userscript_installer.cljs\"]"))
+                      (.not.toBeVisible)))
+        (js-await (-> (expect (.locator other-section ".script-item[data-script-name=\"epupp/web_userscript_installer.cljs\"]"))
+                      (.not.toBeVisible)))
+
+        ;; Special section shows the hint text for web-installer-scan scripts
+        (js-await (-> (expect (.locator special-section ".script-match"))
+                      (.toContainText "Injected when Userscripts are detected" #js {:timeout 500})))
+
+        ;; Section title is "Special"
+        (js-await (-> (expect (.locator special-section ".section-title"))
+                      (.toContainText "Special" #js {:timeout 500})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_special_section_collapsed_by_default []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; Note: This test uses a fresh popup without the test config override.
+      ;; The test config sets all sections expanded, so we verify the data attribute
+      ;; reflects the config. In production, :special defaults to collapsed.
+      ;; Here we verify the section renders correctly with whatever config is active.
+      (let [popup (js-await (create-popup-page context ext-id))
+            _ (js-await (wait-for-popup-ready popup))
+            special-section (.locator popup "[data-e2e-section=\"special\"]")]
+
+        ;; Wait for builtins to load
+        (js-await (wait-for-script-count popup builtin-script-count))
+
+        ;; Special section exists
+        (js-await (-> (expect special-section)
+                      (.toBeVisible #js {:timeout 500})))
+
+        ;; In test config, sections are expanded (sectionsCollapsed all false)
+        ;; Verify the expanded attribute is present and reflects config
+        (js-await (-> (expect special-section)
+                      (.toHaveAttribute "data-e2e-expanded" "true" #js {:timeout 500})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Popup Script Grouping"
            (fn []
              (test "Popup Script Grouping: scripts appear in correct sections"
-                   test_scripts_grouped_in_correct_sections)))
+                   test_scripts_grouped_in_correct_sections)
+             (test "Special section shows installer builtin"
+                   test_special_section_shows_installer)
+             (test "Special section respects config for expanded state"
+                   test_special_section_collapsed_by_default)))
