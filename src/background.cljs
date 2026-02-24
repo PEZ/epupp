@@ -688,7 +688,7 @@
           (when found?
             (js-await (ensure-initialized! dispatch!))
             (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
-              (when installer
+              (when (and installer (:script/enabled installer))
                 (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
                 (swap! !installer-injected-tabs conj tab-id))))))
     (catch :default err

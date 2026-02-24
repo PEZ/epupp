@@ -285,6 +285,9 @@
             is-update? (some? existing)
             new-enabled (cond
                           (:script/always-enabled? script) true
+                          (:script/special? script) (if is-update?
+                                                      (:script/enabled existing)
+                                                      true)
                           (not has-auto-run?) false
                           is-update? (:script/enabled existing)
                           (some? (:script/enabled derived)) (:script/enabled derived)

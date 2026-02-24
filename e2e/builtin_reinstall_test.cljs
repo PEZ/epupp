@@ -155,9 +155,9 @@
             scripts-result (js-await (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"}))
             scripts (or (.-value scripts-result) #js [])
             stale (.find scripts (fn [script] (= (.-id script) "epupp-builtin-stale")))]
-        ;; Installer has no match pattern, so enabled defaults to false
+        ;; Installer is a special script, so enabled defaults to true
         (-> (expect (.-enabled builtin))
-            (.toBe false))
+            (.toBe true))
         (-> (expect stale)
           (.toBeUndefined))
         (js-await (assert-no-errors! popup))

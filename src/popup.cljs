@@ -610,7 +610,7 @@
            nil])]]
       ;; Row 2: Pattern (single row, CSS truncated)
       [:div.script-row-pattern
-       (when (and (seq match) (not always-enabled?))
+       (when (and (or (seq match) (:script/special? script)) (not always-enabled?))
          [:input.pattern-checkbox {:type "checkbox"
                                    :checked enabled
                                    :title (if enabled "Auto-run enabled" "Auto-run disabled")

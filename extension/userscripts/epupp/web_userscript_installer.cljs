@@ -28,6 +28,8 @@
          :mutation-observer nil
          :mutation-debounce-timeout nil}))
 
+(defonce !scan-in-progress (atom false))
+
 (def retry-delays [100 1000 3000])
 
 (defn find-block-by-id [state block-id]
@@ -939,19 +941,24 @@
               (create-and-attach-block! block-info block-id manifest code-text :install))))))))
 
 (defn ^:async scan-code-blocks! []
-  (let [all-blocks (detect-all-code-blocks)
-        unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
-    ;; Debug: set marker with scan info
-    (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-      (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
-    ;; Process all unprocessed blocks concurrently
+  (when-not @!scan-in-progress
+    (reset! !scan-in-progress true)
     (try
-      (await (js/Promise.all
-              (to-array (map #(process-code-block!+ %) unprocessed))))
-      (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-        (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
-      (catch :default error
-        (js/console.error "[Web Userscript Installer] Scan error:" error)))))
+      (let [all-blocks (detect-all-code-blocks)
+            unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
+        ;; Debug: set marker with scan info
+        (when-let [marker (js/document.getElementById "epupp-installer-debug")]
+          (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
+        ;; Process all unprocessed blocks concurrently
+        (try
+          (await (js/Promise.all
+                  (to-array (map #(process-code-block!+ %) unprocessed))))
+          (when-let [marker (js/document.getElementById "epupp-installer-debug")]
+            (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
+          (catch :default error
+            (js/console.error "[Web Userscript Installer] Scan error:" error))))
+      (finally
+        (reset! !scan-in-progress false)))))
 
 (defn ^:async scan-with-retry!
   "Scan for code blocks, retry with backoff if no blocks found.
@@ -1002,7 +1009,7 @@
     (let [debounce-ms 250
           observer (js/MutationObserver.
                     (fn [mutations]
-                      (when (has-relevant-elements? mutations)
+                      (when (and (not @!scan-in-progress) (has-relevant-elements? mutations))
                         (when-let [tid (:mutation-debounce-timeout @!state)]
                           (js/clearTimeout tid))
                         (let [tid (js/setTimeout
