@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Epupp Test Page - SPA with Manifests</title>
+</head>
+<body>
+  <h1 id="page-title">SPA Manifest Test - Home</h1>
+  <p>This page simulates SPA navigation where userscript manifests appear after navigation.</p>
+  <div id="test-marker">ready</div>
+
+  <nav>
+    <button id="nav-home" onclick="navigate('home')">Home</button>
+    <button id="nav-gist" onclick="navigate('gist')">Gist Page</button>
+  </nav>
+
+  <div id="content">
+    <p>Welcome to the home page. No userscript manifests here.</p>
+  </div>
+
+  <script>
+    function navigate(view) {
+      history.pushState({ view: view }, '', '?view=' + view);
+      document.getElementById('page-title').textContent = 'SPA Manifest Test - ' + view;
+
+      // Remove any existing manifest block
+      var existing = document.getElementById('manifest-block');
+      if (existing) existing.remove();
+
+      if (view === 'gist') {
+        // Dynamically create the manifest block on "gist" navigation
+        var block = document.createElement('div');
+        block.id = 'manifest-block';
+        var pre = document.createElement('pre');
+        var code = document.createElement('code');
+        code.textContent = '{:epupp/script-name "spa_test_script.cljs"\n :epupp/auto-run-match "*://spa-test.example.com/*"\n :epupp/description "A test script for SPA navigation testing"}\n\n(ns spa-test-script)\n\n(js/console.log "SPA test script loaded!")';
+        pre.appendChild(code);
+        block.appendChild(pre);
+        document.getElementById('content').after(block);
+        document.getElementById('content').innerHTML = '<p>This page has a userscript manifest.</p>';
+      } else {
+        document.getElementById('content').innerHTML = '<p>Welcome to the home page. No userscript manifests here.</p>';
+      }
+      console.log('[SPA] Navigated to:', view);
+    }
+
+    window.onpopstate = function(event) {
+      if (event.state && event.state.view) {
+        navigate(event.state.view);
+      }
+    };
+  </script>
+</body>
+</html>

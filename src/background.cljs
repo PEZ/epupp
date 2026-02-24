@@ -28,6 +28,10 @@
                    :connected-tabs/history {}
                    :fs/sync-tab-id nil}))  ; tab-id -> {:port ws-port} - tracks intentionally connected tabs
 
+;; Ephemeral tracking - NOT Uniflow state. Tracks which tabs have had the
+;; web installer injected to avoid redundant re-injection.
+(def ^:private !installer-injected-tabs (atom #{}))
+
 ;; ============================================================
 ;; Initialization Promise - single source of truth for readiness
 ;; ============================================================
@@ -663,6 +667,31 @@
                       "get-sponsored-username" (handle-get-sponsored-username message send-response)
                       (handle-unknown-message msg-type))))))
 
+(defn- ^:async maybe-inject-installer!
+  "Scan a tab for userscript blocks and inject the installer if found.
+   Only scans on whitelisted origins. Skips if installer already injected on this tab."
+  [dispatch! tab-id url {:keys [spa-nav?]}]
+  (try
+    (when (bg-utils/should-scan-for-installer? url @!installer-injected-tabs tab-id)
+      (let [delays (if spa-nav? [0 300 1000 3000] [0])
+              found? (loop [remaining delays]
+                       (when (seq remaining)
+                         (let [delay-ms (first remaining)]
+                           (when (pos? delay-ms)
+                             (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
+                           (let [result (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))]
+                             (if (and result (.-found result))
+                               true
+                               (recur (rest remaining)))))))]
+          (when found?
+            (js-await (ensure-initialized! dispatch!))
+            (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
+              (when installer
+                (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
+                (swap! !installer-injected-tabs conj tab-id))))))
+    (catch :default err
+      (log/warn "Background" "Installer scan failed for tab" tab-id ":" (.-message err)))))
+
 (defn- ^:async activate!
   [dispatch!]
 
@@ -684,6 +713,7 @@
   (.addListener js/chrome.tabs.onRemoved
                 (fn [tab-id _remove-info]
                   (log/debug "Background" "Tab closed, cleaning up:" tab-id)
+                  (swap! !installer-injected-tabs disj tab-id)
                   (dispatch! [[:tab/ax.handle-removed tab-id]])))
 
   (.addListener js/chrome.tabs.onActivated
@@ -704,6 +734,7 @@
                 (fn [details]
                   (when (zero? (.-frameId details))
                     (let [tab-id (.-tabId details)]
+                      (swap! !installer-injected-tabs disj tab-id)
                       (dispatch! [[:nav/ax.handle-before-navigate tab-id]])))))
 
   (.addListener js/chrome.webNavigation.onCompleted
@@ -715,7 +746,15 @@
                                (:scriptable? (script-utils/check-page-scriptability
                                               url (script-utils/detect-browser-type))))
                       ;; Dispatch navigation action (gather-then-decide pattern)
-                      (dispatch! [[:nav/ax.handle-navigation (.-tabId details) url]])))))
+                      (dispatch! [[:nav/ax.handle-navigation (.-tabId details) url]])
+                      ;; Scan for userscript blocks and conditionally inject installer
+                      (maybe-inject-installer! dispatch! (.-tabId details) url {:spa-nav? false})))))
+
+  (.addListener js/chrome.webNavigation.onHistoryStateUpdated
+                (fn [details]
+                  (when (zero? (.-frameId details))
+                    (maybe-inject-installer! dispatch! (.-tabId details)
+                                             (.-url details) {:spa-nav? true}))))
 
   ;; ============================================================
   ;; Lifecycle Events

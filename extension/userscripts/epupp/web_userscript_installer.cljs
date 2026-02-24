@@ -1,5 +1,4 @@
 {:epupp/script-name "epupp/web_userscript_installer.cljs"
- :epupp/auto-run-match "*"
  :epupp/description "Web Userscript Installer. Finds userscripts on web pages, and adds a button to install the script into Epupp"
  :epupp/inject ["scittle://replicant.js"]}
 

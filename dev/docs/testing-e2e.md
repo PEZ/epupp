@@ -67,6 +67,11 @@ All e2e test code is found in `e2e/`. Test files are split for better parallel d
 | `e2e/require_test.cljs` | Scittle library require functionality |
 | `e2e/repl_ui_spec.cljs` | REPL integration: nREPL evaluation, DOM access, connections |
 | `e2e/userscript_test.cljs` | Userscript injection and lifecycle |
+| `e2e/conditional_installer_test.cljs` | Conditional web installer injection: origin gating, DOM scanning, SPA retry |
+| `e2e/web_installer/security_test.cljs` | Web installer security: origin validation, sandbox escapes |
+| `e2e/web_installer/format_test.cljs` | Web installer format detection across code hosting sites |
+| `e2e/web_installer/installation_test.cljs` | Web installer save workflow |
+| `e2e/web_installer/state_test.cljs` | Web installer UI state management |
 
 ## Fixtures and Helpers
 

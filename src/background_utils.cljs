@@ -153,3 +153,15 @@
           origin (str (.-protocol url) "//" (.-hostname url))]
       (contains? web-installer-allowed-origins origin))
     (catch :default _ false)))
+
+(defn should-scan-for-installer?
+  "Decide whether to scan a tab for userscript blocks.
+   Returns true when the URL's origin is whitelisted AND the tab has not
+   already had the installer injected."
+  [url injected-tabs tab-id]
+  (try
+    (let [url-obj (js/URL. url)
+          origin (str (.-protocol url-obj) "//" (.-hostname url-obj))]
+      (and (contains? web-installer-allowed-origins origin)
+           (not (contains? injected-tabs tab-id))))
+    (catch :default _ false)))

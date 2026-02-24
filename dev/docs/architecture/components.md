@@ -9,9 +9,9 @@ This document is a map of where the architecture lives in code.
 | `background.cljs` | Service Worker | WebSocket management, script injection orchestration, icon state |
 | `background_actions.cljs` | Service Worker | Pure background action router (WS, icon, history, FS) |
 | `background_actions/*.cljs` | Service Worker | Pure handlers for history, icon state, WS, REPL FS |
-| `background_utils.cljs` | Shared | Background helper functions (icon, connections) |
+| `background_utils.cljs` | Shared | Background helper functions (icon, connections, `should-scan-for-installer?`, origin whitelist) |
 | `bg_fs_dispatch.cljs` | Service Worker | FS Uniflow dispatcher and effect bridge |
-| `bg_inject.cljs` | Service Worker | Script injection orchestration (bridge, Scittle, userscripts) |
+| `bg_inject.cljs` | Service Worker | Script injection orchestration (bridge, Scittle, userscripts), conditional installer injection (`execute-in-isolated`, `scan-for-userscripts-fn`, `inject-installer!`) |
 | `bg_ws.cljs` | Service Worker | WebSocket lifecycle management per tab |
 | `bg_icon.cljs` | Service Worker | Extension icon state management |
 | `registration.cljs` | Service Worker | Content script registration for early-timing scripts |

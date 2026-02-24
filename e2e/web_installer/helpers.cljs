@@ -3,7 +3,7 @@
    Consolidates common setup and selector patterns."
   (:require ["@playwright/test" :refer [expect]]
             ["./../fixtures.mjs" :as fixtures-external :refer [create-popup-page
-                                                                wait-for-popup-ready wait-for-checkbox-state]]))
+                                                                wait-for-popup-ready]]))
 
 ;; =============================================================================
 ;; Install Button Selectors (using data-e2e attributes)
@@ -88,20 +88,11 @@
               (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
               (recur))))))))
 
-(defn- ^:async enable-installer-checkbox
-  "Enable the Web Userscript Installer checkbox if not already checked."
-  [popup]
-  (let [installer-script (.locator popup ".script-item:has-text(\"epupp/web_userscript_installer.cljs\")")
-        installer-checkbox (.locator installer-script "input[type='checkbox']")]
-    (js-await (-> (expect installer-checkbox) (.toBeVisible)))
-    (when-not (js-await (.isChecked installer-checkbox))
-      (js/console.log "Enabling Web Userscript Installer...")
-      (js-await (.click installer-checkbox))
-      (js-await (wait-for-checkbox-state installer-checkbox true)))))
-
 (defn ^:async setup-installer!+
   "Set up web installer for testing: clear storage, wait for built-in to be
-   re-installed with code, enable it.
+   re-installed with code.
+   The installer is now background-managed (no auto-run-match) - it gets injected
+   when the scanner finds userscript blocks, regardless of popup enable state.
    Returns the popup page (caller should close it when done with setup)."
   [context ext-id]
   (let [popup (js-await (create-popup-page context ext-id))]
@@ -112,9 +103,6 @@
 
     ;; Wait for installer to be re-installed with code
     (js-await (wait-for-installer-in-storage popup 2000))
-
-    ;; Enable the installer
-    (js-await (enable-installer-checkbox popup))
 
     popup))
 

@@ -2,11 +2,9 @@
   "E2E tests for built-in reinstall strategy."
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :refer [launch-browser get-extension-id create-popup-page
-                              wait-for-checkbox-state send-runtime-message
-                              get-script-item assert-no-errors!]]))
+                              send-runtime-message assert-no-errors!]]))
 
 (def ^:private builtin-id "epupp-builtin-web-userscript-installer")
-(def ^:private builtin-name "epupp/web_userscript_installer.cljs")
 
 (defn- ^:async sleep [ms]
   (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
@@ -145,15 +143,7 @@
         ext-id (js-await (get-extension-id context))]
     (try
       (let [popup (js-await (create-popup-page context ext-id))
-            _ (js-await (wait-for-builtin-script popup 5000))
-            script-item (get-script-item popup builtin-name)
-            checkbox (.locator script-item "input[type='checkbox']")]
-        ;; Ensure enabled
-        (js-await (-> (expect checkbox) (.toBeVisible)))
-        (let [checked (js-await (.isChecked checkbox))]
-          (when-not checked
-            (js-await (.click checkbox))
-            (js-await (wait-for-checkbox-state checkbox true))))
+            _ (js-await (wait-for-builtin-script popup 5000))]
         ;; Add stale built-in
         (js-await (add-stale-builtin! popup))
         (js-await (.close popup)))
@@ -165,8 +155,9 @@
             scripts-result (js-await (send-runtime-message popup "e2e/get-storage" #js {:key "scripts"}))
             scripts (or (.-value scripts-result) #js [])
             stale (.find scripts (fn [script] (= (.-id script) "epupp-builtin-stale")))]
+        ;; Installer has no match pattern, so enabled defaults to false
         (-> (expect (.-enabled builtin))
-            (.toBe true))
+            (.toBe false))
         (-> (expect stale)
           (.toBeUndefined))
         (js-await (assert-no-errors! popup))

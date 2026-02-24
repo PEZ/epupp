@@ -26,6 +26,22 @@
           (reject (js/Error. (.-message js/chrome.runtime.lastError)))
           (resolve (when (seq results) (.-result (first results))))))))))
 
+(defn execute-in-isolated
+  "Execute a function in ISOLATED world (content script context).
+   Returns a promise. Safe from page CSP restrictions."
+  [tab-id func & args]
+  (js/Promise.
+   (fn [resolve reject]
+     (js/chrome.scripting.executeScript
+      #js {:target #js {:tabId tab-id}
+           :world "ISOLATED"
+           :func func
+           :args (clj->js (vec args))}
+      (fn [results]
+        (if js/chrome.runtime.lastError
+          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+          (resolve (when (seq results) (.-result (first results))))))))))
+
 (defn inject-content-script
   "Inject a script file into ISOLATED world."
   [tab-id file]
@@ -109,6 +125,51 @@
 ;; ============================================================
 ;; Polling Utilities
 ;; ============================================================
+
+(def scan-for-userscripts-fn
+  "Scan page DOM for code blocks containing Epupp userscript manifests.
+   Checks 5 formats: GitHub gist tables, GitHub repo files, GitLab snippets,
+   generic <pre> elements, and <textarea> elements.
+   Returns {found: boolean, count: number}."
+  (js* "function() {
+    function hasManifest(text) {
+      if (!text || text.length < 10) return false;
+      var trimmed = text.trimStart();
+      if (trimmed.charAt(0) !== '{') return false;
+      return /:epupp\\/script-name/.test(trimmed.slice(0, 500));
+    }
+    var count = 0;
+    // 1. GitHub gist tables
+    var tables = document.querySelectorAll('table.js-file-line-container');
+    for (var i = 0; i < tables.length; i++) {
+      var lines = tables[i].querySelectorAll('td.js-file-line');
+      var text = '';
+      for (var j = 0; j < lines.length; j++) text += lines[j].textContent + '\\n';
+      if (hasManifest(text)) count++;
+    }
+    // 2. GitHub repo file view
+    var repoCode = document.querySelector('.react-code-lines');
+    if (repoCode && hasManifest(repoCode.textContent)) count++;
+    // 3. GitLab snippets
+    var holders = document.querySelectorAll('.file-holder');
+    for (var i = 0; i < holders.length; i++) {
+      var pre = holders[i].querySelector('pre');
+      if (pre && hasManifest(pre.textContent)) count++;
+    }
+    // 4. Generic <pre> (excluding .file-holder, .CodeMirror)
+    var pres = document.querySelectorAll('pre');
+    for (var i = 0; i < pres.length; i++) {
+      if (pres[i].closest('.file-holder') || pres[i].closest('.CodeMirror')) continue;
+      if (hasManifest(pres[i].textContent)) count++;
+    }
+    // 5. Textareas (excluding .js-code-editor)
+    var textareas = document.querySelectorAll('textarea');
+    for (var i = 0; i < textareas.length; i++) {
+      if (textareas[i].closest('.js-code-editor')) continue;
+      if (hasManifest(textareas[i].value)) count++;
+    }
+    return {found: count > 0, count: count};
+  }"))
 
 (defn poll-until
   "Poll a check function until success or timeout"
@@ -259,3 +320,11 @@
       (catch :default err
         (log/error "Background:Inject" "Userscript injection error:" err)
         (js-await (test-logger/log-event! "EXECUTE_SCRIPTS_ERROR" {:error (.-message err)}))))))
+
+(defn ^:async inject-installer!
+  "Inject the web userscript installer on a tab.
+   Ensures Scittle is loaded, injects dependency libraries,
+   injects the installer code, and triggers evaluation."
+  [dispatch! tab-id installer-script]
+  (js-await (ensure-scittle! dispatch! tab-id :disconnected))
+  (js-await (execute-scripts! tab-id [installer-script])))

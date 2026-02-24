@@ -56,6 +56,38 @@ See [connected-repl.md](connected-repl.md) for full details including message fl
 3. Background ensures Scittle is loaded, injects required libraries, and
     executes the script via userscript tag injection
 
+### Conditional Web Installer Injection (on Navigation)
+
+The web installer is injected conditionally based on page content rather than URL matching. This avoids loading Scittle on every whitelisted page.
+
+1. Navigation event fires (`onCompleted` or `onHistoryStateUpdated`)
+2. `maybe-inject-installer!` calls `should-scan-for-installer?` - checks:
+   - URL origin is in `web-installer-allowed-origins` whitelist
+   - Tab not already in `!installer-injected-tabs` tracking set
+3. If should scan: runs `scan-for-userscripts-fn` via `execute-in-isolated` (ISOLATED world)
+   - Scanner checks 5 DOM formats: GitHub gist tables, GitHub repo files, GitLab snippets, generic `<pre>`, and `<textarea>` elements
+   - Looks for `:epupp/script-name` in the first 500 chars of code blocks
+4. If blocks found: `inject-installer!` loads Scittle and the installer script
+5. Tab ID added to `!installer-injected-tabs` to prevent re-injection
+
+**SPA navigation support:** GitHub and GitLab use `history.pushState` for navigation. `onCompleted` does not fire on SPA navigations, but `onHistoryStateUpdated` does. SPA navigations retry the scan with delays `[0, 300, 1000, 3000ms]` to handle async DOM updates.
+
+**Tab tracking:** `!installer-injected-tabs` is an ephemeral atom (not Uniflow state). Cleared on tab close, page navigation (`onBeforeNavigate`), and service worker restart. Worst case on loss is a redundant scan.
+
+```mermaid
+flowchart TD
+    NAV["Navigation event"] --> CHECK{"Origin whitelisted?\nTab not injected?"}
+    CHECK -->|No| SKIP["Skip"]
+    CHECK -->|Yes| SCAN["execute-in-isolated:\nscan-for-userscripts-fn"]
+    SCAN --> FOUND{"Manifest blocks found?"}
+    FOUND -->|No & SPA| RETRY{"Retries remaining?\n[300, 1000, 3000ms]"}
+    RETRY -->|Yes| SCAN
+    RETRY -->|No| SKIP
+    FOUND -->|No & !SPA| SKIP
+    FOUND -->|Yes| INJECT["inject-installer!\n(ensure Scittle + run script)"]
+    INJECT --> TRACK["Add tab to\n!installer-injected-tabs"]
+```
+
 ## Content Script Registration
 
 Scripts with early timing (`document-start` or `document-end`) use a different injection path than the default `document-idle` scripts. This enables userscripts to run before page scripts execute.

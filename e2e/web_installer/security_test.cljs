@@ -187,10 +187,10 @@
 ;; Test Registration
 ;; ============================================================
 
-(defn- ^:async test_non_whitelisted_domain_shows_copy_instructions []
+(defn- ^:async test_non_whitelisted_domain_no_installer []
   ;; Navigate to mock gist via non-whitelisted hostname.
-  ;; The install button should render normally, but clicking it
-  ;; should open a modal with copy instructions instead of an install button.
+  ;; The installer should NOT be injected because the origin is not whitelisted.
+  ;; This verifies the background's origin-gating in maybe-inject-installer!.
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -200,37 +200,11 @@
 
       ;; Navigate via non-whitelisted hostname
       (let [page (js-await (h/navigate-to-mock-gist-non-whitelisted context))]
-        ;; Capture page errors for diagnosis
-        (.on page "console" (fn [msg]
-                              (when (= "error" (.type msg))
-                                (js/console.log "PAGE CONSOLE.ERROR:" (.text msg)))))
-        (.on page "pageerror" (fn [err]
-                                (js/console.log "PAGE ERROR:" (.-message err))))
+        ;; Wait a bit for any potential injection to complete
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 2000))))
 
-        ;; Wait for normal install button (same as whitelisted domain)
-        (js-await (h/wait-for-install-button page "#installable-gist" "install" 5000))
-
-        ;; Click the install button to open the modal
-        (let [btn (h/get-install-button page "#installable-gist" "install")]
-          (js-await (.click btn)))
-
-        ;; Modal should show copy instructions, not an install/confirm button
-        (let [modal (.locator page ".epupp-modal")]
-          (js-await (-> (expect modal) (.toBeVisible #js {:timeout 2000})))
-          ;; Should have copy instructions
-          ;; Should have the not-whitelisted note (by data attribute, not copy text)
-          (let [note (.locator modal "[data-e2e-not-whitelisted]")]
-            (js-await (-> (expect note) (.toBeVisible))))
-          ;; Should NOT have a confirm/install button
-          (let [confirm-btn (.locator modal "#epupp-confirm")]
-            (js-await (-> (expect confirm-btn) (.toHaveCount 0))))
-          ;; Should have an OK button instead of Cancel
-          (let [ok-btn (.locator modal "#epupp-ok")]
-            (js-await (-> (expect ok-btn) (.toBeVisible)))
-            ;; Click OK to close
-            (js-await (.click ok-btn)))
-          ;; Modal should be closed
-          (js-await (-> (expect modal) (.not.toBeVisible))))
+        ;; No install buttons should appear (installer not injected)
+        (js-await (h/assert-no-install-button page "#installable-gist" "install" 500))
 
         (js-await (.close page)))
 
@@ -262,5 +236,5 @@
              (test "save-script with URL scriptSource bypasses FS Sync gate"
                    test_save_script_with_url_source_bypasses_fs_sync)
 
-             (test "non-whitelisted domain shows copy instructions in modal"
-                   test_non_whitelisted_domain_shows_copy_instructions)))
+             (test "non-whitelisted domain does not inject installer"
+                   test_non_whitelisted_domain_no_installer)))
