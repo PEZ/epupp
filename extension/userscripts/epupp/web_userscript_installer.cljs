@@ -26,9 +26,8 @@
          :ui-setup? false
          :nav-registered? false
          :mutation-observer nil
-         :mutation-debounce-timeout nil}))
-
-(defonce !scan-in-progress (atom false))
+         :mutation-debounce-timeout nil
+         :scan-in-progress? false}))
 
 (def retry-delays [50 100 100 300 300 300 1000 1000 1000 3000 3000])
 
@@ -941,8 +940,8 @@
               (create-and-attach-block! block-info block-id manifest code-text :install))))))))
 
 (defn ^:async scan-code-blocks! []
-  (when-not @!scan-in-progress
-    (reset! !scan-in-progress true)
+  (when-not (:scan-in-progress? @!state)
+    (swap! !state assoc :scan-in-progress? true)
     (try
       (let [all-blocks (detect-all-code-blocks)
             unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
@@ -958,7 +957,7 @@
           (catch :default error
             (js/console.error "[Web Userscript Installer] Scan error:" error))))
       (finally
-        (reset! !scan-in-progress false)))))
+        (swap! !state assoc :scan-in-progress? false)))))
 
 (defn ^:async scan-with-retry!
   "Scan for code blocks, retry with backoff if no blocks found.
@@ -1009,7 +1008,7 @@
     (let [debounce-ms 250
           observer (js/MutationObserver.
                     (fn [mutations]
-                      (when (and (not @!scan-in-progress) (has-relevant-elements? mutations))
+                      (when (and (not (:scan-in-progress? @!state)) (has-relevant-elements? mutations))
                         (when-let [tid (:mutation-debounce-timeout @!state)]
                           (js/clearTimeout tid))
                         (let [tid (js/setTimeout
@@ -1050,50 +1049,52 @@
   (setup-mutation-observer!))
 
 (defn ^:async init! [!db]
-  (let [state @!db]
-    (js/console.log "[Web Userscript Installer] Initializing...")
+  (when-not (:initialized? @!db)
+    (swap! !db assoc :initialized? true)
+    (let [state @!db]
+      (js/console.log "[Web Userscript Installer] Initializing...")
 
-    ;; Debug marker (idempotent)
-    (when-not (js/document.getElementById "epupp-installer-debug")
-      (let [marker (js/document.createElement "div")]
-        (set! (.-id marker) "epupp-installer-debug")
-        (set! (.. marker -style -display) "none")
-        (when js/document.body
-          (.appendChild js/document.body marker))))
+      ;; Debug marker (idempotent)
+      (when-not (js/document.getElementById "epupp-installer-debug")
+        (let [marker (js/document.createElement "div")]
+          (set! (.-id marker) "epupp-installer-debug")
+          (set! (.. marker -style -display) "none")
+          (when js/document.body
+            (.appendChild js/document.body marker))))
 
-    (swap! !db assoc :install-allowed? (install-allowed?))
-    (ensure-installer-css!)
-    (setup-ui! !db)
+      (swap! !db assoc :install-allowed? (install-allowed?))
+      (ensure-installer-css!)
+      (setup-ui! !db)
 
-    ;; Initial scan
-    (if (= js/document.readyState "loading")
-      (.addEventListener js/document "DOMContentLoaded" (partial rescan! !db))
-      (rescan! !db))
+      ;; Initial scan
+      (if (= js/document.readyState "loading")
+        (.addEventListener js/document "DOMContentLoaded" (partial rescan! !db))
+        (rescan! !db))
 
-    ;; SPA navigation listener (once) - register before async icon fetch
-    (when-not (:nav-registered? state)
-      (dispatch! [[:db/assoc :nav-registered? true]])
-      (when js/window.navigation
-        (let [!nav-timeout (atom nil)
-              !last-url (atom js/window.location.href)]
-          (.addEventListener js/window.navigation "navigate"
-                             (fn [evt]
-                               (let [new-url (.-url (.-destination evt))]
-                                 (when (not= new-url @!last-url)
-                                   (reset! !last-url new-url)
-                                   (cleanup-buttons! !db)
-                                   (when-let [tid @!nav-timeout]
-                                     (js/clearTimeout tid))
-                                   (reset! !nav-timeout
-                                           (js/setTimeout (partial rescan! !db) 500)))))))))
+      ;; SPA navigation listener (once) - register before async icon fetch
+      (when-not (:nav-registered? state)
+        (dispatch! [[:db/assoc :nav-registered? true]])
+        (when js/window.navigation
+          (let [!nav-timeout (atom nil)
+                !last-url (atom js/window.location.href)]
+            (.addEventListener js/window.navigation "navigate"
+                               (fn [evt]
+                                 (let [new-url (.-url (.-destination evt))]
+                                   (when (not= new-url @!last-url)
+                                     (reset! !last-url new-url)
+                                     (cleanup-buttons! !db)
+                                     (when-let [tid @!nav-timeout]
+                                       (js/clearTimeout tid))
+                                     (reset! !nav-timeout
+                                             (js/setTimeout (partial rescan! !db) 500)))))))))
 
-    ;; Fetch icon URL (once)
-    (when-not (:icon-url state)
-      (try
-        (let [url (await (fetch-icon-url!+))]
-          (dispatch! [[:db/assoc :icon-url url]]))
-        (catch :default _)))
+      ;; Fetch icon URL (once)
+      (when-not (:icon-url state)
+        (try
+          (let [url (await (fetch-icon-url!+))]
+            (dispatch! [[:db/assoc :icon-url url]]))
+          (catch :default _)))
 
-    (js/console.log "[Web Userscript Installer] Ready")))
+      (js/console.log "[Web Userscript Installer] Ready"))))
 
 (init! !state)

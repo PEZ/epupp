@@ -64,7 +64,7 @@ Returns `true` on first match, or `false` after checking all formats.
 
 ### Retry Schedule
 
-The background scanner retries with bounded delays: `[0, 300, 1000, 3000ms]` (total ~4.3s). This handles lazy-loaded DOM elements common on GitLab. Exits early when manifests are found.
+The background scanner retries with bounded delays. This handles lazy-loaded DOM elements common on GitLab. Exits early when manifests are found.
 
 ### Injection
 
@@ -87,12 +87,11 @@ This is a Scittle script (SCI-evaluated in the browser), not compiled by Squint.
 
 ### State
 
-The installer manages local state in two atoms:
-
-- `!state` - main state with blocks, UI, modal, button containers, observer references
-- `!scan-in-progress` - concurrency guard preventing overlapping scans
+The installer manages all local state in a single `defonce` atom (`!state`) containing blocks, UI, modal, button containers, observer references, and a `:scan-in-progress?` flag that prevents overlapping scans.
 
 ### Initialization (`init!`)
+
+Guarded by an `:initialized?` flag in the `defonce` atom, so repeated Scittle evaluations are no-ops.
 
 1. Set `install-allowed?` based on current origin
 2. Set up UI container (modal overlay for install confirmations)
@@ -135,7 +134,7 @@ Each format has a spec controlling button attachment:
 3. `scan-code-blocks!` - detects blocks, processes unprocessed ones in parallel
 4. `process-code-block!+` - extracts manifest, checks script status via message to background, creates button
 
-The `!scan-in-progress` atom prevents overlapping scans. This guards against the MutationObserver triggering a scan while `scan-with-retry!` is still running.
+The `:scan-in-progress?` flag in `!state` prevents overlapping scans. This guards against the MutationObserver triggering a scan while `scan-with-retry!` is still running.
 
 ### SPA Navigation Support
 
