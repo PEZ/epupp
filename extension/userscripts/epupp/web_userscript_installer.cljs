@@ -30,7 +30,7 @@
 
 (defonce !scan-in-progress (atom false))
 
-(def retry-delays [100 1000 3000])
+(def retry-delays [50 100 100 300 300 300 1000 1000 1000 3000 3000])
 
 (defn find-block-by-id [state block-id]
   (first (filter #(= (:id %) block-id) (:blocks state))))
