@@ -887,7 +887,7 @@
    :github-repo    {:tag "span" :get-container get-github-repo-button-container :insert :append}
    :gitlab-comment {:tag "span" :insert :overlay}
    :pre            {:tag "span" :insert :overlay-inset}
-   :textarea       {:tag "span" :insert :overlay-inset}})
+   :textarea       {:tag "span" :insert :overlay-wrap}})
 
 (defn- attach-button!
   "Button attachment using format specs."
@@ -917,22 +917,23 @@
             (render-button-into-container! btn-container block-data))))
 
       :overlay-inset
-      (let [;; textarea can't have children - wrap in a positioned div
-            target (if (= "TEXTAREA" (.-tagName element))
-                     (let [wrapper (js/document.createElement "div")
-                           parent (.-parentElement element)]
-                       (.add (.-classList wrapper) "epupp-overlay-parent" "is-textarea-wrapper")
-                       (.insertBefore parent wrapper element)
-                       (.appendChild wrapper element)
-                       wrapper)
-                     element)]
-        (when-not (.querySelector target (str "[data-epupp-script='" script-name "']"))
-          (when-not (.contains (.-classList target) "epupp-overlay-parent")
-            (.add (.-classList target) "epupp-overlay-parent"))
-          (let [btn-container (create-button-container! tag script-name (:id block-data))]
-            (.add (.-classList btn-container) "is-overlay-inset")
-            (.appendChild target btn-container)
-            (render-button-into-container! btn-container block-data)))))))
+      (when-not (.querySelector element (str "[data-epupp-script='" script-name "']"))
+        (.add (.-classList element) "epupp-overlay-parent")
+        (let [btn-container (create-button-container! tag script-name (:id block-data))]
+          (.add (.-classList btn-container) "is-overlay-inset")
+          (.appendChild element btn-container)
+          (render-button-into-container! btn-container block-data)))
+
+      :overlay-wrap
+      (let [wrapper (js/document.createElement "div")
+            parent (.-parentElement element)]
+        (.add (.-classList wrapper) "epupp-overlay-parent" "is-textarea-wrapper")
+        (.insertBefore parent wrapper element)
+        (.appendChild wrapper element)
+        (let [btn-container (create-button-container! tag script-name (:id block-data))]
+          (.add (.-classList btn-container) "is-overlay-inset")
+          (.appendChild wrapper btn-container)
+          (render-button-into-container! btn-container block-data))))))
 
 (defn attach-button-to-block!
   "Attach install button to a code block based on format."
