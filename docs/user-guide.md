@@ -11,7 +11,7 @@ Epupp is a browser extension for tampering with web pages; live, or with userscr
 Install from your browser's extension store:
 - [Chrome Web Store](https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei)
 - Firefox Add-ons (pending review)
-- Safari: Manual install from [releases](https://github.com/PEZ/browser-jack-in/releases)
+- Safari: Manual install from [releases](https://github.com/PEZ/epupp/releases)
 
 For manual installation, see the [README](../README.md#installing).
 
@@ -143,7 +143,7 @@ Once connected, evaluate code from your editor. It runs in the browser page:
 ```clojure
 ;; Access the DOM
 (.-title js/document)
-;; => "GitHub - PEZ/browser-jack-in"
+;; => "GitHub - PEZ/epupp"
 
 ;; Modify the page
 (set! (.-title js/document) "Epupp was here")

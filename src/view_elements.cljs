@@ -93,9 +93,9 @@
    [:div.footer-credits
     [:span.iconed-link
      [icons/github {:size 16}]
-     [:a {:href "https://github.com/PEZ/browser-jack-in"
+     [:a {:href "https://github.com/PEZ/epupp"
           :target "_blank"
-          :title "https://github.com/PEZ/browser-jack-in"}
+          :title "https://github.com/PEZ/epupp"}
       "Open Source"]]
     [:span.creator-trigger {:on-click on-creator-trigger-click}
      "Created by "

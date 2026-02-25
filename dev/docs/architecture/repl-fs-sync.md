@@ -3,7 +3,7 @@ post_title: "REPL FS Sync Architecture"
 author1: "GitHub Copilot"
 post_slug: "repl-fs-sync-architecture"
 microsoft_alias: "na"
-featured_image: "docs/browser-jack-in-screenshot.png"
+featured_image: "docs/epupp-screenshot.png"
 categories: ["architecture"]
 tags: ["repl", "fs-sync", "userscripts", "architecture"]
 ai_note: "Written with AI assistance."

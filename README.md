@@ -47,13 +47,13 @@ With the live REPL connection, you will discover use cases you may not ever have
 
 1. Install Epupp from the Chrome and Firefox extension/addon stores.
     * Chrome Web Store: https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei
-    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/browser-jack-in/
+    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/
     * <details>
       <summary>Safari</summary>
 
       I'm still pondering wether I should submit to Safari App Store. Apple doesn't exactly love developers... But you can still use Epupp with Safari:
 
-      Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/browser-jack-in/releases). In the case of Safari, download `browser-jack-in-safari.zip`. Then in Safari:
+      Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/epupp/releases). In the case of Safari, download `epupp-safari.zip`. Then in Safari:
       1. Open **Settings** -> **Developer**
       2. Click **Add Temporary Extension...**
       </details>
@@ -163,7 +163,7 @@ For script timing, more library details, and examples, see the [User Guide](docs
 On the web page where you want to jack-in your REPL client: open the **Epupp** extension
 and follow the 1-2-3 step instructions.
 
-![Epupp Popup UI](docs/browser-jack-in-screenshot.png)
+![Epupp Popup UI](docs/epupp-screenshot.png)
 
 Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
 
