@@ -925,6 +925,7 @@
   (let [element (:element block-info)
         code-text (:code-text block-info)
         trimmed-text (string/trim code-text)]
+    (.setAttribute element "data-epupp-processed" "true")
     (when (and (> (count trimmed-text) 10)
                (string/starts-with? trimmed-text "{"))
       (when-let [manifest (extract-manifest code-text)]
@@ -933,7 +934,6 @@
               block-id (if (and existing-id (pos? (count existing-id)))
                          existing-id
                          (str "block-" (random-uuid)))]
-          (.setAttribute element "data-epupp-processed" "true")
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
           (try
@@ -945,55 +945,66 @@
               (js/console.error "[Web Userscript Installer] Error checking script status:" script-name e)
               (create-and-attach-block! block-info block-id manifest code-text :install))))))))
 
-(defn ^:async scan-code-blocks! []
-  (when-not (:scan-in-progress? @!state)
-    (swap! !state assoc :scan-in-progress? true)
-    (perf-log! "scan-code-blocks! start")
-    (try
-      (let [all-blocks (detect-all-code-blocks)
-            unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
-        ;; Debug: set marker with scan info
-        (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-          (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
-        ;; Process all unprocessed blocks concurrently
-        (try
-          (perf-log! (str "processing " (count unprocessed) " blocks"))
-          (await (js/Promise.all
-                  (to-array (map #(process-code-block!+ %) unprocessed))))
-          (perf-log! (str "scan complete: " (count (:blocks @!state)) " blocks found"))
+(defn ^:async scan-code-blocks!
+  "Scan DOM for code blocks, process unprocessed ones in parallel.
+   Returns the number of new blocks found in this scan."
+  []
+  (if (:scan-in-progress? @!state)
+    0
+    (do
+      (swap! !state assoc :scan-in-progress? true)
+      (perf-log! "scan-code-blocks! start")
+      (try
+        (let [blocks-before (count (:blocks @!state))
+              all-blocks (detect-all-code-blocks)
+              unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
+          ;; Debug: set marker with scan info
           (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-            (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
-          (catch :default error
-            (js/console.error "[Web Userscript Installer] Scan error:" error))))
-      (finally
-        (swap! !state assoc :scan-in-progress? false)))))
+            (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
+          ;; Process all unprocessed blocks concurrently
+          (try
+            (perf-log! (str "processing " (count unprocessed) " blocks"))
+            (await (js/Promise.all
+                    (to-array (map #(process-code-block!+ %) unprocessed))))
+            (let [new-found (- (count (:blocks @!state)) blocks-before)]
+              (perf-log! (str "scan complete: " new-found " new, " (count (:blocks @!state)) " total"))
+              (when-let [marker (js/document.getElementById "epupp-installer-debug")]
+                (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
+              new-found)
+            (catch :default error
+              (js/console.error "[Web Userscript Installer] Scan error:" error)
+              0)))
+        (finally
+          (swap! !state assoc :scan-in-progress? false))))))
 
 (defn ^:async scan-with-retry!
-  "Scan for code blocks, retry with backoff if no blocks found.
+  "Scan for code blocks, retry with backoff if no new blocks found.
    Pending retries are cancelled by rescan! via clearTimeout."
   ([] (scan-with-retry! 0))
   ([retry-index]
    (try
-     (await (scan-code-blocks!))
-     (when (and (zero? (count (:blocks @!state)))
-                (< retry-index (count retry-delays)))
-       (let [delay (nth retry-delays retry-index)
-             timeout-id (js/setTimeout
-                         #(scan-with-retry! (inc retry-index))
-                         delay)]
-         (dispatch! [[:db/assoc :pending-retry-timeout timeout-id]])))
+     (let [new-found (await (scan-code-blocks!))]
+       (when (and (zero? new-found)
+                  (< retry-index (count retry-delays)))
+         (let [delay (nth retry-delays retry-index)
+               timeout-id (js/setTimeout
+                           #(scan-with-retry! (inc retry-index))
+                           delay)]
+           (dispatch! [[:db/assoc :pending-retry-timeout timeout-id]]))))
      (catch :default error
        (js/console.error "[Web Userscript Installer] Scan error:" error)))))
 
 (defn- has-relevant-elements?
-  "Check if any mutation added nodes that are or contain .file-holder
-   or .markdown-code-block elements (GitLab lazy-loaded content)."
+  "Check if any mutation added nodes that are relevant for code block detection.
+   Matches nodes that are, contain, or are inside .file-holder or .markdown-code-block
+   (GitLab lazy-loads content inside existing .file-holder containers)."
   [mutations]
   (some (fn [mutation]
           (some (fn [node]
                   (when (= (.-nodeType node) 1)
                     (or (.matches node ".file-holder, .markdown-code-block")
-                        (.querySelector node ".file-holder, .markdown-code-block"))))
+                        (.querySelector node ".file-holder, .markdown-code-block")
+                        (.closest node ".file-holder, .markdown-code-block"))))
                 (js/Array.from (.-addedNodes mutation))))
         mutations))
 
@@ -1010,20 +1021,22 @@
 (defn- setup-mutation-observer!
   "Set up a MutationObserver on document.body to detect late-arriving
    .file-holder and .markdown-code-block elements (GitLab lazy-loading).
-   Debounces scan triggering to avoid excessive scans from noisy mutations."
+   Debounces scan triggering to avoid excessive scans from noisy mutations.
+   Uses scan-with-retry! so that late-arriving containers whose content
+   hasn't rendered yet are retried with backoff."
   []
   (disconnect-mutation-observer!)
   (when js/document.body
     (let [debounce-ms 250
           observer (js/MutationObserver.
                     (fn [mutations]
-                      (when (and (not (:scan-in-progress? @!state)) (has-relevant-elements? mutations))
+                      (when (has-relevant-elements? mutations)
                         (when-let [tid (:mutation-debounce-timeout @!state)]
                           (js/clearTimeout tid))
                         (let [tid (js/setTimeout
                                    (fn []
                                      (dispatch! [[:db/assoc :mutation-debounce-timeout nil]])
-                                     (scan-code-blocks!))
+                                     (scan-with-retry!))
                                    debounce-ms)]
                           (dispatch! [[:db/assoc :mutation-debounce-timeout tid]])))))]
       (.observe observer js/document.body #js {:childList true :subtree true})
