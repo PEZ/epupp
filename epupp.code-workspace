@@ -1,7 +1,7 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": "../epupp"
 		},
 		{
 			"path": "../my-epupp-hq"
@@ -26,6 +26,21 @@
 				"fallbackPort": 31337,
 				"replSessionNames": {
 					"primary": "scittle-dev-repl"
+				}
+			},
+			{
+				"name": "Epupp REPL",
+				"projectType": "scittle",
+				"fallbackPort": 1339,
+				"replSessionNames": {
+					"primary": "epupp-general"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
 				}
 			},
 			{

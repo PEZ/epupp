@@ -789,6 +789,14 @@
   margin: 0;
 }
 
+.epupp-btn-container.is-overlay-inset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  margin: 0;
+}
+
 .epupp-install-btn .epupp-icon {
   flex-shrink: 0;
   margin: -1px 0;
@@ -865,8 +873,8 @@
    :gitlab-snippet {:tag "span" :get-container get-gitlab-button-container :insert :append}
    :github-repo    {:tag "span" :get-container get-github-repo-button-container :insert :append}
    :gitlab-comment {:tag "span" :insert :overlay}
-   :pre            {:tag "div" :insert :before}
-   :textarea       {:tag "div" :insert :before}})
+   :pre            {:tag "span" :insert :overlay-inset}
+   :textarea       {:tag "span" :insert :overlay-inset}})
 
 (defn- attach-button!
   "Button attachment using format specs."
@@ -893,6 +901,18 @@
           (let [btn-container (create-button-container! tag script-name (:id block-data))
                 parent (.-parentElement element)]
             (.insertBefore parent btn-container element)
+            (render-button-into-container! btn-container block-data))))
+
+      :overlay-inset
+      (let [;; textarea can't have children - use parent as container
+            target (if (= "TEXTAREA" (.-tagName element))
+                     (.-parentElement element)
+                     element)]
+        (when-not (.querySelector target ".epupp-btn-container")
+          (set! (.. target -style -position) "relative")
+          (let [btn-container (create-button-container! tag script-name (:id block-data))]
+            (.add (.-classList btn-container) "is-overlay-inset")
+            (.appendChild target btn-container)
             (render-button-into-container! btn-container block-data)))))))
 
 (defn attach-button-to-block!
