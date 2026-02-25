@@ -2,6 +2,17 @@
   "WebSocket bridge wrapper for page context.
    Runs in MAIN world and communicates with content script bridge via postMessage.")
 
+(defn- bridge-log
+  "Send log messages via postMessage to content_bridge for routing through log namespace."
+  [level & args]
+  (.postMessage js/window
+                #js {:source "epupp-page"
+                     :type "log"
+                     :level level
+                     :subsystem "WsBridge"
+                     :messages (to-array args)}
+                "*"))
+
 ;; Centralized state with namespaced keys
 (def !state (atom {:bridge/ready? false
                    :ws/message-handler nil}))
@@ -10,17 +21,17 @@
   (when (= (.-source event) js/window)
     (let [msg (.-data event)]
       (when (and msg
-                 (= "browser-jack-in-bridge" (.-source msg))
+                 (= "epupp-bridge" (.-source msg))
                  (= "bridge-ready" (.-type msg)))
-        (js/console.log "[WS Bridge] Bridge is ready")
+        (bridge-log :debug "Bridge is ready")
         (swap! !state assoc :bridge/ready? true)))))
 
 (defn bridged-websocket [url]
-  (js/console.log "[WS Bridge] Creating bridged WebSocket for:" url)
+  (bridge-log :debug "Creating bridged WebSocket for:" url)
 
   ;; Clean up any existing message handler from previous connection
   (when-let [old-handler (:ws/message-handler @!state)]
-    (js/console.log "[WS Bridge] Removing old message handler")
+    (bridge-log :debug "Removing old message handler")
     (.removeEventListener js/window "message" old-handler)
     (swap! !state assoc :ws/message-handler nil))
 
@@ -48,12 +59,11 @@
           (fn [event]
             (when (= (.-source event) js/window)
               (let [msg (.-data event)]
-                (when (and msg (= "browser-jack-in-bridge" (.-source msg)))
-                  (js/console.log "[WS Bridge] Received message type:" (.-type msg))
+                (when (and msg (= "epupp-bridge" (.-source msg)))
                   (case (.-type msg)
                     "ws-open"
                     (do
-                      (js/console.log "[WS Bridge] WebSocket OPEN")
+                      (bridge-log :debug "WebSocket OPEN")
                       (set! (.-readyState ws-obj) 1) ; OPEN
                       (when-let [onopen (.-onopen ws-obj)]
                         (onopen)))
@@ -64,16 +74,15 @@
 
                     "ws-error"
                     (do
-                      (js/console.log "[WS Bridge] WebSocket ERROR")
+                      (bridge-log :error "WebSocket ERROR")
                       (set! (.-readyState ws-obj) 3) ; CLOSED
                       (when-let [onerror (.-onerror ws-obj)]
                         (onerror (js/Error. (or (.-error msg) "WebSocket error")))))
 
                     "ws-close"
                     (do
-                      (js/console.log "[WS Bridge] WebSocket CLOSED - updating readyState to 3")
+                      (bridge-log :debug "WebSocket CLOSED")
                       (set! (.-readyState ws-obj) 3) ; CLOSED
-                      (js/console.log "[WS Bridge] window.ws_nrepl.readyState is now:" (.-readyState js/window.ws_nrepl))
                       (when-let [onclose (.-onclose ws-obj)]
                         (onclose)))
 
@@ -85,37 +94,42 @@
 
       ;; Add send method
       (set! (.-send ws-obj)
-        (fn [data]
-          (when (= 1 (.-readyState ws-obj)) ; OPEN
-            (.postMessage js/window
-              #js {:source "browser-jack-in-page"
-                   :type "ws-send"
-                   :data data}
-              "*"))))
+            (fn [data]
+              (when (= 1 (.-readyState ws-obj)) ; OPEN
+                (.postMessage js/window
+                              #js {:source "epupp-page"
+                                   :type "ws-send"
+                                   :data data}
+                              "*"))))
 
       ;; Add close method
+      ;; Note: This only closes the page-side proxy, not the background WebSocket.
+      ;; The background WebSocket is cleaned up when:
+      ;; - A new connection is requested (handle-ws-connect calls close-ws! first)
+      ;; - The tab is closed (onRemoved listener)
+      ;; This design avoids extra message round-trips for the common reconnect case.
       (set! (.-close ws-obj)
-        (fn []
-          (set! (.-readyState ws-obj) 3) ; CLOSED
-          (when-let [handler (:ws/message-handler @!state)]
-            (.removeEventListener js/window "message" handler)
-            (swap! !state assoc :ws/message-handler nil))
-          (when-let [onclose (.-onclose ws-obj)]
-            (onclose))))
+            (fn []
+              (set! (.-readyState ws-obj) 3) ; CLOSED
+              (when-let [handler (:ws/message-handler @!state)]
+                (.removeEventListener js/window "message" handler)
+                (swap! !state assoc :ws/message-handler nil))
+              (when-let [onclose (.-onclose ws-obj)]
+                (onclose))))
 
       ;; Request connection through bridge
       (.postMessage js/window
-        #js {:source "browser-jack-in-page"
-             :type "ws-connect"
-             :port port}
-        "*"))
+                    #js {:source "epupp-page"
+                         :type "ws-connect"
+                         :port port}
+                    "*"))
 
     ws-obj))
 
 ;; Initialize - guard against multiple injections
 (when-not js/window.__browserJackInWSBridge
   (set! js/window.__browserJackInWSBridge true)
-  (js/console.log "[Browser Jack-in] Installing WebSocket bridge")
+  (bridge-log :debug "Installing WebSocket bridge")
 
   ;; Wait for bridge ready signal
   (.addEventListener js/window "message" handle-bridge-ready)
@@ -125,15 +139,15 @@
 
   ;; Override WebSocket for nREPL URLs only
   (set! js/WebSocket
-    (fn [url protocols]
-      (if (and (string? url) (.includes url "/_nrepl"))
-        (do
-          (js/console.log "[WS Bridge] Intercepting nREPL WebSocket:" url)
-          (let [ws (bridged-websocket url)]
+        (fn [url protocols]
+          (if (and (string? url) (.includes url "/_nrepl"))
+            (do
+              (bridge-log :debug "Intercepting nREPL WebSocket:" url)
+              (let [ws (bridged-websocket url)]
             ;; Store reference for Scittle's usage
-            (set! (.-ws_nrepl js/window) ws)
-            ws))
-        (new (.-_OriginalWebSocket js/window) url protocols))))
+                (set! (.-ws_nrepl js/window) ws)
+                ws))
+            (new (.-_OriginalWebSocket js/window) url protocols))))
 
   ;; Copy static properties
   (set! (.-CONNECTING js/WebSocket) 0)
@@ -141,4 +155,4 @@
   (set! (.-CLOSING js/WebSocket) 2)
   (set! (.-CLOSED js/WebSocket) 3)
 
-  (js/console.log "[WS Bridge] WebSocket bridge installed"))
+  (bridge-log :debug "WebSocket bridge installed"))

@@ -1,11 +1,16 @@
 {
-  "description": "Jack your Clojure editor into any web page",
+  "description": "Make web pages you visit behave like you want them to with live tampering, or with userscripts, TamperMonkey style.",
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "permissions": [
     "scripting",
     "activeTab",
-    "storage"
+    "storage",
+    "webNavigation"
   ],
-  "name": "Browser Jack-in",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt8XGsAl2VHv2bZl1VjbZMZ9O5gZVcuqUZ2rubQQbBnQtea57+KIAqKDN4DwYl5GocYY0dyc0rbpqdes81sVdCiIJOj9/LXcGOCiiRRbD46gCHsVtrF4b1cQ3WgFn6AjR+YSQvazWuKU6W8ar3pUCSovMNZRB1KgCbCeMOXhVh5lxc1gUMvU/UZEPNijtx6h7M9/1LZjSx6ZjUFfHI2Y5Ce5KeCIkx0VQpBLPfEHnbS66HikOcTYV89n7VYX68PuunraDcb3GJ0MQanvOA0tYIcIHejd28n3qzwdT0rXMcMzlVko5osH8Iv/5sIabEoS5kjyGzsXVDg8hzHeI6UZrawIDAQAB",
+  "name": "Epupp: Live Tamper your Web",
   "background": {
     "service_worker": "background.js"
   },
@@ -15,23 +20,40 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
+  "devtools_page": "devtools.html",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "browser-jack-in@example.com"
+    }
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png",
-      "128": "icons/icon-128.png"
+      "16": "icons/icon-disconnected-16.png",
+      "32": "icons/icon-disconnected-32.png",
+      "48": "icons/icon-disconnected-48.png",
+      "128": "icons/icon-disconnected-128.png"
     }
   },
   "manifest_version": 3,
-  "version": "0.0.7.0",
+  "version": "0.0.7.958",
   "web_accessible_resources": [
     {
       "resources": [
+        "icons/icon.svg",
         "vendor/scittle.js",
         "vendor/scittle.nrepl.js",
-        "ws-bridge.js"
+        "vendor/scittle.pprint.js",
+        "vendor/scittle.promesa.js",
+        "vendor/scittle.replicant.js",
+        "vendor/scittle.js-interop.js",
+        "vendor/scittle.reagent.js",
+        "vendor/scittle.re-frame.js",
+        "vendor/scittle.cljs-ajax.js",
+        "vendor/react.production.min.js",
+        "vendor/react-dom.production.min.js",
+        "ws-bridge.js",
+        "trigger-scittle.js"
       ],
       "matches": [
         "<all_urls>"

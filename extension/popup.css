@@ -1,81 +1,60 @@
-:root {
-  --clojure-blue: #5881d8;
-  --clojure-green: #91dc47;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666;
-  --text-muted: #999;
-  --bg-subtle: #f8f9fa;
-  --border-light: #e5e7eb;
-  --radius: 6px;
+/* ============================================================
+   Popup-specific styles
+   Design tokens imported from design-tokens.css
+   ============================================================ */
+
+html {
+  width: 380px;
+  max-width: 380px;
+  overflow-x: hidden;
 }
 
 body {
-  width: 380px;
-  padding: 20px;
+  width: 100%;
+  max-width: 380px;
+  max-height: 600px;
+  padding: 0px 10px 20px 12px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
   line-height: 1.5;
   margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Reserve space for scrollbar to prevent layout shift */
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
 }
 
-/* Header with logos */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+#app {
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: 50px;
+}
+
+/* Popup header overrides - matches panel header style */
+.popup-header-wrapper {
+  background: var(--color-bg-elevated);
+}
+
+.popup-header {
+  background: var(--color-bg-elevated);
+}
+
+.popup-header .app-header-title {
   gap: 4px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-light);
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.header-left svg {
-  flex-shrink: 0;
-}
-
-.header-logos {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.header-logos img {
-  width: 28px;
-  height: 28px;
-  opacity: 0.9;
-}
-
-.header h1 {
-  font-size: 17px;
+.popup-header .app-header-title-text {
   font-weight: 600;
-  margin: 0;
-  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
-.header-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.popup-header .tagline {
+  margin-left: 6px;
 }
 
-.header-tagline {
-  font-size: 11px;
-  color: var(--clojure-blue);
-  font-weight: 400;
-  text-decoration: none;
-}
-
-.header-tagline:hover {
-  text-decoration: underline;
-}
+/* Banner styles consolidated in components.css */
 
 /* Steps */
 .step {
@@ -85,7 +64,7 @@ body {
 .step-header {
   font-weight: 500;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -107,17 +86,17 @@ body {
 
 .port-row label {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .port-row input {
-  width: 68px;
+  width: 6em;
   padding: 6px 8px;
   font-size: 13px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-family: ui-monospace, SFMono-Regular, monospace;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
 }
 
 .port-row input:focus {
@@ -131,37 +110,64 @@ body {
   display: flex;
   gap: 8px;
   align-items: stretch;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 code {
   flex: 1;
-  background: var(--bg-subtle);
+  min-width: 0; /* Allow flex item to shrink below content size */
+  background: var(--color-bg-code);
   padding: 10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, monospace;
   overflow-x: auto;
   white-space: nowrap;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-light);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
-.copy-btn {
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 500;
+/* Icon-only button for compact UI actions */
+.icon-button {
+  background: none;
+  border: none;
+  padding: 4px;
   cursor: pointer;
-  border: 1px solid var(--border-light);
-  background: #fff;
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  transition: all 0.15s;
-  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-duration), background var(--transition-duration);
 }
 
-.copy-btn:hover {
-  background: var(--bg-subtle);
-  border-color: #d1d5db;
+.icon-button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-btn-hover);
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Connect setup - animated collapse when tab connects */
+.connect-setup {
+  max-height: 500px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+/* Transitions only after first paint to prevent animation on popup open */
+body.ready .connect-setup {
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out;
+}
+
+.connect-setup.connected {
+  max-height: 0;
+  opacity: 0;
 }
 
 /* Connect section */
@@ -170,31 +176,19 @@ code {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-light);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
 .connect-target {
   font-size: 13px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  color: var(--text-secondary);
-}
-
-button#connect {
-  padding: 8px 20px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: var(--clojure-blue);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
-  transition: all 0.15s;
+  color: var(--color-text-secondary);
 }
 
 button#connect:hover {
-  background: #4a71c4;
+  background: var(--clojure-blue-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
 }
@@ -208,17 +202,795 @@ button#connect:active {
   margin-top: 14px;
   padding: 10px 12px;
   font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-subtle);
-  border-radius: var(--radius);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
   border-left: 3px solid var(--clojure-green);
 }
 
 .status.status-failed {
-  border-left-color: #e53935;
-  background: #fff5f5;
+  border-left-color: var(--color-border-status-failed);
+  background: var(--color-bg-status-failed);
 }
 
 .status.status-pending {
   border-left-color: #f59e0b;
+}
+
+.script-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.script-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 8px;
+  padding: 10px 12px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  max-height: 120px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+body.ready .script-item {
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+}
+
+.script-item.leaving,
+.script-item.entering {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.script-item-builtin {
+  border-left: 3px solid var(--color-text-muted);
+}
+
+.script-button-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  grid-row: 1 / -1;
+}
+
+.script-content-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.script-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.script-row-pattern {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.script-row-pattern .pattern-checkbox {
+  flex-shrink: 0;
+  margin: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.script-row-description {
+  padding-left: 0;
+  min-width: 0;
+}
+
+.script-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.script-name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.builtin-indicator {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.builtin-indicator:hover {
+  color: var(--clojure-blue);
+}
+
+.script-description {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  display: block;
+  max-width: 100%;
+}
+
+.script-match {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.script-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.script-delete {
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+}
+
+.script-delete:hover {
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
+}
+
+.script-inspect {
+  font-size: 14px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+}
+
+.script-inspect:hover {
+  background: var(--color-bg-edit-hover);
+  color: var(--clojure-blue);
+}
+
+.script-run {
+  font-size: 14px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+}
+
+.script-run:hover {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .script-run:hover {
+    background: #14532d;
+    color: #4ade80;
+  }
+}
+
+.script-edit-hint {
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--clojure-blue);
+  background: var(--color-bg-edit-hint);
+  margin: -1px 0 0 0;
+}
+
+.no-scripts {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
+}
+
+/* Approval mode styling for script items */
+.script-item-approval {
+  background: var(--color-bg-approval);
+  border: 1px solid var(--color-border-approval);
+}
+
+/* FS REPL Sync - flash animation for modified scripts */
+@keyframes fs-modified-flash {
+  0% {
+    background: var(--clojure-green);
+    border-color: var(--clojure-green);
+  }
+  100% {
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border);
+  }
+}
+
+.script-item-fs-modified {
+  animation: fs-modified-flash 2s ease-out;
+}
+
+/* Reveal highlight - brief flash when script is revealed via panel */
+.script-item-reveal-highlight {
+  animation: fs-modified-flash 1s ease-out;
+}
+
+.approval-allow {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--clojure-green);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-duration);
+}
+
+.approval-allow:hover {
+  background: var(--clojure-green-hover);
+  transform: translateY(-1px);
+}
+
+.approval-deny {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-bg-btn);
+  color: var(--color-text-delete-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-duration);
+}
+
+.approval-deny:hover {
+  background: var(--color-bg-delete-hover);
+  border-color: var(--color-text-delete-hover);
+}
+
+/* Scrollbar styling moved to base.css */
+
+/* Firefox-only fix: scrollbar-gutter doesn't work reliably in Firefox popups.
+   Force scrollbar to always be present to reserve consistent space. */
+@supports (-moz-appearance: none) {
+  html {
+    scrollbar-gutter: stable; /* Some bug prevents this from working when placed on body */
+  }
+
+  body {
+    overflow-y: scroll;
+    /* scrollbar-gutter: stable; */
+    scrollbar-width: auto; /* This, together with html stable gutter, is the only compo that seems to work (for some definition of works, but at least it is stable */
+  }
+}
+
+/* ============================================================
+   Collapsible Sections
+   ============================================================ */
+
+.collapsible-section {
+  margin-bottom: 0.5rem;
+}
+
+.section-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  background: var(--color-bg-accent);
+  color: var(--color-fg-accent);
+  border-radius: 4px;
+}
+
+.section-header:hover {
+  background: color-mix(in oklab, var(--color-bg-accent), black 30%);
+  color: color-mix(in oklab, var(--color-fg-accent), white 30%);
+}
+
+.section-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.section-badge {
+  background: var(--clojure-blue);
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  transition: transform var(--transition-duration) ease-out;
+}
+
+.section-badge:not(:empty) {
+  animation: badge-pop var(--transition-duration) ease-out;
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.section-content {
+  /* max-height set via inline style for tighter animation timing */
+  overflow: hidden;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  opacity: 1;
+  transition: max-height var(--transition-duration) ease-out,
+              padding-top var(--transition-duration) ease-out,
+              padding-bottom var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out;
+}
+
+.collapsible-section.collapsed .section-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.chevron {
+  transition: transform var(--transition-duration);
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.chevron.expanded {
+  transform: rotate(90deg);
+}
+
+/* ============================================================
+   Settings View
+   ============================================================ */
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============================================================
+   Connected Tabs (Step 4 - Show active REPL connections)
+   ============================================================ */
+
+.connected-tabs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connected-tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.empty-state {
+  max-height: 38px;
+  overflow: hidden;
+}
+
+.connected-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  max-height: 60px;
+  opacity: 1;
+  overflow: hidden;
+  transition: opacity var(--transition-duration) ease-out;
+}
+
+.connected-tab-port {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--clojure-blue);
+  flex-shrink: 0;
+}
+
+.connected-tab-favicon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.connected-tab-title {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reveal-tab-btn,
+.disconnect-tab-btn {
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reveal-tab-btn:hover {
+  background: var(--color-bg-edit-hover);
+  color: var(--clojure-blue);
+}
+
+.disconnect-tab-btn:hover {
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
+}
+
+.connected-tab-item.current-tab {
+  font-weight: 500;
+  border-left: 3px solid var(--clojure-blue);
+  padding-left: 9px; /* Compensate for border */
+}
+
+.no-connections {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.section-description {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.origins-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.origins-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.origin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.origin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  max-height: 60px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+}
+
+.origin-item.leaving,
+.origin-item.entering {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.origin-item-default {
+  opacity: 0.7;
+}
+
+.origin-url {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.origin-delete {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition-duration);
+  flex-shrink: 0;
+}
+
+.origin-delete:hover {
+  background: var(--color-bg-delete-hover);
+  color: var(--color-text-delete-hover);
+}
+
+.no-origins {
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
+}
+
+.add-origin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.add-origin-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-origin-form input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-duration), box-shadow var(--transition-duration);
+}
+
+.add-origin-form input:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+  box-shadow: 0 0 0 3px rgba(88, 129, 216, 0.1);
+}
+
+.add-origin-form input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.add-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--clojure-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-duration);
+  flex-shrink: 0;
+}
+
+.add-btn:hover {
+  background: var(--clojure-blue-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(88, 129, 216, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.settings-section .description {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--color-blue);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.settings-section .description.warning {
+  background: var(--color-bg-approval);
+  border-left: 3px solid var(--color-border-approval);
+}
+
+
+/* Export / Import buttons */
+.export-import-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.export-btn,
+.import-btn {
+  flex: 1;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-bg-btn);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-duration);
+}
+
+.export-btn:hover,
+.import-btn:hover {
+  background: var(--color-bg-btn-hover);
+  border-color: var(--clojure-blue);
+}
+
+.export-btn:active,
+.import-btn:active {
+  transform: translateY(1px);
+}
+
+/* Dev log button - only visible in dev/test mode */
+.dev-log-section {
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: center;
+}
+
+.dev-log-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--color-bg-btn);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-duration);
+}
+
+.dev-log-btn:hover {
+  background: var(--color-bg-btn-hover);
+  color: var(--color-text-primary);
+  border-color: var(--clojure-blue);
+}
+
+/* ============================================================
+   Footer (view-specific overrides - shared styles in base.css)
+   ============================================================ */
+
+.popup-footer {
+  margin: 12px -20px -20px -20px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+/* ============================================================
+   Blank Slate Hints - Contextual guidance for empty states
+   ============================================================ */
+
+.no-scripts-hint,
+.no-connections-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.no-scripts-hint code,
+.no-connections-hint code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  background: var(--color-bg-code);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Dev Tools Section
+   ============================================================ */
+
+.dev-tools-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.dev-tools-content .setting input[type="text"] {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.dev-tools-buttons {
+  display: flex;
+  gap: 8px;
 }

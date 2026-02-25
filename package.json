@@ -1,11 +1,18 @@
 {
-  "name": "browser-jack-in",
+  "name": "epupp",
   "private": true,
   "type": "module",
   "devDependencies": {
-    "squint-cljs": "^0.9.182"
+    "@playwright/test": "^1.57.0",
+    "squint-cljs": "^0.9.182",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
+    "edn-data": "^1.1.2",
     "reagami": "^0.0.36"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

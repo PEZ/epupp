@@ -1,0 +1,483 @@
+/* ============================================================
+   Panel-specific styles
+   Design tokens imported from design-tokens.css
+   ============================================================ */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.panel-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Panel header overrides */
+.panel-header-wrapper {
+  background: var(--color-bg-elevated);
+}
+
+.panel-header {
+  background: var(--color-bg-elevated);
+}
+
+/* Main content area - scrollable container */
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Space for fixed header  */
+  padding-top: 45px;
+}
+
+/* Code input area */
+.code-input-area {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.code-input-area textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+
+.code-input-area textarea:focus {
+  outline: none;
+  border-color: var(--clojure-blue);
+}
+
+.code-input-area textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.code-input-area textarea::-webkit-resizer {
+  border-width: 0;
+  background-color: var(--color-bg-input);
+  background:
+    linear-gradient(135deg, transparent 10px, var(--color-text-muted) 10px, var(--color-text-muted) 11px, transparent 11px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 12px, var(--color-text-muted) 12px, var(--color-text-muted) 13px, transparent 13px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 14px, var(--color-text-muted) 14px, var(--color-text-muted) 15px, transparent 15px) bottom right / 12px 12px,
+    linear-gradient(135deg, transparent 16px, var(--color-text-muted) 16px, var(--color-text-muted) 17px, transparent 17px) bottom right / 12px 12px,
+    var(--color-bg-input);
+  background-repeat: no-repeat;
+}
+
+.code-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.code-actions button {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-duration);
+}
+
+.btn-eval {
+  background: var(--clojure-blue);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-eval:hover {
+  background: var(--clojure-blue-hover);
+}
+
+.btn-eval:disabled {
+  background: var(--color-bg-input);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.btn-clear {
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-clear:hover {
+  background: var(--color-border);
+}
+
+.shortcut-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* Results area */
+.results-area {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--color-bg-elevated);
+}
+
+.result-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 500px;
+  opacity: 1;
+  overflow: auto;
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out,
+              padding var(--transition-duration) ease-out;
+
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.result-input {
+  background: var(--color-bg-result-input);
+  border-left: 3px solid var(--clojure-blue);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-output {
+  background: var(--color-bg-result-output);
+  border-left: 3px solid var(--color-success);
+  color: var(--color-success);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-error {
+  background: var(--color-bg-result-error);
+  border-left: 3px solid var(--color-error);
+  color: var(--color-error);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+/* Empty state */
+.empty-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 20px;
+  transition: opacity var(--transition-duration) ease-out;
+}
+
+.empty-results-text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-results-text a {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.empty-results-text a:hover {
+  text-decoration: underline;
+}
+
+/* Save Script Section */
+.save-script-section {
+  padding: 12px;
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.save-script-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.save-script-header .header-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.btn-new-script {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+}
+
+.btn-new-script:hover {
+  background: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.btn-new-script svg {
+  width: 14px;
+  height: 14px;
+}
+
+.save-script-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.save-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-save {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--clojure-green);
+  color: var(--color-text-on-success);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+}
+
+.btn-save:hover {
+  background: var(--clojure-green-hover);
+}
+
+.btn-save:disabled {
+  background: var(--color-bg-input);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.btn-rename {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--clojure-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+}
+
+.btn-rename:hover {
+  background: #5c9fd4;
+}
+
+/* Scrollbar styling moved to base.css */
+
+/* Metadata property table */
+.metadata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.property-row th,
+.property-row td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.property-row:last-child th,
+.property-row:last-child td {
+  border-bottom: none;
+}
+
+.property-label {
+  width: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.property-value {
+  color: var(--color-text-primary);
+}
+
+.property-value .value-text {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
+.property-value .value-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Multiple values (e.g., site-match array) */
+.property-value .multi-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.property-value .value-item {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
+/* Field hints */
+.field-hint {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  transition: opacity var(--transition-duration) ease-out;
+}
+
+.field-hint.hint-info {
+  color: var(--clojure-blue);
+}
+
+.field-hint.hint-warning {
+  color: var(--error);
+}
+
+/* Unknown keys warning */
+.manifest-warning {
+  flex-basis: 100%;
+  font-size: 11px;
+  padding: 8px 10px;
+  background: var(--color-bg-warning-banner);
+  border: 1px solid var(--color-border-warning-banner);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-warning-banner);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity var(--transition-duration) ease-out,
+              max-height var(--transition-duration) ease-out;
+}
+
+.manifest-warning .warning-icon {
+  flex-shrink: 0;
+}
+
+.manifest-warning code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* No manifest message */
+.no-manifest-message {
+  flex-basis: 100%;
+  padding: 12px;
+  background: var(--color-bg-input);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  transition: opacity var(--transition-duration) ease-out,
+              max-height var(--transition-duration) ease-out;
+}
+
+.no-manifest-message p {
+  margin: 0 0 10px 0;
+}
+
+.manifest-example {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--color-text-muted);
+}
+
+/* No manifest form shows disabled button */
+.save-script-form.no-manifest .save-actions {
+  margin-top: 10px;
+}
+
+/* Footer (view-specific overrides - shared styles in base.css) */
+
+.panel-footer {
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Enhanced Empty Results State
+   ============================================================ */
+
+.empty-results-shortcut {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}

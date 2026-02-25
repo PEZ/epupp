@@ -1,0 +1,17 @@
+# Ignore node_modules - must be installed inside container for correct architecture
+node_modules/
+
+# Ignore build artifacts - will be rebuilt in container
+build/
+dist/
+
+# Ignore local test artifacts
+test-results/
+playwright-report/
+
+# Ignore git and IDE
+.git/
+.vscode/
+
+# Ignore macOS files
+.DS_Store

@@ -1,0 +1,14 @@
+;; Production configuration for Epupp
+;;
+;; This file is read at build time and injected via esbuild --define.
+;; Changes here require a rebuild to take effect.
+
+{:dev false
+ :sectionsCollapsed {:repl-connect false
+                     :manual-scripts false
+                     :matching-scripts false
+                     :other-scripts true
+                     :special true
+                     :settings true
+                     :dev-tools true}
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"80ec956af5e6610b040089ba62eecb5d223e9e76\"}}}"}

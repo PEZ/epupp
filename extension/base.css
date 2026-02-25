@@ -1,0 +1,305 @@
+/* ============================================================
+   Base CSS - Foundational styles, resets, and layout scaffolding
+   ============================================================ */
+
+/* Universal box-sizing for consistent width calculations */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   Scrollbar styling - shared across all views
+   ============================================================ */
+
+/* WebKit scrollbar appearance */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Scrollbar stability utility - prevents layout shift when scrollbar appears/disappears */
+.scrollable-stable {
+  scrollbar-gutter: stable;
+  overflow-y: auto;
+}
+
+/* Firefox-specific fix for scrollbar stability */
+@supports (-moz-appearance: none) {
+  .scrollable-stable {
+    overflow-y: scroll;
+    scrollbar-width: auto;
+  }
+}
+
+/* ============================================================
+   Header and Footer Components
+   ============================================================ */
+
+/* Header wrapper - fixed positioning common to both views */
+.app-header-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+/* Header container */
+.app-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--color-bg-base);
+  z-index: 100;
+}
+
+/* Header title */
+.app-header-title {
+  font-size: 1rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header-title-text {
+  font-weight: 500;
+  display: flex;
+  align-items: flex-end;
+}
+
+.app-header-title img {
+  width: 32px;
+  height: 32px;
+}
+
+.app-header-title svg {
+  flex-shrink: 0;
+}
+
+.tagline {
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* Footer container - applied to both .popup-footer and .panel-footer */
+.app-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.footer-logos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.6;
+}
+
+.footer-logos a {
+  transition: opacity var(--transition-duration);
+}
+
+.footer-logos a:hover {
+  opacity: 0.8;
+}
+
+.footer-logos img {
+  width: 28px;
+  height: 28px;
+}
+
+.footer-powered {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.footer-powered a {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.footer-powered a:hover {
+  text-decoration: underline;
+}
+
+.footer-credits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-footer a {
+  color: var(--clojure-blue);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Iconed link - for links with icon prefix */
+.iconed-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Footer sponsor heart button */
+.footer-sponsor-heart {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: var(--clojure-blue);
+}
+
+.footer-sponsor-heart:hover {
+  text-decoration: underline;
+}
+
+.footer-sponsor-heart .sponsor-heart-icon {
+  color: var(--color-sponsor-heart);
+}
+
+/* Creator menu */
+.app-footer {
+  position: relative;
+}
+
+.creator-trigger {
+  cursor: pointer;
+}
+
+.creator-trigger:hover .creator-link {
+  text-decoration: underline;
+}
+
+.creator-link {
+  color: var(--clojure-blue);
+}
+
+.creator-menu {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-bg-elevated-more);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  z-index: 100;
+  text-align: left;
+}
+
+.creator-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.creator-menu-close {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  color: var(--text-muted);
+}
+
+.creator-menu-close:hover {
+  color: var(--text-primary);
+}
+
+.creator-menu .creator-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 11px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font: inherit;
+  width: 100%;
+}
+
+.creator-menu .creator-menu-item span {
+  color: var(--clojure-blue);
+  white-space: nowrap;
+}
+
+.creator-menu .creator-menu-item .sponsor-heart-icon {
+  color: var(--color-sponsor-heart);
+}
+
+.creator-menu .creator-menu-item .icon-linkedin {
+  color: var(--color-linkedin-brand);
+}
+
+.creator-menu .creator-menu-item:hover {
+  background: var(--color-bg-btn-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.creator-menu .creator-menu-item:hover span {
+  text-decoration: underline;
+}
+
+/* Buttons */
+.btn-untitled {
+  padding: 6px 6px;
+}

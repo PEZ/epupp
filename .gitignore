@@ -5,5 +5,18 @@ build/
 .DS_Store
 
 # Squint compiled output (intermediate .mjs files)
-extension/*.mjs
-docs/working-backwards/
+extension/**/*.mjs
+
+# Vendor libraries (downloaded via bb bundle-scittle)
+extension/vendor/*.js
+
+dev/docs/working-backwards/
+.nrepl-port
+!.clj-kondo/imports/
+.clj-kondo/cache/
+.lsp/cache/
+test-results/
+playwright-report/
+
+# E2E test output (written by bb test:e2e)
+.tmp/

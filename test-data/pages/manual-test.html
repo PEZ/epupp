@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manual Bridge Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .step { margin: 15px 0; padding: 10px; border: 1px solid #ccc; }
+    .step-number { font-weight: bold; color: #007bff; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    #test-marker { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Manual Bridge Injection Test</h1>
+  <div id="test-marker">ready</div>
+
+  <div class="step">
+    <span class="step-number">Step 1:</span> Load extension in Chrome
+    <p>Go to <code>chrome://extensions</code>, enable Developer mode, click "Load unpacked", select <code>dist/chrome</code> folder.</p>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 2:</span> Create a test userscript
+    <p>Open DevTools (F12) → Epupp panel → Enter this code:</p>
+    <pre>(js/console.log "TEST USERSCRIPT RAN!")</pre>
+    <p>Name: <code>Manual Test</code></p>
+    <p>Match: <code>*://localhost:*/*</code></p>
+    <p>Click "Save Script"</p>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 3:</span> Approve the script
+    <p>Click the Epupp extension icon → Find "Manual Test" → Click "Allow"</p>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 4:</span> Check test events
+    <p>Open popup → Open DevTools console on the popup → Run:</p>
+    <pre>chrome.storage.local.get('test-events', r => console.log(JSON.stringify(r['test-events'], null, 2)))</pre>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 5:</span> Reload this page and check events again
+    <p>After reload, run the same command in popup's console. Look for:</p>
+    <ul>
+      <li><code>BRIDGE_SCRIPT_START</code> - Bridge script started executing</li>
+      <li><code>BRIDGE_READY</code> - Bridge initialized successfully</li>
+      <li><code>SCRIPT_INJECTED</code> - Userscript was injected</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 6:</span> Check page console
+    <p>Open DevTools console on THIS page. You should see:</p>
+    <ul>
+      <li><code>[Epupp Bridge] Script executing, guard check: false</code></li>
+      <li><code>[Epupp Bridge] Content script loaded</code></li>
+      <li><code>TEST USERSCRIPT RAN!</code></li>
+    </ul>
+  </div>
+
+  <h2>What to report back:</h2>
+  <ol>
+    <li>The output from Step 4 (test-events after approval)</li>
+    <li>The output from Step 5 (test-events after page reload)</li>
+    <li>Any console messages from Step 6</li>
+  </ol>
+</body>
+</html>

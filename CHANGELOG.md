@@ -1,6 +1,6 @@
 # Changelog
 
-Changes to Browser Jack-in
+Changes to Epupp
 
 ## [Unreleased]
 
@@ -16,13 +16,13 @@ Changes to Browser Jack-in
 
 ## [0.0.4] - 2025-12-31
 
-- Fix: [Firefox doesn't connect on strict CSP sites (like GitHub)](https://github.com/PEZ/browser-jack-in/issues/3)
-- Fix: [nREPL server invocation fails in some shells](https://github.com/PEZ/browser-jack-in/issues/2)
+- Fix: [Firefox doesn't connect on strict CSP sites (like GitHub)](https://github.com/PEZ/epupp/issues/3)
+- Fix: [nREPL server invocation fails in some shells](https://github.com/PEZ/epupp/issues/2)
 
 
 ## [0.0.3] - 2025-12-30
 
-- Fix: [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/browser-jack-in/issues/1)
+- Fix: [Can't Jack-in to github.com things (CSP `connect-src 'self'`)](https://github.com/PEZ/epupp/issues/1)
   - WebSocket bridge connects the page's MAIN world with the extension's ISOLATED world, bringing localhost in reach
 
 ## [0.0.2] - 2025-12-28

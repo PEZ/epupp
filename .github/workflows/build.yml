@@ -2,13 +2,64 @@ name: Build Extension
 
 on:
   push:
-    branches: [master]
     tags: ['v*']
+    branches: ['**']
   pull_request:
-    branches: [master]
 
 jobs:
-  build:
+  build-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Babashka
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          bb: latest
+
+      - name: Cache Babashka dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gitlibs
+            ~/.m2
+          key: bb-deps-${{ runner.os }}-${{ hashFiles('bb.edn') }}
+          restore-keys: |
+            bb-deps-${{ runner.os }}-
+
+      - name: Cache Scittle vendor files
+        uses: actions/cache@v4
+        with:
+          path: extension/vendor
+          key: scittle-vendor-${{ runner.os }}-${{ hashFiles('scripts/tasks.clj') }}
+
+      - name: Build release extensions
+        run: bb build
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep '"version"' extension/manifest.json | sed 's/.*: "\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-extensions-${{ github.run_id }}-${{ steps.version.outputs.version }}
+          path: dist/*.zip
+
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,18 +88,113 @@ jobs:
           restore-keys: |
             bb-deps-${{ runner.os }}-
 
-      - name: Build extensions
-        run: bb build
+      - name: Cache Scittle vendor files
+        uses: actions/cache@v4
+        with:
+          path: extension/vendor
+          key: scittle-vendor-${{ runner.os }}-${{ hashFiles('scripts/tasks.clj') }}
 
-      - name: Upload artifacts
+      - name: Build extension for testing
+        run: bb build:test
+
+      - name: Compile test files
+        run: |
+          npx squint compile --paths src test --output-dir build/test
+          npx squint compile --paths src e2e --output-dir build/e2e
+
+      - name: Upload test build
         uses: actions/upload-artifact@v4
         with:
-          name: browser-extensions
-          path: dist/*.zip
+          name: test-build-${{ github.run_id }}
+          path: |
+            dist/
+            build/
+            extension/
+
+  unit-tests:
+    needs: [build-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download test build
+        uses: actions/download-artifact@v4
+        with:
+          name: test-build-${{ github.run_id }}
+
+      - name: Run unit tests
+        run: npx vitest run
+
+  e2e-tests:
+    needs: [build-test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Babashka
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          bb: latest
+
+      - name: Cache Babashka dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gitlibs
+            ~/.m2
+          key: bb-deps-${{ runner.os }}-${{ hashFiles('bb.edn') }}
+          restore-keys: |
+            bb-deps-${{ runner.os }}-
+
+      - name: Download test build
+        uses: actions/download-artifact@v4
+        with:
+          name: test-build-${{ github.run_id }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Add test hostname to /etc/hosts
+        run: echo "127.0.0.1 not-whitelisted.test" | sudo tee -a /etc/hosts
+
+      - name: Run Playwright E2E tests (shard ${{ matrix.shard }}/6)
+        run: xvfb-run --auto-servernum bb test:e2e:ci --shard=${{ matrix.shard }}/6
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}-shard-${{ matrix.shard }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build]
+    needs: [build-release, unit-tests, e2e-tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,7 +215,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: browser-extensions
+          name: browser-extensions-${{ github.run_id }}-${{ needs.build-release.outputs.version }}
           path: dist
 
       - name: Create Release

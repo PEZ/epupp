@@ -1,0 +1,85 @@
+(ns bg-icon
+  "Toolbar icon and badge state management.
+   Extracted from background.cljs to eliminate forward declares.
+   Receives !state atom and dispatch! function via dependency injection."
+  (:require [background-utils :as bg-utils]
+            [test-logger :as test-logger]))
+
+;; ============================================================
+;; Icon State Management
+;; ============================================================
+
+(defn- get-icon-paths
+  "Get icon paths for a given state. Delegates to tested pure function."
+  [state]
+  (bg-utils/get-icon-paths state))
+
+(defn ^:async update-icon-with-state!
+  "Update the toolbar icon using pre-computed display state.
+   tab-id is included for logging/test event tracking."
+  [tab-id display-state]
+  (js-await (test-logger/log-event! "ICON_STATE_CHANGED" {:tab-id tab-id :state display-state}))
+  (js/chrome.action.setIcon
+   #js {:tabId tab-id
+        :path (get-icon-paths display-state)}))
+
+(defn ^:async update-icon-for-tab!
+  "Update icon state for a specific tab, then update the toolbar icon.
+   Uses the given tab-id for tab-local state calculation."
+  [dispatch! tab-id state]
+  (js-await (dispatch! [[:icon/ax.set-state tab-id state]])))
+
+(defn get-icon-state
+  "Get current icon state for a tab from icon-states data."
+  [icon-states tab-id]
+  (get icon-states tab-id :disconnected))
+
+(defn clear-icon-state!
+  "Clear icon state for a tab (when tab closes).
+   Does NOT update the toolbar icon - that's handled by onActivated when
+   the user switches to another tab."
+  [dispatch! tab-id]
+  (dispatch! [[:icon/ax.clear tab-id]]))
+
+(defn ^:async prune-icon-states!
+  "Remove icon states for tabs that no longer exist.
+   Called on service worker wake to prevent memory leaks from orphaned entries
+   when tabs close while the worker is asleep."
+  [dispatch!]
+  (let [tabs (js-await (js/chrome.tabs.query #js {}))
+        valid-ids (set (map #(.-id %) tabs))]
+    (js-await (dispatch! [[:icon/ax.prune valid-ids]]))))
+
+;; ============================================================
+;; FS Event Badge Flash
+;; ============================================================
+
+(defn flash-fs-badge!
+  "Briefly flash badge to indicate FS operation result.
+   Shows checkmark for success, exclamation for error, then clears badge."
+  [event-type]
+  (let [text (if (= event-type "success") "✓" "!")
+        color (if (= event-type "success") "#22c55e" "#ef4444")]
+    ;; Set flash badge
+    (js/chrome.action.setBadgeText #js {:text text})
+    (js/chrome.action.setBadgeBackgroundColor #js {:color color})
+    ;; Clear badge after 2 seconds
+    (js/setTimeout
+     (fn []
+       (js/chrome.action.setBadgeText #js {:text ""}))
+     2000)))
+
+(defn broadcast-system-banner!
+  "Notify popup/panel about FS operation results and flash toolbar badge.
+   Called after REPL FS operations (save, rename, delete) complete.
+   event should be a map with keys: :event-type (:success/:error),
+   :operation (:save/:rename/:delete), :script-name, and optionally :error"
+  [event]
+  ;; Flash toolbar badge briefly
+  (flash-fs-badge! (:event-type event))
+  ;; Send event to popup/panel
+  (js/chrome.runtime.sendMessage
+   (clj->js (merge {:type "system-banner"} event))
+   (fn [_response]
+     ;; Ignore errors - expected when no popup/panel is open
+     (when js/chrome.runtime.lastError nil))))

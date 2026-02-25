@@ -1,0 +1,120 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../my-epupp-hq"
+		},
+		{
+			"path": "../epupp-docs"
+		}
+	],
+	"settings": {
+		"calva.replConnectSequences": [
+			{
+				"name": "squint",
+				"projectType": "generic",
+				"fallbackPort": 1337,
+				"replSessionNames": {
+					"primary": "squint"
+				}
+			},
+			{
+				"name": "Scittle Dev REPL",
+				"projectType": "scittle",
+				"fallbackPort": 31337,
+				"replSessionNames": {
+					"primary": "scittle-dev-repl"
+				}
+			},
+			{
+				"name": "Epupp GitLab REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11333,
+				"replSessionNames": {
+					"primary": "epupp-gitlab"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
+				}
+			},
+			{
+				"name": "Epupp YouTube REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11335,
+				"replSessionNames": {
+					"primary": "epupp-youtube"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
+				}
+			},
+			{
+				"name": "Epupp GitHub REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11331,
+				"replSessionNames": {
+					"primary": "epupp-github"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
+				}
+			},
+			{
+				"name": "Epupp X REPL",
+				"projectType": "scittle",
+				"fallbackPort": 11339,
+				"replSessionNames": {
+					"primary": "epupp-twitter"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"epupp/*.clj*",
+						"epupp/*.edn",
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
+				}
+			},
+			{
+				"name": "Epupp Ebay REPL",
+				"projectType": "scittle",
+				"fallbackPort": 23398,
+				"replSessionNames": {
+					"primary": "epupp-ebay"
+				},
+				"replSessionFilePatterns": {
+					"primary": [
+						"epupp/*.clj*",
+						"epupp/*.edn",
+						"test-data/tampers/*.clj*",
+						"test-data/tampers/*.edn",
+						"extension/userscripts/"
+					]
+				}
+			}
+		],
+		"chat.tools.terminal.autoApprove": {
+			"bb": true
+		},
+		"files.exclude": {
+			".tmp": true,
+			"extension/**/*.mjs": true,
+			"extension/vendor": true
+		}
+	}
+}

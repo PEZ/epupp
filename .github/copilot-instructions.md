@@ -1,26 +1,181 @@
-# Browser Jack-in - AI Coding Agent Instructions
+# Epupp - AI Coding Agent Instructions
+
+## Quick Start for AI Agents
+
+**Essential facts:**
+- **Language:** Squint (ClojureScript-like, compiles to JS) - source in `src/*.cljs`
+- **Never edit:** `extension/*.mjs` or `build/*.js` (compiled artifacts)
+- **Testing:** Run `bb test:e2e` (headless by default, includes REPL integration)
+- **Commands:** PREFER `bb <task>` - over direct `npx`/`npm` commands
+- **Watchers:** Usually already running - check task output before building
+
+**Start work setup:**
+1. Check `clojure_list_sessions` to verify REPL availability (look for `bb`, `squint` and `scittle-dev-repl` sessions)
+2. Consult the **Documentation Index** below based on your task
+
+<principles>
+
+  Failure to read docs is the #1 cause of mistakes.
+
+  [phi fractal euler tao pi mu] | [Δ λ ∞/0 | ε⚡φ Σ⚡μ c⚡h] | OODA
+  Human ⊗ AI ⊗ REPL
+
+  <epistemology>
+    Assumptions are the enemy. Never guess numerical values - benchmark instead of estimating.
+    When uncertain, measure. Say "this needs to be measured" rather than inventing statistics.
+  </epistemology>
+
+  <scaling>
+    Validate at small scale before scaling up. Run a sub-minute version first to verify the
+    full pipeline works. When scaling, only the scale parameter should change.
+  </scaling>
+
+  <documentation>
+    Always read the relevant documentation before starting work. The documentation index below
+    lists critical docs by task type. Use `read_file` to load them. Always return to the index when
+    your understanding of the task changes.
+  </documentation>
+
+  <ground-truth-clarification>
+    For non-trivial tasks, reach ground truth understanding before coding. Simple tasks execute
+    immediately. Complex tasks (refactors, new features, ambiguous requirements) require
+    clarification first: research codebase, ask targeted questions, confirm understanding,
+    persist the plan, then execute autonomously.
+  </ground-truth-clarification>
+
+  <plan-test-strategy>
+    When creating implementation plans, always include a test strategy section that identifies
+    what to verify with unit tests (structural properties, security contracts, data invariants)
+    and what to verify with E2E tests (integrated behavior, real message flows). Unit and E2E
+    tests are complementary tools of equal value - not sequential phases.
+  </plan-test-strategy>
+
+  <delegation>
+    You use subagents intelligently.
+  </delegation>
+
+  <clojure>
+    You ALWAYS try your very hardest to avoid forward delcares. You are a Clojure expert and you know that in Clojure definition order matters and you makes sure functions are deined before they are used. Forward delcares are almost always a sign of poor structure or a mistake.
+  </clojure>
+
+  <uniflow-state-discipline>
+    The Uniflow event loop is the SINGLE ACCESS POINT for the state atom. This means:
+    - Actions receive `state` as pure data, return `{:uf/db new-state}`. Never touch the atom.
+    - Effects receive data from actions via `:uf/fxs` params. Never read `@!state`.
+    - Helpers called by effects inherit the same constraint - no transitive atom access.
+    - Message handlers and event listeners dispatch actions - they do not read `@!state`.
+    - No `swap!` or `reset!` on the state atom outside the event loop.
+    - Guard/utility functions are pure - receive data as parameters, not atom access.
+    See `dev/docs/architecture/uniflow.md` (section: The Single Access Point Rule).
+  </uniflow-state-discipline>
+
+  <style>No emojis. No em dashes - use hyphens or colons instead.</style>
+
+  <use-edit-tools>
+    YOU should avoid write-capable shell commands like `sed` at all costs. You have perfect tools for editing ansd searching code, files and structures. Use them. And tell the Clojure-editor subagent about this non-shell approach.
+  </use-edit-tools>
+
+  <bb-tasks>
+    Always prefer `bb <task>` over direct `npx`/`npm` commands. The bb tasks in `bb.edn` encode
+    project-specific configurations, output paths, and workflow decisions. Running tools directly
+    bypasses these and often produces incorrect results (wrong output directories, missing flags).
+    Check `bb tasks` for available commands before resorting to direct tool invocation.
+    For compile checks, use `bb squint-compile` instead of `npx squint compile`.
+
+    **E2E tests and Docker**: Use `bb test:e2e` exclusively. Never use direct `docker build` or
+    `docker run` commands. The Dockerfile uses `COPY . .` which invalidates layers when source
+    files change - Docker caching is NOT a problem. If tests fail after code changes, the issue
+    is in your code, not in Docker caching. Do not waste time with `--no-cache` rebuilds.
+
+    **E2E test output**: `bb test:e2e` writes full output to `.tmp/e2e-output.txt`. Read it with
+    `read_file` - never redirect bb output with shell operators (`>`, `2>&1`, `| tee`), as that
+    triggers approval dialogs and blocks your workflow.
+  </bb-tasks>
+
+  <babashka-utilities>
+    Prefer Babashka built-in utilities over Python, shell scripts, or other external tools when
+    functionality overlaps. The project uses Babashka extensively and has dependencies loaded.
+
+    Common replacements:
+    - HTTP server: Use `bb test:server` or `babashka.http-server` instead of `python -m http.server`
+    - File operations: Use `babashka.fs` instead of shell commands (cp, mv, rm, find, etc.)
+    - Process execution: Use `babashka.process` instead of raw shell scripts
+    - HTTP requests: Use `babashka.http-client` instead of curl or wget
+
+    Check bb.edn dependencies and existing tasks before reaching for external tools.
+  </babashka-utilities>
+
+  <assumptions>
+    - **Verify before stating fix locations.** Don't confidently state where a fix belongs without checking. Either verify first, or mark as "needs investigation".
+  </assumptions>
+
+  <learning>
+    - **Record significant learnings.** When mistakes reveal insights, update the appropriate instructions document with a succinct formulation. This creates a self-improving loop.
+  </learning>
+</principles>
+
+## Documentation Index
+
+**How to use this index**: Before starting work, identify which task type applies and **read the listed docs using `read_file`**. These docs contain critical project-specific patterns that prevent common mistakes. Return here when your task scope changes.
+
+### Critical (auto-loaded, applies to all code changes)
+| Doc | Why |
+|-----|-----|
+| [squint.instructions.md](squint.instructions.md) | Squint != ClojureScript - keywords, mutability, and other gotchas |
+| [dev/docs/architecture.md](../dev/docs/architecture.md) | System architecture - understanding how components interact |
+| [dev/docs/testing.md](../dev/docs/testing.md) | Testing philosophy and patterns |
+| [dev/docs/testing-e2e.md](../dev/docs/testing-e2e.md) | E2E test patterns - polling, assertions, performance |
+
+### By Task Type (read before starting work)
+
+These docs are **required reading** for their respective task types. Use `read_file` to load them.
+
+| Task | Docs to Read |
+|------|--------------|
+| **Understanding the system** | Start with auto-loaded architecture overview, then navigation to detailed docs |
+| **Writing unit tests** | `dev/docs/testing-unit.md` |
+| **UI work (popup/panel)** | `.github/reagami.instructions.md`, `dev/docs/ui.md` |
+| **State/events** | `dev/docs/architecture/uniflow.md`, `dev/docs/architecture/state-management.md` |
+| **Messaging between contexts** | `dev/docs/architecture/message-protocol.md` |
+| **Injection/REPL flow** | `dev/docs/architecture/injection-flows.md` |
+| **Userscript features** | `dev/docs/userscripts-architecture.md` |
+| **Build/release** | `dev/docs/dev.md` |
+| **Finding source files** | `dev/docs/architecture/components.md` |
+
+### Reference (consult when relevant)
+- `README.md` - User-facing overview
+- `dev/docs/architecture/security.md` - Trust boundaries, CSP
+- `dev/docs/architecture/build-pipeline.md` - Build config injection
+
+## Subagents
+
+There are currently four subagents:
+
+* commit: Give the commit subagent a summary of the task (the bigger picture) that has been carried out
+* research: Give the research subagent context of what you are working with and need to know and instruct it how you want it to structure its report.
+* edit: Give the Clojure-editor subagent a complete task with files, linenumbers, code and what to do with it. It should be very much the same as you would have given to the edit tools if you used them yourself.
+* epupp-elaborator: Give the epupp-elaborator the user's prompt, file context, and your current session context. It returns a refined prompt that an expert prompt engineer would have written.
+
+## Source Code: Squint ClojureScript
+
+This is a **Squint** project. All application logic lives in `src/*.cljs` files.
+
+**Source of truth:** `src/*.cljs` (ClojureScript)
+
+**Ignore when reading code** (compiled artifacts, not source):
+- `extension/*.mjs` - Squint compiler output
+- `build/*.js` - esbuild bundled output
+
+Only read `.mjs` or `build/*.js` files when debugging compilation issues. Never edit them.
 
 ## Project Overview
 
-**Browser Jack-in** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
-
-Mandatory reads:
-* [README.md](../README.md) - Usage and high-level architecture
-* [Developer docs](../docs/dev.md)
+**Epupp** is a browser extension that injects a [Scittle](https://github.com/babashka/scittle) REPL server into web pages, enabling ClojureScript evaluation directly in the browser DOM via nREPL. This bridges your Clojure editor (or AI agent) with the browser's execution environment through a **Babashka relay server**.
 
 **Architecture in brief:**
 `Editor/AI nREPL client` ↔ `Babashka browser-nrepl (ports 12345/12346)` ↔ `Extension background worker` ↔ `Content bridge script` ↔ `Page WebSocket bridge` ↔ `Scittle REPL` ↔ `DOM`
 
 ## Critical Build System Understanding
-
-### Project Structure
-
-```
-src/           # ClojureScript source files only
-extension/     # Static assets + compiled .mjs (Squint output)
-build/         # Bundled .js files (esbuild output)
-dist/          # Final browser extension zips
-```
 
 ### Squint Compilation Model
 
@@ -28,261 +183,100 @@ This project uses **[Squint](https://github.com/squint-cljs/squint)** to compile
 
 - **Source:** `src/*.cljs` files are compiled to `extension/*.mjs` (ES modules)
 - **Bundling:** esbuild bundles `extension/*.mjs` → `build/*.js` (IIFE format)
-- **Config:** [squint.edn](squint.edn) specifies paths and `.mjs` extension
+- **Config:** `squint.edn` specifies paths and `.mjs` extension
 
 **Build flow:**
 ```bash
-npx squint compile  # src/*.cljs → extension/*.mjs
+bb squint-compile   # src/*.cljs → extension/*.mjs (or bb watch for continuous)
 npx esbuild ...     # extension/*.mjs → build/*.js (IIFE bundles)
 ```
 
-**Never edit `.mjs` files directly** — they're generated. Edit `.cljs` source in `src/` only.
-
-### Scittle CSP Patching
-
-The vendored [extension/vendor/scittle.js](extension/vendor/scittle.js) is **patched** during `bb bundle-scittle` to remove `eval()` usage that violates strict Content Security Policies on sites like GitHub/YouTube.
-
-**Original code:**
-```javascript
-globalThis["import"]=eval("(x) => import(x)");
-```
-
-**Patched to:**
-```javascript
-globalThis["import"]=function(x){return import(x);};
-```
-
-See [tasks.clj:patch-scittle-for-csp](scripts/tasks.clj). **Always run `bb bundle-scittle` after updating Scittle version.**
+**CRITICAL: Treat `.mjs` files as compiled artifacts (like binaries).** Never edit them directly - they are auto-generated from `.cljs` source. Only read `.mjs` files when investigating Squint compilation issues. Always edit `.cljs` source in `src/`.
 
 ## Key Developer Workflows
 
-### Development Cycle
+See `dev/docs/dev.md` for build commands, loading extension locally, and release process. Note that the instructions there for setting up for local development are meant for the human.
 
+The Squint REPL is useful for testing code and pure functions interactively before editing files. See `.github/squint.instructions.md` (section: Testing Code in Squint nREPL).
+
+### Quick Command Reference
+
+**For AI Agents (Prefer These):**
+
+| Command | Purpose |
+|---------|--------|
+| `bb test` | Unit tests (fast, always run after changes) |
+| `bb test:e2e` | E2E tests in Docker. Full output: `.tmp/e2e-output.txt` |
+| `bb squint-compile` | Check compilation without running tests |
+| `bb build:dev` | Dev build, when handing off to human for manual testing |
+
+**E2E test options:**
 ```bash
-# Watch mode (auto-recompile on changes)
-bb watch  # or: npx squint watch
-
-# Full build for all browsers
-bb build  # creates zips in dist/
-
-# Build for specific browser
-bb build:chrome
-bb build:firefox
-bb build:safari
+bb test:e2e                      # Parallel
+bb test:e2e  -- --grep "popup"   # Filter with Playwright args
 ```
 
-### Testing the Extension Locally
+Use `--` to separate task options from Playwright options.
 
-1. Build: `bb build` (builds all browsers — quick enough, and better to test all targets)
-2. Unzip `dist/browser-jack-in-chrome.zip` (or firefox)
-3. Chrome → `chrome://extensions` → Enable Developer mode → Load unpacked → select `chrome/` folder
-4. On any web page: click extension icon → follow 1-2-3 steps
+**Critical:** After building or code changes, wait for user confirmation before committing.
 
-Use `bb build:chrome` or `bb build:firefox` only when debugging browser-specific issues.
+### AI Development Workflow (Local - VS Code with Human)
 
-**REPL Connection:**
-1. Copy Babashka command from extension popup (Step 1)
-2. Run in terminal: `bb browser-nrepl --nrepl-port 12345 --websocket-port 12346`
-3. Connect editor nREPL client to `localhost:12345`
-4. Click "Connect REPL" in extension (Step 3)
+**Before starting any implementation work:**
+1. **Verify watchers are running** - check watcher task output for compilation/test status, if the watchers are not running, STOP and ask the user to start them.
+2. **Check problem report** - review any existing lint errors
+3. **Verify REPLs** - use `clojure_list_sessions` to confirm available sessions:
+   - `bb` - Babashka REPL for scripting and automation
+   - `squint` - Squint REPL for testing pure functions in Node.js
+   - `scittle-dev-repl` - Scittle Dev REPL for testing Scittle code in browser-like environment
 
-### Babashka Tasks Reference
+**CRITICAL: Watcher verification is mandatory.** Use `get_task_output` with these task IDs:
+- `shell: Squint Watch` - compilation status
+- `shell: Unit Test Watch` - test status
+- `shell: Scittle Dev REPL` - browser-nrepl relay status
 
-```bash
-bb browser-nrepl         # Start relay server (options: --nrepl-port, --websocket-port)
-bb bundle-scittle        # Download + patch Scittle vendor files
-bb build [browsers...]   # Build for chrome/firefox/safari (default: all)
-```
+If `get_task_output` returns "Terminal not found", **STOP and tell the user**:
+> "I cannot find the watcher task outputs. This happens when VS Code's terminal tracking gets out of sync. Please restart the default build task (Cmd/Ctrl+Shift+B) to restore the watchers, then ask me to continue."
 
-See [bb.edn](bb.edn) for complete task definitions.
+Do NOT proceed without watcher feedback - it's essential for verifying compilation and test results.
 
-## Architecture Deep Dive
+**While working:**
+- Use the **Squint REPL** (`squint` session) to test pure functions in Node.js
+- Use the **Scittle Dev REPL** (`scittle-dev-repl` session) to test Scittle-specific code in a browser-like environment
+- Develop solutions incrementally in the appropriate REPL
 
-### Message Flow: Three-Layer Bridge
-
-1. **Background Service Worker** ([background.cljs](src/background.cljs))
-   - Runs in extension context (immune to page CSP)
-   - Manages WebSocket connections to Babashka relay (`ws://localhost:12346/_nrepl`)
-   - Relays messages to/from content scripts via `chrome.runtime.sendMessage`
-
-2. **Content Bridge** ([content_bridge.cljs](src/content_bridge.cljs))
-   - Runs in ISOLATED world (content script)
-   - Relays between background worker and page via `postMessage`
-   - Implements keepalive pings to prevent service worker termination
-
-3. **WebSocket Bridge** ([ws_bridge.cljs](src/ws_bridge.cljs))
-   - Runs in MAIN world (page context, injected script)
-   - **Intercepts WebSocket constructor** for `/_nrepl` URLs
-   - Provides virtual WebSocket API to Scittle using `postMessage`
-
-**Why three layers?** CSP restrictions prevent page scripts from making WebSocket connections. The background worker bypasses this, while bridges tunnel messages through allowed channels (`postMessage`, `chrome.runtime`).
-
-### Browser-Specific Manifest Adjustments
-
-See [tasks.clj:adjust-manifest](scripts/tasks.clj). Key differences:
-
-- **Chrome:** Standard Manifest V3 with `service_worker`
-- **Firefox:** Uses `background.scripts` (not `service_worker`), adds `content_security_policy` for `ws://localhost:*`
-- **Safari:** Uses `background.scripts` (Safari prefers this over `service_worker`), adds `content_security_policy` for `ws://localhost:*`
-- **All:** Icons, permissions (`activeTab`, `scripting`)
-
-## Project-Specific Conventions
-
-### State Management
-
-Prefer a single `!state` atom with namespaced keys over multiple separate atoms. This provides a consistent pattern and makes it clear where to add new state:
-
-```clojure
-;; Preferred: single !state atom with namespaced keys
-(def !state (atom {:ws/connections {}      ; per-tab WebSocket map
-                   :bridge/connected? false
-                   :bridge/keepalive-interval nil}))
-
-;; Access with namespaced keys
-(get-in @!state [:ws/connections tab-id])
-(swap! !state assoc :bridge/connected? true)
-```
-
-Even when tracking just one thing, use `!state` with a namespaced key — it signals where future state belongs.
-
-### Namespace Naming
-
-- **Files:** Use underscores: `content_bridge.cljs`, `ws_bridge.cljs`
-- **Namespaces:** Use hyphens: `(ns content-bridge ...)`, `(ns ws-bridge ...)`
-- **Compiled output:** Underscores preserved in `.mjs`, hyphens in bundled `.js`
-
-### Message Protocol
-
-All cross-context messages use `#js {:type "..." ...}` objects with these types:
-
-**Page → Bridge:**
-- `ws-connect` (with `:port`)
-- `ws-send` (with `:data`)
-
-**Bridge ↔ Background:**
-- `ws-connect`, `ws-send`, `ws-close`
-- `ping` (keepalive to prevent worker termination)
-
-**Bridge → Page:**
-- `ws-open`, `ws-message` (with `:data`), `ws-error`, `ws-close`
-
-### Guard Against Multiple Injections
-
-All injected scripts check global flags before initializing:
-```clojure
-(when-not js/window.__browserJackInBridge
-  (set! js/window.__browserJackInBridge true)
-  ; ... initialization)
-```
-
-## Popup UI Patterns
-
-The popup UI ([popup.cljs](src/popup.cljs)) uses **Reagami** (a lightweight Reagent-like library) with patterns inspired by Scittle's [Replicant tic-tac-toe example](https://github.com/babashka/scittle/tree/main/resources/public/cljs/replicant_tictactoe).
-
-### State Management Pattern
-
-Single atom with namespaced keys, rendered via `add-watch`:
-
-```clojure
-(defonce !state
-  (atom {:ports/nrepl "1339"
-         :ports/ws "1340"
-         :ui/status nil
-         :ui/has-connected false
-         :browser/brave? false}))
-
-;; Re-render on any state change
-(add-watch !state ::render (fn [_ _ _ _] (render!)))
-```
-
-### Dispatch Pattern
-
-Actions dispatched as vectors `[action & args]`, handled in central `dispatch!` function:
-
-```clojure
-(defn dispatch! [[action & args]]
-  (case action
-    :set-nrepl-port (let [[port] args] (swap! !state assoc :ports/nrepl port))
-    :connect (-> (get-active-tab) (.then ...))
-    :copy-command (-> (js/navigator.clipboard.writeText cmd) ...)))
-
-;; Usage in UI
-[:button {:on-click #(dispatch! [:connect])} "Connect"]
-```
-
-### Page Script Injection Pattern
-
-Functions that run in page context must be plain JS (no Squint runtime):
-
-```clojure
-;; js* for inline JS functions that get serialized to page
-(def check-status-fn
-  (js* "function() {
-    return {
-      hasScittle: !!(window.scittle && window.scittle.core),
-      hasWsBridge: !!window.__browserJackInWSBridge
-    };
-  }"))
-
-;; Execute in page context
-(execute-in-page tab-id check-status-fn)
-```
-
-### UI Components
-
-Hiccup-style components with Reagami:
-- Use `[:div.class]` shorthand for CSS classes
-- Event handlers: `:on-click`, `:on-input`
-- Conditional rendering with `when`/`if`
-
-```clojure
-(defn port-input [{:keys [id label value on-change]}]
-  [:span
-   [:label {:for id} label]
-   [:input {:type "number" :id id :value value
-            :on-input (fn [e] (on-change (.. e -target -value)))}]])
-```
+**After editing files:**
+1. **Check watcher output** - verify compilation succeeded and tests pass
+2. **Check problem report** - fix any new lint errors
+3. Address any issues before proceeding
 
 ## Common Pitfalls
 
-1. **Don't edit `.mjs` files** — they're generated by Squint. Edit `.cljs` source.
-2. **Run `bb bundle-scittle`** after Scittle version updates — the CSP patch is critical.
-3. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle patch works.
-4. **WebSocket readyState management** — set to `3` (CLOSED) in `ws-close` handler ([ws_bridge.cljs](src/ws_bridge.cljs)) to prevent reconnection loops.
-5. **Firefox CSP** — `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
+1. **Treat `.mjs` as binary** - These are Squint-compiled output. Never edit, and only read when debugging compilation. Edit `.cljs` source in `src/`.
+2. **Squint != ClojureScript** - see `.github/squint.instructions.md` for gotchas (keywords are strings, missing `name` function, mutable data).
+3. **Run `bb bundle-scittle`** after updating the Scittle version.
+4. **Test on CSP-strict sites** (GitHub, YouTube) to verify Scittle works.
+5. **WebSocket readyState management** - set to `3` (CLOSED) in `ws-close` handler (`src/ws_bridge.cljs`) to prevent reconnection loops.
+6. **Firefox CSP** - `content_security_policy` in manifest must allow `ws://localhost:*` for local connections.
+7. **Use of `!` in shell commands** - In Clojure we use the bang to indicate side-effecting functions. In the shell they are history expansion characters. Avoid using `!` in shell commands to prevent unexpected behavior.
+8. **Prefer tools over shell commands** - E.g.:
+   * Use the Problem Report (linter) instead of compiler
+   * There are watchers for Squint and tests - use them instead of manual commands
+   * When tools do not suffice, use bb tasks
+   * When bb tasks do not suffice, use Babashka utilities for file operations, HTTP server, etc.
+9. **Agent/prompt/instruction files are NOT fenced** - The `read_file` tool displays files with syntax highlighting fences (e.g., ``` chatagent), but this is just display formatting. These files are frontmatter-enriched markdown and should start with `---`, not backticks.
+10. **Avoid `sed`** - When reading files, prefer your tools! If you absolutely cannot use the tools and must use the shell, usee `cat/head/tail`, anything but`sed`. `sed`will be get stuck in approval. Pure reading commands will be auto-approved.
+11. **Uniflow state access** - Never read `@!state` in effects, helpers, message handlers, or event listeners. Actions pass data to effects via `:uf/fxs` params. No `swap!/reset!` outside the event loop. See `dev/docs/architecture/uniflow.md` (The Single Access Point Rule).
 
-## Testing Strategy
+## Use `cat` over `sed`
 
-Currently manual testing workflow:
-1. Build extension for target browser
-2. Load unpacked in browser (reload extension after rebuilds)
-3. Start `bb browser-nrepl`
-4. Reload the target web page
-5. Use popup UI to connect REPL
-6. Evaluate test expressions in page context from your editor
+When reading files, prefer `cat` to `sed`. The latter will be get stuck in approval. `cat` will be auto-approved.
 
-**Tamper scripts:** The `test-data/tampers/` directory contains pre-cooked evaluation scripts for testing against specific sites (e.g., `github.cljs`). These serve as manual test cases and examples.
+## Use Subagents to protect your contect window and ensure quality
 
-**Key test cases:**
-- Connection establishment on CSP-strict sites (GitHub, YouTube)
-- Multiple tab connections (background worker stores per-tab WebSockets)
-- Service worker keepalive (5s ping interval in content bridge)
-- Clean disconnect/reconnect cycles
+The following subagents are available to you:
 
-**Future:** Core/pure logic (game logic, data transformations) could be extracted to separate `.cljs` files testable with [nbb](https://github.com/babashka/nbb) for automated testing.
-
-## Release Process
-
-**Automated via `bb publish`:**
-1. Checks: clean git, on master, CHANGELOG has [Unreleased] content
-2. Bumps manifest version (e.g., `0.0.3.0` → `0.0.3`)
-3. Updates CHANGELOG with release date
-4. Commits, tags `vN.N.N`, pushes
-5. Bumps to next dev version (e.g., `0.0.4.0`)
-6. GitHub Actions builds zips and creates draft release
-
-**Manual store submission:**
-- Chrome: Upload zip to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- Firefox: Upload to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
-
-See [tasks.clj:publish](scripts/tasks.clj) for full workflow.
+- `research` subagent, for gathering information, from the codebase as well as external sources.
+- `edit` subagent, editing can be finicky and waste context, let the Clojure-editor subagent handle the details.
+- `commit` subagent, for an expert git agent. Give it good and succinct context of the work to be committed.
+- `epupp-elaborator` subagent, for transforming loose prompts into well-crafted, context-rich prompts. Provide user prompt, file context, and session context.

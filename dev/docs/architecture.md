@@ -1,0 +1,80 @@
+# Epupp Architecture Overview
+
+Epupp bridges your Clojure editor to the browser's page execution environment through a multi-layer message relay system.
+
+The architecture handles four main use cases:
+
+1. **REPL Connection** - Live code evaluation from editor via nREPL
+2. **Userscript Auto-Injection** - Saved scripts execute on matching URLs
+3. **DevTools Panel Evaluation** - Direct evaluation from the panel UI
+4. **REPL FS Sync** - File operations over the REPL for userscript management
+
+Connection management now includes auto-connect-all, auto-reconnect for
+previously connected tabs, and toolbar icon state derived from connection
+and injection status.
+
+Detailed docs live under [architecture/](architecture/). Use the Navigate table below to jump to the relevant reference.
+
+## Component Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser
+        subgraph Extension
+            BG["Background Worker<br/>- WebSocket mgmt<br/>- Script inject<br/>- Auto-connect + icon state"]
+            Reg["Registration<br/>- Early script registration"]
+            Popup["Popup<br/>- REPL connect<br/>- Script list"]
+            Panel["DevTools Panel<br/>- Code eval<br/>- Save script"]
+
+            Popup -->|"chrome.runtime"| BG
+            Panel -->|"chrome.runtime"| BG
+        end
+
+        CB["Content Bridge (ISOLATED)<br/>- Relay messages<br/>- Inject scripts<br/>- Keepalive pings"]
+        Loader["Userscript Loader (ISOLATED)<br/>- Early injection"]
+        BG -->|"chrome.tabs.sendMessage"| CB
+        Reg -->|"registerContentScripts"| Loader
+        Panel -.->|"inspectedWindow.eval"| Page
+
+        subgraph Page["Page (MAIN world)"]
+            WSB["WebSocket Bridge<br/>(virtual WS)"]
+            Scittle["Scittle REPL"]
+            DOM["DOM"]
+            WSB <--> Scittle <--> DOM
+        end
+
+        CB -->|"postMessage"| WSB
+        Loader -->|"inject tags"| Page
+    end
+
+    Relay["Babashka browser-nrepl<br/>(relay server)"]
+    Editor["Editor / AI Agent<br/>(nREPL client)"]
+
+    BG <-->|"ws://localhost:12346"| Relay
+    Editor -->|"nrepl://localhost:12345"| Relay
+```
+
+**Note:** Panel evaluates code directly in page context via `chrome.devtools.inspectedWindow.eval` (dotted line), but requests Scittle injection and library requires via the background worker.
+
+## Navigate
+
+| Topic | Read This |
+|------|-----------|
+| **UI architecture + TDD workflow** | [ui.md](ui.md) |
+| Source file map + dependencies | [architecture/components.md](architecture/components.md) |
+| Message types + payloads | [architecture/message-protocol.md](architecture/message-protocol.md) |
+| REPL FS Sync architecture | [architecture/repl-fs-sync.md](architecture/repl-fs-sync.md) |
+| Connected REPL flow + `epupp.repl/manifest!` | [architecture/connected-repl.md](architecture/connected-repl.md) |
+| State atoms + action/effect tables | [architecture/state-management.md](architecture/state-management.md) |
+| Uniflow event system | [architecture/uniflow.md](architecture/uniflow.md) |
+| REPL/userscripts/panel injection flows | [architecture/injection-flows.md](architecture/injection-flows.md) |
+| Web Userscript Installer | [architecture/web-installer.md](architecture/web-installer.md) |
+| Trust boundaries + CSP strategy | [architecture/security.md](architecture/security.md) |
+| Build pipeline + configuration injection | [architecture/build-pipeline.md](architecture/build-pipeline.md) |
+| CSS architecture + design tokens | [architecture/css-architecture.md](architecture/css-architecture.md) |
+| Sponsor heart icon feature | [architecture/sponsor-heart.md](architecture/sponsor-heart.md) |
+
+## Related
+
+- Userscript design decisions: [userscripts-architecture.md](userscripts-architecture.md)
+- Development workflow and build commands: [dev.md](dev.md)

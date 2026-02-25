@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Epupp Test Page - SPA Cleanup</title>
+  <style>
+    .file { border: 1px solid #ddd; margin: 20px; border-radius: 6px; }
+    .file-header { background: #f6f8fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    .file-header.d-flex { display: flex; justify-content: space-between; }
+    .file-info { flex: 1; }
+    .file-actions { display: flex; align-items: center; }
+    .file-actions a { color: #0366d6; margin-left: 10px; }
+    table.js-file-line-container { width: 100%; border-collapse: collapse; font-family: monospace; }
+    td.blob-num { width: 50px; text-align: right; padding-right: 10px; color: #6e7681; user-select: none; }
+    td.blob-code { padding-left: 10px; white-space: pre; }
+  </style>
+</head>
+<body>
+  <h1 id="page-title">SPA Cleanup Test - Home</h1>
+  <p>This page simulates SPA navigation where file structure persists but code content changes.
+     The .file container and .file-actions persist across navigations - only the table lines change.
+     This tests that rescan! properly removes button containers from the DOM.</p>
+  <div id="test-marker">ready</div>
+
+  <nav>
+    <button id="nav-home" onclick="navigate('home')">Home</button>
+    <button id="nav-gist" onclick="navigate('gist')">Gist Page</button>
+  </nav>
+
+  <!-- Persistent file structure - survives SPA navigation (like GitHub repo file view) -->
+  <div class="file" id="persistent-file">
+    <div class="file-header d-flex">
+      <div class="file-actions" id="file-actions-container">
+        <a href="#" id="raw-link">Raw</a>
+      </div>
+      <div class="file-info">
+        <strong class="gist-blob-name" id="file-name">regular_code.cljs</strong>
+      </div>
+    </div>
+    <div class="blob-wrapper">
+      <table class="js-file-line-container" id="code-table">
+        <tbody id="code-lines">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    var manifestLines = [
+      '{:epupp/script-name "spa_cleanup_test_script.cljs"',
+      ' :epupp/auto-run-match "*://cleanup-test.example.com/*"',
+      ' :epupp/description "Test script for SPA cleanup testing"}',
+      '',
+      '(ns spa-cleanup-test-script)',
+      '',
+      '(js/console.log "SPA cleanup test script!")'
+    ];
+
+    var regularLines = [
+      '(ns regular-code)',
+      '',
+      '(defn hello [] "world")'
+    ];
+
+    function setTableLines(lines) {
+      var tbody = document.getElementById('code-lines');
+      tbody.innerHTML = '';
+      lines.forEach(function(line, i) {
+        var tr = document.createElement('tr');
+        var numTd = document.createElement('td');
+        numTd.className = 'blob-num js-line-number';
+        numTd.setAttribute('data-line-number', String(i + 1));
+        var codeTd = document.createElement('td');
+        codeTd.className = 'blob-code js-file-line';
+        codeTd.textContent = line;
+        tr.appendChild(numTd);
+        tr.appendChild(codeTd);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function navigate(view) {
+      history.pushState({ view: view }, '', '?view=' + view);
+      document.getElementById('page-title').textContent = 'SPA Cleanup Test - ' + view;
+
+      if (view === 'gist') {
+        document.getElementById('file-name').textContent = 'spa_cleanup_test_script.cljs';
+        setTableLines(manifestLines);
+      } else {
+        document.getElementById('file-name').textContent = 'regular_code.cljs';
+        setTableLines(regularLines);
+      }
+      console.log('[SPA Cleanup] Navigated to:', view);
+    }
+
+    // Start with regular (non-manifest) code
+    setTableLines(regularLines);
+
+    window.onpopstate = function(event) {
+      if (event.state && event.state.view) {
+        navigate(event.state.view);
+      }
+    };
+  </script>
+</body>
+</html>

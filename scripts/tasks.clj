@@ -3,66 +3,120 @@
             [babashka.http-client :as http]
             [babashka.process :as p]
             [clojure.data.json :as json]
+            [clojure.edn :as edn]
             [clojure.string :as str]))
 
-(defn- patch-scittle-for-csp
-  "Patch scittle.js to remove eval() call that breaks on CSP-strict sites.
-   The Closure Compiler adds a dynamic import polyfill using eval which
-   triggers CSP violations on sites like YouTube, GitHub, etc."
-  [scittle-path]
-  (let [content (slurp scittle-path)
-        ;; Replace: globalThis["import"]=eval("(x) => import(x)");
-        ;; With:    globalThis["import"]=function(x){return import(x);};
-        patched (str/replace
-                 content
-                 "globalThis[\"import\"]=eval(\"(x) \\x3d\\x3e import(x)\");"
-                 "globalThis[\"import\"]=function(x){return import(x);};")]
-    (when (= content patched)
-      (println "  ⚠ Warning: eval pattern not found in scittle.js - may already be patched or pattern changed"))
-    (spit scittle-path patched)
-    (when (not= content patched)
-      (println "  ✓ Patched scittle.js for CSP compatibility"))))
+;; ============================================================
+;; Config handling
+;; ============================================================
+
+(defn- read-config
+  "Read config from config/dev.edn or config/prod.edn based on mode.
+   Defaults to prod."
+  [mode]
+  (let [config-file (str "config/" (or mode "prod") ".edn")]
+    (when-not (fs/exists? config-file)
+      (println (str "Error: " config-file " not found"))
+      (System/exit 1))
+    (edn/read-string (slurp config-file))))
+
+(defn- esbuild-define-flag
+  "Build the --define flag for esbuild to inject EXTENSION_CONFIG.
+   Reads EDN config and converts to JSON (which is valid JS)."
+  [mode]
+  (let [config (read-config mode)]
+    (str "--define:EXTENSION_CONFIG=" (json/write-str config))))
 
 (defn bundle-scittle
-  "Download Scittle and nREPL plugin to extension/vendor"
+  "Download Scittle ecosystem libraries to extension/vendor.
+   Skips download if all files already exist."
   []
-  (let [version "0.7.30"
-        base-url "https://cdn.jsdelivr.net/npm/scittle@"
+  (let [scittle-version "0.8.31"
+        react-version "18"
+        scittle-base (str "https://cdn.jsdelivr.net/npm/scittle@" scittle-version "/dist/")
+        react-base "https://cdn.jsdelivr.net/npm/"
         vendor-dir "extension/vendor"
-        files [["scittle.js" (str base-url version "/dist/scittle.js")]
-               ["scittle.nrepl.js" (str base-url version "/dist/scittle.nrepl.js")]]]
-    (fs/create-dirs vendor-dir)
-    (doseq [[filename url] files]
-      (println "Downloading" filename "...")
-      (let [response (http/get url)]
-        (spit (str vendor-dir "/" filename) (:body response))))
-    (patch-scittle-for-csp (str vendor-dir "/scittle.js"))
-    (println "✓ Scittle" version "bundled to" vendor-dir)))
+        ;; Scittle core and plugins
+        scittle-files ["scittle.js"
+                       "scittle.nrepl.js"
+                       "scittle.pprint.js"
+                       "scittle.promesa.js"
+                       "scittle.replicant.js"
+                       "scittle.js-interop.js"
+                       "scittle.reagent.js"
+                       "scittle.re-frame.js"
+                       "scittle.cljs-ajax.js"]
+        ;; React dependencies for Reagent
+        react-files [["react.production.min.js"
+                      (str react-base "react@" react-version "/umd/react.production.min.js")]
+                     ["react-dom.production.min.js"
+                      (str react-base "react-dom@" react-version "/umd/react-dom.production.min.js")]]
+        all-files (concat scittle-files (map first react-files))
+        all-exist? (every? #(fs/exists? (str vendor-dir "/" %)) all-files)]
+    (if all-exist?
+      (println "✓ Scittle ecosystem already present, skipping download")
+      (do
+        (fs/create-dirs vendor-dir)
+        ;; Download Scittle files
+        (println (str "Downloading Scittle " scittle-version " ecosystem..."))
+        (doseq [filename scittle-files]
+          (println "  Downloading" filename "...")
+          (let [url (str scittle-base filename)
+                response (http/get url)]
+            (spit (str vendor-dir "/" filename) (:body response))))
+        ;; Download React files
+        (println (str "Downloading React " react-version " (for Reagent)..."))
+        (doseq [[filename url] react-files]
+          (println "  Downloading" filename "...")
+          (let [response (http/get url)]
+            (spit (str vendor-dir "/" filename) (:body response))))
+        (println (str "✓ Scittle " scittle-version " ecosystem bundled to " vendor-dir))))))
 
 (defn compile-squint
-  "Compile ClojureScript files with Squint and bundle with esbuild"
-  []
-  (println "Compiling Squint...")
-  (p/shell "npx squint compile")
-  (println "Bundling with esbuild...")
-  (fs/create-dirs "build")
-  ;; Bundle all JS files as IIFE
-  (doseq [[name entry] [["popup" "extension/popup.mjs"]
-                        ["content-bridge" "extension/content_bridge.mjs"]
-                        ["ws-bridge" "extension/ws_bridge.mjs"]
-                        ["background" "extension/background.mjs"]]]
-    (println (str "  Bundling " name ".js..."))
-    (p/shell "npx" "esbuild" entry "--bundle" "--format=iife" (str "--outfile=build/" name ".js")))
-  ;; Copy static files
-  (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
-  (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
-  (println "✓ Squint + esbuild compilation complete"))
+  "Compile ClojureScript files with Squint and bundle with esbuild.
+   Optional mode argument: 'dev' or 'prod' (default: prod)."
+  [& [mode]]
+  (let [define-flag (esbuild-define-flag mode)]
+    (println (str "Building with " (or mode "prod") " config..."))
+    (println "Compiling Squint...")
+    (p/shell "npx squint compile")
+    (println "Bundling with esbuild...")
+    (fs/create-dirs "build")
+    ;; Bundle all JS files as IIFE with EXTENSION_CONFIG injected
+    ;; All bundles get config for consistent test instrumentation
+    (doseq [[bundle-name entry] [["popup" "extension/popup.mjs"]
+                                 ["background" "extension/background.mjs"]
+                                 ["panel" "extension/panel.mjs"]
+                                 ["content-bridge" "extension/content_bridge.mjs"]
+                                 ["ws-bridge" "extension/ws_bridge.mjs"]
+                                 ["devtools" "extension/devtools.mjs"]]]
+      (println (str "  Bundling " bundle-name ".js..."))
+      (p/shell "npx" "esbuild" entry "--bundle" "--format=iife"
+               define-flag (str "--outfile=build/" bundle-name ".js")))
+    ;; Copy static files
+    (fs/copy "extension/popup.html" "build/popup.html" {:replace-existing true})
+    (fs/copy "extension/design-tokens.css" "build/design-tokens.css" {:replace-existing true})
+    (fs/copy "extension/components.css" "build/components.css" {:replace-existing true})
+    (fs/copy "extension/base.css" "build/base.css" {:replace-existing true})
+    (fs/copy "extension/popup.css" "build/popup.css" {:replace-existing true})
+    (fs/copy "extension/devtools.html" "build/devtools.html" {:replace-existing true})
+    (fs/copy "extension/panel.html" "build/panel.html" {:replace-existing true})
+    (fs/copy "extension/panel.css" "build/panel.css" {:replace-existing true})
+    ;; Copy early injection loaders (content scripts for document-start/document-end)
+    (fs/copy "extension/userscript-loader.js" "build/userscript-loader.js" {:replace-existing true})
+    (fs/copy "extension/trigger-scittle.js" "build/trigger-scittle.js" {:replace-existing true})
+    ;; Copy userscripts (raw source, evaluated by Scittle)
+    (fs/create-dirs "build/userscripts")
+    (fs/create-dirs "build/userscripts/epupp")
+    (fs/copy "extension/userscripts/epupp/web_userscript_installer.cljs" "build/userscripts/epupp/web_userscript_installer.cljs" {:replace-existing true})
+    (println "✓ Squint + esbuild compilation complete")))
 
 (defn- adjust-manifest
   "Adjust manifest.json for specific browser"
   [manifest browser]
   (case browser
     "firefox" (-> manifest
+                  (dissoc :key) ; Remove Chrome-specific key field
                   (assoc :browser_specific_settings
                          {:gecko {:id "browser-jack-in@example.com"
                                   :strict_min_version "142.0"
@@ -72,20 +126,74 @@
                   (assoc :content_security_policy
                          {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
     "safari" (-> manifest
+                 (dissoc :key) ; Remove Chrome-specific key field
                  (assoc :background {:scripts ["background.js"]})
                  (assoc :content_security_policy
                         {:extension_pages "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:*;"}))
     manifest))
 
+;; ============================================================
+;; Manifest Version Helpers (used by build and publish)
+;; ============================================================
+
+(defn- read-manifest-version
+  "Read current version from manifest.json"
+  []
+  (let [manifest (json/read-str (slurp "extension/manifest.json") :key-fn keyword)]
+    (:version manifest)))
+
+(defn- update-manifest-version!
+  "Update version in manifest.json"
+  [new-version]
+  (let [manifest-path "extension/manifest.json"
+        manifest (json/read-str (slurp manifest-path) :key-fn keyword)
+        updated (assoc manifest :version new-version)]
+    (spit manifest-path (json/write-str updated :indent true :escape-slash false))))
+
+(defn- bump-dev-version!
+  "Bump the dev version's build number: 0.0.3.0 -> 0.0.3.1
+   Used during development to test version detection in panel."
+  []
+  (let [current (read-manifest-version)
+        parts (str/split current #"\.")
+        ;; Ensure we have 4 parts for dev version
+        parts (if (< (count parts) 4)
+                (conj (vec parts) "0")
+                parts)
+        build-num (Integer/parseInt (nth parts 3))
+        new-version (str/join "." [(nth parts 0) (nth parts 1) (nth parts 2) (inc build-num)])]
+    (update-manifest-version! new-version)
+    (println (str "  Bumped dev version: " current " -> " new-version))
+    new-version))
+
 (defn build
-  "Build extension for specified browser(s)"
-  [& browsers]
-  (let [browsers (if (seq browsers) browsers ["chrome" "firefox" "safari"])
+  "Build extension for specified browser(s).
+   Supports browser names (chrome/firefox/safari) and mode flags:
+   - --dev: Uses dev config AND bumps the build number
+   - --test: Uses test config WITHOUT bumping version (for e2e tests with event logging)
+   - --prod: Uses prod config (default)
+   Default mode is prod."
+  [& args]
+  (let [bump-version? (some #(= "--dev" %) args)
+        config-mode (cond
+                      (some #(= "--dev" %) args) "dev"
+                      (some #(= "--test" %) args) "test"
+                      (some #(= "--prod" %) args) "prod"
+                      :else "prod")
+        browsers (->> args
+                      (remove #(str/starts-with? % "--"))
+                      seq)
+        browsers (or browsers ["chrome" "firefox" "safari"])
         extension-dir "extension"
         build-dir "build"
         dist-dir "dist"]
+    ;; Bump version only in --dev mode (not --test)
+    (when bump-version?
+      (bump-dev-version!))
+    ;; Ensure Scittle ecosystem is downloaded
+    (bundle-scittle)
     ;; Compile Squint + bundle with esbuild
-    (compile-squint)
+    (compile-squint config-mode)
     (fs/create-dirs dist-dir)
     (doseq [browser browsers]
       (println (str "Building for " browser "..."))
@@ -105,19 +213,41 @@
                  {:replace-existing true})
         (fs/copy (str build-dir "/popup.js") (str browser-dir "/popup.js")
                  {:replace-existing true})
+        (fs/copy (str build-dir "/design-tokens.css") (str browser-dir "/design-tokens.css")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/components.css") (str browser-dir "/components.css")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/base.css") (str browser-dir "/base.css")
+                 {:replace-existing true})
         (fs/copy (str build-dir "/popup.css") (str browser-dir "/popup.css")
                  {:replace-existing true})
         (fs/copy (str build-dir "/content-bridge.js") (str browser-dir "/content-bridge.js")
+                 {:replace-existing true})
+        ;; Copy userscripts directory (raw source)
+        (fs/copy-tree (str build-dir "/userscripts") (str browser-dir "/userscripts")
+                      {:replace-existing true})
+        ;; Copy early injection loaders (content scripts for document-start/document-end)
+        (fs/copy (str build-dir "/userscript-loader.js") (str browser-dir "/userscript-loader.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/trigger-scittle.js") (str browser-dir "/trigger-scittle.js")
                  {:replace-existing true})
         (fs/copy (str build-dir "/ws-bridge.js") (str browser-dir "/ws-bridge.js")
                  {:replace-existing true})
         (fs/copy (str build-dir "/background.js") (str browser-dir "/background.js")
                  {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.html") (str browser-dir "/devtools.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/devtools.js") (str browser-dir "/devtools.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.html") (str browser-dir "/panel.html")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.js") (str browser-dir "/panel.js")
+                 {:replace-existing true})
+        (fs/copy (str build-dir "/panel.css") (str browser-dir "/panel.css")
+                 {:replace-existing true})
         ;; Remove intermediate .mjs files (keep only bundled .js)
-        (fs/delete-if-exists (str browser-dir "/popup.mjs"))
-        (fs/delete-if-exists (str browser-dir "/content_bridge.mjs"))
-        (fs/delete-if-exists (str browser-dir "/ws_bridge.mjs"))
-        (fs/delete-if-exists (str browser-dir "/background.mjs"))
+        (doseq [mjs-file (fs/glob browser-dir "*.mjs")]
+          (fs/delete mjs-file))
 
         ;; Adjust manifest
         (let [manifest-path (str browser-dir "/manifest.json")
@@ -126,7 +256,7 @@
           (spit manifest-path (json/write-str adjusted :indent true :escape-slash false)))
 
         ;; Create zip
-        (let [zip-path (str dist-dir "/browser-jack-in-" browser ".zip")]
+        (let [zip-path (str dist-dir "/epupp-" browser ".zip")]
           (fs/delete-if-exists zip-path)
           (fs/zip zip-path browser-dir {:root browser-dir})
           (println (str "  Created: " zip-path)))))
@@ -158,12 +288,6 @@
                            (str/trim (second unreleased-match)))
      :has-unreleased? (some? unreleased-match)}))
 
-(defn- read-manifest-version
-  "Read current version from manifest.json"
-  []
-  (let [manifest (json/read-str (slurp "extension/manifest.json") :key-fn keyword)]
-    (:version manifest)))
-
 (defn- increment-version
   "Increment patch version: 0.0.1 -> 0.0.2"
   [version]
@@ -191,14 +315,6 @@
          (map second)
          distinct
          sort)))
-
-(defn- update-manifest-version!
-  "Update version in manifest.json"
-  [new-version]
-  (let [manifest-path "extension/manifest.json"
-        manifest (json/read-str (slurp manifest-path) :key-fn keyword)
-        updated (assoc manifest :version new-version)]
-    (spit manifest-path (json/write-str updated :indent true :escape-slash false))))
 
 (defn- update-changelog!
   "Update CHANGELOG.md: add version header, keep empty Unreleased"

@@ -1,0 +1,54 @@
+# Dockerfile for running E2E tests without popping up a browser on the host
+# Usage: docker build -f Dockerfile.e2e -t epupp-e2e . && docker run --rm epupp-e2e
+
+# Use ARM64 variant for Apple Silicon, falls back to amd64 on Intel
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/playwright:v1.57.0-noble
+
+# Install Java (needed by Babashka for deps resolution)
+RUN apt-get update && apt-get install -y openjdk-21-jre-headless && rm -rf /var/lib/apt/lists/*
+
+# Install Babashka
+RUN curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install \
+    && chmod +x install \
+    && ./install \
+    && rm install
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY package.json package-lock.json ./
+
+# Install npm dependencies
+RUN npm ci
+
+# Copy babashka config for dependency caching
+COPY bb.edn deps.edn ./
+
+# Download and cache Clojure/Babashka dependencies
+RUN bb prepare
+
+# Copy the rest of the project
+COPY . .
+
+# Build extension and compile e2e tests
+RUN bb build:test && bb test:e2e:compile
+
+# Create entrypoint script that sets up Xvfb and runs E2E tests
+# The e2e tasks handle HTTP server and browser-nrepl lifecycle internally
+# REPL integration tests now run as part of the unified e2e suite
+RUN echo '#!/bin/bash\n\
+# Add non-whitelisted hostname for E2E testing domain whitelist behavior\n\
+echo "127.0.0.1 not-whitelisted.test" >> /etc/hosts\n\
+\n\
+Xvfb :99 -screen 0 1280x720x24 2>/dev/null &\n\
+sleep 1\n\
+export DISPLAY=:99\n\
+\n\
+bb test:e2e:ci "$@"\n\
+EXIT_CODE=$?\n\
+pkill Xvfb\n\
+exit $EXIT_CODE' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Run tests with virtual display (required for headed Chrome with extensions)
+ENTRYPOINT ["/entrypoint.sh"]

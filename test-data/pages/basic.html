@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Epupp Test Page - Basic</title>
+  <style>
+    .file { border: 1px solid #ddd; margin: 20px; border-radius: 6px; }
+    .file-header { background: #f6f8fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+    .gist-blob-name { font-weight: bold; }
+    .blob-code { padding: 10px; font-family: monospace; }
+    .js-file-line { display: block; }
+  </style>
+</head>
+<body>
+  <h1>Basic Test Page</h1>
+  <p>This page is used for E2E testing of the Epupp extension.</p>
+  <div id="test-marker">ready</div>
+
+  <!-- Code block for web userscript installer pattern test -->
+  <div class="file" id="test-code-block">
+    <div class="file-header">
+      <span class="gist-blob-name">pattern_test.cljs</span>
+    </div>
+    <div class="blob-wrapper">
+      <table class="highlight">
+        <tbody>
+          <tr><td class="blob-code"><span class="js-file-line">{:epupp/script-name "Pattern Test Script"</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line"> :epupp/auto-run-match "*://test.example.com/*"}</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line">(ns pattern-test)</span></td></tr>
+          <tr><td class="blob-code"><span class="js-file-line">(js/console.log "Pattern test")</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+;; Test configuration for Epupp
+;;
+;; This file is read at build time and injected via esbuild --define.
+;; Used for E2E tests that need structured event logging.
+
+{:dev true
+ :test true  ; <-- Enables structured test logging to chrome.storage.local
+ :sectionsCollapsed {:repl-connect false
+                     :manual-scripts false
+                     :matching-scripts false
+                     :other-scripts false
+                     :special false
+                     :settings false
+                     :dev-tools false}
+ :depsString "{:deps {io.github.babashka/sci.nrepl {:git/sha \"80ec956af5e6610b040089ba62eecb5d223e9e76\"}}}"}

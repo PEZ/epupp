@@ -1,0 +1,116 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Squint Watch",
+      "type": "shell",
+      "command": "bb watch",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "watch"
+      }
+    },
+    {
+      "label": "Unit Test Watch",
+      "type": "shell",
+      "command": "bb test:watch",
+      "group": "test",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "watch"
+      }
+    },
+    {
+      "label": "Squint REPL",
+      "type": "shell",
+      "command": "bb squint-nrepl",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
+    },
+    {
+      "label": "Scittle Dev REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 31337 --websocket-port 31338",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
+    },
+    {
+      "label": "Epupp Gitlab REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 13397 --websocket-port 13398",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "manual-testing"
+      }
+    },
+    {
+      "label": "Epupp YouTube REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 13399 --websocket-port 13400",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "manual-testing"
+      }
+    },
+    {
+      "label": "Epupp GitHub REPL",
+      "type": "shell",
+      "command": "bb browser-nrepl --nrepl-port 11331 --websocket-port 11332",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "manual-testing"
+      }
+    },
+    {
+      "label": "Babashka REPL",
+      "type": "shell",
+      "command": "bb nrepl-server :0",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "repl"
+      }
+    },
+    {
+      "label": "Start Dev Environment",
+      "dependsOn": [
+        "Squint Watch",
+        "Unit Test Watch",
+        "Squint REPL",
+        "Scittle Dev REPL",
+        "Babashka REPL"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

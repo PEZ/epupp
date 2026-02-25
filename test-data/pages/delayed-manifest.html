@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Epupp Test Page - Delayed Manifest (GitLab-like)</title>
+</head>
+<body>
+  <h1>Delayed Manifest Test Page</h1>
+  <p>This page simulates GitLab's behavior where .file-holder elements appear after page load.</p>
+  <div id="test-marker">ready</div>
+
+  <div id="content">
+    <p>Content is loading...</p>
+  </div>
+
+  <script>
+    // Read delay from URL parameter, default 300ms
+    var params = new URLSearchParams(window.location.search);
+    var delay = parseInt(params.get('delay') || '300', 10);
+
+    setTimeout(function() {
+      var holder = document.createElement('div');
+      holder.className = 'file-holder';
+      holder.id = 'delayed-manifest-block';
+      var fileHeader = document.createElement('div');
+      fileHeader.className = 'file-header';
+      var fileActions = document.createElement('div');
+      fileActions.className = 'file-actions';
+      fileHeader.appendChild(fileActions);
+      holder.appendChild(fileHeader);
+      var pre = document.createElement('pre');
+      pre.textContent = '{:epupp/script-name "delayed_manifest_script.cljs"\n :epupp/auto-run-match "*://delayed-test.example.com/*"\n :epupp/description "A test script that appears after page load"}\n\n(ns delayed-manifest-script)\n\n(js/console.log "Delayed manifest script loaded!")';
+      holder.appendChild(pre);
+      document.getElementById('content').appendChild(holder);
+      console.log('[DelayedManifest] Inserted manifest after ' + delay + 'ms');
+    }, delay);
+  </script>
+</body>
+</html>

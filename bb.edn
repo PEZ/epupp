@@ -1,22 +1,30 @@
-{:paths ["." "scripts"]
- :deps {io.github.babashka/sci.nrepl {:mvn/version "0.0.2"}
+{:paths ["." "scripts" "e2e" "src"]
+ :deps {io.github.babashka/sci.nrepl {:git/url "https://github.com/babashka/sci.nrepl"
+                                      :git/sha "80ec956af5e6610b040089ba62eecb5d223e9e76"}
         org.babashka/cli {:mvn/version "0.2.23"}
-        babashka/fs {:mvn/version "0.5.22"}
-        org.clojure/data.json {:mvn/version "2.4.0"}}
+        org.babashka/http-server {:mvn/version "0.1.14"}
+        babashka/fs {:mvn/version "0.5.30"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
+        io.github.babashka/nrepl-client {:git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}
+        hiccup/hiccup {:mvn/version "2.0.0-RC4"}}
  :tasks
  {:requires ([babashka.cli :as cli]
              [start-nrepl]
-             [tasks])
+             [tasks]
+             [e2e])
 
   browser-nrepl {:doc "Start browser nREPL"
                  :task (start-nrepl/browser-nrepl (cli/parse-opts *command-line-args*
                                                                   {:coerce {:nrepl-port :int
                                                                             :websocket-port :int}}))}
 
+  gen-icons {:doc "Generate toolbar icons from epupp-logo hiccup"
+             :task (load-file "scripts/icon.clj")}
+
   bundle-scittle {:doc "Download Scittle and nREPL plugin to src/vendor"
                   :task (tasks/bundle-scittle)}
 
-  build {:doc "Build extension for all browsers (or specify one or more of: chrome, firefox, safari)"
+  build {:doc "Build extension for all browsers. Use --dev for dev config. Specify browsers: chrome, firefox, safari"
          :task (apply tasks/build *command-line-args*)}
 
   build:chrome {:doc "Build extension for Chrome"
@@ -28,11 +36,81 @@
   build:safari {:doc "Build extension for Safari"
                 :task (tasks/build "safari")}
 
+  build:dev {:doc "Build extension for all browsers with dev config"
+             :task (apply tasks/build "--dev" *command-line-args*)}
+
+  build:test {:doc "Build extension for Chrome with dev config but no version bump (for e2e tests)"
+              :task (tasks/build "--test" "chrome")}
+
   dev {:doc "Start Squint watch and Vite dev server"
        :task (babashka.process/shell "npx squint watch & npx vite")}
 
   watch {:doc "Start Squint watch mode"
          :task (babashka.process/shell "npx squint watch")}
 
+  squint-nrepl {:doc "Start Squint nREPL server for testing code in Node"
+                :task (babashka.process/shell "npx squint nrepl-server :port 1337")}
+
+  squint-compile {:doc "Compile with Squint. Pass files/options directly: bb squint-compile src/foo.cljs or bb squint-compile --paths src test --output-dir build/test. Use this to check compilation without running tests."
+                  :task (apply babashka.process/shell "npx squint compile" *command-line-args*)}
+
+  ;; Test tasks
+  test:watch:squint {:doc "Watch and compile test files"
+                     :task (babashka.process/shell "npx squint watch --paths src test --output-dir build/test")}
+
+  test:watch:vitest {:doc "Run Vitest in watch mode"
+                     :task (babashka.process/shell "npx vitest --changed=false")}
+
+  -test:watch {:depends [test:watch:squint test:watch:vitest]}
+
+  test:watch {:doc "Start test watchers (Squint + Vitest) in parallel"
+              :task (run '-test:watch {:parallel true})}
+
+  test {:doc "Run tests once"
+        :task (do (babashka.process/shell "npx squint compile --paths src test --output-dir build/test")
+                  (babashka.process/shell "npx vitest run"))}
+
+  ;; Test server for true E2E tests (manual/interactive use)
+  test:server {:doc "Start HTTP server for test pages (localhost:8080, blocking)"
+               :requires ([babashka.http-server :as server])
+               :task (do (server/serve {:port 8080 :dir "test-data/pages"})
+                         (deref (promise)))}
+
+  ;; E2E test tasks
+  ;; All e2e tasks pass *command-line-args* to Playwright, e.g.:
+  ;;   bb test:e2e --grep "some test"
+  ;;   bb test:e2e --headed --debug
+  ;;   bb test:e2e:ci --grep "popup" --retries 2
+
+  test:e2e:compile {:doc "Compile e2e test files"
+                    :task (do (babashka.fs/delete-tree "build/e2e")
+                              (babashka.process/shell "npx squint compile --paths src e2e --output-dir build/e2e"))}
+
+  test:e2e:headed {:doc "Run Playwright E2E tests with visible browser (builds first). Pass extra args to Playwright: bb test:e2e:headed --grep 'pattern'"
+                   :depends [build:test test:e2e:compile]
+                   :task (e2e/run-e2e-tests! *command-line-args*)}
+
+  test:e2e:ci {:doc "Run Playwright E2E tests (CI: assumes build artifacts exist). Pass extra args to Playwright."
+               :task (e2e/run-e2e-tests! *command-line-args*)}
+
+  test:e2e {:doc "Run E2E tests in Docker. Parallel. --serial for serial, --shards N to customize. Use -- to pass args to Playwright: bb test:e2e -- --grep 'popup'"
+            :task (e2e/run-e2e! *command-line-args*)}
+
+  test:e2e:timing {:doc "Run E2E tests in Docker and print timing report sorted fastest-first. Tail for slowest tests."
+                   :task (e2e/e2e-timing-report! *command-line-args*)}
+
+  test:e2e:ui:headed {:doc "Run Playwright E2E tests with interactive UI runner (headed). Pass extra args to Playwright."
+                      :depends [build:test test:e2e:compile]
+                      :task (e2e/run-e2e-tests! (cons "--ui" *command-line-args*))}
+
   publish {:doc "Publish new version: bump version, update changelog, commit, tag, push"
-           :task (tasks/publish)}}}
+           :task (tasks/publish)}
+
+  cloc {:doc "Count lines of code (excludes generated files, markdown, vendor)"
+        :task (babashka.process/shell
+               "cloc"
+               "--vcs=git"
+               "--exclude-lang=Markdown"
+               "--exclude-dir=build,playwright-report,test-results"
+               "--not-match-f=\\.mjs$"
+               ".")}}}
