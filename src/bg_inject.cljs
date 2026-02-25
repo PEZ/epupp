@@ -153,9 +153,8 @@
 
 (def scan-for-userscripts-fn
   "Scan page DOM for code blocks containing Epupp userscript manifests.
-   Checks 5 formats: GitHub gist tables, GitHub repo files, GitLab snippets,
-   generic <pre> elements, and <textarea> elements.
-   Returns {found: boolean, count: number}."
+   Checks specific formats first (GitHub, GitLab), then generic <pre> and
+   <textarea>. Returns early on first match: {found: true/false}."
   (js* "function() {
     function hasManifest(text) {
       if (!text || text.length < 10) return false;
@@ -163,37 +162,34 @@
       if (trimmed.charAt(0) !== '{') return false;
       return /:epupp\\/script-name/.test(trimmed.slice(0, 500));
     }
-    var count = 0;
     // 1. GitHub gist tables
     var tables = document.querySelectorAll('table.js-file-line-container');
     for (var i = 0; i < tables.length; i++) {
       var lines = tables[i].querySelectorAll('td.js-file-line');
       var text = '';
       for (var j = 0; j < lines.length; j++) text += lines[j].textContent + '\\n';
-      if (hasManifest(text)) count++;
+      if (hasManifest(text)) return {found: true};
     }
     // 2. GitHub repo file view
     var repoCode = document.querySelector('.react-code-lines');
-    if (repoCode && hasManifest(repoCode.textContent)) count++;
+    if (repoCode && hasManifest(repoCode.textContent)) return {found: true};
     // 3. GitLab snippets
     var holders = document.querySelectorAll('.file-holder');
     for (var i = 0; i < holders.length; i++) {
       var pre = holders[i].querySelector('pre');
-      if (pre && hasManifest(pre.textContent)) count++;
+      if (pre && hasManifest(pre.textContent)) return {found: true};
     }
-    // 4. Generic <pre> (excluding .file-holder, .CodeMirror)
+    // 4. Generic <pre>
     var pres = document.querySelectorAll('pre');
     for (var i = 0; i < pres.length; i++) {
-      if (pres[i].closest('.file-holder') || pres[i].closest('.CodeMirror')) continue;
-      if (hasManifest(pres[i].textContent)) count++;
+      if (hasManifest(pres[i].textContent)) return {found: true};
     }
-    // 5. Textareas (excluding .js-code-editor)
+    // 5. Textareas
     var textareas = document.querySelectorAll('textarea');
     for (var i = 0; i < textareas.length; i++) {
-      if (textareas[i].closest('.js-code-editor')) continue;
-      if (hasManifest(textareas[i].value)) count++;
+      if (hasManifest(textareas[i].value)) return {found: true};
     }
-    return {found: count > 0, count: count};
+    return {found: false};
   }"))
 
 (defn poll-until

@@ -52,7 +52,7 @@ When the installer is disabled (`:script/enabled false`), `maybe-inject-installe
 
 ### Scan: `scan-for-userscripts-fn`
 
-A plain JavaScript function executed via `chrome.scripting.executeScript` in the ISOLATED world. Checks 5 DOM formats for `:epupp/script-name` in the first 500 characters:
+A plain JavaScript function executed via `chrome.scripting.executeScript` in the ISOLATED world. Checks specific DOM formats first, then generic elements, returning early on first match of `:epupp/script-name` in the first 500 characters:
 
 1. GitHub gist tables (`table.js-file-line-container`)
 2. GitHub repo file view (`.react-code-lines`)
@@ -60,7 +60,7 @@ A plain JavaScript function executed via `chrome.scripting.executeScript` in the
 4. Generic `<pre>` (excluding `.file-holder`, `.CodeMirror`)
 5. `<textarea>` (excluding `.js-code-editor`)
 
-Returns `{found: boolean, count: number}`.
+Returns `{found: true}` on first match, or `{found: false}` after checking all formats.
 
 ### Retry Schedule
 
