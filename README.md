@@ -5,13 +5,11 @@ A web browser extension that lets you tamper with web pages, live and/or with us
 Epupp has two modes of operation:
 
 1. **Live REPL connection from your editor to the web page**, letting you inspect and modify the page on the fly, with or without the assistance of an AI agent.
-2. **Userscripts**: Tampermonkey style. Target all websites, or any subset of the web's pages, with prepared scripts that modify or query information from the page. You can also have userscripts that trigger only on demand. Userscripts can be triggered before the page loads, or after the DOM has settled.
+2. **Userscripts**: Tampermonkey style. Target all websites, or any subset of the web's pages, with prepared scripts that modify or query information from the page. Userscripts can be configured to start before the page loads (`document-start`), when the DOM is ready but resources are still loading (`document-end`), or after everything has settled (`document-idle`).
 
-The live REPL connection is a very efficient way to interactively develop userscripts, as well as doing one-off changes or data extractions.
+The two form a powerful pair. The live REPL connection, while happily supporting one-off changes or data extractions, is also a very efficient means to interactively develop userscripts.
 
-Epupp is powered by [Scittle](https://github.com/babashka/scittle), which allows for scripting the page using [ClojureScript](https://clojurescript.org), a dynamic language enabling **Interactive Programming**.
-
-## Example Use Cases
+## Example Epupp Use Cases
 
 **Custom Data Dashboards**:
 * **Problem**: Some web page you often visit keeps updated data, but doesn't present it aggregated the way you want it.
@@ -203,6 +201,10 @@ Epupp only asks for the permissions it strictly needs, even if the nature of the
 - `storage` - Persist scripts/settings
 - `webNavigation` - Auto-injection on page load
 - `activeTab` - DevTools panel integration
+
+## Scittle
+
+Epupp is powered by [Scittle](https://github.com/babashka/scittle), which allows for scripting the page using [ClojureScript](https://clojurescript.org), a dynamic language supporting **Interactive Programming**.
 
 ## Privacy
 
