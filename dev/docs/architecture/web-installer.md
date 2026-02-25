@@ -60,7 +60,7 @@ A plain JavaScript function executed via `chrome.scripting.executeScript` in the
 4. Generic `<pre>` (excluding `.file-holder`, `.CodeMirror`)
 5. `<textarea>` (excluding `.js-code-editor`)
 
-Returns `{found: true}` on first match, or `{found: false}` after checking all formats.
+Returns `true` on first match, or `false` after checking all formats.
 
 ### Retry Schedule
 

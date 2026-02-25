@@ -684,10 +684,9 @@
                            (let [delay-ms (first remaining)]
                              (when (pos? delay-ms)
                                (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
-                             (let [result (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))]
-                               (if (and result (.-found result))
-                                 true
-                                 (recur (rest remaining)))))))]
+                             (if (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))
+                               true
+                               (recur (rest remaining))))))]
             (when found?
               (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
               (swap! !installer-injected-tabs conj tab-id))))))

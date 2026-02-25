@@ -154,7 +154,7 @@
 (def scan-for-userscripts-fn
   "Scan page DOM for code blocks containing Epupp userscript manifests.
    Checks specific formats first (GitHub, GitLab), then generic <pre> and
-   <textarea>. Returns early on first match: {found: true/false}."
+   <textarea>. Returns true on first match, false if none found."
   (js* "function() {
     function hasManifest(text) {
       if (!text || text.length < 10) return false;
@@ -168,28 +168,28 @@
       var lines = tables[i].querySelectorAll('td.js-file-line');
       var text = '';
       for (var j = 0; j < lines.length; j++) text += lines[j].textContent + '\\n';
-      if (hasManifest(text)) return {found: true};
+      if (hasManifest(text)) return true;
     }
     // 2. GitHub repo file view
     var repoCode = document.querySelector('.react-code-lines');
-    if (repoCode && hasManifest(repoCode.textContent)) return {found: true};
+    if (repoCode && hasManifest(repoCode.textContent)) return true;
     // 3. GitLab snippets
     var holders = document.querySelectorAll('.file-holder');
     for (var i = 0; i < holders.length; i++) {
       var pre = holders[i].querySelector('pre');
-      if (pre && hasManifest(pre.textContent)) return {found: true};
+      if (pre && hasManifest(pre.textContent)) return true;
     }
     // 4. Generic <pre>
     var pres = document.querySelectorAll('pre');
     for (var i = 0; i < pres.length; i++) {
-      if (hasManifest(pres[i].textContent)) return {found: true};
+      if (hasManifest(pres[i].textContent)) return true;
     }
     // 5. Textareas
     var textareas = document.querySelectorAll('textarea');
     for (var i = 0; i < textareas.length; i++) {
-      if (hasManifest(textareas[i].value)) return {found: true};
+      if (hasManifest(textareas[i].value)) return true;
     }
-    return {found: false};
+    return false;
   }"))
 
 (defn poll-until

@@ -565,13 +565,11 @@
 
 (defn- test-installer-scan-delays-is-ascending []
   (let [delays bg/installer-scan-delays]
-    (-> (expect (apply < delays))
+    (-> (expect (apply <= delays))
         (.toBe true))))
 
 (defn- test-installer-scan-delays-is-bounded []
   (let [delays bg/installer-scan-delays]
-    (-> (expect (<= (count delays) 5))
-        (.toBe true))
     (-> (expect (<= (last delays) 5000))
         (.toBe true))))
 

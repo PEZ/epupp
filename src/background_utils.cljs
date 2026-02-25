@@ -170,4 +170,4 @@
   "Bounded retry schedule for scanning tabs for userscript blocks.
    Starts immediately (0ms), then retries at increasing intervals to catch
    DOM elements that appear after page load (e.g. GitLab .file-holder)."
-  [0 300 1000 3000])
+  [0 100 100 100 300 300 300 1000 1000 1000 3000 3000])
