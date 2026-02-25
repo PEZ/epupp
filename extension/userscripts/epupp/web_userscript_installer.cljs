@@ -797,6 +797,19 @@
   margin: 0;
 }
 
+.epupp-overlay-parent {
+  position: relative !important;
+}
+
+.epupp-overlay-parent.is-textarea-wrapper {
+  display: inline-block;
+}
+
+.epupp-overlay-parent.is-textarea-wrapper .epupp-btn-container.is-overlay-inset {
+  top: 5px;
+  right: 5px;
+}
+
 .epupp-install-btn .epupp-icon {
   flex-shrink: 0;
   margin: -1px 0;
@@ -904,12 +917,18 @@
             (render-button-into-container! btn-container block-data))))
 
       :overlay-inset
-      (let [;; textarea can't have children - use parent as container
+      (let [;; textarea can't have children - wrap in a positioned div
             target (if (= "TEXTAREA" (.-tagName element))
-                     (.-parentElement element)
+                     (let [wrapper (js/document.createElement "div")
+                           parent (.-parentElement element)]
+                       (.add (.-classList wrapper) "epupp-overlay-parent" "is-textarea-wrapper")
+                       (.insertBefore parent wrapper element)
+                       (.appendChild wrapper element)
+                       wrapper)
                      element)]
-        (when-not (.querySelector target ".epupp-btn-container")
-          (set! (.. target -style -position) "relative")
+        (when-not (.querySelector target (str "[data-epupp-script='" script-name "']"))
+          (when-not (.contains (.-classList target) "epupp-overlay-parent")
+            (.add (.-classList target) "epupp-overlay-parent"))
           (let [btn-container (create-button-container! tag script-name (:id block-data))]
             (.add (.-classList btn-container) "is-overlay-inset")
             (.appendChild target btn-container)
