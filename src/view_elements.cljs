@@ -71,12 +71,14 @@
   [{:elements/keys [wrapper-class sponsor-status on-sponsor-click
                     creator-menu-open? on-creator-trigger-click on-creator-menu-close]}]
   [:div {:class (str "app-footer " wrapper-class)}
+   [:div.footer-version
+    "Epupp " (.-version (.getManifest js/chrome.runtime))]
    [:div.footer-powered
-    "Epupp " (.-version (.getManifest js/chrome.runtime)) ". Powered by "
-    [:a {:href "https://github.com/babashka/scittle"
-         :target "_blank"
-         :title "Scittle - Small Clojure Interpreter exposed for script tags"}
-     "Scittle"]]
+       "Powered by "
+       [:a {:href "https://github.com/babashka/scittle"
+            :target "_blank"
+            :title "Scittle - Small Clojure Interpreter exposed for script tags"}
+        "Scittle"]]
    [:div.footer-logos
     [:a {:href "https://github.com/babashka/sci"
          :target "_blank"
