@@ -62,6 +62,8 @@ The web installer detects userscript manifests on code hosting pages and adds in
 
 See [web-installer.md](web-installer.md) for the full architecture, including the background scanning pipeline, page-side detection, format specs, SPA navigation support, and security model.
 
+**Timing mystery**: The end-to-end time from navigation to visible install buttons varies significantly between builds in ways that don't correlate with code changes. The page-side installer itself is consistently fast (5-35ms from init to buttons), yet user-perceived delay can range from near-instant to over a second. The injection pipeline (Scittle loading, bridge setup, library injection, namespace verification) is the likely variable, but the exact cause of the inconsistency is not yet understood.
+
 ```mermaid
 flowchart TD
     NAV["Navigation event"] --> CHECK{"Origin whitelisted?\nInstaller enabled?\nTab not injected?"}
