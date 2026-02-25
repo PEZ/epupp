@@ -5,9 +5,9 @@ A web browser extension that lets you tamper with web pages, live and/or with us
 Epupp has two modes of operation:
 
 1. **Live REPL connection from your editor to the web page**, letting you inspect and modify the page on the fly, with or without the assistance of an AI agent.
-2. **Userscripts**: Tampermonkey style. Target all websites, or any subset of the web's pages, with prepared scripts that modify or query information from the page. Userscripts can be configured to start before the page loads (`document-start`), when the DOM is ready but resources are still loading (`document-end`), or after everything has settled (`document-idle`).
+2. **Userscripts**: [Tampermonkey](https://www.tampermonkey.net) style. Target all websites, or any subset of the web's pages, with prepared scripts that modify or query information from the page. Userscripts can be configured to start before the page loads (`document-start`), when the DOM is ready but resources are still loading (`document-end`), or after everything has settled (`document-idle`).
 
-The two form a powerful pair. The live REPL connection, while happily supporting one-off changes or data extractions, is also a very efficient means to interactively develop userscripts.
+The two form a powerful pair. The live REPL connection, while happily supporting one-off changes or data extractions, is also a very efficient and fun means to interactively develop userscripts.
 
 ## Example Epupp Use Cases
 
@@ -44,8 +44,8 @@ With the live REPL connection, you will discover use cases you may not ever have
 ### Install
 
 1. Install Epupp from the Chrome and Firefox extension/addon stores.
-    * Chrome Web Store: https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei
-    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/
+    * Chrome Web Store: [Epupp: Live Tamper Your Web](https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei)
+    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/ (Please note that I haven't yet figured out all Firefox nuances, so some things may not work. Please file issues for things you note not working.)
     * <details>
       <summary>Safari</summary>
 
@@ -54,8 +54,9 @@ With the live REPL connection, you will discover use cases you may not ever have
       Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/epupp/releases). In the case of Safari, download `epupp-safari.zip`. Then in Safari:
       1. Open **Settings** -> **Developer**
       2. Click **Add Temporary Extension...**
-      </details>
 
+      Please note that I haven't yet figured out all Safari nuances, so some things may not work. Please file issues for things you note not working.
+      </details>
 2. Pin Epupp to always be visible in the browser location bar. I also recommend to allow Epupp in Private Browsing for maximum utility. The Extension does not collect any data whatsoever.
 3. Navigate away from the extension store, these pages can't be scripted.
 
@@ -79,15 +80,52 @@ Create a userscript and run it in some different ways:
 
 ### REPL: Hello World
 
-* https://github.com/PEZ/my-epupp-hq
+While the Epupp panel let's you script the page, Live Tampering comes to life when you are powered by your favorite development environment, which could be a code editor, an AI agent harness, or both. As the creator of [Calva](https://calva.io) I choose to describe how it can be done using [VS Code](https://code.visualstudio.com) + Calva, and with [VS Code Copilot](https://github.com/features/copilot) and [Calva Backseat Driver](https://github.com/BetterThanTomorrow/calva-backseat-driver).
 
+0. Install [Babashka](https://babashka.org) and VS Code. In VS Code, install the Calva extension
+1. On a GitHub page (this one will do fine), open the Epupp popup and, copy the browser-nrepl command line, using the default ports
+1. Paste the command line in a terminal and run it
+1. From the Epupp popup, click **Connect**
+1. In VS Code create a file `hello_world.cljs`
+1. Click the REPL button in the VS Code status bar and select **Connect to a running REPL in your project**
+1. In the file, type:
+   ```clojure
+   (js/alert "Hello World!")
+   ```
+   And press <kbd>alt</kbd>+<kbd>enter</kbd> <br>
+   (The <kbd>alt</kbd> key is sometimes labeled <kbd>opt</kbd> or <kbd>option</kbd>.)
+1. Replace the contents of the file with:
+   ```clojure
+     ;; Make the GitHub logo spin!
+     (when-let [logo (js/document.querySelector ".octicon-mark-github")]
+       (set! (.. logo -style -animation) "spin 2s linear infinite")
+       ;; Add the keyframes for spinning
+       (let [style (js/document.createElement "style")]
+         (set! (.-textContent style)
+               "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }")
+         (.appendChild js/document.head style)))
+   ```
+   Press <kbd>alt</kbd>+<kbd>enter</kbd>. The GitHub icon should start spinning.
+
+Note: The <kbd>alt</kbd>+<kbd>enter</kbd> shortcut evaluates the current top level form/expression, which in the above cases happen to be everything in the file. If you are new to Clojure, for now you can think about it as executing the code in the connected browser tab. Please visit [calva.io](https://calva.io) for how to use and get started with Calva (and Clojure).
+
+### AI Agent: Hello World
+
+As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to connect an AI agent using VS Code, Copilot and Calva Backseat Driver.
+
+0. In addition to the above, install Copilot and Calva Backseat Driver to VS Code.
+1.
+
+<!--
+* https://github.com/PEZ/my-epupp-hq
+-->
 
 ### Install a userscript
 
 An Epupp userscript is just a text file which starts with a script manifest and some code. You can install scripts in three ways:
 
 1. Pasting/typing a script in the Epupp panel and clicking **Save Script**.
-2. The web page installer script. The extension has a built-in script that will identify Epupp script and add an **Install** button near the script on the page. Click the button to install the script.
+2. The **Web Userscript Installer** script. The extension has a built-in script that will identify Epupp script and add an **Install** button near the script on the page. Click the button to install the script. Try it on this gist: [pez/selector_inspector.cljs](https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e)
 3. Using the REPL. There's a `epupp.fs` namespace for listing/reading/writing/renaming scripts in the Epupp extension storage.
 
 ## The Epupp UI
@@ -100,10 +138,27 @@ The UI has three main components:
 
 ### Popup
 
+The popup has the following sections:
+
+1. **REPL Connect**. Shows how to connect the current tab's REPL to your editor and/or AI agent. Also shows which tabs are currently connected.
+2. Userscripts sections:
+   * **Manual/on-demand**. Scripts that do not auto-run on any page, use the **play** button to run them.
+   * **Auto-run for this page**. Scripts that has an `:epupp/auto-run-match` pattern than matches the current page.
+   * *Auto-run not matching this page*. Scripts that auto-runs on some other pages, but not the current one.
+   * **Special**. Built-in scripts that has some special way of being triggered to start. (Currently only the **Web Userscript Installer**)
+3. **Settings**. Let's you configure default REPL ports, REPL auto-connect/reconnect behavior, Script/FS sync enablement, diagnostics logging. There's also a userscript export/import feature here.
+
 ### Panel
+
+The Browser Development Tools panel lets you evaluate code (whole scripts or selected expressions) in the current page. You can also save userscripts from here, provided the script starts with a proper Epupp Userscript Manifest.
 
 ### REPL
 
+The REPL connection is there so that you can connect your code editor and/or AI agent harness to Epupp and live tamper the connected tabs. The system has these components:
+
+* The Epupp **REPL** (a program running in the browser that can evaluate/execute Epupp/Scittle code in the connected tab's environment). The Epupp REPL listens to messages over a WebSocket.
+* The **browser-nrepl** relay. This is a program you run on your computer that relays between the **REPL client** (using the nREPL protocol) and the connected browser tab (the WebSocket).
+* The **REPL client**. Really the **nREPL** client. A program connecting software such as editors and AI agent harnesses to an nREPL server (the browser-nrepl relay, in this case). In the [REPL: Hello World](#repl-hello-world) example above the nREPL Client is Calva.
 
 ## Userscripts Usage
 
@@ -117,7 +172,7 @@ There is a script “editor” (a textarea) in the Development Tools tab named *
 
 Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
 
-### Using Scittle Libraries
+### Using [Scittle](https://github.com/babashka/scittle) Libraries
 
 Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
@@ -143,8 +198,8 @@ Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 | `scittle://promesa.js` | `promesa.core` |
 | `scittle://replicant.js` | Replicant UI library |
 | `scittle://js-interop.js` | `applied-science.js-interop` |
-| `scittle://reagent.js` | Reagent + React |
-| `scittle://re-frame.js` | Re-frame (includes Reagent) |
+| `scittle://reagent.js` | [Reagent](https://reagent-project.github.io) + React |
+| `scittle://re-frame.js` | [Re-frame](https://github.com/day8/re-frame) (includes Reagent) |
 | `scittle://cljs-ajax.js` | `cljs-http.client` |
 
 Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
