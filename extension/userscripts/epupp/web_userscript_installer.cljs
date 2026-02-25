@@ -29,6 +29,10 @@
          :mutation-debounce-timeout nil
          :scan-in-progress? false}))
 
+(defn- perf-log! [label]
+  (when-let [t0 (:perf/t0 @!state)]
+    (js/console.log (str "[Installer perf] " label ": " (.toFixed (- (js/performance.now) t0) 1) "ms"))))
+
 (def retry-delays [50 100 100 300 300 300 1000 1000 1000 3000 3000])
 
 (defn find-block-by-id [state block-id]
@@ -933,7 +937,9 @@
           (when-not (and existing-id (pos? (count existing-id)))
             (aset element "id" block-id))
           (try
+            (perf-log! (str "check-status start: " script-name))
             (let [install-state (await (check-script-status!+ script-name code-text))]
+              (perf-log! (str "check-status done: " script-name " -> " install-state))
               (create-and-attach-block! block-info block-id manifest code-text install-state))
             (catch :default e
               (js/console.error "[Web Userscript Installer] Error checking script status:" script-name e)
@@ -942,6 +948,7 @@
 (defn ^:async scan-code-blocks! []
   (when-not (:scan-in-progress? @!state)
     (swap! !state assoc :scan-in-progress? true)
+    (perf-log! "scan-code-blocks! start")
     (try
       (let [all-blocks (detect-all-code-blocks)
             unprocessed (filter #(not (.getAttribute (:element %) "data-epupp-processed")) all-blocks)]
@@ -950,8 +957,10 @@
           (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
         ;; Process all unprocessed blocks concurrently
         (try
+          (perf-log! (str "processing " (count unprocessed) " blocks"))
           (await (js/Promise.all
                   (to-array (map #(process-code-block!+ %) unprocessed))))
+          (perf-log! (str "scan complete: " (count (:blocks @!state)) " blocks found"))
           (when-let [marker (js/document.getElementById "epupp-installer-debug")]
             (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
           (catch :default error
@@ -1041,6 +1050,7 @@
    before re-scanning to prevent stale buttons after SPA navigation.
    Sets up a MutationObserver to catch late-arriving DOM elements."
   [!state]
+  (perf-log! "rescan!")
   (when-let [timeout-id (:pending-retry-timeout @!state)]
     (js/clearTimeout timeout-id))
   (cleanup-buttons! !state)
@@ -1050,7 +1060,7 @@
 
 (defn ^:async init! [!db]
   (when-not (:initialized? @!db)
-    (swap! !db assoc :initialized? true)
+    (swap! !db assoc :initialized? true :perf/t0 (js/performance.now))
     (let [state @!db]
       (js/console.log "[Web Userscript Installer] Initializing...")
 

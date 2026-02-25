@@ -136,6 +136,18 @@ Each format has a spec controlling button attachment:
 
 The `:scan-in-progress?` flag in `!state` prevents overlapping scans. This guards against the MutationObserver triggering a scan while `scan-with-retry!` is still running.
 
+### Page-Side Performance
+
+The page-side installer is extremely fast once Scittle evaluates it. Instrumentation (`perf-log!` keyed to `:perf/t0` in `!state`) shows the full cycle from `init!` to buttons rendered typically completes in under 35ms:
+
+| Phase | Typical Time |
+|-------|-------------|
+| `init!` to `rescan!` | < 1ms |
+| `rescan!` to `scan-code-blocks!` | ~1ms |
+| DOM detection + manifest extraction | ~1ms |
+| `check-script-status!+` round-trip (per block, parallel) | 2-30ms |
+| **Total: init to buttons visible** | **5-35ms** |
+
 ### SPA Navigation Support
 
 Uses the `window.navigation` API to detect `pushState` navigations (GitHub/GitLab SPAs):
