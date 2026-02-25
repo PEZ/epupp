@@ -130,11 +130,18 @@ Each format has a spec controlling button attachment:
 ### Scan Pipeline
 
 1. `rescan!` - entry point, clears existing buttons and state, then scans
-2. `scan-with-retry!` - scans with page-side retry delays `[100, 1000, 3000ms]`
-3. `scan-code-blocks!` - detects blocks, processes unprocessed ones in parallel
-4. `process-code-block!+` - extracts manifest, checks script status via message to background, creates button
+2. `scan-with-retry!` - scans with retry backoff when new blocks aren't found but unprocessed blocks exist
+3. `scan-code-blocks!` - detects blocks, processes unprocessed ones in parallel, returns count of new blocks or `:done`
+4. `process-code-block!+` - marks element as processed, extracts manifest, checks script status via message to background, creates button
 
-The `:scan-in-progress?` flag in `!state` prevents overlapping scans. This guards against the MutationObserver triggering a scan while `scan-with-retry!` is still running.
+All code block elements are marked `data-epupp-processed` immediately on first encounter, whether or not they contain a manifest. This prevents non-manifest blocks from triggering endless retries.
+
+The retry logic distinguishes three outcomes:
+- **New blocks found** (positive number) - scan succeeded, no retry needed
+- **Zero new blocks but had unprocessed elements** (0) - content may still be loading, retry with backoff
+- **No unprocessed elements at all** (`:done`) - nothing to wait for, stop retrying
+
+The `:scan-in-progress?` flag in `!state` prevents overlapping scans.
 
 ### Page-Side Performance
 
@@ -159,7 +166,14 @@ Uses the `window.navigation` API to detect `pushState` navigations (GitHub/GitLa
 
 ### MutationObserver
 
-Watches `document.body` for late-arriving `.file-holder` and `.markdown-code-block` elements (GitLab lazy-loading). Debounced at 250ms. Skipped when a scan is already in progress.
+Watches `document.body` for DOM changes relevant to code block detection. Triggers `scan-with-retry!` (with full retry support) debounced at 250ms.
+
+Relevance check (`has-relevant-elements?`) matches added nodes that:
+- **Are** a `.file-holder` or `.markdown-code-block`
+- **Contain** one (ancestor added a subtree)
+- **Are inside** one (child content loaded into existing container)
+
+The third case is critical for GitLab snippets, where the `.file-holder` container exists in the initial DOM but its `<pre>` content is lazy-loaded as a child mutation.
 
 ### Install Flow
 

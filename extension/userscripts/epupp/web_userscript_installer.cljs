@@ -947,10 +947,11 @@
 
 (defn ^:async scan-code-blocks!
   "Scan DOM for code blocks, process unprocessed ones in parallel.
-   Returns the number of new blocks found in this scan."
+   Returns the number of new blocks found, or :done when there are
+   no unprocessed blocks (retrying would be pointless)."
   []
   (if (:scan-in-progress? @!state)
-    0
+    :done
     (do
       (swap! !state assoc :scan-in-progress? true)
       (perf-log! "scan-code-blocks! start")
@@ -961,30 +962,35 @@
           ;; Debug: set marker with scan info
           (when-let [marker (js/document.getElementById "epupp-installer-debug")]
             (set! (.-textContent marker) (str "Scanning: " (count all-blocks) " code blocks, " (count unprocessed) " unprocessed")))
-          ;; Process all unprocessed blocks concurrently
-          (try
-            (perf-log! (str "processing " (count unprocessed) " blocks"))
-            (await (js/Promise.all
-                    (to-array (map #(process-code-block!+ %) unprocessed))))
-            (let [new-found (- (count (:blocks @!state)) blocks-before)]
-              (perf-log! (str "scan complete: " new-found " new, " (count (:blocks @!state)) " total"))
-              (when-let [marker (js/document.getElementById "epupp-installer-debug")]
-                (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
-              new-found)
-            (catch :default error
-              (js/console.error "[Web Userscript Installer] Scan error:" error)
-              0)))
+          (if (empty? unprocessed)
+            (do (perf-log! "processing 0 blocks - done")
+                :done)
+            ;; Process all unprocessed blocks concurrently
+            (try
+              (perf-log! (str "processing " (count unprocessed) " blocks"))
+              (await (js/Promise.all
+                      (to-array (map #(process-code-block!+ %) unprocessed))))
+              (let [new-found (- (count (:blocks @!state)) blocks-before)]
+                (perf-log! (str "scan complete: " new-found " new, " (count (:blocks @!state)) " total"))
+                (when-let [marker (js/document.getElementById "epupp-installer-debug")]
+                  (set! (.-textContent marker) (str "Scan complete: " (count (:blocks @!state)) " blocks found")))
+                new-found)
+              (catch :default error
+                (js/console.error "[Web Userscript Installer] Scan error:" error)
+                0))))
         (finally
           (swap! !state assoc :scan-in-progress? false))))))
 
 (defn ^:async scan-with-retry!
   "Scan for code blocks, retry with backoff if no new blocks found.
+   Stops retrying when scan returns :done (nothing unprocessed).
    Pending retries are cancelled by rescan! via clearTimeout."
   ([] (scan-with-retry! 0))
   ([retry-index]
    (try
-     (let [new-found (await (scan-code-blocks!))]
-       (when (and (zero? new-found)
+     (let [result (await (scan-code-blocks!))]
+       (when (and (not= :done result)
+                  (zero? result)
                   (< retry-index (count retry-delays)))
          (let [delay (nth retry-delays retry-index)
                timeout-id (js/setTimeout
