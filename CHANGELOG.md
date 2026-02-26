@@ -2,7 +2,22 @@
 
 Changes to Epupp
 
+![Epupp logo/symbol](epupp-symbol-128x128.png)
+
 ## [Unreleased]
+
+- New name, **Epupp: Live Tamper your Web**
+- Userscripts, [Tampermonkey](https://www.tampermonkey.net/) style (albeit a much smaller take on it)
+  - Scripts can be auto-run based on patterns, or manual (you click the play button to run them)
+  - Scripts can start at different points in the page load life cycle, before, during, and after. (After is default)
+  - Scripts can inject all Scittle libraries
+  - There is a Browser Development Tools panel for editing userscripts and trying out code on the current page
+- Major update to the REPL connect
+  - Connect any number of tabs
+  - You can auto-re-connect the current tab as you navigate
+  - You can auto-connect any tab you visit
+  - There is a filesystem REPL API for syncing your scripts between Epupp and your computer
+
 
 ## [0.0.6] - 2026-01-01
 
