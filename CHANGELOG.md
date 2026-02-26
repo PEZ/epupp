@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-02-26
+
 - New name, **Epupp: Live Tamper your Web**
 - Userscripts, [Tampermonkey](https://www.tampermonkey.net/) style (albeit a much smaller take on it)
   - Scripts can be auto-run based on patterns, or manual (you click the play button to run them)
