@@ -160,34 +160,36 @@ The REPL connection is there so that you can connect your code editor and/or AI 
 * The **browser-nrepl** relay. This is a program you run on your computer that relays between the **REPL client** (using the nREPL protocol) and the connected browser tab (the WebSocket).
 * The **REPL client**. Really the **nREPL** client. A program connecting software such as editors and AI agent harnesses to an nREPL server (the browser-nrepl relay, in this case). In the [REPL: Hello World](#repl-hello-world) example above the nREPL Client is Calva.
 
+The procedure to connect a browser tab to your editor is:
+
+1. **Start the browser-nrepl relay** (you can copy the command from the Epupp extension popup)
+2. **Connect the browser tab**: Click **Connect** in the Epupp popup
+3. **Connect your editor/AI harness**: This will depend on what editor/harness you use. _TL;DR_: You need a Clojure plugin/extension for your coding editor, and/or some Clojure hook or MCP server for your AI agent. (See above for using VS Code and Calva.)
+
+To make this easier to get going I have created a template project with some configuration and instructions for humans and Ais: https://github.com/PEZ/my-epupp-hq
+
 ## Userscripts Usage
 
-> [!NOTE]
-> Currently super **experimental**. I am fumbling quite a bit over the UI/Ux and APIs.
+There is a script “editor” (a textarea) in the Development Tools tab named **Epupp**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script.
 
-There is a script “editor” (a textarea) in the Development Tools tab named **Epupp**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script. For this you need to also fill in:
-
-* Script name: (Whatever for now, this is one of the things I am undecided about)
-* Site pattern: a Tampermonkey compatible pattern targeting the sites where this script should be auto-injected and run.
-
-Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) It will also start as not enabled and not approved. Approve it and it will be run on any page you visit matching the site pattern.
+Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) If the script manifest specifuies an `:epupp/auto-run-match` pattern, it will need to be enabled in order for the pattern to trigger the script. (All scripts start disabled.)
 
 ### Using [Scittle](https://github.com/babashka/scittle) Libraries
 
 Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
 ```clojure
-{:epupp/script-name "reagent_widget.cljs"
+{:epupp/script-name "replicant_widget.cljs"
  :epupp/auto-run-match "*"
- :epupp/inject ["scittle://reagent.js"]}
+ :epupp/inject ["scittle://replicant.js"]}
 
-(ns reagent-widget
-  (:require [reagent.core :as r]
-            [reagent.dom :as rdom]))
+(ns replicant-widget
+  (:require [replicant.dom :as r]))
 
-(rdom/render [:h1 "Hello from Reagent!"]
-             (doto (js/document.createElement "div")
-               (->> (.appendChild js/document.body))))
+(r/render
+ (doto (js/document.createElement "div")
+   (->> (.appendChild js/document.body)))
+ [:h1 "Hello from Replicant!"])
 ```
 
 **Available libraries:**
@@ -206,27 +208,11 @@ Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and Re
 
 For script timing, more library details, and examples, see the [User Guide](docs/user-guide.md).
 
-## REPL Usage
-
-### Prerequisites
-
-1. [Babashka](https://babashka.org)
-2. A REPL client (such as a Clojure editor, like [Calva](https://calva.io))
-
-On the web page where you want to jack-in your REPL client: open the **Epupp** extension
-and follow the 1-2-3 step instructions.
-
-![Epupp Popup UI](docs/epupp-screenshot.png)
-
-Step **1** let's you copy a Babashka command line that starts the browser-nrepl server, which is sort of a relay between your editor and the browser page.
-
-> [!NOTE]
-> The extension does not tamper with the web pages until you connect the REPL. Once that is done the you evaluate code in the page context. It's similar to using the console in the development tools, but you do it from your editor, and instead of JavaScript you use ClojureScript.
-
 ### Demo
 
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
 
+(Very outdated, I will record a new demo soon!)
 
 ### REPL Troubleshooting
 
@@ -279,4 +265,4 @@ To build and hack on the extension, see the [development docs](dev/docs/dev.md).
 
 Epupp is created and maintained by Peter Strömberg a.k.a PEZ, and provided as open source and is free to use. A lot of my time is spent on bringing Epupp and related software to you, and keeping it supported, working and relevant.
 
-* Please consider [sponsoring my open source work](https://github.com/sponsors/PEZ).
+* Please consider [sponsoring Epupp](https://github.com/sponsors/PEZ).
