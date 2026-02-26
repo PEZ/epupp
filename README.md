@@ -88,6 +88,7 @@ While the Epupp panel let's you script the page, Live Tampering comes to life wh
 1. From the Epupp popup, click **Connect**
 1. In VS Code create a file `hello_world.cljs`
 1. Click the REPL button in the VS Code status bar and select **Connect to a running REPL in your project**
+1. Select **scittle** from the Project Types menu
 1. In the file, type:
    ```clojure
    (js/alert "Hello World!")
