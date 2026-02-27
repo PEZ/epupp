@@ -118,10 +118,13 @@ Note: The <kbd>alt</kbd>+<kbd>enter</kbd> shortcut evaluates the current top lev
 
 ### AI Agent: Hello World
 
-As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to connect an AI agent using VS Code, Copilot and Calva Backseat Driver.
+As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to connect an AI agent using VS Code, Copilot and Calva Backseat Driver. See https://github.com/PEZ/my-epupp-hq for a growing list of instructions for other AI harnesses.
 
 0. In addition to the above, install Copilot and Calva Backseat Driver to VS Code.
-1.
+1. Ask Copilot to try the Epupp REPL to do something fun.
+
+> [!NOTE]
+> Copilot will need to know some basics about Epupp to be really effective with it. Consider copying the https://github.com/PEZ/my-epupp-hq template project and use that as a start for you and your AI to explore the Epupp REPL with.
 
 
 ### Install a userscript
