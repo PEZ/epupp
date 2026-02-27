@@ -9,6 +9,12 @@ Epupp has two modes of operation:
 
 The two form a powerful pair. The live REPL connection, while happily supporting one-off changes or data extractions, is also a very efficient and fun means to interactively develop userscripts.
 
+> [!NOTE]
+> To make this easier to get started with, and using, I have created a template project with some configuration and instructions for humans and AIs:
+> * https://github.com/PEZ/my-epupp-hq
+>
+> But please read this below first.
+
 ## Example Epupp Use Cases
 
 **Custom Data Dashboards**:
@@ -117,9 +123,6 @@ As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to co
 0. In addition to the above, install Copilot and Calva Backseat Driver to VS Code.
 1.
 
-<!--
-* https://github.com/PEZ/my-epupp-hq
--->
 
 ### Install a userscript
 
@@ -167,7 +170,7 @@ The procedure to connect a browser tab to your editor is:
 2. **Connect the browser tab**: Click **Connect** in the Epupp popup
 3. **Connect your editor/AI harness**: This will depend on what editor/harness you use. _TL;DR_: You need a Clojure plugin/extension for your coding editor, and/or some Clojure hook or MCP server for your AI agent. (See above for using VS Code and Calva.)
 
-To make this easier to get going I have created a template project with some configuration and instructions for humans and Ais: https://github.com/PEZ/my-epupp-hq
+See https://github.com/PEZ/my-epupp-hq for a template project that you can use to keep the Epupp REPL in easy reach.
 
 ## Userscripts Usage
 
