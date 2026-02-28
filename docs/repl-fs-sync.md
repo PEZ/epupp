@@ -2,40 +2,34 @@
 
 ## What is REPL FS Sync?
 
-REPL FS Sync lets you manage Epupp userscripts from your editor using REPL commands. Think of it as a bridge between your local files (where you have version control, your favorite editor, and your development workflow) and Epupp's installed scripts (which run in your browser tabs).
+REPL FS Sync lets you manage Epupp userscripts from your editor using REPL commands. You can read and write scripts in Epupp's storage without copy-pasting through the DevTools panel:
 
-Instead of copy-pasting code through the DevTools panel, you can:
-- Push scripts from your editor to Epupp: `(epupp.fs/save! code)`
-- Pull scripts from Epupp to your editor: `(epupp.fs/show "script.cljs")`
-- Manage scripts programmatically: rename, delete, list
+- Push scripts to Epupp: `(epupp.fs/save! code)`
+- Pull scripts from Epupp: `(epupp.fs/show "script.cljs")`
+- List, rename, delete: `(epupp.fs/ls)`, `(epupp.fs/mv! ...)`, `(epupp.fs/rm! ...)`
 
-## Why Does This Exist?
+The REPL channel already exists (you're using it to tamper). The FS API adds file operations on top of it.
 
-**Epupp is for live tampering** - you connect your editor's REPL to a web page and interactively modify it while you're using it. This is powerful for experimentation, but eventually you want to:
+## Prerequisites
 
-1. **Save your work** - That clever tamper you just wrote? Save it as a userscript so it runs automatically next time.
-2. **Edit installed scripts** - You have a userscript installed, but want to tweak it in your editor with all your tools.
-3. **Use version control** - Git, not browser storage. Your userscripts should live in your dotfiles repo.
-4. **Avoid complex sync infrastructure** - No DAV servers, no filesystem mounting, no background sync demons. Just REPL primitives you compose yourself.
+All FS operations require both:
+1. **FS REPL Sync** enabled for the tab ("Allow REPL FS Sync for this tab" checkbox in popup Settings)
+2. An **active REPL connection** for the tab
 
-The REPL channel already exists (you're using it to tamper). The FS API extends it with file-like operations.
+Only one tab can have FS sync enabled at a time. Enabling it on a new tab revokes it from the previous one. The toggle is disabled when no REPL connection is active.
 
-## How It Works
+FS sync is ephemeral - it auto-disables when the REPL disconnects or the browser restarts.
 
-### The Mental Model
+When either condition is not met, operations return an error:
 
-```
-Local Editor           REPL Channel          Epupp (Browser)
-─────────────          ────────────          ───────────────
-my_script.cljs   -->   (save! code)    -->   Installed script
-                                              (runs on matching pages)
-
-                  <--   (show "name")    <--
+```clojure
+(epupp.fs/save! new-code)
+;; => {:fs/success false :fs/error "FS Sync requires an active REPL connection and FS Sync enabled for this tab"}
 ```
 
-You control when to push and pull. There's no automatic sync - you decide.
+For REPL connection setup, see [REPL](../README.md#repl) in the README.
 
-### Basic Operations
+## Operations
 
 ```clojure
 ;; List all scripts
@@ -60,82 +54,15 @@ You control when to push and pull. There's no automatic sync - you decide.
 (epupp.fs/rm! "script.cljs")
 ```
 
-Return maps include only the documented `:fs/*` keys.
+Return maps use `:fs/*` keys.
 
-**Overwriting existing scripts:**
-
-Operations that would overwrite existing content fail, by default, but you can override.
+Overwrites fail by default. Pass `{:fs/force? true}` to allow:
 
 ```clojure
 (epupp.fs/save! code {:fs/force? true})
-;; Overwrites existing script with same name
 ```
 
-### The FS REPL Sync Setting
-
-All FS operations (`ls`, `show`, `save!`, `mv!`, `rm!`) require both:
-1. **FS REPL Sync** enabled for the tab ("Allow REPL FS Sync for this tab" checkbox in popup Settings)
-2. An **active REPL connection** (WebSocket) for the tab
-
-Only one tab can have FS sync enabled at a time. Enabling it on a new tab
-automatically revokes it from any previously enabled tab. The toggle is
-disabled in the popup when no REPL connection is active.
-
-FS sync is ephemeral - it auto-disables when the REPL disconnects or the
-browser restarts. It is not persisted across sessions.
-
-When either condition is not met, operations return an error:
-
-```clojure
-(epupp.fs/save! new-code)
-;; => {:fs/success false :fs/error "FS Sync requires an active REPL connection and FS Sync enabled for this tab"}
-```
-
-
-## Typical Workflows
-
-### Workflow 1: Save a Tamper as a Userscript
-
-You've been experimenting in the REPL, tampering with GitHub's UI. Now you want it to run every time:
-
-```clojure
-;; Your tamper code (with manifest at top)
-(def my-code
-  "{:epupp/script-name \"github-tweaks\"
-    :epupp/auto-run-match \"https://github.com/*\"}
-
-   (ns github-tweaks)
-   (js/console.log \"GitHub enhanced!\")")
-
-;; Save to Epupp
-(epupp.fs/save! my-code)
-
-;; Confirm in popup UI
-;; Next time you visit GitHub, script runs automatically
-```
-
-### Workflow 2: Edit an Installed Script
-
-You have a script installed, but want to edit it in VS Code:
-
-```clojure
-;; Pull script code
-(epupp.fs/show "github_tweaks.cljs")
-;; Copy output to local file
-
-;; Edit in your editor...
-
-;; Push changes back
-(epupp.fs/save! (slurp "~/epupp-scripts/github_tweaks.cljs"))
-```
-
-### Workflow 3: Sync a Directory (Future)
-
-With editor tooling, you could automate this to feel like a mounted directory. That's not built yet, but the primitives are here.
-
-## Async Operations
-
-All FS operations return promises. Use async/await for clean async code:
+All operations return promises. Use async/await:
 
 ```clojure
 (defn ^:async show-first-script []
@@ -145,49 +72,49 @@ All FS operations return promises. Use async/await for clean async code:
 (show-first-script)
 ```
 
-## FAQ
+## Typical Workflows
 
-### Why not just mount Epupp's script directory as a filesystem?
+### Save a REPL Experiment as a Userscript
 
-Browser extensions can't expose native filesystems. WebDAV or sync servers add complexity and dependencies. The REPL channel already exists for tampering - extending it with FS primitives is simple and composable.
-
-
-### What if I rename a script? Does it lose its enabled state or URL match?
-
-No. Scripts have internal IDs (timestamp-based). When you rename, the ID stays the same, so enabled state, URL match, and other metadata persist. Only the name changes.
-
-### Can I version control my scripts?
-
-Yes! That's the point. Store scripts in `~/.epupp/scripts/` or your dotfiles repo. Use Git. Push changes to Epupp via `save!` when you want them installed.
-
-### What's the script name format?
-
-Script names are normalized to `snake_case.cljs`:
-- `my-script` → `my_script.cljs`
-- `GitHub Tweaks` → `git_hub_tweaks.cljs`
-
-You can use paths: `github/tweaks.cljs`, `youtube/ad_blocker.cljs`
-
-### What happens if I save! without a manifest?
-
-The `save!` operation requires `:epupp/script-name` in the manifest (the map at the top of your code). Without it, the operation fails with an error.
-
-### How do I see what's in a script without pulling the whole file?
-
-Use `ls` to see metadata:
 ```clojure
-(epupp.fs/ls)
-;; Shows name, enabled state, URL match, description, modified timestamp
+(def my-code
+  "{:epupp/script-name \"github-tweaks\"
+    :epupp/auto-run-match \"https://github.com/*\"}
+
+   (ns github-tweaks)
+   (js/console.log \"GitHub enhanced!\")")
+
+(epupp.fs/save! my-code)
 ```
 
-For selective fields, filter the result with `select-keys` or use `cljs.pprint/print-table` for formatted output.
+The script appears in the popup. Enable it there for auto-run on matching pages.
+
+### Edit an Installed Script Locally
+
+```clojure
+;; Pull script code
+(epupp.fs/show "github_tweaks.cljs")
+;; Copy output to a local file, edit in your editor, then push back:
+(epupp.fs/save! (slurp "github_tweaks.cljs") {:fs/force? true})
+```
+
+### Directory Sync with my-epupp-hq
+
+The [my-epupp-hq](https://github.com/PEZ/my-epupp-hq) template project has bb tasks that wrap the FS API for working with a local directory of scripts:
+
+- `bb ls` - list scripts in Epupp
+- `bb download` - pull scripts to local files
+- `bb upload` - push local files to Epupp
+- `bb diff` - compare local vs Epupp storage
+
+(This is why the FS primitives exist - keep scripts in git, use Epupp as runtime storage.)
+
+See the [userscripts sync docs](https://github.com/PEZ/my-epupp-hq/blob/main/userscripts/README.md) for details.
 
 ## See Also
 
-- [User Guide - REPL Connection](user-guide.md#repl-connection) - How to connect your editor
-- [Examples](examples.md) - Code samples and patterns
-- API Reference (coming soon) - Detailed function signatures
-
----
+- [REPL connection setup](../README.md#repl) - How to connect your editor
+- [The Anatomy of a Userscript](../README.md#the-anatomy-of-a-userscript) - Manifest format and keys
+- [my-epupp-hq](https://github.com/PEZ/my-epupp-hq) - Template project for managing scripts locally
 
 **Status:** This feature is under active development.
