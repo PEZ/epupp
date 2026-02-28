@@ -86,7 +86,7 @@ Create a userscript and run it in some different ways:
 
 ### REPL: Hello World
 
-While the Epupp panel let's you script the page, Live Tampering comes to life when you are powered by your favorite development environment, which could be a code editor, an AI agent harness, or both. As the creator of [Calva](https://calva.io) I choose to describe how it can be done using [VS Code](https://code.visualstudio.com) + Calva, and with [VS Code Copilot](https://github.com/features/copilot) and [Calva Backseat Driver](https://github.com/BetterThanTomorrow/calva-backseat-driver).
+While the Epupp panel let's you script the page, Live Tampering comes to life when you are powered by your favorite development environment, which could be a code editor, an AI agent harness, or both. As the creator of [Calva](https://calva.io) I choose to describe how it can be done using [VS Code](https://code.visualstudio.com) + Calva, and with [VS Code Copilot](https://github.com/features/copilot) and [Calva Backseat Driver](https://github.com/BetterThanTomorrow/calva-backseat-driver). Please see [connecting-to-epupp](docs/connecting-to-epupp.md) README for info about connecting editors and AIs.
 
 0. Install [Babashka](https://babashka.org) and VS Code. In VS Code, install the Calva extension
 1. On a GitHub page (this one will do fine), open the Epupp popup and, copy the browser-nrepl command line, using the default ports
@@ -298,6 +298,41 @@ If your script is using `document-start`, you need to wait for the DOM if your c
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
 
 (Very outdated, I will record a new demo soon!)
+
+## REPL Pitfalls
+
+### Navigation Hangs the REPL
+
+On non-SPA sites, setting `js/window.location` (or clicking a link) from a REPL eval can tear down the page and its REPL. The eval response never returns - the connection hangs until you reconnect the repl. Very disruptive!
+
+**Fix: Defer navigation with `setTimeout`:**
+
+```clojure
+;; BAD - eval never completes, connection hangs
+(set! (.-location js/window) "https://example.com/page")
+
+;; GOOD - returns immediately, navigates after response completes
+(js/setTimeout
+  #(set! (.-location js/window) "https://example.com/page")
+  50)
+;; => timeout ID returned instantly
+```
+
+After navigation, wait for the new page to load and REPL to reconnect. All prior definitions will be gone - redefine utilities or bake them into a userscript.
+
+### Clipboard Access Blocked
+
+`navigator.clipboard.writeText` is often blocked, needing user gesture, due to permissions policy. Use a textarea workaround:
+
+```clojure
+(defn copy-to-clipboard! [text]
+  (let [el (js/document.createElement "textarea")]
+    (set! (.-value el) text)
+    (.appendChild js/document.body el)
+    (.select el)
+    (js/document.execCommand "copy")
+    (.removeChild js/document.body el)))
+```
 
 ## REPL Troubleshooting
 
