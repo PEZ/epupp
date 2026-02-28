@@ -213,17 +213,95 @@ Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
 Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
 
-For script timing, more library details, and examples, see the [User Guide](docs/user-guide.md).
+## The Anatomy of a Userscript
 
-### Demo
+An Epupp userscript starts with a manifest map, followed by ClojureScript code:
+
+```clojure
+{:epupp/script-name "github_tweaks.cljs"
+ :epupp/auto-run-match "https://github.com/*"
+ :epupp/description "Make the GitHub logo spin"
+ :epupp/run-at "document-idle"
+ :epupp/inject ["scittle://replicant.js"]}
+
+(ns github-tweaks)
+
+(when-let [logo (js/document.querySelector ".octicon-mark-github")]
+  (let [style (js/document.createElement "style")]
+    (set! (.-textContent style)
+          "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }")
+    (.appendChild js/document.head style))
+  (set! (.. logo -style -animation) "spin 2s linear infinite"))
+```
+
+The manifest is a plain Clojure map at the top of the file. Your code runs in the page context with full DOM and JavaScript environment access.
+
+### Manifest Keys
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `:epupp/script-name` | Yes | - | Filename, auto-normalized to `snake_case.cljs`. Cannot start with `epupp/` (reserved for built-in scripts). |
+| `:epupp/auto-run-match` | No | - | URL glob pattern(s). String or vector of strings. Omit for manual-only scripts. |
+| `:epupp/description` | No | - | Shown in the popup UI. |
+| `:epupp/run-at` | No | `"document-idle"` | When to run: `"document-start"`, `"document-end"`, or `"document-idle"`. |
+| `:epupp/inject` | No | `[]` | Scittle library URLs to load before the script runs. |
+
+Scripts with `:epupp/auto-run-match` start disabled. Enable them in the popup for auto-injection on matching pages. Scripts without this key only run when you click the Play button in the popup.
+
+Script names are auto-normalized to valid ClojureScript file names: `snake_case.cljs` (so `"My Cool Script"` becomes `my_cool_script.cljs`).
+
+Scripts can also be managed programmatically via the [FS API](docs/repl-fs-sync.md).
+
+### URL Patterns
+
+`:epupp/auto-run-match` uses glob syntax. `*` matches any characters:
+
+```clojure
+;; Single pattern
+{:epupp/auto-run-match "https://github.com/*"}
+
+;; Multiple patterns
+{:epupp/auto-run-match ["https://github.com/*"
+                        "https://gist.github.com/*"]}
+
+;; Match both http and https
+{:epupp/auto-run-match "*://example.com/*"}
+```
+
+### Script Timing
+
+Scripts can run at different points during page load:
+
+- `"document-idle"` (default) - After the page has fully loaded.
+- `"document-end"` - At DOMContentLoaded. DOM exists but images/iframes may still be loading.
+- `"document-start"` - Before any page JavaScript. `document.body` does not exist yet.
+
+If your script is using `document-start`, you need to wait for the DOM if your code needs it:
+
+```clojure
+{:epupp/script-name "early_intercept.cljs"
+ :epupp/run-at "document-start"}
+
+;; This runs before any page scripts
+(set! js/window.myGlobal "intercepted")
+
+;; Wait for DOM if needed
+(js/document.addEventListener "DOMContentLoaded"
+  (fn [] (js/console.log "Now DOM exists")))
+```
+
+> [!NOTE]
+> Safari does not support early script timing. Scripts always run at `document-idle` regardless of `:epupp/run-at`.
+
+## Demo
 
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
 
 (Very outdated, I will record a new demo soon!)
 
-### REPL Troubleshooting
+## REPL Troubleshooting
 
-#### No scripting for you at the Extensions Gallery
+### No scripting for you at the Extensions Gallery
 
 If you try to connect the REPL, immediatelly after installing, you may see a message that you can't script the extension gallery.
 
