@@ -214,7 +214,7 @@ Each `:epupp/run-at` value maps to a different injection mechanism:
 - **`document-start` / `document-end`**: Use Chrome content script registration. Scittle loads synchronously on all pages matching any early script's approved patterns, which adds overhead even if the script is later disabled (until registration cleanup).
 - **`document-idle`** (default): Uses `webNavigation.onCompleted` events. No content script registration - injection is on-demand per tab.
 
-See the [user guide](../../../docs/user-guide.md) for guidance on choosing timing.
+See the [README](../../../README.md#script-timing) for guidance on choosing timing.
 
 ### How Early vs Idle Injection Differs
 

@@ -8,7 +8,7 @@ The simplest userscript - shows a message on any page.
 
 ```clojure
 {:epupp/script-name "hello_world.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/description "Shows a greeting in the console"}
 
 (js/console.log "Hello from Epupp!")
@@ -20,7 +20,7 @@ Add a floating badge to any page.
 
 ```clojure
 {:epupp/script-name "floating_badge.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/description "Adds a floating badge to the page"}
 
 (let [badge (js/document.createElement "div")]
@@ -40,8 +40,8 @@ Using Reagent to render a React component.
 
 ```clojure
 {:epupp/script-name "reagent_demo.cljs"
- :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]
+ :epupp/auto-run-match "*"
+ :epupp/inject ["scittle://reagent.js"]
  :epupp/description "Renders a Reagent component"}
 
 (ns reagent-demo
@@ -78,7 +78,7 @@ This script runs **before** any page JavaScript, allowing it to intercept networ
 
 ```clojure
 {:epupp/script-name "fetch_interceptor.cljs"
- :epupp/site-match "*"
+ :epupp/auto-run-match "*"
  :epupp/run-at "document-start"
  :epupp/description "Intercepts fetch requests before page scripts run"}
 
@@ -105,8 +105,8 @@ This script runs **after** the page loads and displays the data collected by Scr
 
 ```clojure
 {:epupp/script-name "fetch_dashboard.cljs"
- :epupp/site-match "*"
- :epupp/require ["scittle://reagent.js"]
+ :epupp/auto-run-match "*"
+ :epupp/inject ["scittle://reagent.js"]
  :epupp/description "Displays intercepted fetch requests"}
 
 (ns fetch-dashboard
@@ -161,8 +161,8 @@ Using pprint for debugging.
 
 ```clojure
 {:epupp/script-name "debug_helper.cljs"
- :epupp/site-match "*"
- :epupp/require ["scittle://pprint.js"]
+ :epupp/auto-run-match "*"
+ :epupp/inject ["scittle://pprint.js"]
  :epupp/description "Pretty prints page data for debugging"}
 
 (ns debug-helper
