@@ -132,7 +132,7 @@ As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to co
 An Epupp userscript is just a text file which starts with a script manifest and some code. You can install scripts in three ways:
 
 1. Pasting/typing a script in the Epupp panel and clicking **Save Script**.
-2. The **Web Userscript Installer** script. The extension has a built-in script that will identify Epupp script and add an **Install** button near the script on the page. Click the button to install the script. Try it on this gist: [pez/selector_inspector.cljs](https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e)
+2. The **Web Userscript Installer** script. The extension has a built-in script that will identify Epupp scripts on code-hosting pages and add an **Install** button near them. On whitelisted domains (GitHub, GitHub Gists, GitLab, Codeberg, localhost) it can install scripts into Epupp. On other sites, it shows copy-paste instructions instead. Try it on this gist: [pez/selector_inspector.cljs](https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e)
 3. Using the REPL. There's a `epupp.fs` namespace for listing/reading/writing/renaming scripts in the Epupp extension storage.
 
 ## The Epupp UI
@@ -153,11 +153,37 @@ The popup has the following sections:
    * **Auto-run for this page**. Scripts that has an `:epupp/auto-run-match` pattern than matches the current page.
    * *Auto-run not matching this page*. Scripts that auto-runs on some other pages, but not the current one.
    * **Special**. Built-in scripts that has some special way of being triggered to start. (Currently only the **Web Userscript Installer**)
-3. **Settings**. Let's you configure default REPL ports, REPL auto-connect/reconnect behavior, Script/FS sync enablement, diagnostics logging. There's also a userscript export/import feature here.
+3. **Settings**. Click the gear icon.
+
+#### Script Management
+
+Use the eye icon to load a script into the panel editor. From there it's the usual loop: edit, save, test.
+
+Rename by changing `:epupp/script-name` in the manifest and saving. Copying is the same trick: give `:epupp/script-name` a new name and save, and you get a new script.
+
+Built-in scripts are readable but not editable in place. Inspect one, copy it, rename it, then make it yours.
+
+#### Settings
+
+**Auto-reconnect** is per tab: if a tab was connected before reload/navigation, Epupp re-establishes the connection. Tabs that were never connected stay that way.
+
+**Auto-connect REPL** makes Epupp try to connect right away on all pages you open.
+
+**Allow REPL FS Sync for this tab** turns on `epupp.fs` for that tab. Enabling sync gives access to code on that tab to install userscripts. Only enable this on a page you trust. See [REPL FS Sync](docs/repl-fs-sync.md) for the API.
+
+**Diagnostics logging** adds noisy logs for when things are weird.
+
+**Export / Import** is for backups and moving scripts/settings between browser profiles or machines.
 
 ### Panel
 
-The Browser Development Tools panel lets you evaluate code (whole scripts or selected expressions) in the current page. You can also save userscripts from here, provided the script starts with a proper Epupp Userscript Manifest.
+The Browser Development Tools panel you can create and experiment with userscripts.
+
+**New** clears the editor, with a safety prompt if you have unsaved changes. **Save Script** stores the script, as long as it starts with a valid manifest map.
+
+Use **Eval Script** to run the whole editor buffer. `Ctrl/Cmd+Enter` / `Cmd+Enter` runs selection if you have one, otherwise the whole script. This is the fastest feedback loop in Epupp (without editor connection): define a helper, select just the call, press `Ctrl/Cmd+Enter`, inspect the result, repeat.
+
+Results show up below the script textarea - both what ran and what came back (or the error). Use **Clear** when you want a clean slate.
 
 ### REPL
 
@@ -175,43 +201,9 @@ The procedure to connect a browser tab to your editor is:
 
 See https://github.com/PEZ/my-epupp-hq for a template project that you can use to keep the Epupp REPL in easy reach.
 
-## Userscripts Usage
+The popup shows currently connected tabs in the REPL section. Each one gets a **Reveal** button so you can jump straight to connected tabs. The toolbar icon mirrors connection status of the current tab: white when it's not connected, gold when it is.
 
-There is a script “editor” (a textarea) in the Development Tools tab named **Epupp**. It lets you edit and evaluate Clojure code directly in the execution context of the current page. The editor also has a button for saving the script.
-
-Once you have saved the script, it will be added to a list of scripts in the extensions popup UI (the view opened when you click the extension icon in the browser's extensions UI.) If the script manifest specifuies an `:epupp/auto-run-match` pattern, it will need to be enabled in order for the pattern to trigger the script. (All scripts start disabled.)
-
-### Using [Scittle](https://github.com/babashka/scittle) Libraries
-
-Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
-
-```clojure
-{:epupp/script-name "replicant_widget.cljs"
- :epupp/auto-run-match "*"
- :epupp/inject ["scittle://replicant.js"]}
-
-(ns replicant-widget
-  (:require [replicant.dom :as r]))
-
-(r/render
- (doto (js/document.createElement "div")
-   (->> (.appendChild js/document.body)))
- [:h1 "Hello from Replicant!"])
-```
-
-**Available libraries:**
-
-| Require URL | Provides |
-|-------------|----------|
-| `scittle://pprint.js` | `cljs.pprint` |
-| `scittle://promesa.js` | `promesa.core` |
-| `scittle://replicant.js` | Replicant UI library |
-| `scittle://js-interop.js` | `applied-science.js-interop` |
-| `scittle://reagent.js` | [Reagent](https://reagent-project.github.io) + React |
-| `scittle://re-frame.js` | [Re-frame](https://github.com/day8/re-frame) (includes Reagent) |
-| `scittle://cljs-ajax.js` | `cljs-http.client` |
-
-Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
+You can keep multiple tabs connected at once. Run multiple `browser-nrepl` relays (different port pairs), then point each tab at the relay you want. Handy when you want GitHub and GitLab live at the same time.
 
 ## The Anatomy of a Userscript
 
@@ -293,6 +285,48 @@ If your script is using `document-start`, you need to wait for the DOM if your c
 > [!NOTE]
 > Safari does not support early script timing. Scripts always run at `document-idle` regardless of `:epupp/run-at`.
 
+### Using [Scittle](https://github.com/babashka/scittle) Libraries
+
+Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
+
+```clojure
+{:epupp/script-name "replicant_widget.cljs"
+ :epupp/auto-run-match "*"
+ :epupp/inject ["scittle://replicant.js"]}
+
+(ns replicant-widget
+  (:require [replicant.dom :as r]))
+
+(r/render
+ (doto (js/document.createElement "div")
+   (->> (.appendChild js/document.body)))
+ [:h1 "Hello from Replicant!"])
+```
+
+**Available libraries:**
+
+| Require URL | Provides |
+|-------------|----------|
+| `scittle://pprint.js` | `cljs.pprint` |
+| `scittle://promesa.js` | `promesa.core` |
+| `scittle://replicant.js` | Replicant UI library |
+| `scittle://js-interop.js` | `applied-science.js-interop` |
+| `scittle://reagent.js` | [Reagent](https://reagent-project.github.io) + React |
+| `scittle://re-frame.js` | [Re-frame](https://github.com/day8/re-frame) (includes Reagent) |
+| `scittle://cljs-ajax.js` | `cljs-http.client` |
+
+Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
+
+From a live REPL session, you can load libraries at runtime with `epupp.repl/manifest!`:
+
+```clojure
+(epupp.repl/manifest! {:epupp/inject ["scittle://pprint.js"]})
+(require '[cljs.pprint :as pprint])
+(pprint/pprint {:some "data"})
+```
+
+Safe to call multiple times - already-loaded libraries are skipped.
+
 ## Demo
 
 * https://www.youtube.com/watch?v=aJ06tdIjdy0
@@ -353,6 +387,20 @@ This is because you can't. Which is a pity! But the web is full of pages we can 
 
 The extension fails at adding a Development Tools panel at any `chrome://` page, and also at the Extension Gallery itself. These are pages from where you may have installed Epupp the first time. Please navigate to other pages and look for the panel.
 
+### Connection fails?
+
+Check that the relay server is running and ports match between terminal and popup. If it still won't connect, try restarting the relay server.
+
+### Script doesn't run?
+
+1. Is auto-run enabled? (the checkbox in the popup)
+2. Does the pattern match the URL? Check for typos.
+3. Open DevTools console for error messages.
+
+### CSP errors?
+
+Some sites have strict Content Security Policies. Epupp mostly should do things in ways that are allowed by these oliciies, but still, check the console for CSP violation messages.
+
 ## Extension Permissions
 
 Epupp only asks for the permissions it strictly needs, even if the nature of the extension is such that it needs you to permit things like scripting (duh!). These are the permissions, and for what they are used:
@@ -376,6 +424,11 @@ The extension does not collect any data whatsoever, and never will.
 [MIT](LICENSE)
 
 (Free to use and open source. 🍻🗽)
+
+## Further Reading
+
+- [Connecting editors and AI harnesses](docs/connecting-to-epupp.md)
+- [REPL FS Sync and the `epupp.fs` API](docs/repl-fs-sync.md)
 
 ## Development
 
