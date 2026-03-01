@@ -776,56 +776,68 @@
         [:div.no-scripts-hint
          "Background-managed scripts appear here."]])]))
 
-(defn settings-content [{:settings/keys [auto-connect-repl auto-reconnect-repl debug-logging] :as state}]
+(defn- repl-settings-toggles
+  "Returns a vector of three REPL setting toggle elements.
+   Use `into` to splice into a parent container.
+   id-prefix differentiates duplicate instances in the DOM."
+  [state {:keys [id-prefix]}]
+  (let [{:settings/keys [auto-connect-repl auto-reconnect-repl]} state
+        prefix (or id-prefix "")]
+    [[:div.setting
+      [:label.checkbox-label
+       [:input {:type "checkbox"
+                :id (str prefix "auto-reconnect-repl")
+                :checked auto-reconnect-repl
+                :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
+       "Auto-reconnect to previously connected tabs"]
+      [:p.description
+       "When a connected tab navigates to a new page, automatically reconnect. "
+       "(REPL state will be lost but connection will be restored.)"]]
+     [:div.setting
+      [:label.checkbox-label
+       [:input {:type "checkbox"
+                :id (str prefix "auto-connect-repl")
+                :checked auto-connect-repl
+                :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
+       "Auto-connect REPL to all pages"]
+      [:p.description.warning
+       "Enabling this will connect an Epupp REPL to every page you visit."]]
+     (let [current-tab-id (:scripts/current-tab-id state)
+           fs-sync-tab-id (:fs/sync-tab-id state)
+           current-tab-connected? (some #(= (:tab-id %) (str current-tab-id))
+                                        (:repl/connections state))
+           fs-sync-enabled? (and (some? current-tab-id)
+                                 (= current-tab-id fs-sync-tab-id))]
+       [:div.setting
+        [:label.checkbox-label
+         [:input {:type "checkbox"
+                  :id (str prefix "fs-repl-sync")
+                  :checked fs-sync-enabled?
+                  :disabled (not current-tab-connected?)
+                  :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
+         "Allow REPL FS Sync for this tab"]
+        [:p.description.warning
+         (if current-tab-connected?
+           "Only enable this on pages you trust."
+           "Connect a REPL to enable FS Sync for this tab.")]])]))
+
+(defn settings-content [{:settings/keys [debug-logging] :as state}]
   [:div.settings-content
-   [:div.settings-section
-    [:h3.settings-section-title "REPL Connection"]
-    [:p.section-description
-     "Default ports (for hostnames without saved ports)."]
-    [:div.port-row
-     [port-input {:id "default-nrepl-port"
-                  :label "nREPL:"
-                  :value (:settings/default-nrepl-port state)
-                  :on-change #(dispatch! [[:popup/ax.set-default-nrepl-port %]])}]
-     [port-input {:id "default-ws-port"
-                  :label "WebSocket:"
-                  :value (:settings/default-ws-port state)
-                  :on-change #(dispatch! [[:popup/ax.set-default-ws-port %]])}]]
-    [:div.setting
-     [:label.checkbox-label
-      [:input#auto-reconnect-repl {:type "checkbox"
-                                   :checked auto-reconnect-repl
-                                   :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
-      "Auto-reconnect to previously connected tabs"]
-     [:p.description
-      "When a connected tab navigates to a new page, automatically reconnect. "
-      "REPL state will be lost but connection will be restored."]]
-    [:div.setting
-     [:label.checkbox-label
-      [:input#auto-connect-repl {:type "checkbox"
-                                 :checked auto-connect-repl
-                                 :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
-      "Auto-connect REPL to all pages"]
-     [:p.description.warning
-      "Enabling this will connect an Epupp REPL to every page you visit, "
-      "even in tabs never connected before. It will also disconnect any Epupp REPL connected on the same Websocket port."]]
-    (let [current-tab-id (:scripts/current-tab-id state)
-          fs-sync-tab-id (:fs/sync-tab-id state)
-          current-tab-connected? (some #(= (:tab-id %) (str current-tab-id))
-                                       (:repl/connections state))
-          fs-sync-enabled? (and (some? current-tab-id)
-                                (= current-tab-id fs-sync-tab-id))]
-      [:div.setting
-       [:label.checkbox-label
-        [:input#fs-repl-sync {:type "checkbox"
-                              :checked fs-sync-enabled?
-                              :disabled (not current-tab-connected?)
-                              :on-change #(dispatch! [[:popup/ax.toggle-fs-sync]])}]
-        "Allow REPL FS Sync for this tab"]
-       [:p.description.warning
-        (if current-tab-connected?
-          "Only enable this for pages you trust."
-          "Connect a REPL to enable FS Sync for this tab.")]])]
+   (into
+    [:div.settings-section
+     [:h3.settings-section-title "REPL Connection"]
+     [:p.section-description
+      "Default ports (for hostnames without saved ports)."]
+     [:div.port-row
+      [port-input {:id "default-nrepl-port"
+                   :label "nREPL:"
+                   :value (:settings/default-nrepl-port state)
+                   :on-change #(dispatch! [[:popup/ax.set-default-nrepl-port %]])}]
+      [port-input {:id "default-ws-port"
+                   :label "WebSocket:"
+                   :value (:settings/default-ws-port state)
+                   :on-change #(dispatch! [[:popup/ax.set-default-ws-port %]])}]]]
+    (repl-settings-toggles state {}))
    [:div.settings-section
     [:h3.settings-section-title "Diagnostics"]
     [:div.setting
@@ -907,8 +919,8 @@
   (let [current-tab-id-str (str current-tab-id)]
     (some #(= (:tab-id %) current-tab-id-str) connections)))
 
-(defn repl-connect-content [{:ports/keys [nrepl ws]
-                            :as state}]
+(defn repl-connect-content
+  [{:ports/keys [nrepl ws] :as state}]
   (let [is-connected (current-tab-connected? state)]
     [:div
      [:div.connect-setup {:class (when is-connected "connected")}
@@ -939,6 +951,8 @@
         [:div.step-header "3. Connect editor to browser (via server)"]
         [:div.connect-row
          [:span.connect-target (str "nrepl://localhost:" nrepl)]]]]]
+     (into [:div.connected-repl-settings {:class (when is-connected "visible")}]
+           (repl-settings-toggles state {:id-prefix "connect-"}))
      [:div.step
       [:div.step-header "Connected Tabs"]
       [connected-tabs-section state]]]))
@@ -982,7 +996,7 @@
      [collapsible-section {:id :repl-connect
                            :title "REPL Connect"
                            :expanded? (not (:repl-connect sections-collapsed))
-                           :max-height (str (+ (if (current-tab-connected? state) 71 500)
+                           :max-height (str (+ (if (current-tab-connected? state) 400 500)
                                                (* 35 (count connections))) "px")
                            :data-attrs {:data-e2e-connection-count (count connections)}}
       [repl-connect-content state]]

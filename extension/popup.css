@@ -170,6 +170,23 @@ body.ready .connect-setup {
   opacity: 0;
 }
 
+/* Connected REPL settings - animated reveal when tab connects */
+.connected-repl-settings {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+body.ready .connected-repl-settings {
+  transition: max-height var(--transition-duration) ease-out,
+              opacity var(--transition-duration) ease-out;
+}
+
+.connected-repl-settings.visible {
+  max-height: 300px;
+  opacity: 1;
+}
+
 /* Connect section */
 .connect-row {
   display: flex;
@@ -850,7 +867,7 @@ body.ready .script-item {
 .setting {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  margin-top: 4px;
 }
 
 .checkbox-label {
@@ -867,17 +884,20 @@ body.ready .script-item {
   cursor: pointer;
 }
 
-.settings-section .description {
+.settings-section .description,
+.connected-repl-settings .description {
   font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
   padding: 8px 10px;
-  border-left: 3px solid var(--color-blue);
+  border-left: 3px solid var(--color-border-info-banner);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  /* background: var(--color-bg-info-banner); */
 }
 
-.settings-section .description.warning {
+.settings-section .description.warning,
+.connected-repl-settings .description.warning {
   background: var(--color-bg-approval);
   border-left: 3px solid var(--color-border-approval);
 }
