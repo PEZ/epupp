@@ -6,7 +6,10 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-03-01
+
 - Show REPL connect related settings in REPL UI when connected
+
 
 ## [0.0.7] - 2026-02-26
 
