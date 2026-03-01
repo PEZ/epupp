@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Show REPL connect related settings in REPL UI when connected
+
 ## [0.0.7] - 2026-02-26
 
 - New name, **Epupp: Live Tamper your Web**
