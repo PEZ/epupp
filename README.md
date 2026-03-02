@@ -140,7 +140,7 @@ As the creator of Calva, and Calva Backseat Driver I chose to desceibe how to co
 An Epupp userscript is just a text file which starts with a script manifest and some code. You can install scripts in three ways:
 
 1. Pasting/typing a script in the Epupp panel and clicking **Save Script**.
-2. The **Web Userscript Installer** script. The extension has a built-in script that will identify Epupp scripts on code-hosting pages and add an **Install** button near them. On whitelisted domains (GitHub, GitHub Gists, GitLab, Codeberg, localhost) it can install scripts into Epupp. On other sites, it shows copy-paste instructions instead. Try it on this gist: [pez/selector_inspector.cljs](https://gist.github.com/PEZ/9d2a9eec14998de59dde93979453247e)
+2. The **Web Userscript Installer** script. The extension has a built-in script that will identify Epupp scripts on code-hosting pages and add an **Install** button near them. On whitelisted domains (GitHub, GitHub Gists, GitLab, Codeberg, localhost) it can install scripts into Epupp. On other sites, it shows copy-paste instructions instead. Try it on this gist: https://gist.github.com/PEZ/3b0fdc406e7593eaaef609b6fb4a687d (It's the script created in the demo video.)
 3. Using the REPL. There's a `epupp.fs` namespace for listing/reading/writing/renaming scripts in the Epupp extension storage.
 
 ## The Epupp UI
