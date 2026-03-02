@@ -2,6 +2,14 @@
 
 A web browser extension that lets you tamper with web pages, live and/or with userscripts.
 
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=CuEWN5yYVa8">
+    <img src="https://img.youtube.com/vi/CuEWN5yYVa8/maxresdefault.jpg" alt="Epupp Demo Video">
+  </a>
+  <br>
+  <sup><a href="https://www.youtube.com/watch?v=CuEWN5yYVa8">▶ Watch the demo on YouTube</a></sup>
+</div>
+
 Epupp has two modes of operation:
 
 1. **Live REPL connection from your editor to the web page**, letting you inspect and modify the page on the fly, with or without the assistance of an AI agent.
@@ -329,9 +337,7 @@ Safe to call multiple times - already-loaded libraries are skipped.
 
 ## Demo
 
-* https://www.youtube.com/watch?v=aJ06tdIjdy0
-
-(Very outdated, I will record a new demo soon!)
+* https://www.youtube.com/watch?v=CuEWN5yYVa8
 
 ## REPL Pitfalls
 
