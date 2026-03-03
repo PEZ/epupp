@@ -870,6 +870,10 @@ body.ready .script-item {
   margin-top: 4px;
 }
 
+.setting:last-child {
+  margin-bottom: 10px;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -889,7 +893,7 @@ body.ready .script-item {
   font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
-  margin: 0;
+  margin: 4px 0px;
   padding: 8px 10px;
   border-left: 3px solid var(--color-border-info-banner);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
