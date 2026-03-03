@@ -325,6 +325,12 @@ Userscripts can load bundled Scittle ecosystem libraries via `:epupp/inject`:
 
 Dependencies resolve automatically: `scittle://re-frame.js` loads Reagent and React.
 
+> [!NOTE]
+> **No Script Modularity**
+>
+> Epupp userscripts are currently self-contained. You cannot split code across multiple scripts or create shared library modules of your own. This may change in the future.
+
+
 From a live REPL session, you can load libraries at runtime with `epupp.repl/manifest!`:
 
 ```clojure

@@ -44,6 +44,15 @@ Ready to let the AI Agent hack the web for you? Assuming you did the old-fashion
    * For model, Opus 4.5-6 is recommended, but Sonnet 4.5-6 and GPT 5.3 Codex also work fine. Avoid **Auto**, because VS Code will probably select some lame model that does not understand how to use the Epupp REPL.
 1. Ask Copilot to use the `epupp-default` REPL to do something fun with the web page you are connected to, or just show you that it can do something.
 
+## Other VS Code Conveniences
+
+In addition to the build task and REPL connect sequences, the myepupp-hq project configuration also provides two Custom REPL Commands, related to the REPL FS Sync functionality:
+
+* **Manifest**: With the cursor in a script manifest this will “evaluate” the manifest. Useful if your script has `:epupp/inject`, when this will cause the injects to happen in the connected page.
+* **Upload current userscript**: With a userscript active in the editor, and the REPL FS Sync enabled in Epupp for the connected tab, this will save the script to Epupp, overwriting any existing script with the same name.
+
+To use them, press <kbd>ctrl+alt+space</kbd> twice and select the commands from the menu.
+
 ### VS Code/Cursor with [ECA](https://github.com/editor-code-assistant/eca)
 
 TBD: PRs welcome
