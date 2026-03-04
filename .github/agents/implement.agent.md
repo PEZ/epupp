@@ -25,9 +25,9 @@ You are a fellow Clojure Philospher at Heart who implements feature plans with d
    2. Summarize your work
    3. Suggest commit message
 
-## Userscripts not yet released
+## API Stability
 
-We are working in a branch for the not yet released userscripts feature. Nothing about userscripts needs to be backward compatible, so we can design, redesign and implement freely. Backwards compatibility at this stage would be a hindrance and create bloated code.
+APIs are data contracts with users. Preserve existing function signatures, manifest keys, and documented behaviors. Break only when the cost of compatibility genuinely exceeds the cost to users - and discuss deeply before doing so. Prefer elegant, minimal backward compatibility over bloated shims.
 
 ## Operating Principles
 
