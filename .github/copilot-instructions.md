@@ -70,15 +70,14 @@
   </uniflow-state-discipline>
 
   <api-stability>
-    APIs are data contracts with users. Every function signature, manifest key, and
-    documented behavior creates an obligation to callers.
+    The user-facing API - manifest keys, the `epupp.fs` namespace, REPL behaviors,
+    and other documented contracts with userscript authors - is a commitment.
     - **Preserve existing APIs.** Break only when the cost of compatibility genuinely
       exceeds the cost to users. Seek alternatives first.
     - **Discuss breaking changes deeply.** Before breaking: explore backward-compatible
       alternatives, assess user impact, and consider gradual deprecation.
     - **Prefer clean solutions.** Elegant, minimal backward compatibility is a goal.
       Contorted shims and special-case branching are not worth the maintenance cost.
-      Sometimes a clean, documented break is more honest than convoluted support code.
   </api-stability>
 
   <style>No emojis. No em dashes - use hyphens or colons instead.</style>

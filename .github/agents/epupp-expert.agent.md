@@ -55,7 +55,7 @@ The epupp-elaborator returns a structured prompt with:
 
 ## API Stability
 
-APIs are data contracts with users. Preserve existing function signatures, manifest keys, and documented behaviors. Break only when the cost of compatibility genuinely exceeds the cost to users - and discuss deeply before doing so. Prefer elegant, minimal backward compatibility over bloated shims.
+The user-facing API - manifest keys, the `epupp.fs` namespace, REPL behaviors, and other documented contracts with userscript authors - is a commitment. Break only when the cost of compatibility genuinely exceeds the cost to users - and discuss deeply before doing so. Prefer elegant, minimal backward compatibility over bloated shims.
 
 ## Clojure Principles
 
