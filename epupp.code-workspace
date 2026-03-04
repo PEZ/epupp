@@ -39,7 +39,7 @@
 					"primary": [
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			},
@@ -54,7 +54,7 @@
 					"primary": [
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			},
@@ -69,7 +69,7 @@
 					"primary": [
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			},
@@ -84,7 +84,7 @@
 					"primary": [
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			},
@@ -101,7 +101,7 @@
 						"epupp/*.edn",
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			},
@@ -118,7 +118,7 @@
 						"epupp/*.edn",
 						"test-data/tampers/*.clj*",
 						"test-data/tampers/*.edn",
-						"extension/userscripts/"
+						"extension/userscripts/**/*.{cljs,edn}"
 					]
 				}
 			}
