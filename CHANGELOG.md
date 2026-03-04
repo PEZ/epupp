@@ -6,7 +6,10 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-03-04
+
 - Minor styling fixes
+
 
 ## [0.0.8] - 2026-03-01
 
