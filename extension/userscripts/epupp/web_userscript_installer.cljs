@@ -799,6 +799,7 @@
 
 .epupp-overlay-parent {
   position: relative !important;
+  flex-grow: 1;
 }
 
 .epupp-overlay-parent.is-textarea-wrapper {
