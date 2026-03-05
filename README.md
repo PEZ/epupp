@@ -424,9 +424,9 @@ After navigation, wait for the new page to load and REPL to reconnect. All prior
   - Chrome grants it automatically at install.
   - Firefox requires an explicit user grant. Epupp has UI for this.
   - Safari grants it per-website in Settings -> Extensions -> Epupp.
-* The REPL connection uses a WebSocket. The user is responsible for what communicates with that websocket.
+* To expose its REPL, Epupp connects to a WebSocket port on localhost. The user is responsible for what program is listening on that port.
 * On a whitelist of code-hosting domains (GitHub, GitHub Gists, GitLab, Codeberg, and localhost), userscripts can install and modify userscripts. Userscripts can not, however, list or read userscripts from Epupp, even on these domains.
-* Via the REPL connection code can list, read, write, and delete userscripts, which means code in the connected page needs access to do so. With this access established there is no way for Epupp to know what code is using the features. Therefore this access is disabled by default. It needs to be enabled every time a REPL connection has been establishe, after which it is enabled for that tab only. The user is responsible for only enabling this on trusted sites. The user is also responsible for not installing extensions or fun userscripts that would exploit this access.
+* When REPL FS Sync is enabled, any code can list, read, write, and delete userscripts. This access is disabled by default. It needs to be enabled every time a REPL connection has been established, and can only be enabled to one tab at the time. The user is responsible for only enabling this on trusted sites. The user is also responsible for ensuring that no extensions or userscripts exploits this access.
 
 ## Troubleshooting
 
