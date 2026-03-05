@@ -44,6 +44,17 @@ Our solution:
 2. **Content bridge** in ISOLATED world can inject script tags
 3. **Scittle patched** to remove `eval()` usage (see `bb bundle-scittle`)
 
+## Host Permissions (Firefox)
+
+Firefox treats `host_permissions` as optional and revocable, unlike Chrome where they are granted at install. Epupp checks host permission before every `chrome.scripting.executeScript` call:
+
+- **`permissions.cljs`** - `check-tab-permission` resolves the tab URL and checks `chrome.permissions.contains`. Internal URLs (`chrome://`, `moz-extension://`, etc.) are assumed permitted.
+- **`bg_inject.cljs`** - `execute-in-page`, `execute-in-isolated`, and `inject-content-script` all check permission before proceeding, throwing if missing.
+- **`background.cljs`** - `process-navigation!` and `maybe-inject-installer!` check permission early and skip the tab silently if not granted.
+- **`popup.cljs`** - checks `<all_urls>` permission on init and shows a warning banner with a "Grant Permission" button when missing.
+
+On Chrome, the permission check always returns `true` (granted at install), so the overhead is negligible.
+
 ## Injection Guards
 
 Scripts guard against multiple injections using global window flags:

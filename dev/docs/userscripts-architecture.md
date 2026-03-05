@@ -170,6 +170,8 @@ We use `host_permissions` with `<all_urls>` because `chrome.scripting.executeScr
 
 **Trade-off:** Users see "Read and change all your data on all websites" warning at install, but this is unavoidable for userscript functionality. Epupp uses the minimal permission set required for full functionality.
 
+**Firefox difference:** Firefox treats `host_permissions` as optional and revocable. The user must explicitly grant `<all_urls>` for injection to work. Epupp checks permission before every `executeScript` call (see `permissions.cljs`) and shows a "Grant Permission" banner in the popup when the permission is missing.
+
 The `grantedOrigins` storage key is retained for potential future use but currently unused.
 
 ## Userscript Installation (from Page)

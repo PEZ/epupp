@@ -18,6 +18,8 @@
 
 ## Firefox
 
+**Host permissions are optional in Firefox.** Unlike Chrome, Firefox treats `host_permissions` as revocable. Epupp checks for permission before injection and shows a "Grant Permission" banner in the popup when `<all_urls>` is not granted. Without it, auto-run scripts and manual injection will silently skip tabs where permission is missing.
+
 * [ ] Script import doesn't work. File dialog opens, but nothing happens when opening a file.
 
 ## Unscriptable pages

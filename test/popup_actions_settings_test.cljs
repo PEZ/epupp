@@ -55,6 +55,20 @@
           (.toBe true)))))
 
 ;; ============================================================
+;; Host Permission Tests
+;; ============================================================
+
+(defn- ^:async test-check-host-permission-triggers-effect []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.check-host-permission])]
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.check-host-permission))))
+
+(defn- ^:async test-request-host-permission-triggers-effect []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.request-host-permission])]
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.request-host-permission))))
+
+;; ============================================================
 ;; Test Registration
 ;; ============================================================
 
@@ -63,4 +77,7 @@
     ;; Auto-reconnect
     (test "load-auto-reconnect-setting triggers effect" test-load-auto-reconnect-setting-triggers-effect)
     (test "toggle-auto-reconnect-repl toggles true to false" test-toggle-auto-reconnect-repl-toggles-true-to-false)
-    (test "toggle-auto-reconnect-repl toggles false to true" test-toggle-auto-reconnect-repl-toggles-false-to-true)))
+    (test "toggle-auto-reconnect-repl toggles false to true" test-toggle-auto-reconnect-repl-toggles-false-to-true)
+    ;; Host permissions
+    (test "check-host-permission triggers effect" test-check-host-permission-triggers-effect)
+    (test "request-host-permission triggers effect" test-request-host-permission-triggers-effect)))

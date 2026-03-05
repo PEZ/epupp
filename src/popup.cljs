@@ -40,6 +40,7 @@
          :settings/debug-logging false
          :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
          :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
+         :permissions/host-granted? true ; Assume granted (Chrome default), check on init
          :ui/system-banners []          ; System banners [{:id :type :message :leaving} ...]
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
          :ui/page-banner nil           ; Page-level banner (e.g., unscriptable page)
@@ -482,6 +483,24 @@
                   :ui/page-banner (when-not (:scriptable? scriptability)
                                     {:type "info" :message (:message scriptability)})]]))
 
+    :popup/fx.check-host-permission
+    (try
+      (js/chrome.permissions.contains
+       #js {:origins #js ["<all_urls>"]}
+       (fn [result]
+         (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean result)]])))
+      (catch :default _
+        (dispatch [[:db/ax.assoc :permissions/host-granted? true]])))
+
+    :popup/fx.request-host-permission
+    (try
+      (js/chrome.permissions.request
+       #js {:origins #js ["<all_urls>"]}
+       (fn [granted]
+         (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean granted)]])))
+      (catch :default _
+        nil))
+
     :uf/unhandled-fx))
 
 (defn- make-uf-data []
@@ -500,6 +519,17 @@
             :max "65535"
             :on-input (fn [e]
                         (on-change (.. e -target -value)))}]])
+
+(defn permission-banner []
+  [:div.permission-banner.warning-banner
+   [:div.permission-banner-content
+    [:span "Epupp needs host permission to auto-run scripts on web pages."]
+    [view-elements/action-button
+     {:button/variant :primary
+      :button/class "grant-permission-btn"
+      :button/size :sm
+      :button/on-click #(dispatch! [[:popup/ax.request-host-permission]])}
+     "Grant Permission"]]])
 
 (defn command-box [{:keys [command]}]
   [:div.command-box
@@ -988,8 +1018,11 @@
        :elements/icon [icons/epupp-logo {:size 28 :connected? (current-tab-connected? state)}]
        :elements/sponsor-status (storage/sponsor-active? state)
        :elements/on-sponsor-click #(dispatch! [[:popup/ax.check-sponsor]])
-       :elements/permanent-banner (when-let [pb (:ui/page-banner state)]
-                                    [view-elements/page-banner pb])
+       :elements/permanent-banner [:div
+                                   (when-not (:permissions/host-granted? state)
+                                     [permission-banner])
+                                   (when-let [pb (:ui/page-banner state)]
+                                     [view-elements/page-banner pb])]
        :elements/temporary-banner (when-let [banners (seq (:ui/system-banners state))]
                                     [view-elements/system-banners banners])}]
 
@@ -1130,7 +1163,8 @@
               [:popup/ax.load-debug-logging-setting]
               [:popup/ax.load-connections]
               [:popup/ax.load-sponsor-status]
-              [:popup/ax.load-dev-sponsor-username]]))
+              [:popup/ax.load-dev-sponsor-username]
+              [:popup/ax.check-host-permission]]))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" "Script loaded, readyState:" js/document.readyState)

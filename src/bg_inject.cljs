@@ -4,62 +4,78 @@
   (:require [log :as log]
             [test-logger :as test-logger]
             [scittle-libs :as scittle-libs]
-            [bg-icon :as bg-icon]))
+            [bg-icon :as bg-icon]
+            [permissions :as permissions]))
 
 ;; ============================================================
 ;; Page Context Execution
 ;; ============================================================
 
-(defn execute-in-page
+(defn ^:async execute-in-page
   "Execute a function in page context (MAIN world).
+   Checks host permission first (Firefox treats these as revocable).
    Returns a promise."
   [tab-id func & args]
-  (js/Promise.
-   (fn [resolve reject]
-     (js/chrome.scripting.executeScript
-      #js {:target #js {:tabId tab-id}
-           :world "MAIN"
-           :func func
-           :args (clj->js (vec args))}
-      (fn [results]
-        (if js/chrome.runtime.lastError
-          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-          (resolve (when (seq results) (.-result (first results))))))))))
+  (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
+    (when-not has-perm?
+      (throw (js/Error. "Missing host permission for the tab")))
+    (js-await
+     (js/Promise.
+      (fn [resolve reject]
+        (js/chrome.scripting.executeScript
+         #js {:target #js {:tabId tab-id}
+              :world "MAIN"
+              :func func
+              :args (clj->js (vec args))}
+         (fn [results]
+           (if js/chrome.runtime.lastError
+             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+             (resolve (when (seq results) (.-result (first results))))))))))))
 
-(defn execute-in-isolated
+(defn ^:async execute-in-isolated
   "Execute a function in ISOLATED world (content script context).
+   Checks host permission first (Firefox treats these as revocable).
    Returns a promise. Safe from page CSP restrictions."
   [tab-id func & args]
-  (js/Promise.
-   (fn [resolve reject]
-     (js/chrome.scripting.executeScript
-      #js {:target #js {:tabId tab-id}
-           :world "ISOLATED"
-           :func func
-           :args (clj->js (vec args))}
-      (fn [results]
-        (if js/chrome.runtime.lastError
-          (reject (js/Error. (.-message js/chrome.runtime.lastError)))
-          (resolve (when (seq results) (.-result (first results))))))))))
+  (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
+    (when-not has-perm?
+      (throw (js/Error. "Missing host permission for the tab")))
+    (js-await
+     (js/Promise.
+      (fn [resolve reject]
+        (js/chrome.scripting.executeScript
+         #js {:target #js {:tabId tab-id}
+              :world "ISOLATED"
+              :func func
+              :args (clj->js (vec args))}
+         (fn [results]
+           (if js/chrome.runtime.lastError
+             (reject (js/Error. (.-message js/chrome.runtime.lastError)))
+             (resolve (when (seq results) (.-result (first results))))))))))))
 
-(defn inject-content-script
-  "Inject a script file into ISOLATED world."
+(defn ^:async inject-content-script
+  "Inject a script file into ISOLATED world.
+   Checks host permission first (Firefox treats these as revocable)."
   [tab-id file]
-  (js/Promise.
-   (fn [resolve reject]
-     (log/debug "Background:Inject" "Injecting" file "into tab" tab-id)
-     (js/chrome.scripting.executeScript
-      #js {:target #js {:tabId tab-id}
-           :files #js [file]}
-      (fn [results]
-        (log/debug "Background:Inject" "executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
-        (if js/chrome.runtime.lastError
-          (do
-            (log/error "Background:Inject" "Error:" (.-message js/chrome.runtime.lastError))
-            (reject (js/Error. (.-message js/chrome.runtime.lastError))))
-          (do
-            (log/debug "Background:Inject" "Success, results:" (js/JSON.stringify results))
-            (resolve true))))))))
+  (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
+    (when-not has-perm?
+      (throw (js/Error. "Missing host permission for the tab")))
+    (js-await
+     (js/Promise.
+      (fn [resolve reject]
+        (log/debug "Background:Inject" "Injecting" file "into tab" tab-id)
+        (js/chrome.scripting.executeScript
+         #js {:target #js {:tabId tab-id}
+              :files #js [file]}
+         (fn [results]
+           (log/debug "Background:Inject" "executeScript callback, results:" results "lastError:" js/chrome.runtime.lastError)
+           (if js/chrome.runtime.lastError
+             (do
+               (log/error "Background:Inject" "Error:" (.-message js/chrome.runtime.lastError))
+               (reject (js/Error. (.-message js/chrome.runtime.lastError))))
+             (do
+               (log/debug "Background:Inject" "Success, results:" (js/JSON.stringify results))
+               (resolve true))))))))))
 
 ;; ============================================================
 ;; Page-Context Functions (pure JS, no Squint runtime)

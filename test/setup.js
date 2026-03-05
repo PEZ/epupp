@@ -23,5 +23,12 @@ if (typeof globalThis.chrome === 'undefined') {
       local: { get: (keys, cb) => cb && cb({}), set: (obj, cb) => cb && cb() },
       onChanged: { addListener: () => {} },
     },
+    permissions: {
+      contains: (_perms, cb) => cb && cb(true),
+      request: (_perms, cb) => cb && cb(true),
+    },
+    tabs: {
+      get: (_tabId, cb) => cb && cb({ url: 'http://test' }),
+    },
   };
 }

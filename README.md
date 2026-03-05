@@ -59,7 +59,7 @@ With the live REPL connection, you will discover use cases you may not ever have
 
 1. Install Epupp from the Chrome and Firefox extension/addon stores.
     * Chrome Web Store: [Epupp: Live Tamper Your Web](https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei)
-    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/ (Please note that I haven't yet figured out all Firefox nuances, so some things may not work. Please file issues for things you note not working.)
+    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/ Epupp has some quirks in Firefox, WIP. Please file issues for things you note not working.
     * <details>
       <summary>Safari</summary>
 

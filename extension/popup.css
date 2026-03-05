@@ -56,6 +56,25 @@ body {
 
 /* Banner styles consolidated in components.css */
 
+/* Permission banner - persistent warning for missing host permissions (Firefox) */
+.permission-banner {
+  display: flex;
+  align-items: center;
+  text-align: left;
+}
+
+.permission-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.permission-banner-content span {
+  flex: 1;
+}
+
 /* Steps */
 .step {
   margin-bottom: 18px;

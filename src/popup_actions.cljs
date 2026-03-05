@@ -299,6 +299,12 @@
     :popup/ax.check-page-scriptability
     {:uf/fxs [[:popup/fx.check-page-scriptability]]}
 
+    :popup/ax.check-host-permission
+    {:uf/fxs [[:popup/fx.check-host-permission]]}
+
+    :popup/ax.request-host-permission
+    {:uf/fxs [[:popup/fx.request-host-permission]]}
+
     :popup/ax.handle-system-banner
     (let [[{:keys [event-type operation script-name error unchanged
                    bulk-id bulk-count bulk-index]}] args
