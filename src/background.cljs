@@ -314,14 +314,11 @@
    Find matching scripts and execute them.
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs).
-   Checks host permission before injection (Firefox treats these as revocable).
-   Sets a '!' badge when permission is missing and matching scripts exist."
+   Checks host permission before injection (Firefox treats these as revocable)."
   [dispatch! tab-id url icon-state]
   (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
     (if has-perm?
-      (do
-        (permissions/clear-permission-badge! tab-id)
-        (let [all-scripts (url-matching/get-matching-scripts url)
+      (let [all-scripts (url-matching/get-matching-scripts url)
               ;; Filter to only document-idle scripts (default for scripts without run-at)
               ;; Early-timing scripts (document-start, document-end) are handled by
               ;; registerContentScripts and should not be injected again here.
@@ -345,9 +342,7 @@
               (catch :default err
                 (log/error "Background:Inject" "Failed:" (.-message err))
                 (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
-      (let [matching-scripts (url-matching/get-matching-scripts url)]
-        (when (seq matching-scripts)
-          (permissions/set-permission-badge! tab-id))))))
+      (log/debug "Background:Inject" "Skipping navigation - host permission not granted for" url)))
 
 (defn- handle-ws-connect [message tab-id dispatch!]
   (dispatch! [[:ws/ax.handle-connect tab-id (.-port message)]])
@@ -688,8 +683,7 @@
    Only scans on whitelisted origins. Skips if installer is disabled or already
    injected on this tab. Uses bounded retry delays to catch DOM elements that
    appear after page load (e.g. GitLab .file-holder elements).
-   Checks host permission before injection (Firefox treats these as revocable).
-   Sets a '!' badge when permission is missing."
+   Checks host permission before injection (Firefox treats these as revocable)."
   [dispatch! tab-id url]
   (try
     (when (bg-utils/should-scan-for-installer? url @!installer-injected-tabs tab-id)
@@ -711,7 +705,7 @@
                   (when found?
                     (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
                     (swap! !installer-injected-tabs conj tab-id))))))
-          (permissions/set-permission-badge! tab-id))))
+          (log/debug "Background" "Installer scan skipped - host permission not granted for tab" tab-id))))
     (catch :default err
       (log/warn "Background" "Installer scan failed for tab" tab-id ":" (.-message err)))))
 

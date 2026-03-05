@@ -500,7 +500,6 @@
          (fn [granted]
            (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean granted)]])
            (when (and granted tab-id)
-             (js/chrome.action.setBadgeText #js {:text "" :tabId tab-id})
              (js/chrome.runtime.sendMessage
               #js {:type "permission-granted" :tabId tab-id}
               (fn [_] (when js/chrome.runtime.lastError nil))))))
