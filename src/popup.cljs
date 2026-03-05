@@ -484,13 +484,16 @@
                                     {:type "info" :message (:message scriptability)})]]))
 
     :popup/fx.check-host-permission
-    (try
-      (js/chrome.permissions.contains
-       #js {:origins #js ["<all_urls>"]}
-       (fn [result]
-         (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean result)]])))
-      (catch :default _
-        (dispatch [[:db/ax.assoc :permissions/host-granted? true]])))
+    (if (= "safari" (script-utils/detect-browser-type))
+      ;; Safari manages permissions per-website through its own UI, not the Permissions API
+      (dispatch [[:db/ax.assoc :permissions/host-granted? true]])
+      (try
+        (js/chrome.permissions.contains
+         #js {:origins #js ["<all_urls>"]}
+         (fn [result]
+           (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean result)]])))
+        (catch :default _
+          (dispatch [[:db/ax.assoc :permissions/host-granted? true]]))))
 
     :popup/fx.request-host-permission
     (let [[tab-id] args]
