@@ -419,15 +419,14 @@ After navigation, wait for the new page to load and REPL to reconnect. All prior
 
 ## Security
 
-* Epupp enables a userscript to do just about anything on web page, including all the dangerous things. The gate is the user, scrutinizing userscripts and userscript authors.
-* Auto-run permission is all or nothing. To auto-run scripts, Epupp needs permission from the browser to do so without a user gesture. It works a bit different between browsers:
-  * In Chrome, Epupp is automatically granted non-gesture-initiated access to all web pages.
-  * In Firefox, the user needs to grant this permission after installing the Epupp extension. Epupp has UI for initiating this permission request.
-  * In Safari, the permission is granted per website in Safari Settings -> Extensions -> Epupp (and can be set to work on all sites)
-  * Regardless of how the browsers solve this, Epupp will only auto-run scripts that are configured to do so in both the script manifest and in Epupp, per script. It's a user responsibility.
-* The REPL opens a websocket to Epupp's REPL. The user is responsible for what connects to that websocket.
-* On a whitelist of domains, userscripts can install and modify userscripts. This enables a web userscript installer to be active on GitHub, GitLab and Codeberg. Userscripts can not, however, list or read userscripts from Epupp.
-* To install, modify, list, and read userscripts via the REPL, code in the connected page needs access to do so. With this access established there is no way for Epupp to know what code is using the features. Therefore this access is disabled by default. It needs to be enabled every time a REPL connection has been establishe, after which it is enabled for that tab only. The user is responsible for only enabling this on trusted sites. The user is also responsible for not installing extensions or fun userscripts that would exploit this access.
+- Userscripts run with full page access, including all the dangerous things. Scripts start disabled and must be explicitly enabled per-script. The gate is the user, scrutinizing userscripts and userscript authors.
+- Auto-run requires browser permission:
+  - Chrome grants it automatically at install.
+  - Firefox requires an explicit user grant. Epupp has UI for this.
+  - Safari grants it per-website in Settings -> Extensions -> Epupp.
+* The REPL connection uses a WebSocket. The user is responsible for what communicates with that websocket.
+* On a whitelist of code-hosting domains (GitHub, GitHub Gists, GitLab, Codeberg, and localhost), userscripts can install and modify userscripts. Userscripts can not, however, list or read userscripts from Epupp, even on these domains.
+* Via the REPL connection code can list, read, write, and delete userscripts, which means code in the connected page needs access to do so. With this access established there is no way for Epupp to know what code is using the features. Therefore this access is disabled by default. It needs to be enabled every time a REPL connection has been establishe, after which it is enabled for that tab only. The user is responsible for only enabling this on trusted sites. The user is also responsible for not installing extensions or fun userscripts that would exploit this access.
 
 ## Troubleshooting
 
