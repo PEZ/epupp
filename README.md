@@ -421,8 +421,8 @@ After navigation, wait for the new page to load and REPL to reconnect. All prior
 
 * Epupp enables a userscript to do just about anything on web page, including all the dangerous things. The gate is the user, scrutinizing userscripts and userscript authors.
 * Auto-run permission is all or nothing. To auto-run scripts, Epupp needs permission from the browser to do so without a user gesture. It works a bit different between browsers:
-  * In Chrome, Epupp is automatically granted non-guesture-initated access to all web pages.
-  * In Firefox, the the user needs to grant this pemission after installing the Epupp extension. Epupp has UI for initiating this permission request.
+  * In Chrome, Epupp is automatically granted non-gesture-initiated access to all web pages.
+  * In Firefox, the user needs to grant this permission after installing the Epupp extension. Epupp has UI for initiating this permission request.
   * In Safari, the permission is granted per website in Safari Settings -> Extensions -> Epupp (and can be set to work on all sites)
   * Regardless of how the browsers solve this, Epupp will only auto-run scripts that are configured to do so in both the script manifest and in Epupp, per script. It's a user responsibility.
 * The REPL opens a websocket to Epupp's REPL. The user is responsible for what connects to that websocket.
