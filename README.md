@@ -419,14 +419,14 @@ After navigation, wait for the new page to load and REPL to reconnect. All prior
 
 ## Security
 
-- Userscripts run with full page access, including all the dangerous things. Scripts start disabled and must be explicitly enabled per-script. The gate is the user, scrutinizing userscripts and userscript authors.
-- Auto-run requires browser permission:
-  - Chrome grants it automatically at install.
-  - Firefox requires an explicit user grant. Epupp has UI for this.
-  - Safari grants it per-website in Settings -> Extensions -> Epupp.
+* Userscripts run with full page access, including all the dangerous things. The gate is the user, scrutinizing userscripts and userscript authors.
+* Auto-run requires browser permission:
+  * Chrome grants it automatically at install.
+  * Firefox requires an explicit user grant. Epupp has UI for this.
+  * Safari grants it per-website in Settings -> Extensions -> Epupp.
 * To expose its REPL, Epupp connects to a WebSocket port on localhost. The user is responsible for what program is listening on that port.
-* On a whitelist of code-hosting domains (GitHub, GitHub Gists, GitLab, Codeberg, and localhost), userscripts can install and modify userscripts. Userscripts can not, however, list or read userscripts from Epupp, even on these domains.
-* When REPL FS Sync is enabled, any code can list, read, write, and delete userscripts. This access is disabled by default. It needs to be enabled every time a REPL connection has been established, and can only be enabled to one tab at the time. The user is responsible for only enabling this on trusted sites. The user is also responsible for ensuring that no extensions or userscripts exploits this access.
+* On a whitelist of code-hosting domains (GitHub, GitHub Gists, GitLab, Codeberg, localhost, and 127.0.0.1), any page code can install and modify userscripts. Page code can not, however, list or read userscripts from Epupp, even on these domains.
+* When REPL FS Sync is enabled, any code can list, read, write, and delete userscripts. This access is disabled by default. It needs to be enabled every time a REPL connection has been established, and can only be enabled to one tab at a time. The user is responsible for ensuring that no extension, or page code, including userscripts, exploits this access.
 
 ## Troubleshooting
 
