@@ -30,5 +30,9 @@ if (typeof globalThis.chrome === 'undefined') {
     tabs: {
       get: (_tabId, cb) => cb && cb({ url: 'http://test' }),
     },
+    action: {
+      setBadgeText: () => {},
+      setBadgeBackgroundColor: () => {},
+    },
   };
 }

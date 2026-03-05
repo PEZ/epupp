@@ -314,34 +314,40 @@
    Find matching scripts and execute them.
    Only processes document-idle scripts - early-timing scripts are handled
    by registered content scripts (see registration.cljs).
-   Checks host permission before injection (Firefox treats these as revocable)."
+   Checks host permission before injection (Firefox treats these as revocable).
+   Sets a '!' badge when permission is missing and matching scripts exist."
   [dispatch! tab-id url icon-state]
   (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
-    (when has-perm?
-      (let [all-scripts (url-matching/get-matching-scripts url)
-            ;; Filter to only document-idle scripts (default for scripts without run-at)
-            ;; Early-timing scripts (document-start, document-end) are handled by
-            ;; registerContentScripts and should not be injected again here.
-            idle-scripts (filter #(= "document-idle"
-                                     (or (:script/run-at %) "document-idle"))
-                                 all-scripts)]
-        ;; Log for E2E debugging
-        (js-await (test-logger/log-event! "NAVIGATION_PROCESSED"
-                                          {:url url
-                                           :all-scripts-count (count all-scripts)
-                                           :idle-scripts-count (count idle-scripts)}))
-        (when (seq idle-scripts)
-          (log/debug "Background:Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
-          (log/debug "Background:Inject" "Executing" (count idle-scripts) "scripts")
-          (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
-          (when (some #(= bg-utils/sponsor-script-id (:script/id %)) idle-scripts)
-            (dispatch! [[:sponsor/ax.set-pending tab-id]]))
-          (try
-            (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
-            (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
-            (catch :default err
-              (log/error "Background:Inject" "Failed:" (.-message err))
-              (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))))
+    (if has-perm?
+      (do
+        (permissions/clear-permission-badge! tab-id)
+        (let [all-scripts (url-matching/get-matching-scripts url)
+              ;; Filter to only document-idle scripts (default for scripts without run-at)
+              ;; Early-timing scripts (document-start, document-end) are handled by
+              ;; registerContentScripts and should not be injected again here.
+              idle-scripts (filter #(= "document-idle"
+                                       (or (:script/run-at %) "document-idle"))
+                                   all-scripts)]
+          ;; Log for E2E debugging
+          (js-await (test-logger/log-event! "NAVIGATION_PROCESSED"
+                                            {:url url
+                                             :all-scripts-count (count all-scripts)
+                                             :idle-scripts-count (count idle-scripts)}))
+          (when (seq idle-scripts)
+            (log/debug "Background:Inject" "Found" (count idle-scripts) "document-idle scripts for" url)
+            (log/debug "Background:Inject" "Executing" (count idle-scripts) "scripts")
+            (js-await (test-logger/log-event! "AUTO_INJECT_START" {:count (count idle-scripts)}))
+            (when (some #(= bg-utils/sponsor-script-id (:script/id %)) idle-scripts)
+              (dispatch! [[:sponsor/ax.set-pending tab-id]]))
+            (try
+              (js-await (bg-inject/ensure-scittle! dispatch! tab-id icon-state))
+              (js-await (bg-inject/execute-scripts! tab-id idle-scripts))
+              (catch :default err
+                (log/error "Background:Inject" "Failed:" (.-message err))
+                (js-await (test-logger/log-event! "AUTO_INJECT_ERROR" {:error (.-message err)})))))))
+      (let [matching-scripts (url-matching/get-matching-scripts url)]
+        (when (seq matching-scripts)
+          (permissions/set-permission-badge! tab-id))))))
 
 (defn- handle-ws-connect [message tab-id dispatch!]
   (dispatch! [[:ws/ax.handle-connect tab-id (.-port message)]])
@@ -546,6 +552,11 @@
         (when (not= old-code new-code)
           (js-await (storage/save-script! updated))
           (log/info "Background" "Updated sponsor script match to:" username))))))
+(defn- handle-permission-granted [message dispatch!]
+  (let [tab-id (.-tabId message)]
+    (dispatch! [[:msg/ax.handle-permission-granted tab-id]])
+    false))
+
 (defn- handle-get-sponsored-username [_message send-response]
   ((^:async fn []
      (let [storage-result (js-await (js/chrome.storage.local.get #js ["sponsor/sponsored-username"]))
@@ -669,6 +680,7 @@
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)
                       "sponsor-status" (handle-sponsor-status message sender dispatch! send-response)
                       "get-sponsored-username" (handle-get-sponsored-username message send-response)
+                      "permission-granted" (handle-permission-granted message dispatch!)
                       (handle-unknown-message msg-type))))))
 
 (defn- ^:async maybe-inject-installer!
@@ -676,27 +688,30 @@
    Only scans on whitelisted origins. Skips if installer is disabled or already
    injected on this tab. Uses bounded retry delays to catch DOM elements that
    appear after page load (e.g. GitLab .file-holder elements).
-   Checks host permission before injection (Firefox treats these as revocable)."
+   Checks host permission before injection (Firefox treats these as revocable).
+   Sets a '!' badge when permission is missing."
   [dispatch! tab-id url]
   (try
     (when (bg-utils/should-scan-for-installer? url @!installer-injected-tabs tab-id)
       (let [has-perm? (js-await (permissions/check-tab-permission tab-id))]
-        (when has-perm?
-          (js-await (ensure-initialized! dispatch!))
-          (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
-            (when (and installer (:script/enabled installer))
-              (let [delays bg-utils/installer-scan-delays
-                    found? (loop [remaining delays]
-                             (when (seq remaining)
-                               (let [delay-ms (first remaining)]
-                                 (when (pos? delay-ms)
-                                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
-                                 (if (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))
-                                   true
-                                   (recur (rest remaining))))))]
-                (when found?
-                  (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
-                  (swap! !installer-injected-tabs conj tab-id))))))))
+        (if has-perm?
+          (do
+            (js-await (ensure-initialized! dispatch!))
+            (let [installer (storage/get-script-by-name "epupp/web_userscript_installer.cljs")]
+              (when (and installer (:script/enabled installer))
+                (let [delays bg-utils/installer-scan-delays
+                      found? (loop [remaining delays]
+                               (when (seq remaining)
+                                 (let [delay-ms (first remaining)]
+                                   (when (pos? delay-ms)
+                                     (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve delay-ms)))))
+                                   (if (js-await (bg-inject/execute-in-isolated tab-id bg-inject/scan-for-userscripts-fn))
+                                     true
+                                     (recur (rest remaining))))))]
+                  (when found?
+                    (js-await (bg-inject/inject-installer! dispatch! tab-id installer))
+                    (swap! !installer-injected-tabs conj tab-id))))))
+          (permissions/set-permission-badge! tab-id))))
     (catch :default err
       (log/warn "Background" "Installer scan failed for tab" tab-id ":" (.-message err)))))
 
@@ -1089,6 +1104,21 @@
     :banner/fx.broadcast-system
     (let [[event] args]
       (bg-icon/broadcast-system-banner! event))
+
+    :msg/fx.handle-permission-granted
+    (let [[tab-id icon-state] args]
+      ((^:async fn []
+         (try
+           (js-await (ensure-initialized! dispatch!))
+           (let [tab (js-await (js/chrome.tabs.get tab-id))
+                 url (.-url tab)]
+             (when (and url
+                        (:scriptable? (script-utils/check-page-scriptability
+                                       url (script-utils/detect-browser-type))))
+               (js-await (process-navigation! dispatch! tab-id url icon-state))
+               (js-await (maybe-inject-installer! dispatch! tab-id url))))
+           (catch :default err
+             (log/warn "Background" "Permission-granted handling failed:" (.-message err)))))))
 
     :uf/unhandled-fx))
 

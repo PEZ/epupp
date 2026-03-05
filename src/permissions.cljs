@@ -76,3 +76,19 @@
                              (resolve has-perm?)))))))))
        (catch :default _
          (resolve true))))))
+
+;; ============================================================
+;; Permission Badge
+;; ============================================================
+
+(defn set-permission-badge!
+  "Sets badge text to '!' with warning color for a specific tab.
+   Indicates host permission is needed for matching scripts on this page."
+  [tab-id]
+  (js/chrome.action.setBadgeText #js {:text "!" :tabId tab-id})
+  (js/chrome.action.setBadgeBackgroundColor #js {:color "#f59e0b" :tabId tab-id}))
+
+(defn clear-permission-badge!
+  "Clears permission badge for a specific tab."
+  [tab-id]
+  (js/chrome.action.setBadgeText #js {:text "" :tabId tab-id}))

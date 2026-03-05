@@ -341,4 +341,9 @@
           display-state (bg-utils/compute-display-icon-state (:icon/states state) tab-id)]
       {:uf/fxs [[:msg/fx.send-response send-response {:success true :state display-state}]]})
 
+    :msg/ax.handle-permission-granted
+    (let [[tab-id] args
+          icon-state (get-in state [:icon/states tab-id] :disconnected)]
+      {:uf/fxs [[:msg/fx.handle-permission-granted tab-id icon-state]]})
+
     :uf/unhandled-ax))

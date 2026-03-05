@@ -961,3 +961,35 @@
             (test "returns connect effect with history-port for reconnect decision" test-nav-decide-connection-returns-connect-effect-for-reconnect)
             (test "returns no connect effect when decision is none" test-nav-decide-connection-returns-no-connect-effect-when-none)
             (test "always returns process-navigation effect" test-nav-decide-connection-always-returns-process-navigation-effect)))
+
+;; ============================================================
+;; Permission Granted Tests
+;; ============================================================
+
+(defn- test-permission-granted-triggers-effect-with-icon-state []
+  (let [state (assoc initial-state :icon/states {42 :connected})
+        result (bg-actions/handle-action state uf-data
+                 [:msg/ax.handle-permission-granted 42])
+        [fx-name tab-id icon-state] (first (:uf/fxs result))]
+    (-> (expect fx-name)
+        (.toBe :msg/fx.handle-permission-granted))
+    (-> (expect tab-id)
+        (.toBe 42))
+    (-> (expect icon-state)
+        (.toBe :connected))))
+
+(defn- test-permission-granted-defaults-icon-state-to-disconnected []
+  (let [result (bg-actions/handle-action initial-state uf-data
+                 [:msg/ax.handle-permission-granted 99])
+        [fx-name tab-id icon-state] (first (:uf/fxs result))]
+    (-> (expect fx-name)
+        (.toBe :msg/fx.handle-permission-granted))
+    (-> (expect tab-id)
+        (.toBe 99))
+    (-> (expect icon-state)
+        (.toBe :disconnected))))
+
+(describe ":msg/ax.handle-permission-granted"
+          (fn []
+            (test "triggers effect with tab icon state" test-permission-granted-triggers-effect-with-icon-state)
+            (test "defaults icon state to disconnected" test-permission-granted-defaults-icon-state-to-disconnected)))

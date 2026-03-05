@@ -68,6 +68,23 @@
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.request-host-permission))))
 
+(defn- ^:async test-request-host-permission-passes-tab-id []
+  (let [state (assoc initial-state :scripts/current-tab-id 42)
+        result (popup-actions/handle-action state uf-data [:popup/ax.request-host-permission])
+        [fx-name tab-id] (first (:uf/fxs result))]
+    (-> (expect fx-name)
+        (.toBe :popup/fx.request-host-permission))
+    (-> (expect tab-id)
+        (.toBe 42))))
+
+(defn- ^:async test-request-host-permission-passes-nil-tab-id-when-missing []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.request-host-permission])
+        [fx-name tab-id] (first (:uf/fxs result))]
+    (-> (expect fx-name)
+        (.toBe :popup/fx.request-host-permission))
+    (-> (expect tab-id)
+        (.toBeNull))))
+
 ;; ============================================================
 ;; Test Registration
 ;; ============================================================
@@ -80,4 +97,6 @@
     (test "toggle-auto-reconnect-repl toggles false to true" test-toggle-auto-reconnect-repl-toggles-false-to-true)
     ;; Host permissions
     (test "check-host-permission triggers effect" test-check-host-permission-triggers-effect)
-    (test "request-host-permission triggers effect" test-request-host-permission-triggers-effect)))
+    (test "request-host-permission triggers effect" test-request-host-permission-triggers-effect)
+    (test "request-host-permission passes current tab-id" test-request-host-permission-passes-tab-id)
+    (test "request-host-permission passes nil when no tab-id" test-request-host-permission-passes-nil-tab-id-when-missing)))

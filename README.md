@@ -57,22 +57,36 @@ With the live REPL connection, you will discover use cases you may not ever have
 
 ### Install
 
-1. Install Epupp from the Chrome and Firefox extension/addon stores.
-    * Chrome Web Store: [Epupp: Live Tamper Your Web](https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei)
-    * Firefox Browser Addons: https://addons.mozilla.org/firefox/addon/epupp/ Epupp has some quirks in Firefox, WIP. Please file issues for things you note not working.
-    * <details>
-      <summary>Safari</summary>
+#### Chrome
 
-      I'm still pondering wether I should submit to Safari App Store. Apple doesn't exactly love developers... But you can still use Epupp with Safari:
+1. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/bfcbpnmgefiblppimmoncoflmcejdbei).
+2. Pin Epupp to the toolbar so it is always visible.
+3. Navigate away from the extension store - these pages can't be scripted.
 
-      Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/epupp/releases). In the case of Safari, download `epupp-safari.zip`. Then in Safari:
-      1. Open **Settings** -> **Developer**
-      2. Click **Add Temporary Extension...**
+I also recommend allowing Epupp in Private Browsing for maximum utility. The extension does not collect any data whatsoever.
 
-      Please note that I haven't yet figured out all Safari nuances, so some things may not work. Please file issues for things you note not working.
-      </details>
-2. Pin Epupp to always be visible in the browser location bar. I also recommend to allow Epupp in Private Browsing for maximum utility. The Extension does not collect any data whatsoever.
-3. Navigate away from the extension store, these pages can't be scripted.
+#### Firefox
+
+1. Install from [Firefox Browser Addons](https://addons.mozilla.org/firefox/addon/epupp/).
+2. Pin the Epupp icon to the toolbar - this is important for seeing permission badges.
+3. Navigate away from the addon store.
+
+Firefox treats host permissions as optional, so Epupp may not have permission to run scripts on pages right away. When you visit a page that matches an auto-run script, Epupp shows a "!" badge on the extension icon. Click the icon and grant permission from the banner that appears. After granting, scripts auto-run as expected.
+
+You can also grant broad permission via **about:addons** -> **Epupp** -> **Permissions** -> toggle "Access your data for all websites".
+
+> [!NOTE]
+> Epupp has some quirks in Firefox, so not fully at par with how it works in Chrome. Please search and/or file issues for things you note not working.
+
+#### Safari
+
+I'm still pondering wether I should submit to Safari App Store. Apple doesn't exactly love developers... But you can still use Epupp with Safari:
+
+Grab the extension zip file(s) from the Epupp repository, latest [release](https://github.com/PEZ/epupp/releases). In the case of Safari, download `epupp-safari.zip`. Then in Safari:
+1. Open **Settings** -> **Developer**
+2. Click **Add Temporary Extension...**
+
+Please note that I haven't yet figured out all Safari nuances, so some things may not work. Please file issues for things you note not working.
 
 ### Userscript: Hello World
 

@@ -303,7 +303,8 @@
     {:uf/fxs [[:popup/fx.check-host-permission]]}
 
     :popup/ax.request-host-permission
-    {:uf/fxs [[:popup/fx.request-host-permission]]}
+    (let [tab-id (:scripts/current-tab-id state)]
+      {:uf/fxs [[:popup/fx.request-host-permission tab-id]]})
 
     :popup/ax.handle-system-banner
     (let [[{:keys [event-type operation script-name error unchanged

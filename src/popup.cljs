@@ -493,13 +493,19 @@
         (dispatch [[:db/ax.assoc :permissions/host-granted? true]])))
 
     :popup/fx.request-host-permission
-    (try
-      (js/chrome.permissions.request
-       #js {:origins #js ["<all_urls>"]}
-       (fn [granted]
-         (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean granted)]])))
-      (catch :default _
-        nil))
+    (let [[tab-id] args]
+      (try
+        (js/chrome.permissions.request
+         #js {:origins #js ["<all_urls>"]}
+         (fn [granted]
+           (dispatch [[:db/ax.assoc :permissions/host-granted? (boolean granted)]])
+           (when (and granted tab-id)
+             (js/chrome.action.setBadgeText #js {:text "" :tabId tab-id})
+             (js/chrome.runtime.sendMessage
+              #js {:type "permission-granted" :tabId tab-id}
+              (fn [_] (when js/chrome.runtime.lastError nil))))))
+        (catch :default _
+          nil)))
 
     :uf/unhandled-fx))
 
