@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Add check and workflow for granting Epupp permissions to auto-running userscripts in Firefox
+
 ## [0.0.9] - 2026-03-04
 
 - Minor styling fixes
