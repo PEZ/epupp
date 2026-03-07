@@ -504,6 +504,13 @@
          (send-response #js {:success false :error (.-message err)})))))
   true)
 
+
+(defn- handle-e2e-simulate-tab-visible [message dispatch! send-response]
+  (let [tab-id (.-tabId message)]
+    (dispatch! [[:visibility/ax.handle-tab-visible tab-id]])
+    (send-response #js {:success true :tabId tab-id}))
+  false)
+
 (defn- handle-ensure-scittle [message dispatch! send-response]
   (let [target-tab-id (.-tabId message)]
     (dispatch! [[:msg/ax.ensure-scittle send-response target-tab-id]])
@@ -604,6 +611,10 @@
         (send-response #js {:success false :error (str "Parse error: " (.-message err))})
         false))))
 
+(defn- handle-tab-became-visible [tab-id dispatch!]
+  (dispatch! [[:visibility/ax.handle-tab-visible tab-id]])
+  false)
+
 (defn- handle-unknown-message [msg-type]
   (log/debug "Background" "Unknown message type:" msg-type)
   false)
@@ -618,6 +629,7 @@
                       "ws-send" (handle-ws-send message tab-id dispatch!)
                       "ws-close" (handle-ws-close tab-id dispatch!)
                       "ping" false
+                      "tab-became-visible" (handle-tab-became-visible tab-id dispatch!)
                       "list-scripts" (handle-list-scripts message tab-id dispatch! send-response)
                       "save-script" (handle-save-script message tab-id dispatch! send-response)
                       "panel-save-script" (handle-panel-save-script message send-response)
@@ -670,6 +682,10 @@
                                              (handle-e2e-ensure-builtin dispatch! send-response)
                                              (do (send-response #js {:success false :error "Not available"})
                                                  false))
+                      "e2e/simulate-tab-visible" (if (.-dev config)
+                                              (handle-e2e-simulate-tab-visible message dispatch! send-response)
+                                              (do (send-response #js {:success false :error "Not available"})
+                                                  false))
                       "ensure-scittle" (handle-ensure-scittle message dispatch! send-response)
                       "inject-libs" (handle-inject-libs message dispatch! send-response)
                       "evaluate-script" (handle-evaluate-script message dispatch! send-response)
@@ -1006,6 +1022,18 @@
          :nav/in-history? in-history?
          :nav/history-port history-port
          :nav/saved-port saved-port}))
+
+    :visibility/fx.gather-reconnect-context
+    (let [[tab-id history] args
+          auto-reconnect? (js-await (get-auto-reconnect-setting))
+          in-history? (bg-utils/tab-in-history? history tab-id)
+          history-port (when in-history? (bg-utils/get-history-port history tab-id))
+          saved-port (js-await (get-saved-ws-port tab-id))
+          port (or history-port saved-port)
+          should-reconnect? (and (boolean auto-reconnect?) (some? port))]
+      {:visibility/tab-id tab-id
+       :visibility/should-reconnect? should-reconnect?
+       :visibility/port port})
 
     :nav/fx.connect
     ;; Connect REPL to a tab

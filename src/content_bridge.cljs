@@ -318,6 +318,12 @@
   (log/debug "Bridge" "Content script loaded")
   (.addEventListener js/window "message" handle-page-message)
   (.addListener js/chrome.runtime.onMessage handle-runtime-message)
+  ;; Reconnect when tab becomes visible after being hidden
+  (.addEventListener js/document "visibilitychange"
+                     (fn []
+                       (when (= "visible" js/document.visibilityState)
+                         (log/debug "Bridge" "Tab became visible, checking connection")
+                         (send-message-safe! #js {:type "tab-became-visible"}))))
   (.postMessage js/window
                 #js {:source "epupp-bridge"
                      :type "bridge-ready"}

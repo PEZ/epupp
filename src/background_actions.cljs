@@ -346,4 +346,20 @@
           icon-state (get-in state [:icon/states tab-id] :disconnected)]
       {:uf/fxs [[:msg/fx.handle-permission-granted tab-id icon-state]]})
 
+    :visibility/ax.handle-tab-visible
+    (let [[tab-id] args
+          connections (or (:ws/connections state) {})
+          has-ws? (some? (get connections tab-id))]
+      (when-not has-ws?
+        (let [history (:connected-tabs/history state)]
+          {:uf/fxs [[:uf/await :visibility/fx.gather-reconnect-context tab-id history]]
+           :uf/dxs [[:visibility/ax.decide-reconnect :uf/prev-result]]})))
+
+    :visibility/ax.decide-reconnect
+    (let [[context] args
+          {:visibility/keys [tab-id should-reconnect? port]} context]
+      (when (and should-reconnect? port)
+        (let [icon-state (get-in state [:icon/states tab-id] :disconnected)]
+          {:uf/fxs [[:uf/await :nav/fx.connect tab-id port icon-state]]})))
+
     :uf/unhandled-ax))

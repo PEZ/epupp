@@ -993,3 +993,119 @@
           (fn []
             (test "triggers effect with tab icon state" test-permission-granted-triggers-effect-with-icon-state)
             (test "defaults icon state to disconnected" test-permission-granted-defaults-icon-state-to-disconnected)))
+
+;; ============================================================
+;; Visibility: Handle Tab Visible Tests
+;; ============================================================
+
+(defn- test-handle-tab-visible-returns-nil-when-ws-exists []
+  (let [state (assoc initial-state :ws/connections {42 {:some "ws"}})
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.handle-tab-visible 42])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(defn- test-handle-tab-visible-returns-gather-effect-when-no-ws []
+  (let [state (assoc initial-state :ws/connections {99 {:other "ws"}})
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.handle-tab-visible 42])
+        fxs (:uf/fxs result)
+        dxs (:uf/dxs result)]
+    (-> (expect (some #(and (= :uf/await (first %))
+                            (= :visibility/fx.gather-reconnect-context (second %))
+                            (= 42 (nth % 2))) fxs))
+        (.toBeTruthy))
+    (-> (expect (some #(= :visibility/ax.decide-reconnect (first %)) dxs))
+        (.toBeTruthy))))
+
+(defn- test-handle-tab-visible-passes-history-to-gather-effect []
+  (let [history {42 {:port "1340"} 99 {:port "1341"}}
+        state (assoc initial-state
+                     :ws/connections {}
+                     :connected-tabs/history history)
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.handle-tab-visible 42])
+        gather-fx (first (filter #(= :visibility/fx.gather-reconnect-context (second %))
+                                 (:uf/fxs result)))]
+    (-> (expect (nth gather-fx 3))
+        (.toEqual (clj->js history)))))
+
+(defn- test-handle-tab-visible-with-empty-state []
+  (let [result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.handle-tab-visible 42])
+        fxs (:uf/fxs result)]
+    (-> (expect (some #(and (= :uf/await (first %))
+                            (= :visibility/fx.gather-reconnect-context (second %))
+                            (= 42 (nth % 2))) fxs))
+        (.toBeTruthy))))
+
+(describe ":visibility/ax.handle-tab-visible"
+          (fn []
+            (test "returns nil when ws exists" test-handle-tab-visible-returns-nil-when-ws-exists)
+            (test "returns gather effect when no ws" test-handle-tab-visible-returns-gather-effect-when-no-ws)
+            (test "passes history to gather effect" test-handle-tab-visible-passes-history-to-gather-effect)
+            (test "works with empty state" test-handle-tab-visible-with-empty-state)))
+
+;; ============================================================
+;; Visibility: Decide Reconnect Tests
+;; ============================================================
+
+(defn- test-decide-reconnect-returns-connect-effect-when-should-reconnect []
+  (let [context {:visibility/tab-id 42
+                 :visibility/should-reconnect? true
+                 :visibility/port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])
+        fxs (:uf/fxs result)]
+    (-> (expect (some #(and (= :uf/await (first %))
+                            (= :nav/fx.connect (second %))
+                            (= 42 (nth % 2))
+                            (= "1340" (nth % 3))) fxs))
+        (.toBeTruthy))))
+
+(defn- test-decide-reconnect-returns-nil-when-should-not-reconnect []
+  (let [context {:visibility/tab-id 42
+                 :visibility/should-reconnect? false
+                 :visibility/port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(defn- test-decide-reconnect-returns-nil-when-no-port []
+  (let [context {:visibility/tab-id 42
+                 :visibility/should-reconnect? true
+                 :visibility/port nil}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(defn- test-decide-reconnect-uses-icon-state-from-state []
+  (let [context {:visibility/tab-id 42
+                 :visibility/should-reconnect? true
+                 :visibility/port "1340"}
+        state {:icon/states {42 :connected}}
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.decide-reconnect context])
+        [_ _ _ _ icon-state] (first (:uf/fxs result))]
+    (-> (expect icon-state)
+        (.toBe :connected))))
+
+(defn- test-decide-reconnect-defaults-icon-state-to-disconnected []
+  (let [context {:visibility/tab-id 42
+                 :visibility/should-reconnect? true
+                 :visibility/port "1340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])
+        [_ _ _ _ icon-state] (first (:uf/fxs result))]
+    (-> (expect icon-state)
+        (.toBe :disconnected))))
+
+(describe ":visibility/ax.decide-reconnect"
+          (fn []
+            (test "returns connect effect when should reconnect" test-decide-reconnect-returns-connect-effect-when-should-reconnect)
+            (test "returns nil when should not reconnect" test-decide-reconnect-returns-nil-when-should-not-reconnect)
+            (test "returns nil when no port" test-decide-reconnect-returns-nil-when-no-port)
+            (test "uses icon state from state" test-decide-reconnect-uses-icon-state-from-state)
+            (test "defaults icon state to disconnected" test-decide-reconnect-defaults-icon-state-to-disconnected)))
