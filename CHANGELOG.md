@@ -6,7 +6,10 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-03-07
+
 - Fix repl WebSocket disconnecting after five minutes inactivity of the connected tab.
+
 
 ## [0.0.10] - 2026-03-05
 
