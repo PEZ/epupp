@@ -91,7 +91,9 @@
       false)))
 
 (defn- start-keepalive!
-  "Start sending keepalive pings to background to prevent service worker termination"
+  "Start sending keepalive pings to background to prevent service worker termination.
+   Interval is 25s: alarm-based heartbeat (Phase 2) handles worker keepalive,
+   so this ping only needs to detect extension context invalidation."
   []
   (stop-keepalive!)
   (swap! !state assoc :bridge/keepalive-interval
@@ -99,7 +101,7 @@
           (fn []
             (when (connected?)
               (send-message-safe! #js {:type "ping"})))
-          5000)))
+          25000)))
 
 (defn- handle-context-invalidated! []
   (log/debug "Bridge" "Extension context invalidated")

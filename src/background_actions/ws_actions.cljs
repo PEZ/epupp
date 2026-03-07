@@ -3,19 +3,25 @@
 (defn register
   "Register a WebSocket connection for a tab."
   [state {:ws/keys [tab-id connection-info]}]
-  {:uf/db (assoc state :ws/connections (assoc (or (:ws/connections state) {}) tab-id connection-info))
-   :uf/fxs []})
+  (let [old-connections (or (:ws/connections state) {})
+        new-connections (assoc old-connections tab-id connection-info)
+        was-empty? (empty? old-connections)]
+    {:uf/db (assoc state :ws/connections new-connections)
+     :uf/fxs (cond-> []
+               was-empty? (conj [:alarm/fx.start]))}))
 
 (defn unregister
   "Remove a WebSocket connection for a tab and broadcast the change.
    Also clears FS sync if the disconnecting tab was the FS sync tab."
   [state {:ws/keys [tab-id]}]
   (let [new-connections (dissoc (or (:ws/connections state) {}) tab-id)
-        clear-fs? (= tab-id (:fs/sync-tab-id state))]
+        clear-fs? (= tab-id (:fs/sync-tab-id state))
+        now-empty? (empty? new-connections)]
     {:uf/db (cond-> (assoc state :ws/connections new-connections)
               clear-fs? (assoc :fs/sync-tab-id nil))
      :uf/fxs (cond-> [[:ws/fx.broadcast-connections-changed! new-connections]]
-               clear-fs? (conj [:fs/fx.broadcast-sync-status! nil]))}))
+               clear-fs? (conj [:fs/fx.broadcast-sync-status! nil])
+               now-empty? (conj [:alarm/fx.stop]))}))
 
 (defn handle-connect
   "Extract connections from state and delegate to effect for WS connect."

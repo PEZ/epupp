@@ -790,6 +790,28 @@
                                              (.-url details)))))
 
   ;; ============================================================
+  ;; Alarm Handlers
+  ;; ============================================================
+
+  ;; Keepalive alarm fires every 30s (Chrome 120+) or 60s (older)
+  ;; to prevent service worker idle-termination while connections exist
+  (.addListener js/chrome.alarms.onAlarm
+                (fn [alarm]
+                  (when (= "ws-keepalive" (.-name alarm))
+                    (dispatch! [[:alarm/ax.tick]]))))
+
+  ;; ============================================================
+  ;; Alarm Handlers
+  ;; ============================================================
+
+  ;; Keepalive alarm fires every 30s (Chrome 120+) or 60s (older)
+  ;; to prevent service worker idle-termination while connections exist
+  (.addListener js/chrome.alarms.onAlarm
+                (fn [alarm]
+                  (when (= "ws-keepalive" (.-name alarm))
+                    (dispatch! [[:alarm/ax.tick]]))))
+
+  ;; ============================================================
   ;; Lifecycle Events
   ;; ============================================================
 
@@ -1141,6 +1163,20 @@
                (js-await (maybe-inject-installer! dispatch! tab-id url))))
            (catch :default err
              (log/warn "Background" "Permission-granted handling failed:" (.-message err)))))))
+
+    :alarm/fx.start
+    (do
+      (log/debug "Background:Alarm" "Starting keepalive alarm")
+      (js/chrome.alarms.create "ws-keepalive" #js {:periodInMinutes 0.5}))
+
+    :alarm/fx.stop
+    (do
+      (log/debug "Background:Alarm" "Stopping keepalive alarm")
+      (js/chrome.alarms.clear "ws-keepalive"))
+
+    :alarm/fx.log-tick
+    (let [[connection-count] args]
+      (log/debug "Background:Alarm" "Keepalive tick," connection-count "active connections"))
 
     :uf/unhandled-fx))
 

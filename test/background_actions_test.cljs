@@ -619,7 +619,7 @@
 ;; WebSocket Connection Tests
 ;; ============================================================
 
-(defn- test-ws-register-registers-connection-info-without-effects []
+(defn- test-ws-register-registers-connection-info-and-starts-alarm-when-first []
   (let [conn {:ws/socket :dummy-ws
               :ws/port 5555
               :ws/tab-title "Example"
@@ -629,12 +629,12 @@
                  [:ws/ax.register 9 conn])]
     (-> (expect (get-in result [:uf/db :ws/connections 9 :ws/port]))
         (.toBe 5555))
-    (-> (expect (count (:uf/fxs result)))
-        (.toBe 0))))
+    (-> (expect (some #(= [:alarm/fx.start] %) (:uf/fxs result)))
+        (.toBeTruthy))))
 
 (describe ":ws/ax.register"
           (fn []
-            (test "registers connection info without effects" test-ws-register-registers-connection-info-without-effects)))
+            (test "registers connection info and starts alarm when first connection" test-ws-register-registers-connection-info-and-starts-alarm-when-first)))
 
 (defn- test-ws-unregister-removes-connection-and-broadcasts-change []
   (let [conn {:ws/socket :dummy-ws
@@ -1109,3 +1109,25 @@
             (test "returns nil when no port" test-decide-reconnect-returns-nil-when-no-port)
             (test "uses icon state from state" test-decide-reconnect-uses-icon-state-from-state)
             (test "defaults icon state to disconnected" test-decide-reconnect-defaults-icon-state-to-disconnected)))
+
+;; ============================================================
+;; Alarm Tick Tests
+;; ============================================================
+
+(defn- test-alarm-tick-returns-log-effect-when-connections-exist []
+  (let [state {:ws/connections {1 {:ws/port 1234} 2 {:ws/port 5678}}}
+        result (bg-actions/handle-action state uf-data [:alarm/ax.tick])]
+    (-> (expect (:uf/fxs result))
+        (.toEqual [[:alarm/fx.log-tick 2]]))))
+
+(defn- test-alarm-tick-returns-nil-when-no-connections []
+  (let [result (bg-actions/handle-action {} uf-data [:alarm/ax.tick])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(describe ":alarm/ax.tick"
+          (fn []
+            (test "returns log effect when connections exist"
+                  test-alarm-tick-returns-log-effect-when-connections-exist)
+            (test "returns nil when no connections"
+                  test-alarm-tick-returns-nil-when-no-connections)))

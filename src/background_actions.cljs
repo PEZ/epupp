@@ -362,4 +362,9 @@
         (let [icon-state (get-in state [:icon/states tab-id] :disconnected)]
           {:uf/fxs [[:uf/await :nav/fx.connect tab-id port icon-state]]})))
 
+    :alarm/ax.tick
+    (let [connections (or (:ws/connections state) {})]
+      (when (seq connections)
+        {:uf/fxs [[:alarm/fx.log-tick (count connections)]]}))
+
     :uf/unhandled-ax))

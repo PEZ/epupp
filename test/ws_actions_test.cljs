@@ -67,3 +67,56 @@
                   test-handle-close-passes-connections-from-state-to-effect)
             (test "defaults to empty connections when nil"
                   test-handle-close-defaults-to-empty-connections)))
+
+;; ============================================================
+;; register - Alarm Start Tests
+;; ============================================================
+
+(defn- test-register-starts-alarm-when-first-connection []
+  (let [result (ws-actions/register {} {:ws/tab-id 1 :ws/connection-info {:ws/port 1234}})]
+    (-> (expect (:uf/db result))
+        (.toEqual {:ws/connections {1 {:ws/port 1234}}}))
+    (-> (expect (:uf/fxs result))
+        (.toEqual [[:alarm/fx.start]]))))
+
+(defn- test-register-does-not-start-alarm-when-already-has-connections []
+  (let [state {:ws/connections {1 {:ws/port 1234}}}
+        result (ws-actions/register state {:ws/tab-id 2 :ws/connection-info {:ws/port 5678}})]
+    (-> (expect (:uf/db result))
+        (.toEqual {:ws/connections {1 {:ws/port 1234} 2 {:ws/port 5678}}}))
+    (-> (expect (:uf/fxs result))
+        (.toEqual []))))
+
+(describe "ws-actions/register - alarm"
+          (fn []
+            (test "starts alarm when first connection"
+                  test-register-starts-alarm-when-first-connection)
+            (test "does not start alarm when already has connections"
+                  test-register-does-not-start-alarm-when-already-has-connections)))
+
+;; ============================================================
+;; unregister - Alarm Stop Tests
+;; ============================================================
+
+(defn- test-unregister-stops-alarm-when-last-connection-removed []
+  (let [state {:ws/connections {1 {:ws/port 1234}}}
+        result (ws-actions/unregister state {:ws/tab-id 1})]
+    (-> (expect (:uf/db result))
+        (.toEqual {:ws/connections {}}))
+    (-> (expect (some (fn [fx] (= :alarm/fx.stop (first fx))) (:uf/fxs result)))
+        (.toBeTruthy))))
+
+(defn- test-unregister-does-not-stop-alarm-when-connections-remain []
+  (let [state {:ws/connections {1 {:ws/port 1234} 2 {:ws/port 5678}}}
+        result (ws-actions/unregister state {:ws/tab-id 1})]
+    (-> (expect (:uf/db result))
+        (.toEqual {:ws/connections {2 {:ws/port 5678}}}))
+    (-> (expect (some (fn [fx] (= :alarm/fx.stop (first fx))) (:uf/fxs result)))
+        (.toBeFalsy))))
+
+(describe "ws-actions/unregister - alarm"
+          (fn []
+            (test "stops alarm when last connection removed"
+                  test-unregister-stops-alarm-when-last-connection-removed)
+            (test "does not stop alarm when connections remain"
+                  test-unregister-does-not-stop-alarm-when-connections-remain)))
