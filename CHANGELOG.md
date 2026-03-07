@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Fix repl WebSocket disconnecting after five minutes inactivity of the connected tab.
+
 ## [0.0.10] - 2026-03-05
 
 - Add check and workflow for granting Epupp permissions to auto-running userscripts in Firefox
