@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Fix: Changing default ports in Settings now correctly cascades to REPL Connect ports for all sites that have not been explicitly given different ports.
+
 ## [0.0.11] - 2026-03-07
 
 - Fix repl WebSocket disconnecting after five minutes inactivity of the connected tab.

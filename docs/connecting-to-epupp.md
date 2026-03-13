@@ -26,7 +26,7 @@ That's it. You should see a green session indicator with `epupp-default` in the 
 1. In the `userscripts/hq/hello_world.cljs` place the cursor in/near the code you want to evaluate and press <kbd>alt</kbd>+<kbd>enter</kbd>
 1. Check in the browser what happened
 
-The configuration leverages the fact that Epupp can be made to use different default ports per domain. If you edit the ports in the Epupp panel before connecting, Epupp will remember that port for the current domain. The configuration lives in two files:
+The configuration leverages the fact that Epupp can be made to use different ports per domain. If you edit the REPL Connect ports to values that differ from the defaults (set in Settings), Epupp remembers those ports as an override for the current domain. The configuration lives in two files:
 * [.vscode/tasks.json](.vscode/tasks.json). The browser-nrepl tasks for: GitHub, GitLab, YouTube, Ebay, and a default (all other sites).
 * [.vscode/settings.json](.vscode/settings.json). The Calva REPL Connect sequences for these tasks.
 

@@ -151,6 +151,202 @@
 
 
 
+(defn- ^:async expand-settings-section
+  "Expand the Settings collapsible section if collapsed."
+  [popup]
+  (let [section (.locator popup "[data-e2e-section=\"settings\"]")]
+    (js-await (-> (expect section) (.toBeVisible #js {:timeout 1000})))
+    (when (= "false" (js-await (.getAttribute section "data-e2e-expanded")))
+      (js-await (.click (.locator section ".section-header"))))))
+
+(defn- ^:async test_default_ports_cascade_to_connect_ports []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (clear-storage popup))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Verify initial connect ports match hardcoded defaults (1339/1340)
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "1339" #js {:timeout 1000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "1340" #js {:timeout 1000})))
+
+        ;; Expand settings and change default ports
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "5555"))
+        (js-await (.fill (.locator popup "#default-ws-port") "5556"))
+
+        ;; Verify connect ports cascade to match the new defaults
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "5555" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "5556" #js {:timeout 2000})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_explicit_override_sticky_when_defaults_change []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (clear-storage popup))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Set custom defaults
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "5555"))
+        (js-await (.fill (.locator popup "#default-ws-port") "5556"))
+
+        ;; Wait for cascade
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "5555" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "5556" #js {:timeout 2000})))
+
+        ;; Set explicit override on connect ports (different from defaults)
+        (js-await (.fill (.locator popup "#nrepl-port") "7777"))
+        (js-await (.fill (.locator popup "#ws-port") "7778"))
+
+        ;; Brief wait for storage to persist then reload to confirm override is stored
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Connect ports should still show override after reload
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "7777" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "7778" #js {:timeout 2000})))
+
+        ;; Change defaults again
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "8888"))
+        (js-await (.fill (.locator popup "#default-ws-port") "8889"))
+
+        ;; Connect ports should remain at override values (not cascade)
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 300))))
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "7777" #js {:timeout 500})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "7778" #js {:timeout 500})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_setting_connect_ports_to_defaults_clears_override []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (clear-storage popup))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Set custom defaults
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "5555"))
+        (js-await (.fill (.locator popup "#default-ws-port") "5556"))
+
+        ;; Wait for cascade
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "5555" #js {:timeout 2000})))
+
+        ;; Create explicit override
+        (js-await (.fill (.locator popup "#nrepl-port") "7777"))
+        (js-await (.fill (.locator popup "#ws-port") "7778"))
+
+        ;; Confirm override persisted via reload
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "7777" #js {:timeout 2000})))
+
+        ;; Set connect ports back to match current defaults (5555/5556)
+        (js-await (.fill (.locator popup "#nrepl-port") "5555"))
+        (js-await (.fill (.locator popup "#ws-port") "5556"))
+
+        ;; Wait for storage to clear then reload to confirm override is gone
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; After reload, connect ports should show defaults (no override persisted)
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "5555" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "5556" #js {:timeout 2000})))
+
+        ;; Change defaults - cascade should resume since override is cleared
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "9999"))
+        (js-await (.fill (.locator popup "#default-ws-port") "9998"))
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "9999" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "9998" #js {:timeout 2000})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
+(defn- ^:async test_popup_reload_preserves_port_state []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (clear-storage popup))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Set custom defaults
+        (js-await (expand-settings-section popup))
+        (js-await (.fill (.locator popup "#default-nrepl-port") "4444"))
+        (js-await (.fill (.locator popup "#default-ws-port") "4445"))
+
+        ;; Wait for cascade
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "4444" #js {:timeout 2000})))
+
+        ;; Set an explicit override
+        (js-await (.fill (.locator popup "#nrepl-port") "6666"))
+        (js-await (.fill (.locator popup "#ws-port") "6667"))
+
+        ;; Brief wait for storage to persist
+        (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 200))))
+
+        ;; Reload popup
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+
+        ;; Connect ports should reflect the override (not the defaults)
+        (js-await (-> (expect (.locator popup "#nrepl-port"))
+                      (.toHaveValue "6666" #js {:timeout 2000})))
+        (js-await (-> (expect (.locator popup "#ws-port"))
+                      (.toHaveValue "6667" #js {:timeout 2000})))
+
+        ;; Settings defaults should be preserved
+        (js-await (expand-settings-section popup))
+        (js-await (-> (expect (.locator popup "#default-nrepl-port"))
+                      (.toHaveValue "4444" #js {:timeout 1000})))
+        (js-await (-> (expect (.locator popup "#default-ws-port"))
+                      (.toHaveValue "4445" #js {:timeout 1000})))
+
+        (js-await (assert-no-errors! popup))
+        (js-await (.close popup)))
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Popup Core"
            (fn []
              (test "Popup Core: REPL connection setup"
@@ -160,5 +356,17 @@
                    test_script_management_workflow)
 
              (test "Popup Core: blank slate hints show contextual guidance"
-                   test_blank_slate_hints_show_contextual_guidance)))
+                   test_blank_slate_hints_show_contextual_guidance)
+
+             (test "Popup Core: default ports cascade to connect ports"
+                   test_default_ports_cascade_to_connect_ports)
+
+             (test "Popup Core: explicit override remains sticky when defaults change"
+                   test_explicit_override_sticky_when_defaults_change)
+
+             (test "Popup Core: setting connect ports to defaults clears override"
+                   test_setting_connect_ports_to_defaults_clears_override)
+
+             (test "Popup Core: popup reload preserves port state"
+                   test_popup_reload_preserves_port_state)))
 

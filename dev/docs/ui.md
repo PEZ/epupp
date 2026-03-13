@@ -69,6 +69,9 @@ This separation enables fast TDD cycles on business logic without browser mockin
 ```clojure
 {:ports/nrepl "1339"
  :ports/ws "1340"
+ :ports/source {:nrepl :default, :ws :default} ; :default or :override per port
+ :settings/default-nrepl-port "1339"
+ :settings/default-ws-port "1340"
  :ui/connect-status nil           ; Connection progress/error
  :ui/sections-collapsed {...}      ; Collapsible section states
  :scripts/list []                  ; All userscripts
@@ -77,6 +80,16 @@ This separation enables fast TDD cycles on business logic without browser mockin
  :settings/auto-connect-repl false ; Auto-connect setting
  ...}
 ```
+
+#### Port Cascade and Normalization
+
+The popup resolves REPL Connect ports via `normalize-domain-ports`, a pure function in `popup_actions.cljs`. Given default ports and per-domain ports from storage, it computes:
+
+- **`:effective-ports`** - the ports to display (domain override if it differs from defaults, otherwise defaults)
+- **`:persist?`** - whether the per-domain entry should be stored (true only when ports differ from defaults)
+- **`:source`** - per-port metadata (`:default` or `:override`) for UI display
+
+When default ports change in Settings, the popup's `storage.onChanged` listener fires `:popup/ax.on-default-ports-changed`, which re-runs normalization. Sites inheriting defaults get the new values; sites with explicit overrides keep theirs. When a user edits REPL Connect ports back to the current defaults, the save path calls `:popup/fx.clear-domain-ports` to remove the per-domain storage entry, making the site inherit defaults again.
 
 ### Panel State
 

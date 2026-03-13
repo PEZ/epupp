@@ -127,6 +127,11 @@
     (let [[ports] args]
       (save-ports-to-storage! ports))
 
+    :popup/fx.clear-domain-ports
+    (let [tab (js-await (get-active-tab))
+          key (storage-key tab)]
+      (js/chrome.storage.local.remove #js [key]))
+
     :popup/fx.copy-command
     (let [[cmd] args]
       (js-await (js/navigator.clipboard.writeText cmd))
@@ -196,6 +201,29 @@
                              :ports/nrepl nrepl-port
                              :ports/ws ws-port]]]
                (dispatch actions)))))))
+
+    :popup/fx.init-ports
+    (let [tab (js-await (get-active-tab))
+          key (storage-key tab)]
+      (js/chrome.storage.local.get
+       #js ["defaultNreplPort" "defaultWsPort" key]
+       (fn [result]
+         (let [stored-nrepl (aget result "defaultNreplPort")
+               stored-ws (aget result "defaultWsPort")
+               stored-defaults (when (or (some? stored-nrepl) (some? stored-ws))
+                                 (cond-> {}
+                                   (some? stored-nrepl) (assoc :nrepl (str stored-nrepl))
+                                   (some? stored-ws) (assoc :ws (str stored-ws))))
+               saved (aget result key)
+               domain-ports (when saved
+                              (let [nrepl (.-nreplPort saved)
+                                    ws (.-wsPort saved)]
+                                (when (or (some? nrepl) (some? ws))
+                                  (cond-> {}
+                                    (some? nrepl) (assoc :nrepl (str nrepl))
+                                    (some? ws) (assoc :ws (str ws))))))]
+           (dispatch [[:popup/ax.apply-init-ports {:stored-defaults stored-defaults
+                                                   :domain-ports domain-ports}]])))))
 
     :popup/fx.load-scripts
     ;; chrome.storage.local.get uses callback API, keep as-is
@@ -508,6 +536,37 @@
               (fn [_] (when js/chrome.runtime.lastError nil))))))
         (catch :default _
           nil)))
+
+    :popup/fx.run-port-migration
+    (js/chrome.storage.local.get
+     nil ;; null gets all keys
+     (fn [result]
+       (let [marker (aget result "epupp_migration_ports_normalized_v1")]
+         (when-not marker
+           (let [all-keys (js/Object.keys result)
+                 port-keys (filterv #(.startsWith % "ports_") all-keys)
+                 defaults {:nrepl (str (or (aget result "defaultNreplPort") "1339"))
+                           :ws (str (or (aget result "defaultWsPort") "1340"))}
+                 port-entries (reduce (fn [acc k]
+                                        (let [v (aget result k)
+                                              nrepl (.-nreplPort v)
+                                              ws (.-wsPort v)]
+                                          (assoc acc k (cond-> {}
+                                                         (some? nrepl) (assoc :nrepl (str nrepl))
+                                                         (some? ws) (assoc :ws (str ws))))))
+                                      {}
+                                      port-keys)]
+             (dispatch [[:popup/ax.apply-port-migration {:defaults defaults
+                                                         :port-entries port-entries}]]))))))
+
+    :popup/fx.remove-storage-keys
+    (let [[keys-to-remove] args]
+      (when (seq keys-to-remove)
+        (js/chrome.storage.local.remove (clj->js keys-to-remove))))
+
+    :popup/fx.set-storage-key
+    (let [[k v] args]
+      (js/chrome.storage.local.set (clj->js {k v})))
 
     :uf/unhandled-fx))
 
@@ -1159,8 +1218,31 @@
                         (conj [:db/ax.assoc :sponsor/status (boolean (.-newValue status-change))])
                         checked-change
                         (conj [:db/ax.assoc :sponsor/checked-at (.-newValue checked-change)]))))))))
-  (dispatch! [[:popup/ax.load-default-ports-setting]
-              [:popup/ax.load-saved-ports]
+  ;; Listen for default port changes (cascade to inherited domains)
+  (js/chrome.storage.onChanged.addListener
+   (fn [changes area]
+     (when (and (= area "local")
+                (or (aget changes "defaultNreplPort")
+                    (aget changes "defaultWsPort")))
+       (.then (get-active-tab)
+              (fn [tab]
+                (let [key (storage-key tab)]
+                  ;; Re-read all port data to get consistent state
+                  (js/chrome.storage.local.get
+                   #js ["defaultNreplPort" "defaultWsPort" key]
+                   (fn [result]
+                     (let [new-defaults {:nrepl (str (or (aget result "defaultNreplPort") "1339"))
+                                         :ws (str (or (aget result "defaultWsPort") "1340"))}
+                           saved (aget result key)
+                           domain-ports (when saved
+                                          (let [nrepl (.-nreplPort saved)
+                                                ws (.-wsPort saved)]
+                                            (when (or (some? nrepl) (some? ws))
+                                              (cond-> {}
+                                                (some? nrepl) (assoc :nrepl (str nrepl))
+                                                (some? ws) (assoc :ws (str ws))))))]
+                       (dispatch! [[:popup/ax.on-default-ports-changed new-defaults domain-ports]]))))))))))
+  (dispatch! [[:popup/ax.init-ports]
               [:popup/ax.check-status]
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
@@ -1172,7 +1254,9 @@
               [:popup/ax.load-connections]
               [:popup/ax.load-sponsor-status]
               [:popup/ax.load-dev-sponsor-username]
-              [:popup/ax.check-host-permission]]))
+              [:popup/ax.check-host-permission]])
+  ;; Lazy one-time migration: clean up redundant ports_* entries
+  (js/setTimeout #(dispatch! [[:popup/ax.run-port-migration]]) 1000))
 
 ;; Start the app when DOM is ready
 (log/info "Popup" "Script loaded, readyState:" js/document.readyState)

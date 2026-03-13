@@ -3,6 +3,30 @@
    No browser dependencies - testable without Chrome APIs."
   (:require [popup-utils :as popup-utils]))
 
+(defn normalize-domain-ports
+  "Pure helper: given default ports and per-domain ports, computes
+   effective ports, whether to persist, and the source of each port.
+   Returns {:effective-ports {:nrepl str :ws str}
+            :persist? boolean
+            :normalized-domain-ports map-or-nil
+            :source {:nrepl :default|:override :ws :default|:override}}"
+  [defaults domain-ports]
+  (let [nrepl-default (:nrepl defaults)
+        ws-default (:ws defaults)
+        nrepl-domain (:nrepl domain-ports)
+        ws-domain (:ws domain-ports)
+        nrepl-effective (or nrepl-domain nrepl-default)
+        ws-effective (or ws-domain ws-default)
+        nrepl-overridden? (and (some? nrepl-domain) (not= nrepl-domain nrepl-default))
+        ws-overridden? (and (some? ws-domain) (not= ws-domain ws-default))
+        any-override? (or nrepl-overridden? ws-overridden?)]
+    {:effective-ports {:nrepl nrepl-effective :ws ws-effective}
+     :persist? any-override?
+     :normalized-domain-ports (when any-override?
+                                {:nrepl nrepl-effective :ws ws-effective})
+     :source {:nrepl (if nrepl-overridden? :override :default)
+              :ws (if ws-overridden? :override :default)}}))
+
 (defn handle-action
   "Pure action handler for popup state transitions.
    Returns map with :uf/db, :uf/fxs, :uf/dxs keys.
@@ -14,15 +38,29 @@
   (case action
     :popup/ax.set-nrepl-port
     (let [[port] args
-          new-state (assoc state :ports/nrepl port)]
+          new-state (assoc state :ports/nrepl port)
+          defaults {:nrepl (:settings/default-nrepl-port state)
+                    :ws (:settings/default-ws-port state)}
+          domain-ports {:nrepl (:ports/nrepl new-state)
+                        :ws (:ports/ws new-state)}
+          {:keys [persist?]} (normalize-domain-ports defaults domain-ports)]
       {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
+       :uf/fxs [(if persist?
+                  [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
+                  [:popup/fx.clear-domain-ports])]})
 
     :popup/ax.set-ws-port
     (let [[port] args
-          new-state (assoc state :ports/ws port)]
+          new-state (assoc state :ports/ws port)
+          defaults {:nrepl (:settings/default-nrepl-port state)
+                    :ws (:settings/default-ws-port state)}
+          domain-ports {:nrepl (:ports/nrepl new-state)
+                        :ws (:ports/ws new-state)}
+          {:keys [persist?]} (normalize-domain-ports defaults domain-ports)]
       {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]]})
+       :uf/fxs [(if persist?
+                  [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
+                  [:popup/fx.clear-domain-ports])]})
 
     :popup/ax.copy-command
     (let [deps-string (:config/deps-string uf-data)
@@ -44,6 +82,22 @@
     {:uf/fxs [[:popup/fx.load-saved-ports
                (:settings/default-nrepl-port state)
                (:settings/default-ws-port state)]]}
+
+    :popup/ax.init-ports
+    {:uf/fxs [[:popup/fx.init-ports]]}
+
+    :popup/ax.apply-init-ports
+    (let [[storage-data] args
+          {:keys [stored-defaults domain-ports]} storage-data
+          defaults {:nrepl (or (:nrepl stored-defaults) "1339")
+                    :ws (or (:ws stored-defaults) "1340")}
+          {:keys [effective-ports source]} (normalize-domain-ports defaults domain-ports)]
+      {:uf/db (-> state
+                  (assoc :settings/default-nrepl-port (:nrepl defaults))
+                  (assoc :settings/default-ws-port (:ws defaults))
+                  (assoc :ports/nrepl (:nrepl effective-ports))
+                  (assoc :ports/ws (:ws effective-ports))
+                  (assoc :ports/source source))})
 
     :popup/ax.load-scripts
     {:uf/fxs [[:popup/fx.load-scripts]]}
@@ -91,6 +145,17 @@
 
     :popup/ax.load-default-ports-setting
     {:uf/fxs [[:popup/fx.load-default-ports-setting]]}
+
+    :popup/ax.on-default-ports-changed
+    (let [[new-defaults domain-ports] args
+          {:keys [effective-ports source]} (normalize-domain-ports new-defaults domain-ports)
+          new-db (-> state
+                     (assoc :settings/default-nrepl-port (:nrepl new-defaults))
+                     (assoc :settings/default-ws-port (:ws new-defaults))
+                     (assoc :ports/nrepl (:nrepl effective-ports))
+                     (assoc :ports/ws (:ws effective-ports))
+                     (assoc :ports/source source))]
+      {:uf/db (if (= new-db state) state new-db)})
 
     :popup/ax.load-auto-connect-setting
     {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
@@ -360,5 +425,18 @@
       (cond-> {}
         (not= state new-state) (assoc :uf/db new-state)
         (seq dxs) (assoc :uf/dxs dxs)))
+
+    :popup/ax.run-port-migration
+    {:uf/fxs [[:popup/fx.run-port-migration]]}
+
+    :popup/ax.apply-port-migration
+    (let [{:keys [defaults port-entries]} (first args)
+          redundant-keys (reduce-kv (fn [acc storage-key domain-ports]
+                                      (let [{:keys [persist?]} (normalize-domain-ports defaults domain-ports)]
+                                        (if persist? acc (conj acc storage-key))))
+                                    []
+                                    port-entries)]
+      {:uf/fxs [[:popup/fx.remove-storage-keys redundant-keys]
+                [:popup/fx.set-storage-key "epupp_migration_ports_normalized_v1" true]]})
 
     :uf/unhandled-ax))

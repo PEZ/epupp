@@ -187,6 +187,8 @@ Built-in scripts are readable but not editable in place. Inspect one, copy it, r
 
 #### Settings
 
+**Default ports** (nREPL and WebSocket) are the ports shown in REPL Connect for sites that have not been given specific ports. If you edit the ports in REPL Connect to values that differ from the defaults, those ports become a per-site override and stick even when defaults change.
+
 **Auto-reconnect** is per tab: if a tab was connected before reload/navigation, Epupp re-establishes the connection. Tabs that were never connected stay that way.
 
 **Auto-connect REPL** makes Epupp try to connect right away on all pages you open.

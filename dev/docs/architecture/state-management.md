@@ -52,3 +52,20 @@ decisions via `background_actions.cljs` and its sub-modules.
   state. The action extracts what it needs and declares effects with that data.
 - No `swap!` or `reset!` on the state atom outside the event loop during
   runtime. The sole exception is pre-dispatch initialization, documented as such.
+
+## Port Cascade Pattern
+
+Default REPL ports (nREPL and WebSocket) are stored in settings. Per-domain
+port overrides are stored separately. At startup and on settings changes,
+`normalize-domain-ports` in `popup_actions.cljs` resolves effective ports:
+
+- If a domain has no override, or its override matches the current defaults, it
+  inherits the defaults (and any stale storage entry is cleared).
+- If a domain has ports that differ from the defaults, those are used as an
+  explicit override and persisted.
+- `:ports/source` metadata (`:default` or `:override` per port) lets the UI
+  indicate the origin.
+
+This means changing default ports in Settings cascades automatically to all
+non-overridden domains. A one-time migration removes stale `ports_*` entries
+that matched the defaults at migration time.
