@@ -14,7 +14,7 @@ To create a predictable and Epupp-friendly environment for these instructions, w
 This project has [VS Code](https://code.visualstudio.com/) and [Calva](https://calva.io) configuration for starting and connecting multiple browser-nrepl relays to some common sites.
 
 0. Open your copy of **my-epupp-hq** in VS Code
-0. Run the default Build Task: <kbd>cmd/ctrl</kbd>+<kbd>b</kbd>, this starts the relays, one of them is for the default Epupp port 1339.
+0. Run the default Build Task: <kbd>cmd/ctrl</kbd>+<kbd>b</kbd>, this starts the relays, one of them is for the default Epupp port 3339.
 0. Connect the browser tab to browser-nrepl: Click **Connect** in the Epupp extension's popup UI.
 1. In VS Code, install the Calva extension
 1. Click the REPL button that appears in the VS Code status bar and select **Connect to a running REPL in your project**

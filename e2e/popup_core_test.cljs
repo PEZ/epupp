@@ -168,11 +168,11 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Verify initial connect ports match hardcoded defaults (1339/1340)
+        ;; Verify initial connect ports match hardcoded defaults (3339/3340)
         (js-await (-> (expect (.locator popup "#nrepl-port"))
-                      (.toHaveValue "1339" #js {:timeout 1000})))
+                      (.toHaveValue "3339" #js {:timeout 1000})))
         (js-await (-> (expect (.locator popup "#ws-port"))
-                      (.toHaveValue "1340" #js {:timeout 1000})))
+                      (.toHaveValue "3340" #js {:timeout 1000})))
 
         ;; Expand settings and change default ports
         (js-await (expand-settings-section popup))

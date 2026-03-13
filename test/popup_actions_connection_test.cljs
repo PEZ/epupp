@@ -8,8 +8,8 @@
 ;; ============================================================
 
 (def initial-state
-  {:ports/nrepl "1339"
-   :ports/ws "1340"
+  {:ports/nrepl "3339"
+   :ports/ws "3340"
    :ui/status nil
    :ui/copy-feedback nil
    :ui/has-connected false
@@ -26,8 +26,8 @@
    :settings/user-origins []
    :settings/new-origin ""
    :settings/default-origins []
-   :settings/default-nrepl-port "1339"
-   :settings/default-ws-port "1340"})
+   :settings/default-nrepl-port "3339"
+   :settings/default-ws-port "3340"})
 
 (def uf-data {:system/now 1234567890
               :config/deps-string "{:deps {}}"})
@@ -60,7 +60,7 @@
     (-> (expect (:ports/nrepl ports))
         (.toBe "9999"))
     (-> (expect (:ports/ws ports))
-        (.toBe "1340"))))
+        (.toBe "3340"))))
 
 ;; Copy command
 
@@ -70,9 +70,9 @@
     (-> (expect fx-name)
         (.toBe :popup/fx.copy-command))
     ;; Command should contain the ports
-    (-> (expect (.includes cmd "1339"))
+    (-> (expect (.includes cmd "3339"))
         (.toBe true))
-    (-> (expect (.includes cmd "1340"))
+    (-> (expect (.includes cmd "3340"))
         (.toBe true))))
 
 (defn- test-copy-command-uses-deps-string []
@@ -94,7 +94,7 @@
   (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.connect])
         [_fx-name port] (first (:uf/fxs result))]
     (-> (expect port)
-        (.toBe 1340))))
+        (.toBe 3340))))
 
 (defn- test-connect-returns-nil-for-invalid-port []
   (let [state (assoc initial-state :ports/ws "invalid")
@@ -116,7 +116,7 @@
     (-> (expect fx-name)
         (.toBe :popup/fx.check-status))
     (-> (expect ws-port)
-        (.toBe "1340"))))
+        (.toBe "3340"))))
 
 (defn- test-load-saved-ports-triggers-effect []
   (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.load-saved-ports])]
@@ -155,7 +155,7 @@
     (-> (expect (:settings/default-nrepl-port ports))
         (.toBe "9999"))
     (-> (expect (:settings/default-ws-port ports))
-        (.toBe "1340"))))
+        (.toBe "3340"))))
 
 (defn- test-load-default-ports-triggers-effect []
   (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.load-default-ports-setting])]
@@ -266,10 +266,10 @@
                  [:popup/ax.apply-init-ports {:stored-defaults nil
                                               :domain-ports nil}])
         db (:uf/db result)]
-    (-> (expect (:settings/default-nrepl-port db)) (.toBe "1339"))
-    (-> (expect (:settings/default-ws-port db)) (.toBe "1340"))
-    (-> (expect (:ports/nrepl db)) (.toBe "1339"))
-    (-> (expect (:ports/ws db)) (.toBe "1340"))))
+    (-> (expect (:settings/default-nrepl-port db)) (.toBe "3339"))
+    (-> (expect (:settings/default-ws-port db)) (.toBe "3340"))
+    (-> (expect (:ports/nrepl db)) (.toBe "3339"))
+    (-> (expect (:ports/ws db)) (.toBe "3340"))))
 
 (defn- test-apply-init-ports-stored-defaults-no-domain []
   ;; Stored defaults "5555"/"5556", no domain override => uses stored defaults
@@ -334,17 +334,17 @@
 
 (defn- test-set-nrepl-port-equal-to-default-clears-domain-ports []
   ;; Both ports match defaults -> should clear domain ports, not save
-  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-nrepl-port "1339"])]
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-nrepl-port "3339"])]
     (-> (expect (:ports/nrepl (:uf/db result)))
-        (.toBe "1339"))
+        (.toBe "3339"))
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.clear-domain-ports))))
 
 (defn- test-set-ws-port-equal-to-default-clears-domain-ports []
   ;; Both ports match defaults -> should clear domain ports, not save
-  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-ws-port "1340"])]
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-ws-port "3340"])]
     (-> (expect (:ports/ws (:uf/db result)))
-        (.toBe "1340"))
+        (.toBe "3340"))
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.clear-domain-ports))))
 
@@ -368,9 +368,9 @@
   ;; State has non-default nrepl, ws is already default
   ;; Setting nrepl back to default -> both match -> clear
   (let [state (assoc initial-state :ports/nrepl "5678")
-        result (popup-actions/handle-action state uf-data [:popup/ax.set-nrepl-port "1339"])]
+        result (popup-actions/handle-action state uf-data [:popup/ax.set-nrepl-port "3339"])]
     (-> (expect (:ports/nrepl (:uf/db result)))
-        (.toBe "1339"))
+        (.toBe "3339"))
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.clear-domain-ports))))
 
@@ -378,11 +378,44 @@
   ;; State has non-default nrepl and non-default ws
   ;; Setting nrepl back to default -> ws still differs -> save
   (let [state (assoc initial-state :ports/nrepl "5678" :ports/ws "5679")
-        result (popup-actions/handle-action state uf-data [:popup/ax.set-nrepl-port "1339"])]
+        result (popup-actions/handle-action state uf-data [:popup/ax.set-nrepl-port "3339"])]
     (-> (expect (:ports/nrepl (:uf/db result)))
-        (.toBe "1339"))
+        (.toBe "3339"))
     (-> (expect (first (first (:uf/fxs result))))
         (.toBe :popup/fx.save-ports))))
+
+(defn- test-set-nrepl-port-updates-source-to-override []
+  ;; Setting nrepl to a non-default value should mark nrepl source as :override
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-nrepl-port "7777"])
+        source (:ports/source (:uf/db result))]
+    (-> (expect (:nrepl source)) (.toBe :override))
+    (-> (expect (:ws source)) (.toBe :default))))
+
+(defn- test-set-ws-port-updates-source-to-override []
+  ;; Setting ws to a non-default value should mark ws source as :override
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-ws-port "7778"])
+        source (:ports/source (:uf/db result))]
+    (-> (expect (:nrepl source)) (.toBe :default))
+    (-> (expect (:ws source)) (.toBe :override))))
+
+(defn- test-set-nrepl-port-to-default-marks-source-default []
+  ;; Setting nrepl back to default value should mark nrepl source as :default
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.set-nrepl-port "3339"])
+        source (:ports/source (:uf/db result))]
+    (-> (expect (:nrepl source)) (.toBe :default))
+    (-> (expect (:ws source)) (.toBe :default))))
+
+(defn- test-override-sticky-through-default-change []
+  ;; Full scenario: set override, then change defaults - override should stick
+  (let [;; Step 1: Set explicit override on nrepl port
+        step1 (popup-actions/handle-action initial-state uf-data [:popup/ax.set-nrepl-port "7777"])
+        ;; Step 2: Change default nrepl port
+        step2 (popup-actions/handle-action (:uf/db step1) uf-data [:popup/ax.set-default-nrepl-port "8888"])
+        db (:uf/db step2)]
+    ;; Override should stick at 7777, not cascade to 8888
+    (-> (expect (:ports/nrepl db)) (.toBe "7777"))
+    ;; Default should be updated
+    (-> (expect (:settings/default-nrepl-port db)) (.toBe "8888"))))
 
 (describe "save-path normalization"
           (fn []
@@ -397,7 +430,15 @@
             (test "returning nrepl to default clears when both ports match defaults"
                   test-return-to-default-nrepl-clears-when-both-match)
             (test "returning nrepl to default saves when ws still differs"
-                  test-return-to-default-nrepl-saves-when-ws-differs)))
+                  test-return-to-default-nrepl-saves-when-ws-differs)
+            (test "set-nrepl-port updates source to override"
+                  test-set-nrepl-port-updates-source-to-override)
+            (test "set-ws-port updates source to override"
+                  test-set-ws-port-updates-source-to-override)
+            (test "set-nrepl-port to default marks source as default"
+                  test-set-nrepl-port-to-default-marks-source-default)
+            (test "override remains sticky through default change"
+                  test-override-sticky-through-default-change)))
 
 ;; ============================================================
 ;; Default ports changed (live reactivity) tests - Phase 4
@@ -434,7 +475,7 @@
 (defn- test-default-change-partial-override-keeps-override-cascades-default []
   ;; Domain has override only for nrepl "7777", ws inherits
   ;; When defaults change to "5555"/"5556", nrepl keeps "7777" but ws cascades to "5556"
-  (let [state (assoc initial-state :ports/nrepl "7777" :ports/ws "1340")
+  (let [state (assoc initial-state :ports/nrepl "7777" :ports/ws "3340")
         result (popup-actions/handle-action state uf-data
                  [:popup/ax.on-default-ports-changed {:nrepl "5555" :ws "5556"}
                   {:nrepl "7777"}])
@@ -451,7 +492,7 @@
   ;; Should return same state reference (unchanged guard) with no effects
   (let [state (assoc initial-state :ports/source {:nrepl :default :ws :default})
         result (popup-actions/handle-action state uf-data
-                 [:popup/ax.on-default-ports-changed {:nrepl "1339" :ws "1340"} nil])
+                 [:popup/ax.on-default-ports-changed {:nrepl "3339" :ws "3340"} nil])
         db (:uf/db result)]
     ;; Same reference returned (unchanged guard)
     (-> (expect db) (.toBe state))
@@ -478,7 +519,7 @@
 
 (defn- test-default-change-sets-source-partial-override []
   ;; nrepl overridden, ws inherits default
-  (let [state (assoc initial-state :ports/nrepl "7777" :ports/ws "1340")
+  (let [state (assoc initial-state :ports/nrepl "7777" :ports/ws "3340")
         result (popup-actions/handle-action state uf-data
                  [:popup/ax.on-default-ports-changed {:nrepl "5555" :ws "5556"}
                   {:nrepl "7777"}])
@@ -486,17 +527,41 @@
     (-> (expect (:nrepl (:ports/source db))) (.toBe :override))
     (-> (expect (:ws (:ports/source db))) (.toBe :default))))
 
-(defn- test-set-default-nrepl-port-does-not-update-effective-ports []
-  ;; set-default-nrepl-port should only update settings, not :ports/*
-  ;; Port cascade happens through storage listener -> on-default-ports-changed
+(defn- test-set-default-nrepl-port-cascades-to-inherited-ports []
+  ;; set-default-nrepl-port should cascade to :ports/* when domain uses defaults
   (let [result (popup-actions/handle-action initial-state uf-data
                  [:popup/ax.set-default-nrepl-port "9999"])
         db (:uf/db result)]
     ;; Settings updated
     (-> (expect (:settings/default-nrepl-port db)) (.toBe "9999"))
-    ;; Effective ports unchanged - cascade happens via storage listener
-    (-> (expect (:ports/nrepl db)) (.toBe "1339"))
-    (-> (expect (:ports/ws db)) (.toBe "1340"))))
+    ;; Effective ports cascade - nrepl follows new default, ws unchanged
+    (-> (expect (:ports/nrepl db)) (.toBe "9999"))
+    (-> (expect (:ports/ws db)) (.toBe "3340"))))
+
+(defn- test-set-default-ws-port-cascades-to-inherited-ports []
+  ;; set-default-ws-port should cascade to :ports/* when domain uses defaults
+  (let [result (popup-actions/handle-action initial-state uf-data
+                 [:popup/ax.set-default-ws-port "9999"])
+        db (:uf/db result)]
+    ;; Settings updated
+    (-> (expect (:settings/default-ws-port db)) (.toBe "9999"))
+    ;; Effective ports cascade - ws follows new default, nrepl unchanged
+    (-> (expect (:ports/nrepl db)) (.toBe "3339"))
+    (-> (expect (:ports/ws db)) (.toBe "9999"))))
+
+(defn- test-set-default-nrepl-port-preserves-explicit-override []
+  ;; When domain has explicit port override, changing default should NOT override it
+  (let [state (assoc initial-state
+                :ports/nrepl "7777" :ports/ws "7778"
+                :ports/source {:nrepl :override :ws :override})
+        result (popup-actions/handle-action state uf-data
+                 [:popup/ax.set-default-nrepl-port "9999"])
+        db (:uf/db result)]
+    ;; Settings updated
+    (-> (expect (:settings/default-nrepl-port db)) (.toBe "9999"))
+    ;; Domain ports differ from new defaults, so they stay as overrides
+    (-> (expect (:ports/nrepl db)) (.toBe "7777"))
+    (-> (expect (:ports/ws db)) (.toBe "7778"))))
 
 (describe "default ports changed (live reactivity)"
           (fn []
@@ -514,8 +579,12 @@
                   test-default-change-sets-source-with-overrides)
             (test "sets :ports/source mixed when partial override"
                   test-default-change-sets-source-partial-override)
-            (test "set-default-nrepl-port does not update effective ports"
-                  test-set-default-nrepl-port-does-not-update-effective-ports)))
+            (test "set-default-nrepl-port cascades to inherited ports"
+                  test-set-default-nrepl-port-cascades-to-inherited-ports)
+            (test "set-default-ws-port cascades to inherited ports"
+                  test-set-default-ws-port-cascades-to-inherited-ports)
+            (test "set-default-nrepl-port preserves explicit override"
+                  test-set-default-nrepl-port-preserves-explicit-override)))
 
 ;; ============================================================
 ;; Port migration cleanup

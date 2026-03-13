@@ -8,8 +8,8 @@
 ;; ============================================================
 
 (def initial-state
-  {:ports/nrepl "1339"
-   :ports/ws "1340"
+  {:ports/nrepl "3339"
+   :ports/ws "3340"
    :ui/status nil
    :ui/copy-feedback nil
    :ui/has-connected false

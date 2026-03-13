@@ -7,10 +7,11 @@ Changes to Epupp
 ## [Unreleased]
 
 - Fix: Changing default ports in Settings now correctly cascades to REPL Connect ports for all sites that have not been explicitly given different ports.
+- Default Epupp REPL ports changed to 3339/3340.
 
 ## [0.0.11] - 2026-03-07
 
-- Fix repl WebSocket disconnecting after five minutes inactivity of the connected tab.
+- Fix: repl WebSocket disconnecting after five minutes inactivity of the connected tab.
 
 
 ## [0.0.10] - 2026-03-05

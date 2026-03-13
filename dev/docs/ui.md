@@ -67,11 +67,11 @@ This separation enables fast TDD cycles on business logic without browser mockin
 ### Popup State
 
 ```clojure
-{:ports/nrepl "1339"
- :ports/ws "1340"
+{:ports/nrepl "3339"
+ :ports/ws "3340"
  :ports/source {:nrepl :default, :ws :default} ; :default or :override per port
- :settings/default-nrepl-port "1339"
- :settings/default-ws-port "1340"
+ :settings/default-nrepl-port "3339"
+ :settings/default-ws-port "3340"
  :ui/connect-status nil           ; Connection progress/error
  :ui/sections-collapsed {...}      ; Collapsible section states
  :scripts/list []                  ; All userscripts

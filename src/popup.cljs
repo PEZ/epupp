@@ -19,8 +19,8 @@
 (def ^:private config js/EXTENSION_CONFIG)
 
 (defonce !state
-  (atom {:ports/nrepl "1339"
-         :ports/ws "1340"
+  (atom {:ports/nrepl "3339"
+         :ports/ws "3340"
          :ui/reveal-highlight-script-name nil ; Temporary highlight when revealing a script
          :ui/sections-collapsed (or (.-sectionsCollapsed config)
                                     {:repl-connect false
@@ -38,8 +38,8 @@
          :settings/auto-reconnect-repl true
          :fs/sync-tab-id nil
          :settings/debug-logging false
-         :settings/default-nrepl-port "1339" ; Default nREPL port for new hostnames
-         :settings/default-ws-port "1340"    ; Default WebSocket port for new hostnames
+         :settings/default-nrepl-port "3339" ; Default nREPL port for new hostnames
+         :settings/default-ws-port "3340"    ; Default WebSocket port for new hostnames
          :permissions/host-granted? true ; Assume granted (Chrome default), check on init
          :ui/system-banners []          ; System banners [{:id :type :message :leaving} ...]
          :ui/system-bulk-names {}      ; bulk-id -> [script-name ...]
@@ -545,8 +545,8 @@
          (when-not marker
            (let [all-keys (js/Object.keys result)
                  port-keys (filterv #(.startsWith % "ports_") all-keys)
-                 defaults {:nrepl (str (or (aget result "defaultNreplPort") "1339"))
-                           :ws (str (or (aget result "defaultWsPort") "1340"))}
+                 defaults {:nrepl (str (or (aget result "defaultNreplPort") "3339"))
+                           :ws (str (or (aget result "defaultWsPort") "3340"))}
                  port-entries (reduce (fn [acc k]
                                         (let [v (aget result k)
                                               nrepl (.-nreplPort v)
@@ -1231,8 +1231,8 @@
                   (js/chrome.storage.local.get
                    #js ["defaultNreplPort" "defaultWsPort" key]
                    (fn [result]
-                     (let [new-defaults {:nrepl (str (or (aget result "defaultNreplPort") "1339"))
-                                         :ws (str (or (aget result "defaultWsPort") "1340"))}
+                     (let [new-defaults {:nrepl (str (or (aget result "defaultNreplPort") "3339"))
+                                         :ws (str (or (aget result "defaultWsPort") "3340"))}
                            saved (aget result key)
                            domain-ports (when saved
                                           (let [nrepl (.-nreplPort saved)

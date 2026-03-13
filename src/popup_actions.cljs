@@ -43,8 +43,8 @@
                     :ws (:settings/default-ws-port state)}
           domain-ports {:nrepl (:ports/nrepl new-state)
                         :ws (:ports/ws new-state)}
-          {:keys [persist?]} (normalize-domain-ports defaults domain-ports)]
-      {:uf/db new-state
+          {:keys [persist? source]} (normalize-domain-ports defaults domain-ports)]
+      {:uf/db (assoc new-state :ports/source source)
        :uf/fxs [(if persist?
                   [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
                   [:popup/fx.clear-domain-ports])]})
@@ -56,8 +56,8 @@
                     :ws (:settings/default-ws-port state)}
           domain-ports {:nrepl (:ports/nrepl new-state)
                         :ws (:ports/ws new-state)}
-          {:keys [persist?]} (normalize-domain-ports defaults domain-ports)]
-      {:uf/db new-state
+          {:keys [persist? source]} (normalize-domain-ports defaults domain-ports)]
+      {:uf/db (assoc new-state :ports/source source)
        :uf/fxs [(if persist?
                   [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
                   [:popup/fx.clear-domain-ports])]})
@@ -89,8 +89,8 @@
     :popup/ax.apply-init-ports
     (let [[storage-data] args
           {:keys [stored-defaults domain-ports]} storage-data
-          defaults {:nrepl (or (:nrepl stored-defaults) "1339")
-                    :ws (or (:ws stored-defaults) "1340")}
+          defaults {:nrepl (or (:nrepl stored-defaults) "3339")
+                    :ws (or (:ws stored-defaults) "3340")}
           {:keys [effective-ports source]} (normalize-domain-ports defaults domain-ports)]
       {:uf/db (-> state
                   (assoc :settings/default-nrepl-port (:nrepl defaults))
@@ -133,15 +133,45 @@
 
     :popup/ax.set-default-nrepl-port
     (let [[port] args
-          new-state (assoc state :settings/default-nrepl-port port)]
+          new-defaults {:nrepl port
+                        :ws (:settings/default-ws-port state)}
+          source (:ports/source state)
+          domain-ports (cond-> {}
+                         (= :override (:nrepl source)) (assoc :nrepl (:ports/nrepl state))
+                         (= :override (:ws source)) (assoc :ws (:ports/ws state)))
+          {:keys [effective-ports persist?]
+           new-source :source} (normalize-domain-ports new-defaults domain-ports)
+          new-state (-> state
+                        (assoc :settings/default-nrepl-port port)
+                        (assoc :ports/nrepl (:nrepl effective-ports))
+                        (assoc :ports/ws (:ws effective-ports))
+                        (assoc :ports/source new-source))]
       {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]]})
+       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]
+                (if persist?
+                  [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
+                  [:popup/fx.clear-domain-ports])]})
 
     :popup/ax.set-default-ws-port
     (let [[port] args
-          new-state (assoc state :settings/default-ws-port port)]
+          new-defaults {:nrepl (:settings/default-nrepl-port state)
+                        :ws port}
+          source (:ports/source state)
+          domain-ports (cond-> {}
+                         (= :override (:nrepl source)) (assoc :nrepl (:ports/nrepl state))
+                         (= :override (:ws source)) (assoc :ws (:ports/ws state)))
+          {:keys [effective-ports persist?]
+           new-source :source} (normalize-domain-ports new-defaults domain-ports)
+          new-state (-> state
+                        (assoc :settings/default-ws-port port)
+                        (assoc :ports/nrepl (:nrepl effective-ports))
+                        (assoc :ports/ws (:ws effective-ports))
+                        (assoc :ports/source new-source))]
       {:uf/db new-state
-       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]]})
+       :uf/fxs [[:popup/fx.save-default-ports-setting (select-keys new-state [:settings/default-nrepl-port :settings/default-ws-port])]
+                (if persist?
+                  [:popup/fx.save-ports (select-keys new-state [:ports/nrepl :ports/ws])]
+                  [:popup/fx.clear-domain-ports])]})
 
     :popup/ax.load-default-ports-setting
     {:uf/fxs [[:popup/fx.load-default-ports-setting]]}

@@ -293,7 +293,7 @@
 
 (defn ^:async get-saved-ws-port
   "Get saved WebSocket port for a tab's hostname.
-   Falls back to user-configured default port, then to 1340."
+   Falls back to user-configured default port, then to 3340."
   [tab-id]
   (let [hostname (js-await (get-tab-hostname tab-id))
         key (str "ports_" hostname)]
@@ -306,7 +306,7 @@
             (if (and saved (.-wsPort saved))
               (resolve (str (.-wsPort saved)))
               (let [default-port (aget result "defaultWsPort")]
-                (resolve (str (or default-port "1340"))))))))))))
+                (resolve (str (or default-port "3340"))))))))))))
  ; default ws port
 
 (defn ^:async process-navigation!
