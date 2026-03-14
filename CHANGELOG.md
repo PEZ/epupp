@@ -6,8 +6,11 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-03-15
+
 - Fix: Changing default ports in Settings now correctly cascades to REPL Connect ports for all sites that have not been explicitly given different ports.
 - Default Epupp REPL ports changed to 3339/3340.
+
 
 ## [0.0.11] - 2026-03-07
 
