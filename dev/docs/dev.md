@@ -190,13 +190,39 @@ This will:
 5. Commit, tag `vN.N.N`, and push
 6. Bump to next dev version (e.g., `0.0.8.0`)
 
-GitHub Actions will build all three browser versions and create a draft release.
+GitHub Actions then handles the rest automatically:
+1. Builds all three browser versions (Chrome, Firefox, Safari)
+2. Runs unit and E2E tests
+3. Creates a GitHub Release with downloadable artifacts
+4. Publishes to Chrome Web Store (auto-publish)
+5. Submits to Firefox AMO (with source code for review)
 
-### Store Submission
+Safari remains manual (submit via Xcode to App Store Connect).
 
-- **Chrome:** Upload `epupp-chrome.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- **Firefox:** Upload `epupp-firefox.zip` to [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/)
-- **Safari:** Submit via Xcode to App Store Connect
+### Store Publishing Details
+
+**Chrome Web Store**: The `publish_chrome` CI job uploads the zip and auto-publishes. Updates typically go live within minutes. Uses `chrome-webstore-upload-cli` with a GCP service account.
+
+**Firefox AMO**: The `publish_firefox` CI job submits the xpi along with a `git archive` source bundle for reviewer reproducibility. AMO review is asynchronous - the CI job submits and exits without waiting. Uses `web-ext sign` with JWT API credentials.
+
+**Safari**: Manual. Submit via Xcode to App Store Connect.
+
+### Credential Setup (One-time)
+
+Store publishing requires credentials stored in GitHub environment secrets:
+
+- **`chrome-store` environment**: `CWS_SERVICE_ACCOUNT_KEY` (GCP service account JSON key), `CHROME_EXTENSION_ID` (variable)
+- **`firefox-store` environment**: `AMO_API_KEY` (JWT issuer), `AMO_API_SECRET` (JWT secret)
+
+To validate credentials without publishing, run the "Check Store Credentials" workflow manually from the Actions tab.
+
+### Troubleshooting Publish Failures
+
+If a publish job fails after a successful release:
+- The GitHub Release and artifacts are unaffected
+- Re-run only the failed job from the Actions UI (no rebuild needed)
+- Check the job logs for credential or API errors
+- For persistent issues, publish manually using the store dashboards as a fallback
 
 ## Related Documentation
 
