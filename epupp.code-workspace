@@ -31,7 +31,7 @@
 			{
 				"name": "Epupp REPL",
 				"projectType": "scittle",
-				"fallbackPort": 1339,
+				"fallbackPort": 3339,
 				"replSessionNames": {
 					"primary": "epupp-general"
 				},
