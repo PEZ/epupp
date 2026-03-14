@@ -246,15 +246,17 @@ jobs:
       - name: Upload and publish to Chrome Web Store
         env:
           EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
-          SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
-          echo "$SERVICE_ACCOUNT_KEY" > /tmp/cws-key.json
           npm exec chrome-webstore-upload-cli@2 -- upload \
             --source dist/epupp-chrome.zip \
             --extension-id "$EXTENSION_ID" \
-            --service-account-key /tmp/cws-key.json \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN" \
             --auto-publish
-          rm -f /tmp/cws-key.json
 
   publish_firefox:
     if: startsWith(github.ref, 'refs/tags/v')
