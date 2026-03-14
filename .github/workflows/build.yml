@@ -223,3 +223,94 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.notes }}
           files: dist/*.zip
+
+  publish_chrome:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release, build-release]
+    runs-on: ubuntu-latest
+    environment: chrome-store
+    concurrency: publish-${{ github.ref }}
+    permissions:
+      contents: read
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: browser-extensions-${{ github.run_id }}-${{ needs.build-release.outputs.version }}
+          path: dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Upload and publish to Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+        run: |
+          echo "$SERVICE_ACCOUNT_KEY" > /tmp/cws-key.json
+          npm exec chrome-webstore-upload-cli@2 -- upload \
+            --source dist/epupp-chrome.zip \
+            --extension-id "$EXTENSION_ID" \
+            --service-account-key /tmp/cws-key.json \
+            --auto-publish
+          rm -f /tmp/cws-key.json
+
+  publish_firefox:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release, build-release]
+    runs-on: ubuntu-latest
+    environment: firefox-store
+    concurrency: publish-${{ github.ref }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: browser-extensions-${{ github.run_id }}-${{ needs.build-release.outputs.version }}
+          path: dist
+
+      - name: Unzip Firefox extension
+        run: |
+          mkdir -p dist/firefox
+          unzip dist/epupp-firefox.zip -d dist/firefox
+
+      - name: Prepare source archive for AMO review
+        run: git archive --format=zip --output=dist/amo-source.zip HEAD
+
+      - name: Submit to Firefox Add-ons
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: |
+          npm exec web-ext@8 -- sign \
+            --source-dir dist/firefox \
+            --channel listed \
+            --approval-timeout 0 \
+            --upload-source-code dist/amo-source.zip
+
+  publish_summary:
+    if: always() && startsWith(github.ref, 'refs/tags/v')
+    needs: [publish_chrome, publish_firefox]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Summarize publish results
+        run: |
+          echo "## Store Publishing Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Store | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Chrome | ${{ needs.publish_chrome.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Firefox | ${{ needs.publish_firefox.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Safari | Manual |" >> $GITHUB_STEP_SUMMARY
