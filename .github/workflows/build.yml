@@ -291,7 +291,7 @@ jobs:
 
       - name: Submit to Firefox Add-ons
         env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_KEY: ${{ vars.AMO_API_KEY }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
         run: |
           npm exec web-ext@8 -- sign \
