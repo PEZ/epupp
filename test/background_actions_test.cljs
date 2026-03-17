@@ -1131,3 +1131,142 @@
                   test-alarm-tick-returns-log-effect-when-connections-exist)
             (test "returns nil when no connections"
                   test-alarm-tick-returns-nil-when-no-connections)))
+
+;; ============================================================
+;; Explicit Disconnect Tests
+;; ============================================================
+
+(defn- test-explicit-disconnect-adds-tab-to-explicitly-disconnected []
+  (let [state {:ws/connections {42 {:ws/port 1340}}}
+        result (bg-actions/handle-action state uf-data
+                 [:ws/ax.explicit-disconnect 42])
+        new-state (:uf/db result)]
+    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 42))
+        (.toBe true))))
+
+(defn- test-explicit-disconnect-produces-ws-close-effect []
+  (let [state {:ws/connections {42 {:ws/port 1340}}}
+        result (bg-actions/handle-action state uf-data
+                 [:ws/ax.explicit-disconnect 42])
+        fxs (:uf/fxs result)]
+    (-> (expect (some #(= :ws/fx.handle-close (first %)) fxs))
+        (.toBeTruthy))))
+
+(defn- test-explicit-disconnect-produces-history-forget-deferred []
+  (let [state {:ws/connections {42 {:ws/port 1340}}
+               :connected-tabs/history {42 {:port "1340"}}}
+        result (bg-actions/handle-action state uf-data
+                 [:ws/ax.explicit-disconnect 42])
+        dxs (:uf/dxs result)]
+    (-> (expect (some #(and (= :history/ax.forget (first %))
+                            (= 42 (second %))) dxs))
+        (.toBeTruthy))))
+
+(defn- test-explicit-disconnect-preserves-other-disconnected-tabs []
+  (let [state {:ws/connections {42 {:ws/port 1340}}
+               :ws/explicitly-disconnected #{99}}
+        result (bg-actions/handle-action state uf-data
+                 [:ws/ax.explicit-disconnect 42])
+        new-state (:uf/db result)]
+    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 99))
+        (.toBe true))
+    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 42))
+        (.toBe true))))
+
+(describe ":ws/ax.explicit-disconnect"
+          (fn []
+            (test "adds tab to explicitly-disconnected set"
+                  test-explicit-disconnect-adds-tab-to-explicitly-disconnected)
+            (test "produces WS close effect"
+                  test-explicit-disconnect-produces-ws-close-effect)
+            (test "produces history forget deferred action"
+                  test-explicit-disconnect-produces-history-forget-deferred)
+            (test "preserves other disconnected tabs"
+                  test-explicit-disconnect-preserves-other-disconnected-tabs)))
+
+;; ============================================================
+;; Visibility: Skips Reconnect for Explicitly Disconnected Tabs
+;; ============================================================
+
+(defn- test-visibility-skips-reconnect-when-tab-explicitly-disconnected []
+  (let [state {:ws/connections {}
+               :ws/explicitly-disconnected #{42}
+               :connected-tabs/history {42 {:port "1340"}}}
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.handle-tab-visible 42])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(defn- test-visibility-reconnects-when-tab-not-explicitly-disconnected []
+  (let [state {:ws/connections {}
+               :ws/explicitly-disconnected #{99}
+               :connected-tabs/history {42 {:port "1340"}}}
+        result (bg-actions/handle-action state uf-data
+                 [:visibility/ax.handle-tab-visible 42])
+        fxs (:uf/fxs result)]
+    (-> (expect (some #(= :visibility/fx.gather-reconnect-context (second %)) fxs))
+        (.toBeTruthy))))
+
+(describe ":visibility/ax.handle-tab-visible (explicit disconnect)"
+          (fn []
+            (test "skips reconnect when tab explicitly disconnected"
+                  test-visibility-skips-reconnect-when-tab-explicitly-disconnected)
+            (test "reconnects when tab not explicitly disconnected"
+                  test-visibility-reconnects-when-tab-not-explicitly-disconnected)))
+
+;; ============================================================
+;; Navigation: Clears Explicit Disconnect Flag
+;; ============================================================
+
+(defn- test-navigation-clears-explicit-disconnect-flag []
+  (let [state {:ws/explicitly-disconnected #{42}
+               :connected-tabs/history {}}
+        result (bg-actions/handle-action state uf-data
+                 [:nav/ax.handle-navigation 42 "https://example.com"])
+        new-state (:uf/db result)]
+    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 42))
+        (.toBe false))))
+
+(defn- test-navigation-preserves-other-disconnect-flags []
+  (let [state {:ws/explicitly-disconnected #{42 99}
+               :connected-tabs/history {}}
+        result (bg-actions/handle-action state uf-data
+                 [:nav/ax.handle-navigation 42 "https://example.com"])
+        new-state (:uf/db result)]
+    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 99))
+        (.toBe true))))
+
+(defn- test-navigation-no-state-change-when-not-disconnected []
+  (let [state {:connected-tabs/history {}}
+        result (bg-actions/handle-action state uf-data
+                 [:nav/ax.handle-navigation 42 "https://example.com"])]
+    ;; Should still produce navigation effects regardless
+    (-> (expect (:uf/fxs result))
+        (.toBeTruthy))))
+
+(describe ":nav/ax.handle-navigation (explicit disconnect)"
+          (fn []
+            (test "clears explicit disconnect flag for navigating tab"
+                  test-navigation-clears-explicit-disconnect-flag)
+            (test "preserves disconnect flags for other tabs"
+                  test-navigation-preserves-other-disconnect-flags)
+            (test "still works when no disconnect flags exist"
+                  test-navigation-no-state-change-when-not-disconnected)))
+
+;; ============================================================
+;; Tab Removed: Clears Explicit Disconnect Flag
+;; ============================================================
+
+(defn- test-tab-removed-clears-explicit-disconnect-flag []
+  (let [state {:ws/explicitly-disconnected #{42}
+               :ws/connections {}}
+        result (bg-actions/handle-action state uf-data
+                 [:tab/ax.handle-removed 42])
+        new-state (:uf/db result)]
+    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 42))
+        (.toBe false))))
+
+(describe ":tab/ax.handle-removed (explicit disconnect)"
+          (fn []
+            (test "clears explicit disconnect flag"
+                  test-tab-removed-clears-explicit-disconnect-flag)))

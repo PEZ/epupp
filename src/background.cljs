@@ -443,7 +443,7 @@
 
 (defn- handle-disconnect-tab [message dispatch!]
   (let [target-tab-id (.-tabId message)]
-    (dispatch! [[:ws/ax.handle-close target-tab-id]]))
+    (dispatch! [[:ws/ax.explicit-disconnect target-tab-id]]))
   false)
 
 (defn- handle-e2e-find-tab-id [message dispatch! send-response]

@@ -173,6 +173,10 @@
     (let [[tab-id] args]
       (ws-actions/handle-close state {:ws/tab-id tab-id}))
 
+    :ws/ax.explicit-disconnect
+    (let [[tab-id] args]
+      (ws-actions/explicit-disconnect state {:ws/tab-id tab-id}))
+
     :init/ax.ensure-initialized
     (if-let [promise (:init/promise state)]
       ;; Already initializing/initialized - await existing promise
@@ -310,19 +314,29 @@
 
     :nav/ax.handle-navigation
     (let [[tab-id url] args
-          history (:connected-tabs/history state)]
-      {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
-                [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
-       :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
+          history (:connected-tabs/history state)
+          disconnected (or (:ws/explicitly-disconnected state) #{})
+          was-disconnected? (contains? disconnected tab-id)
+          base {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
+                         [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
+                :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]}]
+      (if was-disconnected?
+        (assoc base :uf/db (assoc state :ws/explicitly-disconnected (disj disconnected tab-id)))
+        base))
 
     :tab/ax.handle-removed
     (let [[tab-id] args
           connections (or (:ws/connections state) {})
-          has-ws? (some? (get connections tab-id))]
-      {:uf/fxs (when has-ws?
-                 [[:ws/fx.handle-close connections tab-id]])
-       :uf/dxs [[:icon/ax.clear tab-id]
-                [:history/ax.forget tab-id]]})
+          has-ws? (some? (get connections tab-id))
+          disconnected (or (:ws/explicitly-disconnected state) #{})
+          was-disconnected? (contains? disconnected tab-id)
+          result {:uf/fxs (when has-ws?
+                            [[:ws/fx.handle-close connections tab-id]])
+                  :uf/dxs [[:icon/ax.clear tab-id]
+                           [:history/ax.forget tab-id]]}]
+      (if was-disconnected?
+        (assoc result :uf/db (assoc state :ws/explicitly-disconnected (disj disconnected tab-id)))
+        result))
 
     :nav/ax.handle-before-navigate
     (let [[tab-id] args
@@ -349,8 +363,9 @@
     :visibility/ax.handle-tab-visible
     (let [[tab-id] args
           connections (or (:ws/connections state) {})
-          has-ws? (some? (get connections tab-id))]
-      (when-not has-ws?
+          has-ws? (some? (get connections tab-id))
+          explicitly-disconnected? (contains? (or (:ws/explicitly-disconnected state) #{}) tab-id)]
+      (when-not (or has-ws? explicitly-disconnected?)
         (let [history (:connected-tabs/history state)]
           {:uf/fxs [[:uf/await :visibility/fx.gather-reconnect-context tab-id history]]
            :uf/dxs [[:visibility/ax.decide-reconnect :uf/prev-result]]})))

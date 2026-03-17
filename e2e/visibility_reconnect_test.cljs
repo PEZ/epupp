@@ -31,10 +31,10 @@
               (recur))))))))
 
 ;; =============================================================================
-;; Test: Reconnects on tab visible after disconnect
+;; Test: No reconnect after explicit disconnect
 ;; =============================================================================
 
-(defn- ^:async test_reconnects_on_tab_visible_after_disconnect []
+(defn- ^:async test_no_reconnect_after_explicit_disconnect []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -60,21 +60,25 @@
           (let [connections (js-await (fixtures/get-connections popup))]
             (js-await (-> (expect (.-length connections)) (.toBe 1))))
 
-          ;; === PHASE 3: Disconnect (simulating WS loss while tab hidden) ===
+          ;; === PHASE 3: Explicit disconnect (user action via popup) ===
           (js-await (fixtures/send-runtime-message popup "disconnect-tab" #js {:tabId tab-id}))
           (js-await (wait-for-no-connections popup 2000))
-          (js/console.log "Tab disconnected, history preserved")
+          (js/console.log "Tab explicitly disconnected")
 
-          ;; === PHASE 4: Simulate tab becoming visible ===
+          ;; Clear test events for clean baseline
+          (js-await (fixtures/clear-test-events! popup))
+
+          ;; === PHASE 4: Simulate tab becoming visible - should NOT reconnect ===
           (js-await (simulate-tab-visible! popup tab-id))
-          (js/console.log "Simulated tab-became-visible")
+          (js/console.log "Simulated tab-became-visible after explicit disconnect")
 
-          ;; Wait for reconnection
-          (js-await (wait-for-connection popup 10000))
-          (js/console.log "Reconnected after visibility change")
+          ;; Assert no NAV_AUTO_CONNECT event occurs
+          (js-await (fixtures/assert-no-new-event-within popup "NAV_AUTO_CONNECT" 0 300))
+          (js/console.log "Verified: no reconnection after explicit disconnect")
 
+          ;; Verify still disconnected
           (let [connections (js-await (fixtures/get-connections popup))]
-            (js-await (-> (expect (.-length connections)) (.toBeGreaterThanOrEqual 1))))
+            (js-await (-> (expect (.-length connections)) (.toBe 0))))
 
           (js-await (assert-no-errors! popup))
           (js-await (.close popup)))
@@ -183,8 +187,8 @@
 
 (.describe test "Visibility Reconnect"
            (fn []
-             (test "Visibility Reconnect: reconnects on tab visible after disconnect"
-                   test_reconnects_on_tab_visible_after_disconnect)
+             (test "Visibility Reconnect: no reconnect after explicit disconnect"
+                   test_no_reconnect_after_explicit_disconnect)
              (test "Visibility Reconnect: no reconnect when auto-reconnect disabled"
                    test_no_reconnect_when_auto_reconnect_disabled)
              (test "Visibility Reconnect: no reconnect when still connected"
