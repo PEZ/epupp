@@ -6,8 +6,11 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-03-18
+
 - Auto-connect setting replaces on/off with three levels: Never, On page load, On page load + tab activation
 - Fix: Disconnected tabs no longer reconnect on navigation
+
 
 ## [0.0.12] - 2026-03-15
 
