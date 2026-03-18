@@ -6,7 +6,7 @@ isolated. The architecture coordinates through message passing.
 ## State Domains
 
 - Background worker: connection lifecycle, toolbar icon state,
-  auto-connect level, reconnect-on-navigation, and per-tab FS sync state
+  auto-connect, reconnect-on-navigation, and per-tab FS sync state
   (`:fs/sync-tab-id` - ephemeral, not persisted).
 - Content bridge: ephemeral relay state and keepalive behavior.
 - Popup: UI state, connection status, settings, and script list derived from

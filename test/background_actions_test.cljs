@@ -1184,13 +1184,14 @@
     (-> (expect (:uf/db result))
         (.toBeUndefined))))
 
-(defn- test-explicit-disconnect-does-not-forget-history []
+(defn- test-explicit-disconnect-forgets-history []
   (let [state {:ws/connections {42 {:ws/port 1340}}
                :connected-tabs/history {42 {:port "1340"}}}
         result (bg-actions/handle-action state uf-data
-                 [:ws/ax.explicit-disconnect 42])]
-    (-> (expect (:uf/dxs result))
-        (.toBeUndefined))))
+                 [:ws/ax.explicit-disconnect 42])
+        dxs (:uf/dxs result)]
+    (-> (expect (some #(= [:history/ax.forget 42] %) dxs))
+        (.toBeTruthy))))
 
 (describe ":ws/ax.explicit-disconnect"
           (fn []
@@ -1198,5 +1199,5 @@
                   test-explicit-disconnect-produces-ws-close-effect)
             (test "does not modify state"
                   test-explicit-disconnect-does-not-modify-state)
-            (test "does not forget history"
-                  test-explicit-disconnect-does-not-forget-history)))
+            (test "forgets history to prevent reconnect-on-nav"
+                  test-explicit-disconnect-forgets-history)))

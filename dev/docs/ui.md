@@ -77,8 +77,8 @@ This separation enables fast TDD cycles on business logic without browser mockin
  :scripts/list []                  ; All userscripts
  :scripts/current-url nil          ; For pattern matching
  :repl/connections []              ; Active REPL connections
- :settings/auto-connect-level "off" ; Auto-connect level: "off", "all-pages", or "all-tabs"
- :settings/auto-reconnect-repl true ; Reconnect on navigation setting
+ :settings/auto-connect-level "off" ; Auto-connect: "off" (Never), "all-pages" (On page load), or "all-tabs" (On page load + tab activation)
+ :settings/auto-reconnect-repl true ; Reconnect connected tabs on navigation
  ...}
 ```
 

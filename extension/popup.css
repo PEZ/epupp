@@ -907,6 +907,15 @@ body.ready .script-item {
   cursor: pointer;
 }
 
+.checkbox-label.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.checkbox-label.disabled input[type="checkbox"] {
+  cursor: default;
+}
+
 .select-label {
   font-size: 13px;
   margin-bottom: 4px;

@@ -884,30 +884,33 @@
    id-prefix differentiates duplicate instances in the DOM."
   [state {:keys [id-prefix]}]
   (let [{:settings/keys [auto-connect-level auto-reconnect-repl]} state
-        prefix (or id-prefix "")]
-    [[:div.setting
-      [:label.checkbox-label
+        prefix (or id-prefix "")
+        auto-connect-active? (not= auto-connect-level "off")]
+    [[:div.setting (when auto-connect-active?
+                     {:title "Overridden by Auto-connect"})
+      [:label.checkbox-label {:class (when auto-connect-active? "disabled")}
        [:input {:type "checkbox"
                 :id (str prefix "auto-reconnect-repl")
                 :checked auto-reconnect-repl
+                :disabled auto-connect-active?
                 :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
-       "Reconnect on navigation"]
+       "Reconnect connected tabs on navigation"]
       [:p.description
        "When a connected tab navigates to a new page, automatically reconnect. "
-       "(REPL state will be lost but connection will be restored.)"]]
+       "REPL state is lost but the connection is restored."]]
      [:div.setting
       [:label.select-label {:for (str prefix "auto-connect-level")}
-       "Auto-connect level"]
+       "Auto-connect"]
       [:select {:id (str prefix "auto-connect-level")
                 :value auto-connect-level
                 :on-change #(dispatch! [[:popup/ax.set-auto-connect-level (.. % -target -value)]])}
-       [:option {:value "off"} "Off"]
-       [:option {:value "all-pages"} "All pages"]
-       [:option {:value "all-tabs"} "All tabs"]]
+       [:option {:value "off"} "Never"]
+       [:option {:value "all-pages"} "On page load"]
+       [:option {:value "all-tabs"} "On page load + tab activation"]]
       [:p.description.warning
        (case auto-connect-level
-         "all-pages" "Epupp will connect a REPL to every page you visit."
-         "all-tabs" "Epupp will connect a REPL to every page you visit and follow your active tab."
+         "all-pages" "Epupp connects a REPL to every page you load."
+         "all-tabs" "Epupp connects a REPL to every page you load, and follows your active tab."
          "Auto-connect is disabled.")]]
      (let [current-tab-id (:scripts/current-tab-id state)
            fs-sync-tab-id (:fs/sync-tab-id state)

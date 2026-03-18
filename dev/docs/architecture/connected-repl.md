@@ -111,8 +111,8 @@ This allows Scittle's nREPL client to "connect" to the relay server even though:
 When enabled, Epupp automatically connects the REPL on navigation:
 1. `webNavigation.onCompleted` fires
 2. Background checks auto-connect settings
-3. If auto-connect-all is enabled, it connects every eligible tab
-4. Otherwise, if auto-reconnect is enabled and the tab was previously
+3. If auto-connect is enabled, it connects every eligible tab
+4. Otherwise, if reconnect-on-navigation is enabled and the tab was previously
     connected, it reconnects using the saved port
 
 ## Connection Tracking

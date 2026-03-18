@@ -42,8 +42,10 @@
     {:uf/fxs [[:ws/fx.handle-close connections tab-id]]}))
 
 (defn explicit-disconnect
-  "Handle explicit user disconnect: close WS.
-   Used when the user intentionally disconnects via the popup button."
+  "Handle explicit user disconnect: close WS and forget history.
+   Used when the user intentionally disconnects via the popup button.
+   Forgetting history prevents reconnect-on-nav from reconnecting."
   [state {:ws/keys [tab-id]}]
   (let [connections (or (:ws/connections state) {})]
-    {:uf/fxs [[:ws/fx.handle-close connections tab-id]]}))
+    {:uf/fxs [[:ws/fx.handle-close connections tab-id]]
+     :uf/dxs [[:history/ax.forget tab-id]]}))

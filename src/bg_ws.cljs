@@ -81,6 +81,8 @@
   (when-let [other-tab-id (bg-utils/find-tab-on-port connections port tab-id)]
     (log/debug "Background:WS" "Disconnecting tab" other-tab-id "- port" port "claimed by tab" tab-id)
     (close-ws! connections dispatch! other-tab-id)
+    ;; Forget history so evicted tab won't auto-reconnect on navigation
+    (dispatch! [[:history/ax.forget other-tab-id]])
     ;; Update icon for the disconnected tab
     (bg-icon/update-icon-for-tab! dispatch! other-tab-id :disconnected))
 

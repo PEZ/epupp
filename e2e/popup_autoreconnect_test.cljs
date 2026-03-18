@@ -262,10 +262,10 @@
 
 
 ;; =============================================================================
-;; Test: Disconnect + navigate reconnects when reconnect-on-nav is ON
+;; Test: Disconnect + navigate stays disconnected (even with reconnect-on-nav ON)
 ;; =============================================================================
 
-(defn- ^:async test_disconnect_then_navigate_reconnects []
+(defn- ^:async test_disconnect_then_navigate_stays_disconnected_despite_reconnect_on []
   (let [context (js-await (launch-browser))
         ext-id (js-await (get-extension-id context))]
     (try
@@ -305,33 +305,32 @@
                     (throw (js/Error. "Timeout waiting for disconnect")))
                   (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
                   (recur)))))
-          (js/console.log "Tab explicitly disconnected (history preserved)")
+          (js/console.log "Tab explicitly disconnected (history forgotten)")
 
-          ;; Clear test events before reload
-          (js-await (fixtures/clear-test-events! popup))
-          (js-await (.close popup)))
+          ;; Get SCITTLE_LOADED count before reload
+          (let [events-before (js-await (fixtures/get-test-events popup))
+                scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+            (js/console.log "SCITTLE_LOADED count before reload:" scittle-count-before)
+            (js-await (.close popup))
 
-        ;; === PHASE 3: Navigate (reload) - should reconnect via nav-reconnect ===
-        ;; Key: after refactor, explicit disconnect no longer forgets history,
-        ;; so navigation reconnect finds the port and reconnects
-        (js/console.log "Reloading page - should reconnect via nav-reconnect...")
-        (js-await (.reload page))
-        (js-await (-> (expect (.locator page "#test-marker"))
-                      (.toContainText "ready")))
+            ;; === PHASE 3: Navigate (reload) - should NOT reconnect ===
+            ;; Explicit disconnect forgets history, so reconnect-on-nav has no history to act on
+            (js/console.log "Reloading page - should NOT reconnect (history forgotten by disconnect)...")
+            (js-await (.reload page))
+            (js-await (-> (expect (.locator page "#test-marker"))
+                          (.toContainText "ready")))
 
-        (let [popup2 (js-await (create-popup-page context ext-id))
-              event (js-await (fixtures/wait-for-event popup2 "SCITTLE_LOADED" 10000))]
-          (js/console.log "SCITTLE_LOADED after disconnect + reload:" (js/JSON.stringify event))
-          (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+            (let [popup2 (js-await (create-popup-page context ext-id))]
+              ;; Verify no SCITTLE_LOADED event (no reconnect)
+              (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+              (js/console.log "Verified: no reconnect after explicit disconnect + navigate")
 
-          ;; Verify reconnected
-          (js-await (wait-for-connection popup2 5000))
-          (let [connections (js-await (fixtures/get-connections popup2))]
-            (js-await (-> (expect (.-length connections)) (.toBe 1))))
-          (js/console.log "Verified: reconnected after explicit disconnect + navigate")
+              ;; Verify still disconnected
+              (let [connections (js-await (fixtures/get-connections popup2))]
+                (js-await (-> (expect (.-length connections)) (.toBe 0))))
 
-          (js-await (assert-no-errors! popup2))
-          (js-await (.close popup2)))
+              (js-await (assert-no-errors! popup2))
+              (js-await (.close popup2)))))
         (js-await (.close page)))
 
       (finally
@@ -435,8 +434,8 @@
              (test "Popup Auto-Reconnect: disabled auto-reconnect does NOT trigger on page reload"
                    disabled_auto_reconnect_does_not_trigger_on_page_reload)
 
-             (test "Popup Auto-Reconnect: disconnect + navigate reconnects with nav-reconnect ON"
-                   test_disconnect_then_navigate_reconnects)
+             (test "Popup Auto-Reconnect: disconnect + navigate stays disconnected (history forgotten)"
+                   test_disconnect_then_navigate_stays_disconnected_despite_reconnect_on)
 
              (test "Popup Auto-Reconnect: disconnect + navigate stays disconnected with nav-reconnect OFF"
                    test_disconnect_then_navigate_stays_disconnected)))

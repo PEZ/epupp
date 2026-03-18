@@ -6,6 +6,9 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Auto-connect setting replaces on/off with three levels: Never, On page load, On page load + tab activation
+- Fix: Disconnected tabs no longer reconnect on navigation
+
 ## [0.0.12] - 2026-03-15
 
 - Fix: Changing default ports in Settings now correctly cascades to REPL Connect ports for all sites that have not been explicitly given different ports.

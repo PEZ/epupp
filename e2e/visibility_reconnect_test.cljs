@@ -267,6 +267,11 @@
         (js-await (fixtures/clear-storage popup))
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
+        ;; Set the default WS port so all-tabs auto-connect uses the correct port
+        ;; (explicit disconnect forgets history, so saved-port is the only fallback)
+        (let [ws-port-input (.locator popup "#default-ws-port")]
+          (js-await (.fill ws-port-input (str ws-port-1)))
+          (js-await (-> (expect ws-port-input) (.toHaveValue (str ws-port-1)))))
         ;; Keep auto-connect off during setup
         (let [auto-connect-select (.locator popup "#auto-connect-level")]
           (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))

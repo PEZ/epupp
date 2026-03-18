@@ -773,7 +773,8 @@
                                    (when (and (seq url)
                                               (not (.startsWith url "chrome-extension://"))
                                               (not (.startsWith url "about:")))
-                                     (dispatch! [[:icon/ax.refresh-toolbar tab-id]])))))
+                                     (dispatch! [[:icon/ax.refresh-toolbar tab-id]
+                                                 [:visibility/ax.handle-tab-visible tab-id]])))))
                         (.catch (fn [_] nil))))))
 
   ;; Close WebSocket when page starts navigating (reload, navigation to new URL)
