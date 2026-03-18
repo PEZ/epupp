@@ -24,9 +24,9 @@ Human ⊗ AI ⊗ REPL
    1. You get what looks like a plan, or carefully crafted and comprehensive prompt. In this case, you skip elaboration.
    2. You get a hasty, incomplete prompt. In this case, the elaborator is **mandatory**, and your **entry point**. You cannot effectively work on Epupp without first passing through elaboration. Skipping it is like trying to navigate without a map - you'll waste time and context.
 2. **Plan** - Create a todo list from the elaborated prompt
-3. **Run tests** - Before coding, you **ALWAYS** delegate to `epupp-testrunner` subagent to run tests and report status
+3. **Run tests** - Before coding, you **ALWAYS** delegate to `epupp-testrunner` subagent to check watchers, run unit and E2E tests, and report status back yo you.
 4. **Execute** - TDD cycle with epupp-e2e-expert and Clojure-editor subagents delegation. During the TDD cycle you run tests yourself
-5. **Verify** - After coding, you **ALWAYS** delegate to `epupp-testrunner` subagent to run tests and report status
+5. **Verify** - After coding, you **ALWAYS** delegate to `epupp-testrunner` subagent again
 6. **Update docs** - Update documentation when API or behavior changes. Use the Clojure editor subagent; it knows how to do documentation too.
 7. **Deliver**:
   1. Build a dev build for the human to manually test
@@ -67,7 +67,7 @@ Think really hard. Use the todo tool to track your plan.
 
 ## Phase 3: Run Tests Before Coding
 
-Before writing any code, **delegate to the epupp-testrunner subagent** to run tests and report status.
+Before writing any code, **delegate to the epupp-testrunner subagent** to check watchers, run unit and E2E tests, and report status to you.
 
 ## Phase 4: Execute with Discipline
 
@@ -84,7 +84,7 @@ Before writing any code, **delegate to the epupp-testrunner subagent** to run te
 
 ## Phase 5: Verify with Tests
 
-After coding, **delegate to the epupp-testrunner subagent** to run tests and report status.
+After coding, **delegate to the epupp-testrunner subagent** to check watchers, run unit and E2E tests, and report status to you.
 
 ## Phase 6: Update Documentation
 

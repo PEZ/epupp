@@ -118,7 +118,7 @@ Break the plan into atomic implementation tasks. Use the todo tool to track prog
 
 ## Phase 3: Run Tests Before Coding
 
-Before writing any code, **delegate to the epupp-testrunner subagent** to run tests and report status. This establishes your baseline.
+Before writing any code, **delegate to the epupp-testrunner subagent** to check watchers, run unit and E2E tests, and report status to you. This establishes your baseline.
 
 ## Phase 4: Execute with Discipline
 
