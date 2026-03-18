@@ -171,3 +171,37 @@
    Starts immediately (0ms), then retries at increasing intervals to catch
    DOM elements that appear after page load (e.g. GitLab .file-holder)."
   [0 100 100 100 300 300 300 1000 1000 1000 3000 3000])
+
+(defn decide-connection
+  "Pure decision function for both navigation and visibility triggers.
+
+   Context shape:
+   {:trigger \"navigation\" or \"visibility\"
+    :auto-connect-level \"off\" or \"all-pages\" or \"all-tabs\"
+    :reconnect-on-nav? bool
+    :in-history? bool
+    :history-port string-or-nil
+    :saved-port string-or-nil}
+
+   Returns {:decision \"connect-all\"|\"reconnect\"|\"none\" :port string-or-nil}"
+  [{:keys [trigger auto-connect-level reconnect-on-nav?
+           in-history? history-port saved-port]}]
+  (case trigger
+    "navigation"
+    (cond
+      (not= auto-connect-level "off")
+      {:decision "connect-all" :port saved-port}
+
+      (and reconnect-on-nav? in-history? history-port)
+      {:decision "reconnect" :port history-port}
+
+      :else
+      {:decision "none"})
+
+    "visibility"
+    (let [port (or history-port saved-port)]
+      (if (and (= auto-connect-level "all-tabs") port)
+        {:decision "connect-all" :port port}
+        {:decision "none"}))
+
+    {:decision "none"}))

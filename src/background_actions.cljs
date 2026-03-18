@@ -306,7 +306,13 @@
     (let [[context] args
           {:nav/keys [tab-id url]} context
           icon-state (get-in state [:icon/states tab-id] :disconnected)
-          {:keys [decision port]} (bg-utils/decide-auto-connection context)
+          {:keys [decision port]} (bg-utils/decide-connection
+                                   {:trigger "navigation"
+                                    :auto-connect-level (:nav/auto-connect-level context)
+                                    :reconnect-on-nav? (:nav/auto-reconnect-enabled? context)
+                                    :in-history? (:nav/in-history? context)
+                                    :history-port (:nav/history-port context)
+                                    :saved-port (:nav/saved-port context)})
           connect-fxs (when (not= decision "none")
                         [[:uf/await :nav/fx.connect tab-id port icon-state]])]
       {:uf/fxs (vec (concat connect-fxs
@@ -314,29 +320,19 @@
 
     :nav/ax.handle-navigation
     (let [[tab-id url] args
-          history (:connected-tabs/history state)
-          disconnected (or (:ws/explicitly-disconnected state) #{})
-          was-disconnected? (contains? disconnected tab-id)
-          base {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
-                         [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
-                :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]}]
-      (if was-disconnected?
-        (assoc base :uf/db (assoc state :ws/explicitly-disconnected (disj disconnected tab-id)))
-        base))
+          history (:connected-tabs/history state)]
+      {:uf/fxs [[:icon/fx.update-icon-disconnected tab-id]
+                [:uf/await :nav/fx.gather-auto-connect-context tab-id url history]]
+       :uf/dxs [[:nav/ax.decide-connection :uf/prev-result]]})
 
     :tab/ax.handle-removed
     (let [[tab-id] args
           connections (or (:ws/connections state) {})
-          has-ws? (some? (get connections tab-id))
-          disconnected (or (:ws/explicitly-disconnected state) #{})
-          was-disconnected? (contains? disconnected tab-id)
-          result {:uf/fxs (when has-ws?
-                            [[:ws/fx.handle-close connections tab-id]])
-                  :uf/dxs [[:icon/ax.clear tab-id]
-                           [:history/ax.forget tab-id]]}]
-      (if was-disconnected?
-        (assoc result :uf/db (assoc state :ws/explicitly-disconnected (disj disconnected tab-id)))
-        result))
+          has-ws? (some? (get connections tab-id))]
+      {:uf/fxs (when has-ws?
+                 [[:ws/fx.handle-close connections tab-id]])
+       :uf/dxs [[:icon/ax.clear tab-id]
+                [:history/ax.forget tab-id]]})
 
     :nav/ax.handle-before-navigate
     (let [[tab-id] args
@@ -363,19 +359,23 @@
     :visibility/ax.handle-tab-visible
     (let [[tab-id] args
           connections (or (:ws/connections state) {})
-          has-ws? (some? (get connections tab-id))
-          explicitly-disconnected? (contains? (or (:ws/explicitly-disconnected state) #{}) tab-id)]
-      (when-not (or has-ws? explicitly-disconnected?)
+          has-ws? (some? (get connections tab-id))]
+      (when-not has-ws?
         (let [history (:connected-tabs/history state)]
           {:uf/fxs [[:uf/await :visibility/fx.gather-reconnect-context tab-id history]]
            :uf/dxs [[:visibility/ax.decide-reconnect :uf/prev-result]]})))
 
     :visibility/ax.decide-reconnect
     (let [[context] args
-          {:visibility/keys [tab-id should-reconnect? port]} context]
-      (when (and should-reconnect? port)
-        (let [icon-state (get-in state [:icon/states tab-id] :disconnected)]
-          {:uf/fxs [[:uf/await :nav/fx.connect tab-id port icon-state]]})))
+          {:visibility/keys [tab-id auto-connect-level history-port saved-port]} context
+          icon-state (get-in state [:icon/states tab-id] :disconnected)
+          {:keys [decision port]} (bg-utils/decide-connection
+                                   {:trigger "visibility"
+                                    :auto-connect-level auto-connect-level
+                                    :history-port history-port
+                                    :saved-port saved-port})]
+      (when (not= decision "none")
+        {:uf/fxs [[:uf/await :nav/fx.connect tab-id port icon-state]]}))
 
     :alarm/ax.tick
     (let [connections (or (:ws/connections state) {})]

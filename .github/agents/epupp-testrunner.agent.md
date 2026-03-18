@@ -2,7 +2,7 @@
 description: 'Runs tests and reports results without attempting fixes'
 tools: ['execute/getTerminalOutput', 'execute/runInTerminal', 'read/problems', 'read/getTaskOutput', 'todo']
 name: epupp-testrunner
-model: Raptor mini (Preview) (copilot)
+model: GPT-5.4 mini (copilot)
 ---
 
 **IMPORTANT** The working directory for your commands should **ALWAYS** be the root of the epupp project.

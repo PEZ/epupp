@@ -34,7 +34,7 @@
          :scripts/list []
          :scripts/current-url nil
          :scripts/current-tab-id nil
-         :settings/auto-connect-repl false
+         :settings/auto-connect-level "off"
          :settings/auto-reconnect-repl true
          :fs/sync-tab-id nil
          :settings/debug-logging false
@@ -275,18 +275,23 @@
             :code (:script/code script)
             :inject (clj->js (:script/inject script))}))
 
-    :popup/fx.load-auto-connect-setting
+    :popup/fx.load-auto-connect-level
     (js/chrome.storage.local.get
-     #js ["autoConnectRepl"]
+     #js ["autoConnectLevel" "autoConnectRepl"]
      (fn [result]
-       (let [enabled (if (some? (.-autoConnectRepl result))
-                       (.-autoConnectRepl result)
-                       false)]
-         (dispatch [[:db/ax.assoc :settings/auto-connect-repl enabled]]))))
+       (let [level (.-autoConnectLevel result)]
+         (if (some? level)
+           (dispatch [[:db/ax.assoc :settings/auto-connect-level level]])
+           ;; Legacy migration: autoConnectRepl boolean -> level string
+           (let [legacy (.-autoConnectRepl result)
+                 migrated (if legacy "all-pages" "off")]
+             (dispatch [[:db/ax.assoc :settings/auto-connect-level migrated]]))))))
 
-    :popup/fx.save-auto-connect-setting
-    (let [[enabled] args]
-      (js/chrome.storage.local.set #js {:autoConnectRepl enabled}))
+    :popup/fx.save-auto-connect-level
+    (let [[level] args]
+      (js/chrome.storage.local.set #js {:autoConnectLevel level})
+      ;; Clean up legacy key on first save
+      (js/chrome.storage.local.remove #js ["autoConnectRepl"]))
 
     :popup/fx.load-auto-reconnect-setting
     (js/chrome.storage.local.get
@@ -878,7 +883,7 @@
    Use `into` to splice into a parent container.
    id-prefix differentiates duplicate instances in the DOM."
   [state {:keys [id-prefix]}]
-  (let [{:settings/keys [auto-connect-repl auto-reconnect-repl]} state
+  (let [{:settings/keys [auto-connect-level auto-reconnect-repl]} state
         prefix (or id-prefix "")]
     [[:div.setting
       [:label.checkbox-label
@@ -886,19 +891,24 @@
                 :id (str prefix "auto-reconnect-repl")
                 :checked auto-reconnect-repl
                 :on-change #(dispatch! [[:popup/ax.toggle-auto-reconnect-repl]])}]
-       "Auto-reconnect to previously connected tabs"]
+       "Reconnect on navigation"]
       [:p.description
        "When a connected tab navigates to a new page, automatically reconnect. "
        "(REPL state will be lost but connection will be restored.)"]]
      [:div.setting
-      [:label.checkbox-label
-       [:input {:type "checkbox"
-                :id (str prefix "auto-connect-repl")
-                :checked auto-connect-repl
-                :on-change #(dispatch! [[:popup/ax.toggle-auto-connect-repl]])}]
-       "Auto-connect REPL to all pages"]
+      [:label.select-label {:for (str prefix "auto-connect-level")}
+       "Auto-connect level"]
+      [:select {:id (str prefix "auto-connect-level")
+                :value auto-connect-level
+                :on-change #(dispatch! [[:popup/ax.set-auto-connect-level (.. % -target -value)]])}
+       [:option {:value "off"} "Off"]
+       [:option {:value "all-pages"} "All pages"]
+       [:option {:value "all-tabs"} "All tabs"]]
       [:p.description.warning
-       "Enabling this will connect an Epupp REPL to every page you visit."]]
+       (case auto-connect-level
+         "all-pages" "Epupp will connect a REPL to every page you visit."
+         "all-tabs" "Epupp will connect a REPL to every page you visit and follow your active tab."
+         "Auto-connect is disabled.")]]
      (let [current-tab-id (:scripts/current-tab-id state)
            fs-sync-tab-id (:fs/sync-tab-id state)
            current-tab-connected? (some #(= (:tab-id %) (str current-tab-id))
@@ -1247,7 +1257,7 @@
               [:popup/ax.load-scripts]
               [:popup/ax.load-current-url]
               [:popup/ax.check-page-scriptability]
-              [:popup/ax.load-auto-connect-setting]
+              [:popup/ax.load-auto-connect-level]
               [:popup/ax.load-auto-reconnect-setting]
               [:popup/ax.load-fs-sync-status]
               [:popup/ax.load-debug-logging-setting]

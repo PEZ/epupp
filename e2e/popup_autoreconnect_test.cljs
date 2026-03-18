@@ -18,10 +18,10 @@
       ;; Enable auto-connect via popup
       (let [popup (js-await (create-popup-page context ext-id))]
 
-        ;; Enable auto-connect
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (.click auto-connect-checkbox))
-          (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+        ;; Set auto-connect to all-pages
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (.selectOption auto-connect-select "all-pages"))
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "all-pages"))))
 
         (js-await (.close popup)))
 
@@ -85,10 +85,10 @@
           (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
           (js/console.log "Auto-reconnect is enabled (default)"))
 
-        ;; Ensure auto-connect-all is OFF (so auto-reconnect logic is tested)
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked)))
-          (js/console.log "Auto-connect-all is disabled"))
+        ;; Ensure auto-connect level is off (so auto-reconnect logic is tested)
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off")))
+          (js/console.log "Auto-connect level is off"))
 
         (js-await (.close popup)))
 
@@ -155,9 +155,9 @@
         ;; Verify auto-reconnect is enabled but auto-connect-all is OFF
         (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
           (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked))))
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
-        (js/console.log "Auto-reconnect ON, auto-connect-all OFF")
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
+        (js/console.log "Auto-reconnect ON, auto-connect level off")
         (js-await (.close popup)))
 
       ;; Navigate to test page WITHOUT connecting REPL first
@@ -212,9 +212,9 @@
           (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked)))
           (js/console.log "Auto-reconnect disabled"))
 
-        ;; Ensure auto-connect-all is also OFF
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+        ;; Ensure auto-connect level is also off
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
         (js-await (.close popup)))
 
       ;; Navigate to test page
@@ -259,6 +259,168 @@
       (finally
         (js-await (.close context))))))
 
+
+
+;; =============================================================================
+;; Test: Disconnect + navigate reconnects when reconnect-on-nav is ON
+;; =============================================================================
+
+(defn- ^:async test_disconnect_then_navigate_reconnects []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; === PHASE 1: Ensure auto-connect off, reconnect-on-nav ON (defaults) ===
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+        ;; Verify defaults
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
+        (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+          (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked))))
+        (js/console.log "Auto-connect off, reconnect-on-nav ON (defaults)")
+        (js-await (.close popup)))
+
+      ;; === PHASE 2: Navigate, connect, then EXPLICITLY disconnect ===
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+
+        (let [popup (js-await (create-popup-page context ext-id))
+              tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+          (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+          (js-await (wait-for-connection popup 5000))
+          (js/console.log "Connected to tab" tab-id)
+
+          ;; Explicit disconnect (user action via popup)
+          (js-await (fixtures/send-runtime-message popup "disconnect-tab" #js {:tabId tab-id}))
+          ;; Wait for disconnect to complete
+          (let [start (.now js/Date)]
+            (loop []
+              (let [conns (js-await (fixtures/get-connections popup))]
+                (when-not (zero? (.-length conns))
+                  (when (> (- (.now js/Date) start) 2000)
+                    (throw (js/Error. "Timeout waiting for disconnect")))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                  (recur)))))
+          (js/console.log "Tab explicitly disconnected (history preserved)")
+
+          ;; Clear test events before reload
+          (js-await (fixtures/clear-test-events! popup))
+          (js-await (.close popup)))
+
+        ;; === PHASE 3: Navigate (reload) - should reconnect via nav-reconnect ===
+        ;; Key: after refactor, explicit disconnect no longer forgets history,
+        ;; so navigation reconnect finds the port and reconnects
+        (js/console.log "Reloading page - should reconnect via nav-reconnect...")
+        (js-await (.reload page))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+
+        (let [popup2 (js-await (create-popup-page context ext-id))
+              event (js-await (fixtures/wait-for-event popup2 "SCITTLE_LOADED" 10000))]
+          (js/console.log "SCITTLE_LOADED after disconnect + reload:" (js/JSON.stringify event))
+          (js-await (-> (expect (.-event event)) (.toBe "SCITTLE_LOADED")))
+
+          ;; Verify reconnected
+          (js-await (wait-for-connection popup2 5000))
+          (let [connections (js-await (fixtures/get-connections popup2))]
+            (js-await (-> (expect (.-length connections)) (.toBe 1))))
+          (js/console.log "Verified: reconnected after explicit disconnect + navigate")
+
+          (js-await (assert-no-errors! popup2))
+          (js-await (.close popup2)))
+        (js-await (.close page)))
+
+      (finally
+        (js-await (.close context))))))
+
+;; =============================================================================
+;; Test: Disconnect + navigate stays disconnected when reconnect-on-nav is OFF
+;; =============================================================================
+
+(defn- ^:async test_disconnect_then_navigate_stays_disconnected []
+  (let [context (js-await (launch-browser))
+        ext-id (js-await (get-extension-id context))]
+    (try
+      ;; === PHASE 1: Auto-connect off, reconnect-on-nav OFF ===
+      (let [popup (js-await (create-popup-page context ext-id))]
+        (js-await (.evaluate popup "() => chrome.storage.local.clear()"))
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+        ;; Disable reconnect-on-nav
+        (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+          (js-await (-> (expect auto-reconnect-checkbox) (.toBeChecked)))
+          (js-await (.click auto-reconnect-checkbox))
+          (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked))))
+        ;; Verify auto-connect off (also gives storage write time to flush)
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
+        ;; Reload popup and verify setting persisted (proves storage write completed)
+        (js-await (.reload popup))
+        (js-await (wait-for-popup-ready popup))
+        (let [auto-reconnect-checkbox (.locator popup "#auto-reconnect-repl")]
+          (js-await (-> (expect auto-reconnect-checkbox) (.not.toBeChecked))))
+        (js/console.log "Auto-connect off, reconnect-on-nav OFF (verified after reload)")
+        (js-await (.close popup)))
+
+      ;; === PHASE 2: Navigate, connect, then disconnect ===
+      (let [page (js-await (.newPage context))]
+        (js-await (.goto page "http://localhost:18080/basic.html" #js {:timeout 1000}))
+        (js-await (-> (expect (.locator page "#test-marker"))
+                      (.toContainText "ready")))
+
+        (let [popup (js-await (create-popup-page context ext-id))
+              tab-id (js-await (fixtures/find-tab-id popup "http://localhost:18080/*"))]
+          (js-await (fixtures/connect-tab popup tab-id ws-port-1))
+          (js-await (wait-for-connection popup 5000))
+          (js/console.log "Connected to tab" tab-id)
+
+          ;; Explicit disconnect
+          (js-await (fixtures/send-runtime-message popup "disconnect-tab" #js {:tabId tab-id}))
+          ;; Wait for disconnect to complete
+          (let [start (.now js/Date)]
+            (loop []
+              (let [conns (js-await (fixtures/get-connections popup))]
+                (when-not (zero? (.-length conns))
+                  (when (> (- (.now js/Date) start) 2000)
+                    (throw (js/Error. "Timeout waiting for disconnect")))
+                  (js-await (js/Promise. (fn [resolve] (js/setTimeout resolve 20))))
+                  (recur)))))
+          (js/console.log "Tab explicitly disconnected")
+          (js-await (.close popup)))
+
+        ;; Get SCITTLE_LOADED count before reload (already includes initial connect)
+        (let [popup (js-await (create-popup-page context ext-id))
+              events-before (js-await (fixtures/get-test-events popup))
+              scittle-count-before (.-length (.filter events-before (fn [e] (= (.-event e) "SCITTLE_LOADED"))))]
+          (js/console.log "SCITTLE_LOADED count before reload:" scittle-count-before)
+          (js-await (.close popup))
+
+          ;; === PHASE 3: Navigate (reload) - should NOT reconnect ===
+          (js/console.log "Reloading page - should NOT reconnect (nav-reconnect OFF)...")
+          (js-await (.reload page))
+          (js-await (-> (expect (.locator page "#test-marker"))
+                        (.toContainText "ready")))
+
+          (let [popup2 (js-await (create-popup-page context ext-id))]
+            ;; Verify no SCITTLE_LOADED event (no reconnect)
+            (js-await (fixtures/assert-no-new-event-within popup2 "SCITTLE_LOADED" scittle-count-before 300))
+            (js/console.log "Verified: no reconnect after disconnect + navigate with nav-reconnect OFF")
+
+            ;; Verify still disconnected
+            (let [connections (js-await (fixtures/get-connections popup2))]
+              (js-await (-> (expect (.-length connections)) (.toBe 0))))
+
+            (js-await (assert-no-errors! popup2))
+            (js-await (.close popup2))))
+        (js-await (.close page)))
+
+      (finally
+        (js-await (.close context))))))
+
 (.describe test "Popup Auto-Reconnect"
            (fn []
              (test "Popup Auto-Reconnect: SPA navigation does NOT trigger REPL reconnection"
@@ -271,4 +433,10 @@
                    auto_reconnect_does_not_trigger_for_tabs_never_connected)
 
              (test "Popup Auto-Reconnect: disabled auto-reconnect does NOT trigger on page reload"
-                   disabled_auto_reconnect_does_not_trigger_on_page_reload)))
+                   disabled_auto_reconnect_does_not_trigger_on_page_reload)
+
+             (test "Popup Auto-Reconnect: disconnect + navigate reconnects with nav-reconnect ON"
+                   test_disconnect_then_navigate_reconnects)
+
+             (test "Popup Auto-Reconnect: disconnect + navigate stays disconnected with nav-reconnect OFF"
+                   test_disconnect_then_navigate_stays_disconnected)))

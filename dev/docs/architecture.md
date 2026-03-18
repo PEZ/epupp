@@ -9,9 +9,9 @@ The architecture handles four main use cases:
 3. **DevTools Panel Evaluation** - Direct evaluation from the panel UI
 4. **REPL FS Sync** - File operations over the REPL for userscript management
 
-Connection management now includes auto-connect-all, auto-reconnect for
-previously connected tabs, and toolbar icon state derived from connection
-and injection status.
+Connection management includes a three-level auto-connect setting
+(off/all-pages/all-tabs), reconnect-on-navigation for previously connected
+tabs, and toolbar icon state derived from connection and injection status.
 
 Detailed docs live under [architecture/](architecture/). Use the Navigate table below to jump to the relevant reference.
 

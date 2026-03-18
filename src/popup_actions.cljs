@@ -187,13 +187,13 @@
                      (assoc :ports/source source))]
       {:uf/db (if (= new-db state) state new-db)})
 
-    :popup/ax.load-auto-connect-setting
-    {:uf/fxs [[:popup/fx.load-auto-connect-setting]]}
+    :popup/ax.load-auto-connect-level
+    {:uf/fxs [[:popup/fx.load-auto-connect-level]]}
 
-    :popup/ax.toggle-auto-connect-repl
-    (let [new-value (not (:settings/auto-connect-repl state))]
-      {:uf/db (assoc state :settings/auto-connect-repl new-value)
-       :uf/fxs [[:popup/fx.save-auto-connect-setting new-value]]})
+    :popup/ax.set-auto-connect-level
+    (let [[level] args]
+      {:uf/db (assoc state :settings/auto-connect-level level)
+       :uf/fxs [[:popup/fx.save-auto-connect-level level]]})
 
     :popup/ax.load-auto-reconnect-setting
     {:uf/fxs [[:popup/fx.load-auto-reconnect-setting]]}

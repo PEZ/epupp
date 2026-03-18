@@ -1,9 +1,8 @@
 (ns e2e.popup-autoconnect-test
-  "E2E tests for popup auto-connect REPL functionality."
+  "E2E tests for popup auto-connect level functionality."
   (:require ["@playwright/test" :refer [test expect]]
             [fixtures :as fixtures :refer [launch-browser get-extension-id create-popup-page
                                            clear-storage wait-for-popup-ready
-                                           wait-for-checkbox-state
                                            assert-no-errors!]]))
 
 
@@ -22,36 +21,36 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Auto-connect checkbox exists and is unchecked by default
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.toBeVisible)))
-          (js-await (-> (expect auto-connect-checkbox) (.not.toBeChecked))))
+        ;; Auto-connect select exists and defaults to "off"
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toBeVisible)))
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
 
-        ;; Warning text is visible
-        (js-await (-> (expect (.locator popup ".setting:has(#auto-connect-repl) .description.warning"))
-                      (.toContainText "will connect")))
+        ;; Description text is visible
+        (js-await (-> (expect (.locator popup ".setting:has(#auto-connect-level) .description.warning"))
+                      (.toBeVisible)))
 
         (js-await (.close popup)))
 
-      ;; === PHASE 2: Enable setting and verify it persists ===
+      ;; === PHASE 2: Change setting to all-pages and verify it persists ===
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; Enable auto-connect
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (.click auto-connect-checkbox))
-          (js-await (wait-for-checkbox-state auto-connect-checkbox true)))
+        ;; Set auto-connect to all-pages
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (.selectOption auto-connect-select "all-pages"))
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "all-pages"))))
 
         (js-await (.close popup)))
 
       ;; === PHASE 3: Setting persists after reload ===
       (let [popup (js-await (create-popup-page context ext-id))]
-        ;; Verify setting is still enabled
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+        ;; Verify setting is still all-pages
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "all-pages"))))
 
-        ;; Disable it again
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (.click auto-connect-checkbox))
-          (js-await (wait-for-checkbox-state auto-connect-checkbox false)))
+        ;; Set back to off
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (.selectOption auto-connect-select "off"))
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "off"))))
 
         (js-await (.close popup)))
 
@@ -73,12 +72,11 @@
         (js-await (.reload popup))
         (js-await (wait-for-popup-ready popup))
 
-        ;; Enable auto-connect
-        (let [auto-connect-checkbox (.locator popup "#auto-connect-repl")]
-          (js-await (-> (expect auto-connect-checkbox) (.toBeVisible)))
-          (js-await (.click auto-connect-checkbox))
-          ;; Wait for checkbox to be checked
-          (js-await (-> (expect auto-connect-checkbox) (.toBeChecked))))
+        ;; Set auto-connect to all-pages
+        (let [auto-connect-select (.locator popup "#auto-connect-level")]
+          (js-await (-> (expect auto-connect-select) (.toBeVisible)))
+          (js-await (.selectOption auto-connect-select "all-pages"))
+          (js-await (-> (expect auto-connect-select) (.toHaveValue "all-pages"))))
 
         (js-await (.close popup)))
 
@@ -114,7 +112,7 @@
 
 (.describe test "Popup Auto-Connect"
            (fn []
-             (test "Popup Auto-Connect: auto-connect REPL setting"
+             (test "Popup Auto-Connect: auto-connect level setting"
                    auto_connect_repl_setting)
 
              (test "Popup Auto-Connect: auto-connect REPL triggers Scittle injection on page load"

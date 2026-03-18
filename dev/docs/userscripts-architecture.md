@@ -268,7 +268,7 @@ For the detailed step-by-step implementation of injection flows, see [architectu
 - Connection status and REPL connect workflow (unchanged from before)
 - Port configuration for browser-nrepl
 - Run button for ad-hoc evaluation of a script in the active tab
-- Settings for auto-connect, auto-reconnect, and FS REPL sync
+- Settings for auto-connect level, reconnect on navigation, and FS REPL sync
 
 ### DevTools Panel (Development Focus)
 

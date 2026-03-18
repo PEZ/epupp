@@ -891,6 +891,7 @@
                  :nav/url "https://example.com"
                  :nav/auto-connect-enabled? true
                  :nav/auto-reconnect-enabled? false
+                 :nav/auto-connect-level "all-pages"
                  :nav/in-history? false
                  :nav/history-port nil
                  :nav/saved-port "1340"}
@@ -909,6 +910,7 @@
                  :nav/url "https://github.com"
                  :nav/auto-connect-enabled? false
                  :nav/auto-reconnect-enabled? true
+                 :nav/auto-connect-level "off"
                  :nav/in-history? true
                  :nav/history-port "1341"
                  :nav/saved-port "1340"}
@@ -927,6 +929,7 @@
                  :nav/url "https://example.com"
                  :nav/auto-connect-enabled? false
                  :nav/auto-reconnect-enabled? false
+                 :nav/auto-connect-level "off"
                  :nav/in-history? false
                  :nav/history-port nil
                  :nav/saved-port "1340"}
@@ -943,6 +946,7 @@
                  :nav/url "https://example.com"
                  :nav/auto-connect-enabled? false
                  :nav/auto-reconnect-enabled? false
+                 :nav/auto-connect-level "off"
                  :nav/in-history? false
                  :nav/history-port nil
                  :nav/saved-port "1340"}
@@ -1050,10 +1054,11 @@
 ;; Visibility: Decide Reconnect Tests
 ;; ============================================================
 
-(defn- test-decide-reconnect-returns-connect-effect-when-should-reconnect []
+(defn- test-decide-reconnect-connects-at-all-tabs-level []
   (let [context {:visibility/tab-id 42
-                 :visibility/should-reconnect? true
-                 :visibility/port "1340"}
+                 :visibility/auto-connect-level "all-tabs"
+                 :visibility/history-port "1340"
+                 :visibility/saved-port "3340"}
         result (bg-actions/handle-action {} uf-data
                  [:visibility/ax.decide-reconnect context])
         fxs (:uf/fxs result)]
@@ -1063,19 +1068,43 @@
                             (= "1340" (nth % 3))) fxs))
         (.toBeTruthy))))
 
-(defn- test-decide-reconnect-returns-nil-when-should-not-reconnect []
+(defn- test-decide-reconnect-no-connect-at-off-level []
   (let [context {:visibility/tab-id 42
-                 :visibility/should-reconnect? false
-                 :visibility/port "1340"}
+                 :visibility/auto-connect-level "off"
+                 :visibility/history-port "1340"
+                 :visibility/saved-port "3340"}
         result (bg-actions/handle-action {} uf-data
                  [:visibility/ax.decide-reconnect context])]
     (-> (expect result)
         (.toBeFalsy))))
 
-(defn- test-decide-reconnect-returns-nil-when-no-port []
+(defn- test-decide-reconnect-no-connect-at-all-pages-level []
   (let [context {:visibility/tab-id 42
-                 :visibility/should-reconnect? true
-                 :visibility/port nil}
+                 :visibility/auto-connect-level "all-pages"
+                 :visibility/history-port "1340"
+                 :visibility/saved-port "3340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])]
+    (-> (expect result)
+        (.toBeFalsy))))
+
+(defn- test-decide-reconnect-all-tabs-uses-saved-port-when-no-history []
+  (let [context {:visibility/tab-id 42
+                 :visibility/auto-connect-level "all-tabs"
+                 :visibility/history-port nil
+                 :visibility/saved-port "3340"}
+        result (bg-actions/handle-action {} uf-data
+                 [:visibility/ax.decide-reconnect context])
+        fxs (:uf/fxs result)]
+    (-> (expect (some #(and (= :nav/fx.connect (second %))
+                            (= "3340" (nth % 3))) fxs))
+        (.toBeTruthy))))
+
+(defn- test-decide-reconnect-all-tabs-no-connect-when-no-port []
+  (let [context {:visibility/tab-id 42
+                 :visibility/auto-connect-level "all-tabs"
+                 :visibility/history-port nil
+                 :visibility/saved-port nil}
         result (bg-actions/handle-action {} uf-data
                  [:visibility/ax.decide-reconnect context])]
     (-> (expect result)
@@ -1083,8 +1112,9 @@
 
 (defn- test-decide-reconnect-uses-icon-state-from-state []
   (let [context {:visibility/tab-id 42
-                 :visibility/should-reconnect? true
-                 :visibility/port "1340"}
+                 :visibility/auto-connect-level "all-tabs"
+                 :visibility/history-port "1340"
+                 :visibility/saved-port "3340"}
         state {:icon/states {42 :connected}}
         result (bg-actions/handle-action state uf-data
                  [:visibility/ax.decide-reconnect context])
@@ -1094,8 +1124,9 @@
 
 (defn- test-decide-reconnect-defaults-icon-state-to-disconnected []
   (let [context {:visibility/tab-id 42
-                 :visibility/should-reconnect? true
-                 :visibility/port "1340"}
+                 :visibility/auto-connect-level "all-tabs"
+                 :visibility/history-port "1340"
+                 :visibility/saved-port "3340"}
         result (bg-actions/handle-action {} uf-data
                  [:visibility/ax.decide-reconnect context])
         [_ _ _ _ icon-state] (first (:uf/fxs result))]
@@ -1104,9 +1135,11 @@
 
 (describe ":visibility/ax.decide-reconnect"
           (fn []
-            (test "returns connect effect when should reconnect" test-decide-reconnect-returns-connect-effect-when-should-reconnect)
-            (test "returns nil when should not reconnect" test-decide-reconnect-returns-nil-when-should-not-reconnect)
-            (test "returns nil when no port" test-decide-reconnect-returns-nil-when-no-port)
+            (test "connects at all-tabs level" test-decide-reconnect-connects-at-all-tabs-level)
+            (test "no connect at off level" test-decide-reconnect-no-connect-at-off-level)
+            (test "no connect at all-pages level" test-decide-reconnect-no-connect-at-all-pages-level)
+            (test "uses saved-port when no history port" test-decide-reconnect-all-tabs-uses-saved-port-when-no-history)
+            (test "no connect when no port available" test-decide-reconnect-all-tabs-no-connect-when-no-port)
             (test "uses icon state from state" test-decide-reconnect-uses-icon-state-from-state)
             (test "defaults icon state to disconnected" test-decide-reconnect-defaults-icon-state-to-disconnected)))
 
@@ -1136,14 +1169,6 @@
 ;; Explicit Disconnect Tests
 ;; ============================================================
 
-(defn- test-explicit-disconnect-adds-tab-to-explicitly-disconnected []
-  (let [state {:ws/connections {42 {:ws/port 1340}}}
-        result (bg-actions/handle-action state uf-data
-                 [:ws/ax.explicit-disconnect 42])
-        new-state (:uf/db result)]
-    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 42))
-        (.toBe true))))
-
 (defn- test-explicit-disconnect-produces-ws-close-effect []
   (let [state {:ws/connections {42 {:ws/port 1340}}}
         result (bg-actions/handle-action state uf-data
@@ -1152,121 +1177,26 @@
     (-> (expect (some #(= :ws/fx.handle-close (first %)) fxs))
         (.toBeTruthy))))
 
-(defn- test-explicit-disconnect-produces-history-forget-deferred []
+(defn- test-explicit-disconnect-does-not-modify-state []
+  (let [state {:ws/connections {42 {:ws/port 1340}}}
+        result (bg-actions/handle-action state uf-data
+                 [:ws/ax.explicit-disconnect 42])]
+    (-> (expect (:uf/db result))
+        (.toBeUndefined))))
+
+(defn- test-explicit-disconnect-does-not-forget-history []
   (let [state {:ws/connections {42 {:ws/port 1340}}
                :connected-tabs/history {42 {:port "1340"}}}
         result (bg-actions/handle-action state uf-data
-                 [:ws/ax.explicit-disconnect 42])
-        dxs (:uf/dxs result)]
-    (-> (expect (some #(and (= :history/ax.forget (first %))
-                            (= 42 (second %))) dxs))
-        (.toBeTruthy))))
-
-(defn- test-explicit-disconnect-preserves-other-disconnected-tabs []
-  (let [state {:ws/connections {42 {:ws/port 1340}}
-               :ws/explicitly-disconnected #{99}}
-        result (bg-actions/handle-action state uf-data
-                 [:ws/ax.explicit-disconnect 42])
-        new-state (:uf/db result)]
-    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 99))
-        (.toBe true))
-    (-> (expect (contains? (:ws/explicitly-disconnected new-state) 42))
-        (.toBe true))))
+                 [:ws/ax.explicit-disconnect 42])]
+    (-> (expect (:uf/dxs result))
+        (.toBeUndefined))))
 
 (describe ":ws/ax.explicit-disconnect"
           (fn []
-            (test "adds tab to explicitly-disconnected set"
-                  test-explicit-disconnect-adds-tab-to-explicitly-disconnected)
             (test "produces WS close effect"
                   test-explicit-disconnect-produces-ws-close-effect)
-            (test "produces history forget deferred action"
-                  test-explicit-disconnect-produces-history-forget-deferred)
-            (test "preserves other disconnected tabs"
-                  test-explicit-disconnect-preserves-other-disconnected-tabs)))
-
-;; ============================================================
-;; Visibility: Skips Reconnect for Explicitly Disconnected Tabs
-;; ============================================================
-
-(defn- test-visibility-skips-reconnect-when-tab-explicitly-disconnected []
-  (let [state {:ws/connections {}
-               :ws/explicitly-disconnected #{42}
-               :connected-tabs/history {42 {:port "1340"}}}
-        result (bg-actions/handle-action state uf-data
-                 [:visibility/ax.handle-tab-visible 42])]
-    (-> (expect result)
-        (.toBeFalsy))))
-
-(defn- test-visibility-reconnects-when-tab-not-explicitly-disconnected []
-  (let [state {:ws/connections {}
-               :ws/explicitly-disconnected #{99}
-               :connected-tabs/history {42 {:port "1340"}}}
-        result (bg-actions/handle-action state uf-data
-                 [:visibility/ax.handle-tab-visible 42])
-        fxs (:uf/fxs result)]
-    (-> (expect (some #(= :visibility/fx.gather-reconnect-context (second %)) fxs))
-        (.toBeTruthy))))
-
-(describe ":visibility/ax.handle-tab-visible (explicit disconnect)"
-          (fn []
-            (test "skips reconnect when tab explicitly disconnected"
-                  test-visibility-skips-reconnect-when-tab-explicitly-disconnected)
-            (test "reconnects when tab not explicitly disconnected"
-                  test-visibility-reconnects-when-tab-not-explicitly-disconnected)))
-
-;; ============================================================
-;; Navigation: Clears Explicit Disconnect Flag
-;; ============================================================
-
-(defn- test-navigation-clears-explicit-disconnect-flag []
-  (let [state {:ws/explicitly-disconnected #{42}
-               :connected-tabs/history {}}
-        result (bg-actions/handle-action state uf-data
-                 [:nav/ax.handle-navigation 42 "https://example.com"])
-        new-state (:uf/db result)]
-    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 42))
-        (.toBe false))))
-
-(defn- test-navigation-preserves-other-disconnect-flags []
-  (let [state {:ws/explicitly-disconnected #{42 99}
-               :connected-tabs/history {}}
-        result (bg-actions/handle-action state uf-data
-                 [:nav/ax.handle-navigation 42 "https://example.com"])
-        new-state (:uf/db result)]
-    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 99))
-        (.toBe true))))
-
-(defn- test-navigation-no-state-change-when-not-disconnected []
-  (let [state {:connected-tabs/history {}}
-        result (bg-actions/handle-action state uf-data
-                 [:nav/ax.handle-navigation 42 "https://example.com"])]
-    ;; Should still produce navigation effects regardless
-    (-> (expect (:uf/fxs result))
-        (.toBeTruthy))))
-
-(describe ":nav/ax.handle-navigation (explicit disconnect)"
-          (fn []
-            (test "clears explicit disconnect flag for navigating tab"
-                  test-navigation-clears-explicit-disconnect-flag)
-            (test "preserves disconnect flags for other tabs"
-                  test-navigation-preserves-other-disconnect-flags)
-            (test "still works when no disconnect flags exist"
-                  test-navigation-no-state-change-when-not-disconnected)))
-
-;; ============================================================
-;; Tab Removed: Clears Explicit Disconnect Flag
-;; ============================================================
-
-(defn- test-tab-removed-clears-explicit-disconnect-flag []
-  (let [state {:ws/explicitly-disconnected #{42}
-               :ws/connections {}}
-        result (bg-actions/handle-action state uf-data
-                 [:tab/ax.handle-removed 42])
-        new-state (:uf/db result)]
-    (-> (expect (contains? (or (:ws/explicitly-disconnected new-state) #{}) 42))
-        (.toBe false))))
-
-(describe ":tab/ax.handle-removed (explicit disconnect)"
-          (fn []
-            (test "clears explicit disconnect flag"
-                  test-tab-removed-clears-explicit-disconnect-flag)))
+            (test "does not modify state"
+                  test-explicit-disconnect-does-not-modify-state)
+            (test "does not forget history"
+                  test-explicit-disconnect-does-not-forget-history)))

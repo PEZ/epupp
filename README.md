@@ -189,9 +189,12 @@ Built-in scripts are readable but not editable in place. Inspect one, copy it, r
 
 **Default ports** (nREPL and WebSocket) are the ports shown in REPL Connect for sites that have not been given specific ports. If you edit the ports in REPL Connect to values that differ from the defaults, those ports become a per-site override and stick even when defaults change.
 
-**Auto-reconnect** is per tab: if a tab was connected before reload/navigation, Epupp re-establishes the connection. Tabs that were never connected stay that way.
+**Reconnect on navigation** re-establishes the REPL connection when a connected tab navigates to a new page. REPL state is lost but the connection is restored.
 
-**Auto-connect REPL** makes Epupp try to connect right away on all pages you open.
+**Auto-connect level** controls whether Epupp connects a REPL automatically:
+- **Off** (default): no automatic connections.
+- **All pages**: connect to every page you visit.
+- **All tabs**: connect to every page and follow your active tab.
 
 **Allow REPL FS Sync for this tab** turns on `epupp.fs` for that tab. Enabling sync gives access to code on that tab to install userscripts. Only enable this on a page you trust. See [REPL FS Sync](docs/repl-fs-sync.md) for the API.
 

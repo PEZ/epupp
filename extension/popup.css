@@ -907,6 +907,21 @@ body.ready .script-item {
   cursor: pointer;
 }
 
+.select-label {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.setting select {
+  padding: 4px 8px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
 .settings-section .description,
 .connected-repl-settings .description {
   font-size: 11px;

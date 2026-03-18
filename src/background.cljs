@@ -277,6 +277,21 @@
           ;; Default to true if not set
           (resolve (if (some? value) value true))))))))
 
+(defn ^:async get-auto-connect-level
+  "Get auto-connect level from storage with migration fallback.
+   Reads autoConnectLevel first; if absent, falls back to legacy
+   autoConnectRepl: true -> 'all-pages', false/absent -> 'off'."
+  [legacy-enabled?]
+  (js/Promise.
+   (fn [resolve]
+     (js/chrome.storage.local.get
+      #js ["autoConnectLevel"]
+      (fn [result]
+        (let [level (.-autoConnectLevel result)]
+          (resolve (if (some? level)
+                     level
+                     (if legacy-enabled? "all-pages" "off")))))))))
+
 (defn ^:async get-tab-hostname
   "Get hostname for a specific tab to look up its saved port."
   [tab-id]
@@ -1034,6 +1049,7 @@
       (js-await (test-logger/log-event! "NAVIGATION_STARTED" {:tab-id tab-id :url url}))
       (let [{:keys [enabled?]} (js-await (get-auto-connect-settings))
             auto-reconnect? (js-await (get-auto-reconnect-setting))
+            auto-connect-level (js-await (get-auto-connect-level enabled?))
             saved-port (js-await (get-saved-ws-port tab-id))
             in-history? (bg-utils/tab-in-history? history tab-id)
             history-port (when in-history? (bg-utils/get-history-port history tab-id))]
@@ -1041,21 +1057,22 @@
          :nav/url url
          :nav/auto-connect-enabled? (boolean enabled?)
          :nav/auto-reconnect-enabled? (boolean auto-reconnect?)
+         :nav/auto-connect-level auto-connect-level
          :nav/in-history? in-history?
          :nav/history-port history-port
          :nav/saved-port saved-port}))
 
     :visibility/fx.gather-reconnect-context
     (let [[tab-id history] args
-          auto-reconnect? (js-await (get-auto-reconnect-setting))
+          {:keys [enabled?]} (js-await (get-auto-connect-settings))
+          auto-connect-level (js-await (get-auto-connect-level enabled?))
           in-history? (bg-utils/tab-in-history? history tab-id)
           history-port (when in-history? (bg-utils/get-history-port history tab-id))
-          saved-port (js-await (get-saved-ws-port tab-id))
-          port (or history-port saved-port)
-          should-reconnect? (and (boolean auto-reconnect?) (some? port))]
+          saved-port (js-await (get-saved-ws-port tab-id))]
       {:visibility/tab-id tab-id
-       :visibility/should-reconnect? should-reconnect?
-       :visibility/port port})
+       :visibility/auto-connect-level auto-connect-level
+       :visibility/history-port history-port
+       :visibility/saved-port saved-port})
 
     :nav/fx.connect
     ;; Connect REPL to a tab

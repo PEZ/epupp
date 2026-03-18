@@ -86,11 +86,58 @@
         (.toBeNull))))
 
 ;; ============================================================
+;; Auto-Connect Level Tests
+;; ============================================================
+
+(defn- ^:async test-load-auto-connect-level-triggers-effect []
+  (let [result (popup-actions/handle-action initial-state uf-data [:popup/ax.load-auto-connect-level])]
+    (-> (expect (first (first (:uf/fxs result))))
+        (.toBe :popup/fx.load-auto-connect-level))))
+
+(defn- ^:async test-set-auto-connect-level-sets-all-pages []
+  (let [state (assoc initial-state :settings/auto-connect-level "off")
+        result (popup-actions/handle-action state uf-data [:popup/ax.set-auto-connect-level "all-pages"])]
+    (-> (expect (:settings/auto-connect-level (:uf/db result)))
+        (.toBe "all-pages"))
+    (let [[fx-name level] (first (:uf/fxs result))]
+      (-> (expect fx-name)
+          (.toBe :popup/fx.save-auto-connect-level))
+      (-> (expect level)
+          (.toBe "all-pages")))))
+
+(defn- ^:async test-set-auto-connect-level-sets-all-tabs []
+  (let [state (assoc initial-state :settings/auto-connect-level "off")
+        result (popup-actions/handle-action state uf-data [:popup/ax.set-auto-connect-level "all-tabs"])]
+    (-> (expect (:settings/auto-connect-level (:uf/db result)))
+        (.toBe "all-tabs"))
+    (let [[fx-name level] (first (:uf/fxs result))]
+      (-> (expect fx-name)
+          (.toBe :popup/fx.save-auto-connect-level))
+      (-> (expect level)
+          (.toBe "all-tabs")))))
+
+(defn- ^:async test-set-auto-connect-level-sets-off []
+  (let [state (assoc initial-state :settings/auto-connect-level "all-pages")
+        result (popup-actions/handle-action state uf-data [:popup/ax.set-auto-connect-level "off"])]
+    (-> (expect (:settings/auto-connect-level (:uf/db result)))
+        (.toBe "off"))
+    (let [[fx-name level] (first (:uf/fxs result))]
+      (-> (expect fx-name)
+          (.toBe :popup/fx.save-auto-connect-level))
+      (-> (expect level)
+          (.toBe "off")))))
+
+;; ============================================================
 ;; Test Registration
 ;; ============================================================
 
 (describe "Popup Settings Actions"
   (fn []
+    ;; Auto-connect level
+    (test "load-auto-connect-level triggers effect" test-load-auto-connect-level-triggers-effect)
+    (test "set-auto-connect-level sets all-pages" test-set-auto-connect-level-sets-all-pages)
+    (test "set-auto-connect-level sets all-tabs" test-set-auto-connect-level-sets-all-tabs)
+    (test "set-auto-connect-level sets off" test-set-auto-connect-level-sets-off)
     ;; Auto-reconnect
     (test "load-auto-reconnect-setting triggers effect" test-load-auto-reconnect-setting-triggers-effect)
     (test "toggle-auto-reconnect-repl toggles true to false" test-toggle-auto-reconnect-repl-toggles-true-to-false)
