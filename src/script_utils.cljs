@@ -216,9 +216,8 @@
    - Append .cljs extension
    - Remove invalid characters"
   [input-name]
-  (let [;; Strip .cljs extension if present (we'll add it back)
-        base-name (if (.endsWith input-name ".cljs")
-                    (.slice input-name 0 -5)
+  (let [base-name (if (string/ends-with? input-name ".cljs")
+                    (subs input-name 0 (- (count input-name) 5))
                     input-name)]
     (-> base-name
         (string/lower-case)
