@@ -259,7 +259,7 @@ The manifest is a plain Clojure map at the top of the file. Your code runs in th
 
 | Key | Required | Default | Description |
 |-----|----------|---------|-------------|
-| `:epupp/script-name` | Yes | - | Filename, auto-normalized to `snake_case.cljs`. Cannot start with `epupp/` (reserved for built-in scripts). |
+| `:epupp/script-name` | Yes | - | Filename or Clojure namespace, auto-normalized to a path. Dots become `/`, spaces/dashes become `_` (e.g. `pez.my-script` becomes `pez/my_script.cljs`). Cannot start with `epupp/` (reserved). |
 | `:epupp/auto-run-match` | No | - | URL glob pattern(s). String or vector of strings. Omit for manual-only scripts. |
 | `:epupp/description` | No | - | Shown in the popup UI. |
 | `:epupp/run-at` | No | `"document-idle"` | When to run: `"document-start"`, `"document-end"`, or `"document-idle"`. |
@@ -267,7 +267,7 @@ The manifest is a plain Clojure map at the top of the file. Your code runs in th
 
 Scripts with `:epupp/auto-run-match` start disabled. Enable them in the popup for auto-injection on matching pages. Scripts without this key only run when you click the Play button in the popup.
 
-Script names are auto-normalized to valid ClojureScript file names: `snake_case.cljs` (so `"My Cool Script"` becomes `my_cool_script.cljs`).
+Script names are auto-normalized to valid ClojureScript file paths. Dots become `/` (supporting Clojure namespace conventions), spaces and dashes become `_`, and all other non-alphanumeric characters are stripped. Examples: `"My Script"` becomes `my_script.cljs`, `"pez.linkedin-squirrel"` becomes `pez/linkedin_squirrel.cljs`.
 
 Scripts can also be managed programmatically via the [FS API](docs/repl-fs-sync.md).
 

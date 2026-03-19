@@ -43,6 +43,40 @@
 ;; Test Functions
 ;; ============================================================
 
+;; normalize-script-name tests
+
+(defn- test-normalize-spaces-to-underscores []
+  (-> (expect (script-utils/normalize-script-name "My Script"))
+      (.toBe "my_script.cljs")))
+
+(defn- test-normalize-dashes-to-underscores []
+  (-> (expect (script-utils/normalize-script-name "my-script"))
+      (.toBe "my_script.cljs")))
+
+(defn- test-normalize-dots-to-path-separators []
+  (-> (expect (script-utils/normalize-script-name "pez.linkedin-squirrel"))
+      (.toBe "pez/linkedin_squirrel.cljs")))
+
+(defn- test-normalize-multiple-dots []
+  (-> (expect (script-utils/normalize-script-name "a.b.c"))
+      (.toBe "a/b/c.cljs")))
+
+(defn- test-normalize-strips-extension []
+  (-> (expect (script-utils/normalize-script-name "my_script.cljs"))
+      (.toBe "my_script.cljs")))
+
+(defn- test-normalize-mixed-separators []
+  (-> (expect (script-utils/normalize-script-name "My Cool.Script-Name"))
+      (.toBe "my_cool/script_name.cljs")))
+
+(defn- test-normalize-preserves-slash []
+  (-> (expect (script-utils/normalize-script-name "folder/my-script"))
+      (.toBe "folder/my_script.cljs")))
+
+(defn- test-normalize-namespace-style []
+  (-> (expect (script-utils/normalize-script-name "pez.element-printing"))
+      (.toBe "pez/element_printing.cljs")))
+
 ;; validate-script-name tests
 
 (defn- test-validate-accepts-valid-names []
@@ -58,6 +92,12 @@
 (defn- test-validate-rejects-leading-slash []
   (-> (expect (script-utils/validate-script-name "/test.cljs"))
       (.toContain "start with '/'")))
+
+(defn- test-validate-rejects-leading-dot []
+  (-> (expect (script-utils/validate-script-name ".hidden"))
+      (.toContain "start with '.'"))
+  (-> (expect (script-utils/validate-script-name "..foo"))
+      (.toContain "start with '.'")))
 
 (defn- test-validate-rejects-dot-slash-and-dot-dot-slash []
   (-> (expect (script-utils/validate-script-name "./test.cljs"))
@@ -227,11 +267,23 @@
 ;; Test Registration
 ;; ============================================================
 
+(describe "normalize-script-name"
+          (fn []
+            (test "spaces to underscores" test-normalize-spaces-to-underscores)
+            (test "dashes to underscores" test-normalize-dashes-to-underscores)
+            (test "dots to path separators" test-normalize-dots-to-path-separators)
+            (test "multiple dots" test-normalize-multiple-dots)
+            (test "strips .cljs extension" test-normalize-strips-extension)
+            (test "mixed separators" test-normalize-mixed-separators)
+            (test "preserves existing slash" test-normalize-preserves-slash)
+            (test "namespace-style name" test-normalize-namespace-style)))
+
 (describe "validate-script-name"
           (fn []
             (test "accepts valid names" test-validate-accepts-valid-names)
             (test "rejects reserved namespace" test-validate-rejects-reserved-namespace)
             (test "rejects leading slash" test-validate-rejects-leading-slash)
+            (test "rejects leading dot" test-validate-rejects-leading-dot)
             (test "rejects dot-slash and dot-dot-slash" test-validate-rejects-dot-slash-and-dot-dot-slash)
             (test "property: valid names are accepted" test-validate-property-valid-names-accepted)
             (test "property: reserved namespace is rejected" test-validate-property-reserved-namespace-rejected)

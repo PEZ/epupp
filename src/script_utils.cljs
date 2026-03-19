@@ -3,7 +3,8 @@
 
    This module contains pure functions with no external dependencies,
    enabling use across popup, storage, url-matching, and background modules
-   without circular dependency issues.")
+   without circular dependency issues."
+  (:require [clojure.string :as string]))
 
 ;; ============================================================
 ;; Script data transformation
@@ -206,9 +207,12 @@
 
 (defn normalize-script-name
   "Normalize a script name to a consistent format for uniqueness.
+   Supports using a Clojure namespace in the manifest, and have
+   it normalized to a proper filename.
    - Lowercase
-   - Replace spaces, dashes, and dots with underscores
-   - Preserve `/` for namespace-like paths (e.g., my_project/utils.cljs)
+   - Replace spaces, and dashes with underscores
+   - Replace `.` with `/`
+   - Preserve `/` for namespace-like paths
    - Append .cljs extension
    - Remove invalid characters"
   [input-name]
@@ -217,9 +221,10 @@
                     (.slice input-name 0 -5)
                     input-name)]
     (-> base-name
-        (.toLowerCase)
-        (.replace (js/RegExp. "[\\s.-]+" "g") "_")
-        (.replace (js/RegExp. "[^a-z0-9_/]" "g") "")
+        (string/lower-case)
+        (string/replace #"[.]+" "/")
+        (string/replace #"[\s-]+" "_")
+        (string/replace #"[^a-z0-9_/]"  "")
         (str ".cljs"))))
 
 ;; ============================================================
@@ -236,6 +241,7 @@
     (.startsWith (.toLowerCase input-name) "epupp/") "Cannot create scripts in reserved namespace: epupp/"
     (.startsWith input-name "/") "Script name cannot start with '/'"
     (or (.includes input-name "./") (.includes input-name "../")) "Script name cannot contain './' or '../'"
+    (.startsWith input-name ".") "Script name cannot start with '.'"
     :else nil))
 
 (defn normalize-and-merge-script

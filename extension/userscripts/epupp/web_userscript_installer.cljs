@@ -79,14 +79,16 @@
     (catch :default _ false)))
 
 (defn normalize-script-name
-  "Normalize a script name to a consistent format."
+  "Normalize a script name to a consistent format.
+   Dots become path separators to support Clojure namespace conventions."
   [input-name]
   (let [base-name (if (string/ends-with? input-name ".cljs")
                     (subs input-name 0 (- (count input-name) 5))
                     input-name)]
     (-> base-name
         (string/lower-case)
-        (string/replace #"[\s.-]+" "_")
+        (string/replace #"[.]+" "/")
+        (string/replace #"[\s-]+" "_")
         (string/replace #"[^a-z0-9_/]" "")
         (str ".cljs"))))
 
