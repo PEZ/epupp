@@ -6,7 +6,10 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-03-19
+
 - Support namespace-only manifest script names. (Still stored as normalized filename, replacing `.` with `/`.)
+
 
 ## [0.0.13] - 2026-03-18
 
