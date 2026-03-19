@@ -269,9 +269,14 @@
         normalized-name (when raw-name
                           (if is-builtin?
                             raw-name
-                            (normalize-script-name raw-name)))]
-    (if name-error
-      {:error name-error}
+                            (normalize-script-name raw-name)))
+        ;; Post-normalization check: dots become slashes, so "epupp.foo"
+        ;; would normalize to "epupp/foo.cljs" - bypassing raw validation
+        post-norm-error (when (and normalized-name (not is-builtin?) (not name-error))
+                          (when (.startsWith normalized-name "epupp/")
+                            "Cannot create scripts in reserved namespace: epupp/"))]
+    (if (or name-error post-norm-error)
+      {:error (or name-error post-norm-error)}
       (let [named-script (cond-> script
                            normalized-name (assoc :script/name normalized-name))
             ;; When no manifest and no match on incoming, fall back to existing

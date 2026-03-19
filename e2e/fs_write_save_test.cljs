@@ -412,6 +412,94 @@
                                   "(defn ^:async do-cleanup []\n                                     (try (await (epupp.fs/rm! \"id_preserve_test.cljs\")) :cleanup-done\n                                       (catch :default _ :cleanup-done)))\n                                   (do-cleanup)"))]
     (-> (expect (.-success cleanup-result)) (.toBe true))))
 
+(defn- ^:async test_save_namespace_style_name_normalizes_correctly []
+  (let [test-code "{:epupp/script-name \"pez.my-cool-script\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns pez.my-cool-script)\n                  (js/console.log \"Namespace-style script\")"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !ns-save-result (atom :pending))\n"
+                                     "(defn ^:async do-ns-save []\n"
+                                     "  (try\n"
+                                     "    (let [r (await (epupp.fs/save! " (pr-str test-code) " {:fs/force? true}))]\n"
+                                     "      (reset! !ns-save-result {:resolved r}))\n"
+                                     "    (catch :default e\n"
+                                     "      (reset! !ns-save-result {:rejected (.-message e)}))))\n"
+                                     "(do-ns-save)\n"
+                                     ":setup-done")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser
+                                    "(let [r @!ns-save-result]
+                                       (cond
+                                         (= r :pending) :not-settled
+                                         (:rejected r) (str \"ERROR: \" (:rejected r))
+                                         (:resolved r) (str (:fs/success (:resolved r)) \"||\" (:fs/name (:resolved r)))
+                                         :else :unknown))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result)))
+          (let [result-str (unquote-result (first (.-values check-result)))]
+            (if (= result-str ":not-settled")
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for namespace-style save result"))
+                (do
+                  (js-await (sleep 20))
+                  (recur)))
+              ;; Dots should become slashes: pez.my-cool-script -> pez/my_cool_script.cljs
+              (-> (expect result-str)
+                  (.toBe "true||pez/my_cool_script.cljs"))))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for namespace-style save result"))
+            (do
+              (js-await (sleep 20))
+              (recur)))))))
+
+  ;; Cleanup
+  (let [cleanup-result (js-await (eval-in-browser
+                                  "(defn ^:async do-ns-cleanup []\n                                     (try (await (epupp.fs/rm! \"pez/my_cool_script.cljs\")) :done\n                                       (catch :default _ :done)))\n                                   (do-ns-cleanup)"))]
+    (-> (expect (.-success cleanup-result)) (.toBe true))))
+
+(defn- ^:async test_save_rejects_epupp_dot_namespace_bypass []
+  (let [test-code "{:epupp/script-name \"epupp.sneaky-script\"}\n                  (ns epupp.sneaky-script)"
+        setup-result (js-await (eval-in-browser
+                                (str "(def !epupp-dot-result (atom :pending))\n"
+                                     "(defn ^:async do-epupp-dot-save []\n"
+                                     "  (try\n"
+                                     "    (let [r (await (epupp.fs/save! " (pr-str test-code) "))]\n"
+                                     "      (reset! !epupp-dot-result {:resolved r}))\n"
+                                     "    (catch :default e\n"
+                                     "      (reset! !epupp-dot-result {:rejected (.-message e)}))))\n"
+                                     "(do-epupp-dot-save)\n"
+                                     ":setup-done")))]
+    (-> (expect (.-success setup-result)) (.toBe true)))
+
+  (let [start (.now js/Date)
+        timeout-ms 3000]
+    (loop []
+      (let [check-result (js-await (eval-in-browser
+                                    "(let [r @!epupp-dot-result]
+                                       (cond
+                                         (= r :pending) :not-settled
+                                         (:rejected r) (:rejected r)
+                                         :else :resolved))"))]
+        (if (and (.-success check-result)
+                 (seq (.-values check-result)))
+          (let [result-str (unquote-result (first (.-values check-result)))]
+            (if (= result-str ":not-settled")
+              (if (> (- (.now js/Date) start) timeout-ms)
+                (throw (js/Error. "Timeout waiting for epupp. dot bypass result"))
+                (do
+                  (js-await (sleep 20))
+                  (recur)))
+              ;; Must be rejected: epupp.sneaky normalizes to epupp/sneaky
+              (-> (expect result-str)
+                  (.toBe "Cannot create scripts in reserved namespace: epupp/"))))
+          (if (> (- (.now js/Date) start) timeout-ms)
+            (throw (js/Error. "Timeout waiting for epupp. dot bypass result"))
+            (do
+              (js-await (sleep 20))
+              (recur))))))))
+
 (defn- ^:async test_save_rejects_reserved_namespace_with_clear_error []
   (let [test-code "{:epupp/script-name \"epupp/my-script.cljs\"\n                   :epupp/auto-run-match \"https://example.com/*\"}\n                  (ns bad-namespace)"
         setup-result (js-await (eval-in-browser
@@ -537,6 +625,12 @@
 
              (test "REPL FS: save - rejects reserved namespace with clear error"
                    test_save_rejects_reserved_namespace_with_clear_error)
+
+             (test "REPL FS: save - namespace-style name normalizes dots to path separators"
+                   test_save_namespace_style_name_normalizes_correctly)
+
+             (test "REPL FS: save - rejects epupp. dot bypass of reserved namespace"
+                   test_save_rejects_epupp_dot_namespace_bypass)
 
              (test "REPL FS: save - rejects path traversal names"
                    test_save_rejects_path_traversal_names)

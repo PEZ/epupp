@@ -419,6 +419,27 @@
     (-> (expect (:script/match s)) (.toEqual ["https://example.com/*"]))
     (-> (expect (:script/enabled s)) (.toBe true))))
 
+(defn- test-normalize-merge-rejects-epupp-dot-bypass []
+  (let [code "^{:epupp/script-name \"epupp.sneaky\"}\n(ns epupp.sneaky)"
+        manifest (mp/extract-manifest code)
+        script {:script/id "script-1" :script/code code}
+        result (script-utils/normalize-and-merge-script
+                 script nil manifest
+                 {:now-iso "2026-01-01T00:00:00.000Z"})]
+    (-> (expect (:error result))
+        (.toBe "Cannot create scripts in reserved namespace: epupp/"))))
+
+(defn- test-normalize-merge-namespace-style-name []
+  (let [code "^{:epupp/script-name \"pez.my-cool-script\"\n  :epupp/auto-run-match \"https://example.com/*\"}\n(ns pez.my-cool-script)"
+        manifest (mp/extract-manifest code)
+        script {:script/id "script-1" :script/code code}
+        result (script-utils/normalize-and-merge-script
+                 script nil manifest
+                 {:now-iso "2026-01-01T00:00:00.000Z"})
+        s (:script result)]
+    (-> (expect (:error result)) (.toBeUndefined))
+    (-> (expect (:script/name s)) (.toBe "pez/my_cool_script.cljs"))))
+
 (describe "normalize-and-merge-script"
           (fn []
             (test "new script with manifest derives all fields" test-normalize-merge-new-script-with-manifest)
@@ -428,7 +449,9 @@
             (test "returns error on invalid name" test-normalize-merge-name-validation-error)
             (test "builtin bypasses name normalization" test-normalize-merge-builtin-bypasses-normalization)
             (test "always-enabled stays enabled" test-normalize-merge-always-enabled)
-            (test "no manifest falls back to existing match" test-normalize-merge-no-manifest-falls-back-to-existing-match)))
+            (test "no manifest falls back to existing match" test-normalize-merge-no-manifest-falls-back-to-existing-match)
+            (test "rejects epupp. dot bypass of reserved namespace" test-normalize-merge-rejects-epupp-dot-bypass)
+            (test "namespace-style name normalizes correctly" test-normalize-merge-namespace-style-name)))
 
 (describe "parse-scripts"
           (fn []
