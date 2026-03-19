@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Support namespace-only manifest script names. (Still stored as normalized filename, replacing `.` with `/`.)
+
 ## [0.0.13] - 2026-03-18
 
 - Auto-connect setting replaces on/off with three levels: Never, On page load, On page load + tab activation
