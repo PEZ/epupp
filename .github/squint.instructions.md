@@ -7,6 +7,12 @@ applyTo: '**'
 
 This project uses [Squint](https://github.com/squint-cljs/squint), a light-weight ClojureScript dialect that compiles to modern JavaScript ES modules.
 
+## Prefer Clojure Style Over JS Interop
+
+Squint supports most of `clojure.string` and the core library. **Always prefer idiomatic Clojure functions over JavaScript interop when an equivalent exists.** This keeps code readable, consistent, and portable across the three places normalization logic lives (source, web installer userscript, and the hq sync script).
+
+**Note:** The existing codebase often uses JS interop forms as legacy patterns. When you encounter them, prefer rewriting to Clojure style. New code should always use idiomatic Clojure.
+
 ## Critical Differences from ClojureScript
 
 * `name` function is not implemented.
