@@ -1,5 +1,19 @@
 {
   "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "connectSquintRepl",
+      "type": "command",
+      "command": "joyride.runCode",
+      "args": "(require '[repl-connect]) (repl-connect/connect! {:connect-sequence \"Squint REPL\" :session-key \"squint-repl\"}) \"ok\""
+    },
+    {
+      "id": "connectBabashkaRepl",
+      "type": "command",
+      "command": "joyride.runCode",
+      "args": "(require '[repl-connect]) (repl-connect/connect! {:connect-sequence \"Babashka REPL\" :session-key \"babashka-repl\"}) \"ok\""
+    }
+  ],
   "tasks": [
     {
       "label": "Squint Watch",
@@ -31,7 +45,22 @@
       "command": "bb squint-nrepl",
       "group": "build",
       "isBackground": true,
-      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": {
+        "owner": "squint-repl",
+        "pattern": {
+          "regexp": "^(~never~)(.*)$",
+          "file": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "nREPL server started"
+        }
+      },
       "presentation": {
         "panel": "dedicated",
         "group": "repl"
@@ -43,10 +72,57 @@
       "command": "bb nrepl-server 1664",
       "group": "build",
       "isBackground": true,
-      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": {
+        "owner": "babashka-repl",
+        "pattern": {
+          "regexp": "^(~never~)(.*)$",
+          "file": 1,
+          "message": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Started nREPL server"
+        }
+      },
       "presentation": {
         "panel": "dedicated",
         "group": "repl"
+      }
+    },
+    {
+      "label": "Connect Squint REPL",
+      "dependsOn": [
+        "Squint REPL"
+      ],
+      "dependsOrder": "sequence",
+      "type": "shell",
+      "command": "echo ${input:connectSquintRepl}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "panel": "shared",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "Connect Babashka REPL",
+      "dependsOn": [
+        "Babashka REPL"
+      ],
+      "dependsOrder": "sequence",
+      "type": "shell",
+      "command": "echo ${input:connectBabashkaRepl}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "panel": "shared",
+        "showReuseMessage": false
       }
     },
     {
@@ -54,8 +130,8 @@
       "dependsOn": [
         "Squint Watch",
         "Unit Test Watch",
-        "Squint REPL",
-        "Babashka REPL"
+        "Connect Squint REPL",
+        "Connect Babashka REPL"
       ],
       "group": {
         "kind": "build",

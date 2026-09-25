@@ -1,0 +1,15 @@
+{"mcpServers": {"joyride":{
+            "command": "node",
+            "args": [
+                "${env:HOME}/.config/joyride/joyride-mcp-server.js",
+                "${env:HOME}/.config/vscode-mcp/port-files/joyride-ws-rrk99p.port",
+                "127.0.0.1"
+            ]
+        },"backseat-driver": {"command":"node","args":["${env:HOME}/.config/calva/backseat-driver/calva-mcp-server.js",".calva/mcp-server/port","127.0.0.1"]},"calva-backseat-driver": {
+      "command": "node",
+      "args": [
+        "${env:HOME}/.config/calva/backseat-driver/calva-mcp-server.js",
+        "${env:HOME}/.config/vscode-mcp/port-files/calva-backseat-driver-ws-rrk99p.port",
+        "127.0.0.1"
+      ]
+    }}}

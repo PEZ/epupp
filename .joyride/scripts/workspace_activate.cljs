@@ -1,6 +1,6 @@
 (ns workspace-activate
   (:require [joyride.core :as joyride]
-            [promesa.core :as p]
+            [repl-connect]
             scittle-repl
             ["vscode" :as vscode]))
 
@@ -24,7 +24,25 @@
       .-subscriptions
       (.push disposable)))
 
-(defn- my-main []
+(defn- task-running? [label]
+  (boolean
+   (some #(= label (some-> % .-task .-name))
+         (.-taskExecutions vscode/tasks))))
+
+(defn- ^:async ensure-task!
+  "Runs a workspace task by label when it is not already executing."
+  [label]
+  (when-not (task-running? label)
+    (let [tasks (await (vscode/tasks.fetchTasks))
+          task (first (filter (fn [t]
+                                (and (= label (.-name t))
+                                     (some-> t .-scope .-uri .-path (.endsWith "/epupp"))))
+                              tasks))]
+      (when task
+        (await (vscode/tasks.executeTask task)))))
+  "ok")
+
+(defn- ^:async my-main []
   (println "Hello World, from my-main workspace_activate.cljs script")
   (clear-disposables!)
   #_(push-disposable
@@ -36,18 +54,19 @@
                  "document opened:"
                  (.-fileName doc)))))
 
-  (p/let [tasks (vscode/tasks.fetchTasks)
-          task (->> tasks
-                    (filter #(= "Start Dev Environment" (.-name %)))
-                    (filter #(-> % .-scope .-uri .-path (.endsWith "/epupp")))
-                    first)]
-    (when task
-      (vscode/tasks.executeTask task))
-    (p/delay 1500)
-    (vscode/commands.executeCommand "calva.connect" #js {:connectSequence "Babashka REPL"})
-    (vscode/commands.executeCommand "calva.connect" #js {:connectSequence "Squint REPL"}))
-  (scittle-repl/start!+)
-  (vscode/commands.executeCommand "calva.connect" #js {:connectSequence "Scittle Dev REPL"}))
+  (await (ensure-task! "Squint Watch"))
+  (await (ensure-task! "Unit Test Watch"))
+  (await (repl-connect/start! {:connect-task "Connect Squint REPL"
+                               :repl-task "Squint REPL"
+                               :connect-sequence "Squint REPL"
+                               :session-key "squint-repl"}))
+  (await (repl-connect/start! {:connect-task "Connect Babashka REPL"
+                               :repl-task "Babashka REPL"
+                               :connect-sequence "Babashka REPL"
+                               :session-key "babashka-repl"}))
+  (await (scittle-repl/start!+))
+  (await (vscode/commands.executeCommand "calva.connect" #js {:connectSequence "Scittle Dev REPL"}))
+  "ok")
 
 (when (= (joyride/invoked-script) joyride/*file*)
   (my-main))
