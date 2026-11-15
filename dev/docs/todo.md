@@ -17,9 +17,11 @@
 * [ ] Update README screenshot
 * [x] Installing scripts from script installer should add them as not approved
 * [x] Script installer not adding button with Firefox and Safari
-* [ ] Gist installer not working in Firefox and Safari
+* [ ] Verify the web installer in Firefox and Safari
+  - The errors below came from the old Gist Installer, which fetched the script over the network. That fetch path was removed in the Web Userscript Installer refactor (a87bfed). The installer now reads code from the page DOM and fetches nothing.
   - Firefox: [Gist Installer] Install failed: NetworkError when attempting to fetch resource. scittle.js:315:382
   - Safari: [Gist Installer] Install failed:"Load failed"
+  - Status in Firefox and Safari is unverified since then. The E2E suite runs on Chromium only.
 * [x] Add setting for re-establishing the repl/websocket connection after reload
 * [x] Figure out how to make the repl connection follow the user when navigating, switching tabs, etc
 * [ ] Figure out REPL connection reliability when switching away from the repl tab

@@ -2,7 +2,7 @@
 
 ## Safari: Limited Extension Functionality
 
-**Status:** Not investigated
+**Status:** Not investigated. The symptoms below were recorded in January 2026, before the March 2026 Safari permission fixes (4057092, af900f8, cf0a471). Nobody has checked whether they still occur.
 
 **Symptoms:**
 - **DevTools Panel:** No scripts work from panel - always returns "tab not found" error
