@@ -70,3 +70,5 @@
 
 (when (= (joyride/invoked-script) joyride/*file*)
   (my-main))
+
+"ok"
