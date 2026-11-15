@@ -69,7 +69,7 @@
     {
       "label": "Babashka REPL",
       "type": "shell",
-      "command": "bb nrepl-server 1664",
+      "command": "bb nrepl-server 31664",
       "group": "build",
       "isBackground": true,
       "runOptions": {

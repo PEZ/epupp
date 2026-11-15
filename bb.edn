@@ -49,7 +49,7 @@
          :task (babashka.process/shell "npx squint watch")}
 
   squint-nrepl {:doc "Start Squint nREPL server for testing code in Node"
-                :task (babashka.process/shell "npx squint nrepl-server :port 1888")}
+                :task (babashka.process/shell "npx squint nrepl-server :port 31888")}
 
   squint-compile {:doc "Compile with Squint. Pass files/options directly: bb squint-compile src/foo.cljs or bb squint-compile --paths src test --output-dir build/test. Use this to check compilation without running tests."
                   :task (apply babashka.process/shell "npx squint compile" *command-line-args*)}

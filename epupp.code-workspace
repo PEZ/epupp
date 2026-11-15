@@ -21,7 +21,7 @@
 			{
 				"name": "Squint REPL",
 				"projectType": "squint",
-				"fallbackPort": 1888,
+				"fallbackPort": 31888,
 				"projectRootPath": [
 					"../epupp"
 				],
@@ -32,7 +32,7 @@
 			{
 				"name": "Babashka REPL",
 				"projectType": "babashka",
-				"fallbackPort": 1664,
+				"fallbackPort": 31664,
 				"projectRootPath": [
 					"../epupp"
 				],
