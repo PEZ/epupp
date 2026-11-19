@@ -1,0 +1,7 @@
+;; Worktrees of epupp, for running branches side by side. Read by the bbg
+;; worktree, lock and claim commands. The VS Code part that starts and stops
+;; worktrees is .joyride/src/worktrees.cljs.
+{:worktree/ports {:squint-nrepl {:first 31890 :main 31888}
+                  :bb-nrepl {:first 31670 :main 31664}}
+ :worktree/prepare [[:share "node_modules" {:same "package-lock.json" :install ["npm" "ci"]}]
+                    [:run ["bb" "bundle-scittle"]]]}

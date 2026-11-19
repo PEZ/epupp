@@ -134,6 +134,12 @@
 			"extension/**/*.mjs": true,
 			"extension/vendor": true
 		},
+		"files.watcherExclude": {
+			"worktrees/**": true
+		},
+		"search.exclude": {
+			"worktrees/**": true
+		},
 		"calva-backseat-driver.mcpSocketServerPort": 1665
 	}
 }

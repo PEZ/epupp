@@ -9,6 +9,9 @@ dist/
 test-results/
 playwright-report/
 
+# Ignore other checkouts (bbg worktrees)
+worktrees/
+
 # Ignore git and IDE
 .git/
 .vscode/

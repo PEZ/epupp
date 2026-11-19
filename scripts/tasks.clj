@@ -418,3 +418,18 @@
    Avoids squint watch nested-directory relative-import bugs."
   []
   (p/shell "node" "scripts/watch-squint-tests.mjs"))
+
+;; ============================================================
+;; Taking turns between checkouts
+;; ============================================================
+
+(defn run-locked!
+  "Run `bb <task> <args>` through `bbg lock <lock>`, so only one checkout of
+   epupp runs it at a time, and return its exit code. Without bbg on the
+   PATH, as for contributors, the task runs directly."
+  [lock task args]
+  (let [cmd (into ["bb" task] args)]
+    (:exit (p/shell {:continue true
+                     :cmd (if (fs/which "bbg")
+                            (into ["bbg" "lock" lock "--"] cmd)
+                            cmd)}))))
