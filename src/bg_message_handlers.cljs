@@ -71,15 +71,20 @@
     (fs-dispatch/dispatch-fs-action! send-response [:fs/ax.rename-script from-name to-name]))
   true)
 
+(def ^:private popup-script-changes
+  {"popup-toggle-script" #(storage/toggle-script! (.-scriptId %))
+   "popup-delete-script" #(storage/delete-script! (.-scriptId %))
+   "popup-import-scripts" #(storage/import-scripts! (.-scripts %))})
+
 (defn- handle-popup-script-change
-  "Run a popup script change in storage once the background is initialized.
+  "Run the popup's script change in storage once the background is initialized.
    A message can wake the service worker before storage has loaded, and
    changing the empty list then would store it."
-  [ensure-initialized-fn dispatch! send-response change!]
+  [message ensure-initialized-fn dispatch! send-response]
   ((^:async fn []
      (try
        (js-await (ensure-initialized-fn dispatch!))
-       (js-await (change!))
+       (js-await ((get popup-script-changes (.-type message)) message))
        (send-response #js {:success true})
        (catch :default err
          (send-response #js {:success false :error (.-message err)})))))
@@ -110,6 +115,14 @@
   (let [script-name (.-name message)]
     (dispatch! [[:fs/ax.guard-get-script tab-id send-response script-name]])
     true))
+
+(defn- handle-toggle-fs-sync [message dispatch! send-response]
+  (dispatch! [[:fs/ax.toggle-sync (.-tabId message) (.-enabled message) send-response]])
+  true)
+
+(defn- handle-get-fs-sync-status [dispatch! send-response]
+  (dispatch! [[:fs/ax.get-sync-status send-response]])
+  true)
 
 ;; ============================================================
 ;; Panel/popup message handlers
@@ -439,15 +452,8 @@
       "save-script" (handle-save-script message tab-id dispatch! send-response)
       "panel-save-script" (handle-panel-save-script message send-response)
       "panel-rename-script" (handle-panel-rename-script message send-response)
-      "popup-toggle-script" (handle-popup-script-change
-                             ensure-initialized-fn dispatch! send-response
-                             #(storage/toggle-script! (.-scriptId message)))
-      "popup-delete-script" (handle-popup-script-change
-                             ensure-initialized-fn dispatch! send-response
-                             #(storage/delete-script! (.-scriptId message)))
-      "popup-import-scripts" (handle-popup-script-change
-                              ensure-initialized-fn dispatch! send-response
-                              #(storage/import-scripts! (.-scripts message)))
+      ("popup-toggle-script" "popup-delete-script" "popup-import-scripts")
+      (handle-popup-script-change message ensure-initialized-fn dispatch! send-response)
       "rename-script" (handle-rename-script message tab-id dispatch! send-response)
       "delete-script" (handle-delete-script message tab-id dispatch! send-response)
       "get-script" (handle-get-script message tab-id dispatch! send-response)
@@ -460,12 +466,8 @@
       "connect-tab" (handle-connect-tab message dispatch! send-response)
       "check-status" (handle-check-status message dispatch! send-response)
       "disconnect-tab" (handle-disconnect-tab message dispatch!)
-      "toggle-fs-sync"
-      (do (dispatch! [[:fs/ax.toggle-sync (.-tabId message) (.-enabled message) send-response]])
-          true)
-      "get-fs-sync-status"
-      (do (dispatch! [[:fs/ax.get-sync-status send-response]])
-          true)
+      "toggle-fs-sync" (handle-toggle-fs-sync message dispatch! send-response)
+      "get-fs-sync-status" (handle-get-fs-sync-status dispatch! send-response)
       "capture-element" (handle-capture-element message sender send-response)
       "storage-get" (handle-storage-get message dispatch! send-response)
       "storage-set" (handle-storage-set message dispatch! send-response)

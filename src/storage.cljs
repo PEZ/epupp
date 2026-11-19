@@ -5,7 +5,8 @@
 
    Note: In Squint, keywords become strings and maps are JS objects.
    We use namespaced string keys like \"script/id\" for consistency."
-  (:require [log :as log]
+  (:require [builtin-scripts :as builtins]
+            [log :as log]
             [manifest-parser :as mp]
             [script-utils :as script-utils]))
 
@@ -51,54 +52,6 @@
   (let [write-id (some-> (.-writeId changes) .-newValue)]
     (and (string? write-id)
          (.startsWith write-id write-id-prefix))))
-
-;; ============================================================
-;; Built-in catalog
-;; ============================================================
-
-
-
-(def ^:private base-builtins
-  [{:script/id "epupp-builtin-internal-helpers"
-    :path "userscripts/epupp/internal/helpers.cljs"
-    :name "epupp/internal/helpers.cljs"
-    :always-enabled? true}
-   {:script/id "epupp-builtin-ui"
-    :path "userscripts/epupp/ui.cljs"
-    :name "epupp/ui.cljs"
-    :always-enabled? true}
-   {:script/id "epupp-builtin-storage"
-    :path "userscripts/epupp/storage.cljs"
-    :name "epupp/storage.cljs"
-    :always-enabled? true}
-   {:script/id "epupp-builtin-tools"
-    :path "userscripts/epupp/tools.cljs"
-    :name "epupp/tools.cljs"
-    :always-enabled? true}
-   {:script/id "epupp-builtin-web-userscript-installer"
-    :path "userscripts/epupp/web_userscript_installer.cljs"
-    :name "epupp/web_userscript_installer.cljs"
-    :special? true
-    :web-installer-scan true}
-   {:script/id "epupp-builtin-sponsor-check"
-    :path "userscripts/epupp/sponsor.cljs"
-    :name "epupp/sponsor.cljs"
-    :always-enabled? true}])
-
-(def ^:private security-probe-builtin
-  {:script/id "epupp-builtin-security-probe"
-   :path "userscripts/epupp/security_probe.cljs"
-   :name "epupp/security_probe.cljs"})
-
-(def ^:private bundled-builtins
-  (if (.-dev js/EXTENSION_CONFIG)
-    (conj base-builtins security-probe-builtin)
-    base-builtins))
-
-(defn bundled-builtin-ids
-  "Return the list of bundled built-in script IDs."
-  []
-  (mapv :script/id bundled-builtins))
 
 ;; ============================================================
 ;; Persistence helpers
@@ -181,7 +134,7 @@
 (defn- handle-scripts-change [scripts-change]
   (let [new-scripts (script-utils/parse-scripts (.-newValue scripts-change)
                                                 {:extract-manifest mp/extract-manifest})
-        bundled-ids (bundled-builtin-ids)
+        bundled-ids (builtins/bundled-builtin-ids)
         bundled-ids-set (set bundled-ids)
         missing-builtin? (some (fn [builtin-id]
                                  (not (some #(= (:script/id %) builtin-id) new-scripts)))
@@ -257,21 +210,6 @@
        (filter #(= (:script/id %) script-id))
        first))
 
-(defn- normalize-auto-run-match
-  "Normalize auto-run match value to vector or nil when absent."
-  [match-raw]
-  (cond
-    (nil? match-raw) nil
-    (string? match-raw) (if (empty? match-raw) [] [match-raw])
-    (js/Array.isArray match-raw) (vec match-raw)
-    :else nil))
-
-(defn- manifest-has-auto-run-key?
-  "Check if manifest explicitly includes :epupp/auto-run-match."
-  [manifest]
-  (some #(= % "epupp/auto-run-match")
-        (get manifest "found-keys")))
-
 (defn- update-script-list [scripts script-id updated-script existing?]
   (if existing?
     (mapv #(if (= (:script/id %) script-id) updated-script %) scripts)
@@ -330,22 +268,13 @@
            (filterv script-utils/builtin-script? scripts)))
   (persist!))
 
-(defn merge-imported-scripts
-  "Return the imported scripts followed by the built-ins from scripts.
-   Imported entries with built-in ids are skipped, so an export file
-   cannot replace bundled code."
-  [scripts imported]
-  (into (filterv #(not (some-> (:script/id %) (.startsWith "epupp-builtin-")))
-                 imported)
-        (filter script-utils/builtin-script? scripts)))
-
 (defn ^:async import-scripts!
   "Replace all user scripts with the scripts in an exported JS array."
   [js-scripts]
   (when-not (js/Array.isArray js-scripts)
     (throw (js/Error. "The import file must contain a list of scripts")))
   (let [imported (script-utils/parse-scripts js-scripts {:extract-manifest mp/extract-manifest})]
-    (swap! !db update :storage/scripts merge-imported-scripts imported)
+    (swap! !db update :storage/scripts builtins/merge-imported-scripts imported)
     (js-await (persist!))))
 
 (defn toggle-script!
@@ -403,78 +332,6 @@
 ;; Built-in userscripts
 ;; ============================================================
 
-(defn stale-builtin-ids
-  "Return built-in script IDs that are not bundled with this extension version."
-  [scripts bundled-ids]
-  (->> scripts
-       (filterv (fn [script]
-                  (and (script-utils/builtin-script? script)
-                       (not (contains? bundled-ids (:script/id script))))))
-       (mapv :script/id)))
-
-(defn remove-stale-builtins
-  "Remove built-in scripts not bundled with this extension version."
-  [scripts bundled-ids]
-  (filterv (fn [script]
-             (not (and (script-utils/builtin-script? script)
-                       (not (contains? bundled-ids (:script/id script))))))
-           scripts))
-
-(defn- normalize-inject [inject-raw]
-  (cond
-    (nil? inject-raw) []
-    (string? inject-raw) [inject-raw]
-    (js/Array.isArray inject-raw) (vec inject-raw)
-    :else []))
-
-(defn- extract-bundled-manifest-data [manifest]
-  (when manifest
-    (let [has-auto-run-key? (manifest-has-auto-run-key? manifest)
-          raw-match (normalize-auto-run-match (get manifest "auto-run-match"))]
-      {:manifest/name (or (get manifest "script-name")
-                          (get manifest "raw-script-name"))
-       :manifest/run-at (script-utils/normalize-run-at (get manifest "run-at"))
-       :manifest/description (get manifest "description")
-       :manifest/inject (normalize-inject (get manifest "inject"))
-       :manifest/match (if has-auto-run-key? (or raw-match []) [])})))
-
-(defn build-bundled-script
-  "Build a built-in script map from bundled code and manifest metadata."
-  [bundled code]
-  (let [manifest (try (mp/extract-manifest code)
-                      (catch :default _ nil))
-        mdata (extract-bundled-manifest-data manifest)
-        raw-name (or (:manifest/name mdata) (:name bundled))
-        run-at (:manifest/run-at mdata)
-        description (:manifest/description mdata)
-        inject (or (:manifest/inject mdata) [])
-        match (:manifest/match mdata)]
-    (cond-> {:script/id (:script/id bundled)
-             :script/code code
-             :script/builtin? true
-             :script/source :source/built-in}
-      raw-name (assoc :script/name raw-name)
-      (some? match) (assoc :script/match match)
-      (some? run-at) (assoc :script/run-at run-at)
-      description (assoc :script/description description)
-      (seq inject) (assoc :script/inject inject)
-      (:always-enabled? bundled) (assoc :script/always-enabled? true)
-      (:special? bundled) (assoc :script/special? true)
-      (:web-installer-scan bundled) (assoc :script/web-installer-scan true))))
-
-(defn builtin-update-needed?
-  "Check whether a built-in script needs to be updated from bundled code."
-  [existing desired]
-  (or (nil? existing)
-      (not= (:script/code existing) (:script/code desired))
-      (not= (:script/name existing) (:script/name desired))
-      (not= (:script/match existing) (:script/match desired))
-      (not= (:script/description existing) (:script/description desired))
-      (not= (:script/run-at existing) (:script/run-at desired))
-      (not= (:script/inject existing) (:script/inject desired))
-      (not= (:script/special? existing) (:script/special? desired))
-      (not= (:script/web-installer-scan existing) (:script/web-installer-scan desired))))
-
 (defn- ^:async sync-single-builtin! [bundled]
   (let [response (js-await (js/fetch (js/chrome.runtime.getURL (:path bundled))))]
     (when-not (.-ok response)
@@ -485,10 +342,10 @@
                              ") status "
                              (.-status response)))))
     (let [code (js-await (.text response))
-          desired (build-bundled-script bundled code)
+          desired (builtins/build-bundled-script bundled code)
           existing (get-script (:script/id bundled))]
       (js-await (save-script! desired))
-      (when (builtin-update-needed? existing desired)
+      (when (builtins/builtin-update-needed? existing desired)
         (log/debug "Storage" "Synced built-in" (:script/id bundled))))))
 
 (defn ^:async sync-builtin-scripts!
@@ -500,14 +357,14 @@
   (reset! !syncing-builtins? true)
   (try
     (js-await (load!))
-    (let [bundled-ids (set (bundled-builtin-ids))
+    (let [bundled-ids (set (builtins/bundled-builtin-ids))
           scripts (get-scripts)
-          stale-ids (stale-builtin-ids scripts bundled-ids)]
+          stale-ids (builtins/stale-builtin-ids scripts bundled-ids)]
       (when (seq stale-ids)
-        (swap! !db update :storage/scripts #(remove-stale-builtins % bundled-ids))
+        (swap! !db update :storage/scripts #(builtins/remove-stale-builtins % bundled-ids))
         (js-await (persist!))
         (log/debug "Storage" "Removed stale built-ins" stale-ids))
-      (doseq [bundled bundled-builtins]
+      (doseq [bundled builtins/bundled-builtins]
         (try
           (js-await (sync-single-builtin! bundled))
           (catch :default err

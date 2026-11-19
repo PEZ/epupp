@@ -1,14 +1,14 @@
 (ns storage.builtin-manifest-test
   "Tests for building built-in scripts from manifest metadata."
   (:require ["vitest" :refer [describe test expect]]
-            [storage :as storage]))
+            [builtin-scripts :as builtins]))
 
 ;; ============================================================
 ;; Test Functions
 ;; ============================================================
 
 (defn- bundled-result [id name code]
-  (storage/build-bundled-script {:script/id id
+  (builtins/build-bundled-script {:script/id id
                                  :path (str "userscripts/" name)
                                  :name name}
                                 code))
@@ -39,7 +39,7 @@
 
 (ns test-script)
 (println \"hello\")"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/id result))
         (.toBe "builtin-1"))
     (-> (expect (:script/code result))
@@ -65,7 +65,7 @@
 
 (ns minimal)
 (println \"minimal\")"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/id result))
         (.toBe "builtin-2"))
     (-> (expect (:script/code result))
@@ -121,7 +121,7 @@
  :epupp/run-at \"invalid-timing\"}
 
 (ns invalid-run-at)"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/run-at result))
         (.toBe "document-idle"))))
 
@@ -131,7 +131,7 @@
                  :name "fallback-name.cljs"}
         code "(ns no-manifest)
 (println \"no manifest at all\")"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/name result))
         (.toBe "fallback-name.cljs"))
     (-> (expect (:script/builtin? result))
@@ -164,7 +164,7 @@
  :epupp/auto-run-match \"https://github.com/sponsors/PEZ*\"}
 
 (ns epupp.sponsor)"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/always-enabled? result))
         (.toBe true))))
 
@@ -182,7 +182,7 @@
  :epupp/description \"Web Userscript Installer\"}
 
 (ns epupp.web-installer)"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/special? result))
         (.toBe true))
     (-> (expect (:script/web-installer-scan result))
@@ -197,7 +197,7 @@
    :epupp/description \"Internal helpers for built-in Epupp scripts: bridge messaging and manifest parsing\"}
 
   (ns epupp.internal.helpers)"
-        result (storage/build-bundled-script bundled code)]
+        result (builtins/build-bundled-script bundled code)]
     (-> (expect (:script/id result))
         (.toBe "epupp-builtin-internal-helpers"))
     (-> (expect (:script/name result))

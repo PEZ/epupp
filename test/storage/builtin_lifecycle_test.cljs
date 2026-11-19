@@ -1,7 +1,7 @@
 (ns storage.builtin-lifecycle-test
   "Tests for built-in script reconciliation and update detection."
   (:require ["vitest" :refer [describe test expect]]
-            [storage :as storage]))
+            [builtin-scripts :as builtins]))
 
 ;; ============================================================
 ;; Helper Functions
@@ -26,8 +26,8 @@
         scripts [{:script/id "builtin-1" :script/builtin? true}
                  {:script/id "builtin-2" :script/builtin? true}
                  {:script/id "user-1" :script/builtin? false}]
-        updated (storage/remove-stale-builtins scripts bundled-ids)
-        stale (storage/stale-builtin-ids scripts bundled-ids)]
+        updated (builtins/remove-stale-builtins scripts bundled-ids)
+        stale (builtins/stale-builtin-ids scripts bundled-ids)]
     (-> (expect (mapv :script/id updated))
         (.toEqual ["builtin-1" "user-1"]))
     (-> (expect stale)
@@ -48,7 +48,7 @@
       (.toBe true)))
 
 (defn- test-bundled-builtin-ids-include-internal-helpers []
-  (let [ids (storage/bundled-builtin-ids)]
+  (let [ids (builtins/bundled-builtin-ids)]
     (-> (expect ids) (.toContain "epupp-builtin-internal-helpers"))
     (-> (expect ids) (.toContain "epupp-builtin-storage"))
     (-> (expect ids) (.toContain "epupp-builtin-tools"))))
@@ -65,7 +65,7 @@
                 :script/description "Test"
                 :script/run-at "document-idle"
                 :script/inject ["scittle://reagent.js"]}]
-    (-> (expect (storage/builtin-update-needed? script script))
+    (-> (expect (builtins/builtin-update-needed? script script))
         (.toBe false))))
 
 (defn- test-builtin-code-differs-needs-update []
@@ -75,7 +75,7 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test-updated)"
                  :script/name "test.cljs"}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-name-differs-needs-update []
@@ -85,7 +85,7 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test)"
                  :script/name "updated.cljs"}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-match-differs-needs-update []
@@ -95,7 +95,7 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test)"
                  :script/match ["https://other.com/*"]}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-description-differs-needs-update []
@@ -105,7 +105,7 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test)"
                  :script/description "New"}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-run-at-differs-needs-update []
@@ -115,7 +115,7 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test)"
                  :script/run-at "document-idle"}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-inject-differs-needs-update []
@@ -125,13 +125,13 @@
         desired {:script/id "builtin-1"
                  :script/code "(ns test)"
                  :script/inject ["scittle://re-frame.js"]}]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-nil-existing-needs-update []
   (let [desired {:script/id "builtin-1"
                  :script/code "(ns test)"}]
-    (-> (expect (storage/builtin-update-needed? nil desired))
+    (-> (expect (builtins/builtin-update-needed? nil desired))
         (.toBe true))))
 
 (defn- test-builtin-special-flag-differs-needs-update []
@@ -139,7 +139,7 @@
                   :script/code "(ns test)"
                   :script/name "test.cljs"}
         desired (assoc existing :script/special? true)]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 (defn- test-builtin-web-installer-scan-differs-needs-update []
@@ -147,7 +147,7 @@
                   :script/code "(ns test)"
                   :script/name "test.cljs"}
         desired (assoc existing :script/web-installer-scan true)]
-    (-> (expect (storage/builtin-update-needed? existing desired))
+    (-> (expect (builtins/builtin-update-needed? existing desired))
         (.toBe true))))
 
 ;; ============================================================
@@ -158,14 +158,14 @@
   (let [scripts [{:script/id "epupp-builtin-tools" :script/builtin? true}
                  {:script/id "script-old" :script/builtin? false}]
         imported [{:script/id "script-new" :script/builtin? false}]]
-    (-> (expect (mapv :script/id (storage/merge-imported-scripts scripts imported)))
+    (-> (expect (mapv :script/id (builtins/merge-imported-scripts scripts imported)))
         (.toEqual ["script-new" "epupp-builtin-tools"]))))
 
 (defn- test-import-skips-builtin-ids []
   (let [scripts [{:script/id "epupp-builtin-tools" :script/builtin? true :script/code "bundled"}]
         imported [{:script/id "epupp-builtin-tools" :script/code "imported"}
                   {:script/id "script-new"}]
-        merged (storage/merge-imported-scripts scripts imported)]
+        merged (builtins/merge-imported-scripts scripts imported)]
     (-> (expect (mapv :script/id merged))
         (.toEqual ["script-new" "epupp-builtin-tools"]))
     (-> (expect (:script/code (last merged)))
