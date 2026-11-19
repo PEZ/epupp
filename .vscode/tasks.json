@@ -12,6 +12,18 @@
       "type": "command",
       "command": "joyride.runCode",
       "args": "(require '[repl-connect]) (repl-connect/connect! {:connect-sequence \"Babashka REPL\" :session-key \"babashka-repl\"}) \"ok\""
+    },
+    {
+      "id": "worktreeStart",
+      "type": "command",
+      "command": "joyride.runCode",
+      "args": "(require '[worktrees] :reload) (worktrees/start-worktree!) \"ok\""
+    },
+    {
+      "id": "worktreeStop",
+      "type": "command",
+      "command": "joyride.runCode",
+      "args": "(require '[worktrees] :reload) (worktrees/stop-worktree!) \"ok\""
     }
   ],
   "tasks": [
@@ -117,6 +129,30 @@
       "dependsOrder": "sequence",
       "type": "shell",
       "command": "echo ${input:connectBabashkaRepl}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "panel": "shared",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "worktree: start",
+      "type": "shell",
+      "command": "echo ${input:worktreeStart}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true,
+        "panel": "shared",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "worktree: stop",
+      "type": "shell",
+      "command": "echo ${input:worktreeStop}",
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
