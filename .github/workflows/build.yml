@@ -136,7 +136,9 @@ jobs:
 
   e2e-tests:
     needs: [build-test]
-    runs-on: ubuntu-latest
+    # Playwright 1.57 has no Chromium build for Ubuntu 26.04 (ubuntu-latest).
+    # 24.04 matches the noble base of Dockerfile.e2e.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
