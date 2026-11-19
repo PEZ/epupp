@@ -9,7 +9,7 @@
    `worktree: stop`. Agents call `start-branch!`, poll `start-status`, and
    call `stop!`.
 
-   Built from bbg 0cb1d65 (`git -C ~/.config/bbg rev-parse --short HEAD`)."
+   Built from bbg 78fb7c3 (`git -C ~/.config/bbg rev-parse --short HEAD`)."
   (:require ["child_process" :as cp]
             ["net" :as net]
             ["path" :as path]
