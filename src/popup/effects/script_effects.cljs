@@ -3,10 +3,6 @@
             [script-utils :as script-utils]
             [manifest-parser :as mp]))
 
-(defn- save-scripts! [scripts]
-  (js/chrome.storage.local.set
-   #js {:scripts (clj->js (mapv script-utils/script->js scripts))}))
-
 (defn load-scripts! [dispatch]
   (js/chrome.storage.local.get
    #js ["scripts"]
@@ -16,12 +12,12 @@
 
 (defn toggle-script! [dispatch scripts script-id _matching-pattern]
   (let [updated (popup-utils/toggle-script-in-list scripts script-id)]
-    (save-scripts! updated)
+    (js/chrome.runtime.sendMessage #js {:type "popup-toggle-script" :scriptId script-id})
     (dispatch [[:db/ax.assoc :scripts/list updated]])))
 
 (defn delete-script! [dispatch scripts script-id]
   (let [updated (popup-utils/remove-script-from-list scripts script-id)]
-    (save-scripts! updated)
+    (js/chrome.runtime.sendMessage #js {:type "popup-delete-script" :scriptId script-id})
     (dispatch [[:db/ax.assoc :scripts/list updated]])))
 
 (defn inspect-script! [_dispatch script]
@@ -82,21 +78,10 @@
     (.click input)))
 
 (defn import-scripts! [dispatch imported-scripts]
-  (js/chrome.storage.local.get
-   #js ["scripts"]
-   (fn [result]
-     (let [current-scripts (or (.-scripts result) #js [])
-           builtin-scripts (.filter current-scripts
-                                    (fn [s]
-                                      (let [id (.-id s)]
-                                        (and id (.startsWith id "epupp-builtin-")))))
-           user-scripts (.filter imported-scripts
-                                 (fn [s]
-                                   (let [id (.-id s)]
-                                     (not (and id (.startsWith id "epupp-builtin-"))))))
-           merged-scripts (.concat user-scripts builtin-scripts)]
-       (js/chrome.storage.local.set
-        #js {:scripts merged-scripts}
-        (fn []
-          (js/alert "Scripts imported successfully! Reloading...")
-          (dispatch [[:script/ax.load-scripts]])))))))
+  (js/chrome.runtime.sendMessage
+   #js {:type "popup-import-scripts" :scripts imported-scripts}
+   (fn [response]
+     (if (some-> response .-success)
+       (do (js/alert "Scripts imported successfully! Reloading...")
+           (dispatch [[:script/ax.load-scripts]]))
+       (js/alert (str "Failed to import scripts: " (some-> response .-error)))))))

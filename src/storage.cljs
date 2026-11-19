@@ -330,6 +330,24 @@
            (filterv script-utils/builtin-script? scripts)))
   (persist!))
 
+(defn merge-imported-scripts
+  "Return the imported scripts followed by the built-ins from scripts.
+   Imported entries with built-in ids are skipped, so an export file
+   cannot replace bundled code."
+  [scripts imported]
+  (into (filterv #(not (some-> (:script/id %) (.startsWith "epupp-builtin-")))
+                 imported)
+        (filter script-utils/builtin-script? scripts)))
+
+(defn ^:async import-scripts!
+  "Replace all user scripts with the scripts in an exported JS array."
+  [js-scripts]
+  (when-not (js/Array.isArray js-scripts)
+    (throw (js/Error. "The import file must contain a list of scripts")))
+  (let [imported (script-utils/parse-scripts js-scripts {:extract-manifest mp/extract-manifest})]
+    (swap! !db update :storage/scripts merge-imported-scripts imported)
+    (js-await (persist!))))
+
 (defn toggle-script!
   "Toggle a script's enabled state. Always-enabled scripts cannot be toggled."
   [script-id]

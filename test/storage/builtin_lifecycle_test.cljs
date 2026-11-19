@@ -151,6 +151,27 @@
         (.toBe true))))
 
 ;; ============================================================
+;; Import tests
+;; ============================================================
+
+(defn- test-import-replaces-user-scripts-keeps-builtins []
+  (let [scripts [{:script/id "epupp-builtin-tools" :script/builtin? true}
+                 {:script/id "script-old" :script/builtin? false}]
+        imported [{:script/id "script-new" :script/builtin? false}]]
+    (-> (expect (mapv :script/id (storage/merge-imported-scripts scripts imported)))
+        (.toEqual ["script-new" "epupp-builtin-tools"]))))
+
+(defn- test-import-skips-builtin-ids []
+  (let [scripts [{:script/id "epupp-builtin-tools" :script/builtin? true :script/code "bundled"}]
+        imported [{:script/id "epupp-builtin-tools" :script/code "imported"}
+                  {:script/id "script-new"}]
+        merged (storage/merge-imported-scripts scripts imported)]
+    (-> (expect (mapv :script/id merged))
+        (.toEqual ["script-new" "epupp-builtin-tools"]))
+    (-> (expect (:script/code (last merged)))
+        (.toBe "bundled"))))
+
+;; ============================================================
 ;; Test Registration
 ;; ============================================================
 
@@ -158,7 +179,9 @@
           (fn []
             (test "removes stale built-ins" test-removes-stale-builtins)
             (test "existing built-in preserves enabled state" test-existing-builtin-preserves-enabled-state)
-            (test "bundled built-in ids include internal helpers, storage, and tools" test-bundled-builtin-ids-include-internal-helpers)))
+            (test "bundled built-in ids include internal helpers, storage, and tools" test-bundled-builtin-ids-include-internal-helpers)
+            (test "import replaces user scripts and keeps built-ins" test-import-replaces-user-scripts-keeps-builtins)
+            (test "import skips entries with built-in ids" test-import-skips-builtin-ids)))
 
 (describe "Built-in script update detection"
           (fn []
