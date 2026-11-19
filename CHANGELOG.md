@@ -6,7 +6,10 @@ Changes to Epupp
 
 ## [Unreleased]
 
+## [0.0.23] - 2026-11-19
+
 - Fix: Missing bundled Epupp libraries race condition
+
 
 ## [0.0.22] - 2026-07-19
 
