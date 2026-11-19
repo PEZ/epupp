@@ -20,7 +20,8 @@
 
 (def !db
   "In-memory mirror of chrome.storage.local for fast access.
-   Synced via persist! and onChanged listener."
+   Synced via persist! and the onChanged listener, which applies writes
+   made by other extension contexts."
   (atom {:storage/schema-version current-schema-version
          :storage/scripts []
          :storage/granted-origins []
@@ -33,6 +34,23 @@
    Each save-script! triggers onChanged which checks for missing builtins - without this guard,
    saving builtin 1 of 3 would trigger a re-sync because builtins 2-3 appear missing."
   (atom false))
+
+(def ^:private write-id-prefix
+  "Starts every write id that persist! stores from this context.
+   onChanged can deliver the echo of an earlier write after !db has moved on.
+   Applying that echo would drop scripts added since, and the next persist!
+   would store the shorter list. The listener skips events with this prefix."
+  (str (js/crypto.randomUUID) ":"))
+
+(def ^:private !write-count (atom 0))
+
+(defn- next-write-id! []
+  (str write-id-prefix (swap! !write-count inc)))
+
+(defn- own-write-echo? [changes]
+  (let [write-id (some-> (.-writeId changes) .-newValue)]
+    (and (string? write-id)
+         (.startsWith write-id write-id-prefix))))
 
 ;; ============================================================
 ;; Built-in catalog
@@ -116,7 +134,8 @@
     (js-await (js/Promise.
                (fn [resolve]
                  (js/chrome.storage.local.set
-                  #js {:schemaVersion schema-version
+                  #js {:writeId (next-write-id!)
+                       :schemaVersion schema-version
                        :scripts (clj->js (mapv script-utils/script->js scripts))
                        :grantedOrigins (clj->js granted-origins)
                        :sponsorStatus (:sponsor/status db)
@@ -202,7 +221,8 @@
     (swap! !db assoc :sponsor/checked-at (.-newValue checked-change))))
 
 (defn- handle-storage-change [changes area]
-  (when (= area "local")
+  (when (and (= area "local")
+             (not (own-write-echo? changes)))
     (when-let [scripts-change (.-scripts changes)]
       (handle-scripts-change scripts-change))
     (handle-schema-change changes)
