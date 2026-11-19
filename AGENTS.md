@@ -77,7 +77,16 @@ Human ⊗ AI ⊗ REPL
     - [ ] unit_tests_pass
     - [ ] e2e_tests_pass
     - [ ] zero_warnings_baseline_maintained
+    - [ ] code_health_10_in_changed_files
     - [ ] docs_updated(when_API_or_behavior_changes)
+
+## Code Health (CodeScene)
+
+λ code_health.
+  baseline ≡ 10.0 | keep_it
+  | after_changing_code: code_health_review(changed_files)
+  | health_drops → fix_issues ∧ review_again ∧ confirm_with(code_health_score)
+  | before_finishing: pre_commit_code_health_safeguard | stop_only_when(passes)
 
 ## Documentation Index
 
