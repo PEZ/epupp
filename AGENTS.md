@@ -55,6 +55,13 @@ Human ⊗ AI ⊗ REPL
   use(bb test:e2e) exclusively | ¬direct(docker build) | ¬direct(docker run)
   | test_failure_after_code_change → bug_in_your_code | ¬blame_docker | ¬--no-cache
 
+## Git
+
+λ git.
+  commit_locally: when_asked ∨ skill_or_plan_says_commit
+  | push ≡ PEZ_only | ¬git_push | ¬push_tags | ¬gh_release
+  | v*_tag_push → release ∧ store_publish(.github/workflows/build.yml)
+
 ## Dev Workflow
 
 λ dev_workflow.
