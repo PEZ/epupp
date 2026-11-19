@@ -113,8 +113,9 @@
 
 (defn- shell-task
   "Returns a VS Code task named `label`, running `args` in `cwd`, each
-   argument quoted for the shell."
-  [{:keys [label cwd args background?]}]
+   argument quoted for the shell. Tasks with the same `group` share a split
+   terminal."
+  [{:keys [label cwd args background? group]}]
   (let [execution (vscode/ShellExecution. (first args)
                                           (clj->js (map str (rest args)))
                                           #js {:cwd cwd})
@@ -122,17 +123,20 @@
                            vscode/TaskScope.Workspace label "worktrees" execution)]
     (set! (.-isBackground task) (boolean background?))
     (set! (.-presentationOptions task)
-          #js {:reveal vscode/TaskRevealKind.Silent
-               :panel vscode/TaskPanelKind.Dedicated
-               :group "worktrees"})
+          (clj->js (cond-> {:reveal vscode/TaskRevealKind.Silent
+                            :panel vscode/TaskPanelKind.Dedicated}
+                     group (assoc :group group))))
     task))
 
-(defn- process-tasks [name ports]
+(defn- process-tasks
+  "The worktree's process tasks, sharing one split terminal per worktree."
+  [name ports]
   (map (fn [{:process/keys [args]} label]
          (shell-task {:label label
                       :cwd (worktree-dir name)
                       :args (mapv #(if (keyword? %) (get ports %) %) args)
-                      :background? true}))
+                      :background? true
+                      :group (str "worktree " name)}))
        processes
        (:processes (labels name))))
 
