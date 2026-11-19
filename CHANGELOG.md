@@ -6,6 +6,8 @@ Changes to Epupp
 
 ## [Unreleased]
 
+- Fix: Missing bundled Epupp libraries race condition
+
 ## [0.0.22] - 2026-07-19
 
 - Bump Scittle to 0.8.32 (SCI 0.15.56 with CLJS JIT)
